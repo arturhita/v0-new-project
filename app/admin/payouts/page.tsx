@@ -1,192 +1,224 @@
 "use client"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Clock, XCircle, MoreHorizontal, DollarSign } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { CheckCircle, Clock, DollarSign, Download, Filter } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-type PayoutStatus = "Pending" | "Processing" | "Paid" | "Rejected" | "On Hold"
+type PayoutStatus = "Pending" | "Completed" | "Failed"
 
 interface PayoutRequest {
   id: string
   operatorName: string
-  operatorId: string
   amount: number
-  currency: string
-  requestedDate: string
-  paymentMethod: "PayPal" | "IBAN"
-  paypalEmail?: string
-  iban?: string
+  requestDate: string
+  payoutMethod: string
   status: PayoutStatus
 }
 
-const initialPayoutRequests: PayoutRequest[] = [
+const initialPayouts: PayoutRequest[] = [
   {
     id: "pay1",
     operatorName: "Stella Divina",
-    operatorId: "master1",
-    amount: 250.75,
-    currency: "EUR",
-    requestedDate: "2025-06-18",
-    paymentMethod: "PayPal",
-    paypalEmail: "stella.divina@paypal.example",
+    amount: 1250.75,
+    requestDate: "2025-07-01",
+    payoutMethod: "Bonifico Bancario",
     status: "Pending",
   },
   {
     id: "pay2",
     operatorName: "Oracolo Celeste",
-    operatorId: "master2",
-    amount: 180.0,
-    currency: "EUR",
-    requestedDate: "2025-06-19",
-    paymentMethod: "IBAN",
-    iban: "IT60X0542811101000000123456",
-    status: "Processing",
+    amount: 875.5,
+    requestDate: "2025-07-01",
+    payoutMethod: "PayPal",
+    status: "Pending",
   },
   {
     id: "pay3",
-    operatorName: "Seraphina dei Numeri",
-    operatorId: "master3",
-    amount: 95.5,
-    currency: "EUR",
-    requestedDate: "2025-06-20",
-    paymentMethod: "PayPal",
-    paypalEmail: "seraphina.numeris@paypal.example",
-    status: "Paid",
+    operatorName: "Cosmo Intuitivo",
+    amount: 2100.0,
+    requestDate: "2025-06-15",
+    payoutMethod: "Bonifico Bancario",
+    status: "Completed",
+  },
+  {
+    id: "pay4",
+    operatorName: "Sentiero Luminoso",
+    amount: 950.2,
+    requestDate: "2025-06-15",
+    payoutMethod: "PayPal",
+    status: "Completed",
+  },
+  {
+    id: "pay5",
+    operatorName: "Eclissi Astrale",
+    amount: 550.0,
+    requestDate: "2025-06-10",
+    payoutMethod: "Bonifico Bancario",
+    status: "Failed",
   },
 ]
 
-export default function ManagePayoutsPage() {
-  const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>(initialPayoutRequests)
+export default function PayoutsPage() {
+  const [payouts, setPayouts] = useState<PayoutRequest[]>(initialPayouts)
+  const [filter, setFilter] = useState<PayoutStatus | "All">("All")
 
-  const updatePayoutStatus = (id: string, newStatus: PayoutStatus) => {
-    setPayoutRequests((prev) => prev.map((req) => (req.id === id ? { ...req, status: newStatus } : req)))
-    alert(`Stato del pagamento ${id} aggiornato a ${newStatus} (simulazione).`)
+  const handleMarkAsPaid = (payoutId: string) => {
+    setPayouts((prev) => prev.map((p) => (p.id === payoutId ? { ...p, status: "Completed" } : p)))
+    alert(`Richiesta ${payoutId} segnata come pagata (simulazione).`)
   }
 
   const getStatusBadge = (status: PayoutStatus) => {
     switch (status) {
       case "Pending":
         return (
-          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-            In Attesa
+          <Badge variant="outline" className="border-yellow-400/50 text-yellow-300 bg-yellow-900/30">
+            <Clock className="mr-1.5 h-3 w-3" /> In Attesa
           </Badge>
         )
-      case "Processing":
+      case "Completed":
         return (
-          <Badge variant="outline" className="border-blue-500 text-blue-600">
-            In Elaborazione
+          <Badge variant="default" className="bg-green-600/80 text-white border-0">
+            <CheckCircle className="mr-1.5 h-3 w-3" /> Completato
           </Badge>
         )
-      case "Paid":
-        return (
-          <Badge variant="default" className="bg-emerald-500 text-white">
-            Pagato
-          </Badge>
-        )
-      case "Rejected":
-        return <Badge variant="destructive">Rifiutato</Badge>
-      case "On Hold":
-        return <Badge variant="secondary">In Sospeso</Badge>
+      case "Failed":
+        return <Badge variant="destructive">Fallito</Badge>
       default:
         return <Badge>Sconosciuto</Badge>
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Pagamenti Operatori</h1>
-      <CardDescription className="text-slate-500 -mt-4">
-        Visualizza, processa e gestisci le richieste di pagamento inviate dagli operatori.
-      </CardDescription>
+  const filteredPayouts = payouts.filter((p) => filter === "All" || p.status === filter)
+  const totalPending = payouts.reduce((sum, p) => (p.status === "Pending" ? sum + p.amount : sum), 0)
 
-      <Card className="shadow-xl rounded-2xl">
+  return (
+    <div className="space-y-6 text-slate-200">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
+          Gestione Pagamenti (Payout)
+        </h1>
+        <p className="text-slate-400 mt-1">
+          Visualizza, gestisci e processa le richieste di pagamento degli operatori.
+        </p>
+      </div>
+
+      <Card className="bg-slate-800/50 border-indigo-500/20 backdrop-blur-xl">
         <CardHeader>
-          <CardTitle className="text-xl text-slate-700 flex items-center">
-            <DollarSign className="h-5 w-5 mr-2 text-[hsl(var(--primary-medium))]" />
-            Richieste di Payout
-          </CardTitle>
+          <CardTitle className="text-indigo-300">Riepilogo Pagamenti</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="flex items-center space-x-4 rounded-md border border-slate-700 p-4">
+            <DollarSign className="h-8 w-8 text-yellow-400" />
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium leading-none text-slate-300">Totale da Pagare</p>
+              <p className="text-2xl font-semibold text-yellow-300">€{totalPending.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4 rounded-md border border-slate-700 p-4">
+            <Clock className="h-8 w-8 text-sky-400" />
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium leading-none text-slate-300">Richieste in Attesa</p>
+              <p className="text-2xl font-semibold text-sky-300">
+                {payouts.filter((p) => p.status === "Pending").length}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4 rounded-md border border-slate-700 p-4">
+            <CheckCircle className="h-8 w-8 text-green-400" />
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium leading-none text-slate-300">Pagamenti Mese Corrente</p>
+              <p className="text-2xl font-semibold text-green-300">
+                {payouts.filter((p) => p.status === "Completed").length}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-slate-800/50 border-indigo-500/20 backdrop-blur-xl">
+        <CardHeader className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <CardTitle className="text-indigo-300">Storico Richieste</CardTitle>
+            <CardDescription className="text-slate-400 mt-1">
+              Visualizza tutte le richieste di pagamento, filtrate per stato.
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white bg-transparent"
+                >
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filtra: {filter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-slate-800 border-slate-700 text-slate-200">
+                <DropdownMenuItem onClick={() => setFilter("All")} className="hover:!bg-slate-700">
+                  Tutti
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter("Pending")} className="hover:!bg-slate-700">
+                  In Attesa
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter("Completed")} className="hover:!bg-slate-700">
+                  Completati
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilter("Failed")} className="hover:!bg-slate-700">
+                  Falliti
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="outline"
+              className="text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white bg-transparent"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Esporta CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {payoutRequests.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">Nessuna richiesta di pagamento al momento.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Operatore</TableHead>
-                  <TableHead className="text-right">Importo</TableHead>
-                  <TableHead>Data Richiesta</TableHead>
-                  <TableHead>Metodo</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-slate-700 hover:bg-transparent">
+                <TableHead className="text-slate-300">Operatore</TableHead>
+                <TableHead className="text-right text-slate-300">Importo</TableHead>
+                <TableHead className="text-center text-slate-300">Metodo</TableHead>
+                <TableHead className="text-center text-slate-300">Data Richiesta</TableHead>
+                <TableHead className="text-center text-slate-300">Stato</TableHead>
+                <TableHead className="text-right text-slate-300">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPayouts.map((payout) => (
+                <TableRow key={payout.id} className="border-slate-800">
+                  <TableCell className="font-medium text-slate-100">{payout.operatorName}</TableCell>
+                  <TableCell className="text-right font-mono text-slate-300">€{payout.amount.toFixed(2)}</TableCell>
+                  <TableCell className="text-center text-slate-400">{payout.payoutMethod}</TableCell>
+                  <TableCell className="text-center text-slate-400">
+                    {new Date(payout.requestDate).toLocaleDateString("it-IT")}
+                  </TableCell>
+                  <TableCell className="text-center">{getStatusBadge(payout.status)}</TableCell>
+                  <TableCell className="text-right">
+                    {payout.status === "Pending" && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleMarkAsPaid(payout.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle className="mr-1.5 h-4 w-4" /> Segna come Pagato
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payoutRequests.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium">{req.operatorName}</TableCell>
-                    <TableCell className="text-right">
-                      {req.amount.toFixed(2)} {req.currency}
-                    </TableCell>
-                    <TableCell>{req.requestedDate}</TableCell>
-                    <TableCell>
-                      {req.paymentMethod}
-                      {req.paymentMethod === "PayPal" && (
-                        <span className="text-xs block text-slate-500">{req.paypalEmail}</span>
-                      )}
-                      {req.paymentMethod === "IBAN" && <span className="text-xs block text-slate-500">{req.iban}</span>}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(req.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Azioni Pagamento</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Modifica Stato</DropdownMenuLabel>
-                          {req.status !== "Paid" && req.status !== "Processing" && (
-                            <DropdownMenuItem onClick={() => updatePayoutStatus(req.id, "Processing")}>
-                              <CheckCircle className="mr-2 h-4 w-4 text-blue-500" /> Processa Pagamento
-                            </DropdownMenuItem>
-                          )}
-                          {req.status !== "Paid" && (
-                            <DropdownMenuItem onClick={() => updatePayoutStatus(req.id, "Paid")}>
-                              <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> Segna come Pagato
-                            </DropdownMenuItem>
-                          )}
-                          {req.status !== "On Hold" && (
-                            <DropdownMenuItem onClick={() => updatePayoutStatus(req.id, "On Hold")}>
-                              <Clock className="mr-2 h-4 w-4 text-orange-500" /> Metti in Sospeso
-                            </DropdownMenuItem>
-                          )}
-                          {req.status !== "Rejected" && (
-                            <DropdownMenuItem
-                              onClick={() => updatePayoutStatus(req.id, "Rejected")}
-                              className="text-red-600"
-                            >
-                              <XCircle className="mr-2 h-4 w-4" /> Rifiuta Pagamento
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

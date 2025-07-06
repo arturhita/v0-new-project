@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Save, AlertTriangle, Smartphone, Phone, MessageCircle, CheckCircle, XCircle } from "lucide-react"
+import { TrendingUp, Save, Smartphone, Phone, MessageCircle, CheckCircle, XCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 type CommissionRequest = {
@@ -99,26 +99,88 @@ export default function AdvancedSettingsPage() {
   const pendingRequests = requests.filter((r) => r.status === "pending")
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 text-slate-200">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Impostazioni Avanzate</h1>
-        <p className="text-slate-600">
-          Configura detrazioni fisse, commissioni e gestisci le richieste degli operatori.
+        <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
+          Impostazioni Avanzate
+        </h1>
+        <p className="text-slate-400 mt-1">
+          Configura detrazioni, commissioni e gestisci le richieste degli operatori.
         </p>
       </div>
 
-      {/* Detrazioni Chiamate (Prezzo Fisso) */}
-      <Card>
+      {/* Richieste Aumento Percentuali */}
+      <Card className="bg-slate-800/50 border-indigo-500/20 backdrop-blur-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-sky-600" />
-            Detrazioni Chiamate (Prezzo Fisso)
+          <CardTitle className="flex items-center gap-2 text-indigo-300">
+            <TrendingUp className="h-5 w-5" />
+            Richieste Aumento Percentuali
+            <Badge variant="secondary" className="bg-purple-500/80 text-white border-0">
+              {pendingRequests.length} in attesa
+            </Badge>
           </CardTitle>
-          <CardDescription>Configura le detrazioni fisse in euro per le chiamate telefoniche</CardDescription>
+          <CardDescription className="text-slate-400">
+            Gestisci le richieste di aumento delle percentuali degli operatori
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="call-deductions">Abilita detrazioni chiamate</Label>
+          {pendingRequests.length > 0 ? (
+            pendingRequests.map((request) => (
+              <Card key={request.id} className="bg-slate-900/60 border-slate-700">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="space-y-1 flex-1">
+                      <p className="font-medium text-slate-100">{request.operatorName}</p>
+                      <p className="text-sm text-slate-300">
+                        {request.currentCommission}% → {request.requestedCommission}%
+                        <span className="text-green-400 font-medium ml-2">
+                          (+{request.requestedCommission - request.currentCommission}%)
+                        </span>
+                      </p>
+                      <p className="text-sm text-slate-400 italic">"{request.reason}"</p>
+                      <p className="text-xs text-slate-500">Richiesta del {request.date}</p>
+                    </div>
+
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        onClick={() => handleApproveRequest(request.id)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Approva
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleRejectRequest(request.id)}>
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Rifiuta
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <p className="text-sm text-slate-400 text-center py-4">Nessuna richiesta in attesa.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Detrazioni Chiamate (Prezzo Fisso) */}
+      <Card className="bg-slate-800/50 border-indigo-500/20 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-indigo-300">
+            <Phone className="h-5 w-5" />
+            Detrazioni Chiamate (Prezzo Fisso)
+          </CardTitle>
+          <CardDescription className="text-slate-400">
+            Configura le detrazioni fisse in euro per le chiamate telefoniche
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-slate-900/60 rounded-lg">
+            <Label htmlFor="call-deductions" className="text-slate-300">
+              Abilita detrazioni chiamate
+            </Label>
             <Switch
               id="call-deductions"
               checked={settings.callDeductions.enabled}
@@ -134,7 +196,7 @@ export default function AdvancedSettingsPage() {
           {settings.callDeductions.enabled && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="user-fixed-deduction" className="flex items-center gap-2">
+                <Label htmlFor="user-fixed-deduction" className="flex items-center gap-2 text-slate-300">
                   <MessageCircle className="h-4 w-4" />
                   Detrazione Utente (€)
                 </Label>
@@ -154,6 +216,7 @@ export default function AdvancedSettingsPage() {
                       },
                     }))
                   }
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
                 <p className="text-sm text-slate-500">
                   Importo fisso detratto dal costo per l'utente per ogni chiamata
@@ -161,7 +224,7 @@ export default function AdvancedSettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="operator-fixed-deduction" className="flex items-center gap-2">
+                <Label htmlFor="operator-fixed-deduction" className="flex items-center gap-2 text-slate-300">
                   <Smartphone className="h-4 w-4" />
                   Detrazione Operatore (€)
                 </Label>
@@ -181,6 +244,7 @@ export default function AdvancedSettingsPage() {
                       },
                     }))
                   }
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
                 <p className="text-sm text-slate-500">
                   Importo fisso detratto dal guadagno operatore per ogni chiamata
@@ -188,78 +252,12 @@ export default function AdvancedSettingsPage() {
               </div>
             </div>
           )}
-
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-800">
-              <strong>Nota:</strong> Queste detrazioni si applicano solo alle chiamate telefoniche, non alle chat
-              testuali.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Richieste Aumento Percentuali */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-sky-600" />
-            Richieste Aumento Percentuali
-            <Badge variant="secondary">{pendingRequests.length} in attesa</Badge>
-          </CardTitle>
-          <CardDescription>Gestisci le richieste di aumento delle percentuali degli operatori</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Richieste in Attesa
-            </h4>
-
-            {pendingRequests.length > 0 ? (
-              pendingRequests.map((request) => (
-                <Card key={request.id} className="border-l-4 border-l-amber-500">
-                  <CardContent className="pt-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div className="space-y-1 flex-1">
-                        <p className="font-medium">{request.operatorName}</p>
-                        <p className="text-sm text-slate-600">
-                          {request.currentCommission}% → {request.requestedCommission}%
-                          <span className="text-green-600 font-medium ml-2">
-                            (+{request.requestedCommission - request.currentCommission}%)
-                          </span>
-                        </p>
-                        <p className="text-sm text-slate-500 italic">"{request.reason}"</p>
-                        <p className="text-xs text-slate-400">Richiesta del {request.date}</p>
-                      </div>
-
-                      <div className="flex gap-2 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          onClick={() => handleApproveRequest(request.id)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approva
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleRejectRequest(request.id)}>
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Rifiuta
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500 text-center py-4">Nessuna richiesta in attesa.</p>
-            )}
-          </div>
         </CardContent>
       </Card>
 
       {/* Salva Impostazioni */}
       <div className="flex justify-end">
-        <Button onClick={handleSaveSettings} className="bg-sky-600 hover:bg-sky-700">
+        <Button onClick={handleSaveSettings} className="bg-indigo-600 hover:bg-indigo-700 text-white">
           <Save className="h-4 w-4 mr-2" />
           Salva Impostazioni
         </Button>

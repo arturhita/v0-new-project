@@ -91,7 +91,7 @@ export default function AdminDashboardPage() {
               <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{kpi.value}</div>
+              <div className="text-3xl font-bold text-slate-100">{kpi.value}</div>
               <p className="text-xs text-slate-400 mt-1">{kpi.change}</p>
             </CardContent>
           </Card>
@@ -224,8 +224,8 @@ export default function AdminDashboardPage() {
                       <activity.icon className="h-5 w-5 text-indigo-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-200">{activity.text}</p>
-                      <p className="text-xs text-slate-400">{activity.time}</p>
+                      <p className="text-sm text-slate-300">{activity.text}</p>
+                      <p className="text-xs text-slate-500">{activity.time}</p>
                     </div>
                   </div>
                 ))}
