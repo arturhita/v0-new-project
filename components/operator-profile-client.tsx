@@ -1,7 +1,7 @@
 "use client"
 
 import type { Profile } from "@/contexts/auth-context"
-import type { Review } from "./review-card"
+import type { Review } from "@/types/review.types" // FIX: Import from central location
 import { useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"

@@ -1,24 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-
-export interface Review {
-  id: string
-  userId: string
-  operatorId: string
-  operatorName: string
-  userName: string
-  userAvatar?: string
-  rating: number
-  comment: string
-  serviceType: "chat" | "call" | "email"
-  consultationId: string
-  date: string
-  isVerified: boolean
-  isModerated: boolean
-  helpfulVotes: number
-  reportCount: number
-}
+import type { Review } from "@/types/review.types"
 
 // Simulazione database recensioni
 const reviewsDB: Review[] = [
@@ -164,7 +147,7 @@ export async function moderateReview(reviewId: string, approved: boolean) {
 }
 
 // Per ora, usiamo delle recensioni mock. In futuro, le leggeremo dal database.
-const mockReviews = [
+const mockReviews: Review[] = [
   {
     id: "rev1",
     user_id: "user1",
@@ -194,20 +177,14 @@ const mockReviews = [
   },
 ]
 
-export async function getReviewsForOperator(operatorId: string) {
-  // const supabase = createClient();
-  // const { data, error } = await supabase
-  //   .from('reviews')
-  //   .select('*, profiles(full_name)')
-  //   .eq('operator_id', operatorId)
-  //   .order('created_at', { ascending: false });
-
-  // if (error) {
-  //   console.error('Error fetching reviews:', error);
-  //   return [];
-  // }
-
-  // Per ora, restituiamo dati finti
+/**
+ * Recupera le recensioni per un dato operatore.
+ * @param operatorId L'ID dell'operatore.
+ * @returns Una promessa che si risolve in un array di recensioni.
+ */
+export async function getReviewsForOperator(operatorId: string): Promise<Review[]> {
   console.log(`Fetching reviews for operator: ${operatorId}`)
-  return mockReviews.map((review) => ({ ...review, operator_id: operatorId }))
+  // NOTA: In uno scenario reale, filtreresti le recensioni per operatorId.
+  // Per ora, restituiamo tutte le recensioni mock per garantire che ci siano dati da visualizzare.
+  return mockReviews
 }
