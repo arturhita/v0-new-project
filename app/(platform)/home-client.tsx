@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperatorCard } from "@/components/operator-card" // FIX: Changed to named import
+import { OperatorCard } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import type { Profile } from "@/contexts/auth-context"
@@ -75,91 +75,91 @@ export function HomeClient({ initialOperators }: HomeClientProps) {
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
-       @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
-       .font-playfair {
-         font-family: "Playfair Display", serif;
-       }
-       @keyframes fadeInUp {
-         from {
-           opacity: 0;
-           transform: translateY(30px);
-         }
-         to {
-           opacity: 1;
-           transform: translateY(0);
-         }
-       }
-       @keyframes fadeInLeft {
-         from {
-           opacity: 0;
-           transform: translateX(-30px);
-         }
-         to {
-           opacity: 1;
-           transform: translateX(0);
-         }
-       }
-       @keyframes fadeInRight {
-         from {
-           opacity: 0;
-           transform: translateX(30px);
-         }
-         to {
-           opacity: 1;
-           transform: translateX(0);
-         }
-       }
-       @keyframes scaleIn {
-         from {
-           opacity: 0;
-           transform: scale(0.9);
-         }
-         to {
-           opacity: 1;
-           transform: scale(1);
-         }
-       }
-       @keyframes float {
-         0%,
-         100% {
-           transform: translateY(0px);
-         }
-         50% {
-           transform: translateY(-10px);
-         }
-       }
-       @keyframes glow {
-         0%,
-         100% {
-           box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
-         }
-         50% {
-           box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
-         }
-       }
-       .animate-fadeInUp {
-         animation: fadeInUp 1s ease-out forwards;
-       }
-       .animate-fadeInLeft {
-         animation: fadeInLeft 0.8s ease-out forwards;
-       }
-       .animate-fadeInRight {
-         animation: fadeInRight 0.8s ease-out forwards;
-       }
-       .animate-scaleIn {
-         animation: scaleIn 0.6s ease-out forwards;
-       }
-       .animate-float {
-         animation: float 3s ease-in-out infinite;
-       }
-       .animate-glow {
-         animation: glow 2s ease-in-out infinite;
-       }
-     `}</style>
+        .font-playfair {
+          font-family: "Playfair Display", serif;
+        }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes fadeInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes fadeInRight {
+          from {
+            opacity: 0;
+            transform: translateX(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        @keyframes float {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+        @keyframes glow {
+          0%,
+          100% {
+            box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
+          }
+        }
+        .animate-fadeInUp {
+          animation: fadeInUp 1s ease-out forwards;
+        }
+        .animate-fadeInLeft {
+          animation: fadeInLeft 0.8s ease-out forwards;
+        }
+        .animate-fadeInRight {
+          animation: fadeInRight 0.8s ease-out forwards;
+        }
+        .animate-scaleIn {
+          animation: scaleIn 0.6s ease-out forwards;
+        }
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+        .animate-glow {
+          animation: glow 2s ease-in-out infinite;
+        }
+      `}</style>
 
       <main className="flex-1">
-        {/* Hero Section - RIPRISTINATA */}
+        {/* Hero Section */}
         <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
           <div
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -196,7 +196,7 @@ export function HomeClient({ initialOperators }: HomeClientProps) {
           </div>
         </section>
 
-        {/* Operator Boxes Section - CON DATI REALI */}
+        {/* Operator Boxes Section */}
         <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
           <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
@@ -207,7 +207,7 @@ export function HomeClient({ initialOperators }: HomeClientProps) {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {initialOperators.slice(0, 8).map((operator, index) => (
+              {initialOperators.map((operator, index) => (
                 <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
                   <OperatorCard operator={operator} />
                 </div>
@@ -229,7 +229,7 @@ export function HomeClient({ initialOperators }: HomeClientProps) {
           </div>
         </section>
 
-        {/* Quote Section - RIPRISTINATA */}
+        {/* Quote Section */}
         <section className="py-12 md:py-16">
           <div className="container mx-auto px-4">
             <div className="bg-gradient-to-r from-blue-900/50 to-slate-800/50 rounded-2xl shadow-xl p-8 md:p-12">
