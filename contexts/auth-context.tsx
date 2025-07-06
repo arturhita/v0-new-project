@@ -1,11 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
-import type { Profile } from "@/types/database.types"
+import type { User, Profile } from "@/types/database.types"
 
 type AuthContextType = {
   user: User | null
@@ -19,43 +17,48 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
 })
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider = ({ children, user: initialUser }: { children: React.ReactNode; user: User | null }) => {
   const supabase = createClient()
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(initialUser)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const getActiveSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+    let isMounted = true
 
-      setUser(session?.user ?? null)
-
-      if (session?.user) {
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(profileData)
+    const getProfileData = async (userId: string) => {
+      const { data } = await supabase.from("profiles").select("*").eq("id", userId).single()
+      if (isMounted) {
+        setProfile(data as Profile | null)
       }
-      setLoading(false)
     }
 
-    getActiveSession()
+    const handleUser = async (userToHandle: User | null) => {
+      if (userToHandle) {
+        await getProfileData(userToHandle.id)
+      } else {
+        setProfile(null)
+      }
+      if (isMounted) {
+        setLoading(false)
+      }
+    }
+
+    // Handle initial user from server
+    handleUser(user)
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(profileData)
-      } else {
-        setProfile(null)
-      }
-      setLoading(false)
+      if (!isMounted) return
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      setLoading(true)
+      await handleUser(currentUser)
     })
 
     return () => {
+      isMounted = false
       subscription.unsubscribe()
     }
   }, [supabase])

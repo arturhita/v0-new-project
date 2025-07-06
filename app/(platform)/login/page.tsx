@@ -11,6 +11,7 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -25,37 +26,60 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (signInError) {
-      setError(signInError.message)
-      setLoading(false)
-      return
-    }
+      if (signInError) {
+        setError(signInError.message)
+        setLoading(false)
+        return
+      }
 
-    if (data.user) {
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
+      if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single()
 
-      if (profile) {
-        switch (profile.role) {
-          case "admin":
-            router.push("/admin/dashboard")
-            break
-          case "operator":
-            router.push("/dashboard/operator")
-            break
-          default:
-            router.push("/dashboard/client")
-            break
+        if (profileError) {
+          console.error("Profile fetch error:", profileError)
+          setError("Impossibile recuperare il profilo dopo il login. Contattare l'assistenza.")
+          await supabase.auth.signOut()
+          setLoading(false)
+          return
+        }
+
+        if (profile) {
+          toast.success("Login effettuato con successo!")
+          switch (profile.role) {
+            case "admin":
+              router.push("/admin/dashboard")
+              break
+            case "operator":
+              router.push("/dashboard/operator")
+              break
+            default:
+              router.push("/dashboard/client")
+              break
+          }
+          // No need to set loading to false, the component will unmount
+        } else {
+          setError("Profilo utente non trovato. La registrazione potrebbe essere incompleta.")
+          await supabase.auth.signOut()
+          setLoading(false)
         }
       } else {
-        // Fallback redirect
-        router.push("/")
+        setError("Login fallito. Utente non trovato o credenziali errate.")
+        setLoading(false)
       }
-      router.refresh() // Assicura che il layout si aggiorni con i dati dell'utente
+    } catch (e: any) {
+      console.error("Unexpected login error:", e)
+      setError(e.message || "Si è verificato un errore imprevisto durante il login.")
+      setLoading(false)
     }
   }
 
@@ -81,7 +105,7 @@ export default function LoginPage() {
               <h1 className="text-3xl font-bold text-white">Bentornato</h1>
               <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
             </div>
-            {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4">{error}</p>}
+            {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4 text-center">{error}</p>}
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="email" className="text-slate-200">
@@ -95,6 +119,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                  disabled={loading}
                 />
               </div>
               <div className="grid gap-2">
@@ -113,11 +138,12 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                  disabled={loading}
                 />
               </div>
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+                className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg transition-all duration-300 ease-in-out"
                 disabled={loading}
               >
                 {loading ? <Loader2 className="animate-spin" /> : "Accedi"}
