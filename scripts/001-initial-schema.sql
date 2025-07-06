@@ -1,48 +1,112 @@
--- Create a table for public profiles
-create table profiles (
-  id uuid references auth.users on delete cascade not null primary key,
+-- 1. CREATE CUSTOM TYPES
+-- Questo ci aiuta a mantenere i dati consistenti
+DROP TYPE IF EXISTS public.user_role;
+CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
+
+DROP TYPE IF EXISTS public.consultation_status;
+CREATE TYPE public.consultation_status AS ENUM ('pending', 'answered', 'rejected', 'in_progress');
+
+-- 2. CREATE PROFILES TABLE
+-- Questa tabella conterrà i dati pubblici degli utenti, estendendo auth.users
+CREATE TABLE public.profiles (
+  id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   updated_at timestamp with time zone,
-  name varchar(255),
+  role public.user_role NOT NULL DEFAULT 'client'::user_role,
+  name character varying(255),
+  nickname character varying(50) UNIQUE,
   avatar_url text,
-  role user_role not null default 'client'::user_role
+  bio text, -- Per gli operatori
+  specialties text[], -- Array di specializzazioni per gli operatori
+  is_online boolean DEFAULT false, -- Stato di disponibilità dell'operatore
+  wallet_balance numeric(10, 2) NOT NULL DEFAULT 0.00, -- Per i clienti
+  operator_rate_per_minute numeric(10, 2) -- Tariffa per gli operatori
 );
+COMMENT ON TABLE public.profiles IS 'Public profile data for users.';
 
--- Set up Row Level Security (RLS)
--- See https://supabase.com/docs/guides/auth/row-level-security for more details.
-alter table profiles
-  enable row level security;
+-- 3. SETUP ROW LEVEL SECURITY (RLS) FOR PROFILES
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
-create policy "Public profiles are viewable by everyone." on profiles
-  for select using (true);
-
-create policy "Users can insert their own profile." on profiles
-  for insert with check (auth.uid() = id);
-
-create policy "Users can update own profile." on profiles
-  for update using (auth.uid() = id);
-
--- This trigger automatically creates a profile for new users.
--- See https://supabase.com/docs/guides/auth/managing-user-data#using-triggers for more details.
-create function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = public
-as $$
-begin
-  insert into public.profiles (id, name, role)
-  values (new.id, new.raw_user_meta_data->>'name', (new.raw_user_meta_data->>'role')::user_role);
-  return new;
-end;
+-- 4. CREATE FUNCTION TO HANDLE NEW USERS
+-- Questo trigger crea automaticamente un profilo quando un nuovo utente si registra
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, name, role)
+  VALUES (
+    new.id,
+    new.raw_user_meta_data->>'name',
+    (new.raw_user_meta_data->>'role')::user_role
+  );
+  RETURN new;
+END;
 $$;
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+-- 5. CREATE TRIGGER FOR NEW USERS
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Create user_role type if it doesn't exist
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-        create type user_role as enum ('client', 'operator', 'admin');
-    END IF;
-END$$;
+-- 6. CREATE CONTENT TABLES (BLOG/ASTROMAG)
+CREATE TABLE public.categories (
+  id bigserial PRIMARY KEY,
+  name character varying(255) NOT NULL,
+  slug character varying(255) NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.articles (
+  id bigserial PRIMARY KEY,
+  title character varying(255) NOT NULL,
+  slug character varying(255) NOT NULL UNIQUE,
+  content text,
+  image_url text,
+  author_id uuid REFERENCES public.profiles(id),
+  category_id bigint REFERENCES public.categories(id),
+  created_at timestamp with time zone DEFAULT now(),
+  published_at timestamp with time zone
+);
+ALTER TABLE public.articles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Articles are viewable by everyone." ON public.articles FOR SELECT USING (published_at IS NOT NULL AND published_at <= now());
+
+-- 7. CREATE INTERACTION TABLES
+CREATE TABLE public.written_consultations (
+  id bigserial PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES public.profiles(id),
+  operator_id uuid REFERENCES public.profiles(id),
+  question text NOT NULL,
+  answer text,
+  status public.consultation_status NOT NULL DEFAULT 'pending'::consultation_status,
+  created_at timestamp with time zone DEFAULT now(),
+  answered_at timestamp with time zone
+);
+ALTER TABLE public.written_consultations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own consultations." ON public.written_consultations
+  FOR ALL USING (auth.uid() = client_id OR auth.uid() = operator_id);
+
+CREATE TABLE public.reviews (
+  id bigserial PRIMARY KEY,
+  client_id uuid NOT NULL REFERENCES public.profiles(id),
+  operator_id uuid NOT NULL REFERENCES public.profiles(id),
+  consultation_id bigint, -- Può essere legato a una consulenza specifica
+  rating smallint NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  created_at timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Reviews are viewable by everyone." ON public.reviews FOR SELECT USING (true);
+CREATE POLICY "Clients can insert reviews for their consultations." ON public.reviews FOR INSERT WITH CHECK (auth.uid() = client_id);
+
+-- 8. SEED DATA (Optional, for testing)
+INSERT INTO public.categories (name, slug) VALUES
+('Cartomanzia', 'cartomanzia'),
+('Astrologia', 'astrologia'),
+('Spiritualità', 'spiritualita');
+
+-- Fine dello script

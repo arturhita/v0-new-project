@@ -7,10 +7,16 @@ import { useRouter } from "next/navigation"
 
 export type Profile = {
   id: string
-  name: string
+  updated_at: string | null
   role: "client" | "operator" | "admin"
-  avatar_url?: string
-  nickname?: string
+  name: string | null
+  nickname: string | null
+  avatar_url: string | null
+  bio: string | null
+  specialties: string[] | null
+  is_online: boolean
+  wallet_balance: number
+  operator_rate_per_minute: number | null
 }
 
 type AuthContextType = {
@@ -41,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (currentUser) {
         const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
-        setProfile(userProfile as Profile)
+        setProfile(userProfile ? (userProfile as Profile) : null)
 
         if (event === "SIGNED_IN") {
           // Reindirizza dopo il login in base al ruolo
@@ -72,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session) {
         setUser(session.user)
         const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(userProfile as Profile)
+        setProfile(userProfile ? (userProfile as Profile) : null)
       }
       setLoading(false)
     }
