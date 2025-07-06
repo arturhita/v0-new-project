@@ -1,10 +1,11 @@
 "use client"
 
 import type React from "react"
+import { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Clock, Star, MessageSquare, ArrowRight, Search, Sparkles, Wallet, History } from "lucide-react"
+import { Clock, Star, MessageSquare, ArrowRight, Search, Sparkles, Wallet, History, Loader2 } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
 import { useAuth } from "@/contexts/auth-context"
@@ -45,8 +46,15 @@ const InfoCard = ({
 )
 
 export default function ClientDashboardPage() {
-  const { profile, loading } = useAuth()
+  const { profile, loading, user } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && (!user || profile?.role !== "client")) {
+      router.push("/login")
+    }
+  }, [loading, user, profile, router])
+
   const favoriteExperts = [
     {
       id: "exp1",
@@ -71,12 +79,12 @@ export default function ClientDashboardPage() {
     },
   ]
 
-  if (loading) {
-    return <div>Caricamento in corso...</div>
-  }
-
-  if (!profile) {
-    return <div>Profilo non trovato.</div>
+  if (loading || !profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      </div>
+    )
   }
 
   return (
@@ -91,7 +99,7 @@ export default function ClientDashboardPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center">
             <Sparkles className="w-8 h-8 mr-3 text-yellow-400" />
-            Bentornato, {profile.name}!
+            Bentornato, {profile.full_name}!
           </h1>
           <p className="text-white/70 text-lg">Gestisci le tue consulenze e scopri nuovi esperti</p>
         </div>
@@ -156,7 +164,7 @@ export default function ClientDashboardPage() {
             <CardContent>
               <p>Nessun nuovo messaggio.</p>
               <Button
-                onClick={() => router.push("/(platform)/dashboard/client/messages")}
+                onClick={() => router.push("/dashboard/client/messages")}
                 className="mt-4 bg-gray-700 hover:bg-gray-600"
               >
                 Vai ai Messaggi
