@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 // Definisce il tipo Profile per corrispondere allo schema del database
 export interface Profile {
@@ -27,10 +28,13 @@ export interface Profile {
   commission_rate?: number
 }
 
-interface AuthContextType {
+type AuthContextType = {
+  supabase: SupabaseClient
   user: User | null
   profile: Profile | null
   loading: boolean
+  isAuthenticated: boolean
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -73,11 +77,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [supabase])
 
-  const value = {
-    user,
-    profile,
-    loading,
+  const login = async (email: string, pass: string) => {
+    // This is now handled directly in the login page component
+    // We can leave this empty or throw an error if it's called.
+    console.warn("login function in AuthContext is deprecated.")
+    return { user: null, error: new Error("Deprecated function.") }
   }
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+  }
+
+  const register = async (email: string, pass: string, fullName: string) => {
+    // This is now handled directly in the register page component
+    console.warn("register function in AuthContext is deprecated.")
+    return { user: null, error: new Error("Deprecated function.") }
+  }
+
+  const value = { supabase, user, profile, loading, isAuthenticated: !!user, logout }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
