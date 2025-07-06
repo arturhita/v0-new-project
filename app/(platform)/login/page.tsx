@@ -1,100 +1,96 @@
 "use client"
 
-import { useEffect } from "react"
 import { useFormState, useFormStatus } from "react-dom"
-import { login } from "@/lib/actions/auth.actions"
+import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
-import { useAuth } from "@/contexts/auth-context"
-import { useRouter } from "next/navigation"
+import { ConstellationBackground } from "@/components/constellation-background"
+import { Loader2 } from "lucide-react"
+import { login } from "@/lib/actions/auth.actions"
 
 function LoginButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? "Accesso in corso..." : "Accedi"}
+    <Button
+      type="submit"
+      className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+      disabled={pending}
+    >
+      {pending ? <Loader2 className="animate-spin" /> : "Accedi"}
     </Button>
   )
 }
 
 export default function LoginPage() {
   const [state, formAction] = useFormState(login, undefined)
-  const { user, loading, profile } = useAuth()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!loading && user) {
-      if (profile?.role === "admin") {
-        router.replace("/admin")
-      } else if (profile?.role === "operator") {
-        router.replace("/dashboard/operator")
-      } else {
-        router.replace("/dashboard/client")
-      }
-    }
-  }, [user, profile, loading, router])
-
-  if (loading || user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900">
-        <div className="text-white animate-pulse">Caricamento sessione...</div>
-      </div>
-    )
-  }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950">
-      <Card className="mx-auto max-w-sm bg-slate-800/50 border-indigo-500/20 text-white">
-        <CardHeader>
-          <CardTitle className="text-2xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
-            Login
-          </CardTitle>
-          <CardDescription className="text-slate-400">
-            Inserisci le tue credenziali per accedere al tuo account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={formAction} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                name="email"
-                placeholder="mario@esempio.com"
-                required
-                className="bg-slate-700/50 border-slate-600 focus:ring-indigo-500"
-              />
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
+      <ConstellationBackground goldVisible={true} />
+      <div className="relative z-10 w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link href="/">
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={180}
+              height={50}
+              className="mx-auto"
+            />
+          </Link>
+        </div>
+
+        <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
+          <form action={formAction}>
+            <div className="grid gap-2 text-center mb-6">
+              <h1 className="text-3xl font-bold text-white">Bentornato</h1>
+              <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
             </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link href="#" className="ml-auto inline-block text-sm underline text-slate-400 hover:text-indigo-300">
-                  Password dimenticata?
-                </Link>
+            {state?.error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4">{state.error}</p>}
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-slate-200">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  name="email"
+                  placeholder="mario@esempio.com"
+                  required
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                name="password"
-                required
-                className="bg-slate-700/50 border-slate-600 focus:ring-indigo-500"
-              />
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password" className="text-slate-200">
+                    Password
+                  </Label>
+                  <Link href="#" className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline">
+                    Password dimenticata?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  name="password"
+                  required
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
+              </div>
+              <LoginButton />
             </div>
-            {state?.error && <p className="text-sm text-red-400">{state.error}</p>}
-            <LoginButton />
           </form>
-          <div className="mt-4 text-center text-sm text-slate-400">
+          <div className="mt-6 text-center text-sm text-slate-300">
             Non hai un account?{" "}
-            <Link href="/register" className="underline text-indigo-300 hover:text-indigo-200">
+            <Link href="/register" className="underline text-blue-400 hover:text-blue-300 font-semibold">
               Registrati
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
