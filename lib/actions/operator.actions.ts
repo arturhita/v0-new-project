@@ -8,6 +8,7 @@ export async function getOperators(options?: {
   category?: string
 }): Promise<Profile[]> {
   const supabase = createClient()
+
   let query = supabase
     .from("profiles")
     .select(
@@ -17,10 +18,10 @@ export async function getOperators(options?: {
       bio,
       specializations,
       is_available,
-      profile_picture_url,
+      avatar_url, 
       service_prices,
       average_rating,
-      total_reviews
+      review_count 
     `,
     )
     .eq("role", "operator")
@@ -30,10 +31,10 @@ export async function getOperators(options?: {
   }
 
   if (options?.category) {
-    // Filtra se l'array 'specializations' contiene la categoria specificata
-    // La categoria deve essere scritta esattamente come nel DB (es. "Cartomanzia")
     query = query.contains("specializations", [options.category.charAt(0).toUpperCase() + options.category.slice(1)])
   }
+
+  query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
 
   const { data, error } = await query
 
@@ -56,6 +57,19 @@ export async function getOperatorByStageName(stageName: string): Promise<Profile
 
   if (error) {
     console.error("Error fetching operator by stage name:", error)
+    return null
+  }
+
+  return data as Profile
+}
+
+export async function getOperatorById(id: string): Promise<Profile | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+
+  if (error) {
+    console.error(`Error fetching operator by ID ${id}:`, error.message)
     return null
   }
 

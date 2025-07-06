@@ -1,5 +1,5 @@
 import { getOperators } from "@/lib/actions/operator.actions"
-import EspertiClientPage from "./client-page" // Corrected import
+import EspertiClientPage from "./client-page"
 
 interface EspertiCategoriaPageProps {
   params: {
