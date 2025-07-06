@@ -1,20 +1,17 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 
-export function useTimer() {
-  const [time, setTime] = useState(0)
+export const useTimer = (callback: () => void, interval = 60000) => {
   const [isRunning, setIsRunning] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const startTimeRef = useRef<number>(0)
+  const callbackRef = useRef(callback)
 
-  const startTimer = useCallback(() => {
-    if (!isRunning) {
-      setIsRunning(true)
-      intervalRef.current = setInterval(() => {
-        setTime((prevTime) => prevTime + 1)
-      }, 1000)
-    }
-  }, [isRunning])
+  useEffect(() => {
+    callbackRef.current = callback
+  }, [callback])
 
   const stopTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -24,20 +21,49 @@ export function useTimer() {
     setIsRunning(false)
   }, [])
 
-  const resetTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
+  const startTimer = useCallback(() => {
+    if (isRunning) return
+
+    setIsRunning(true)
+    startTimeRef.current = Date.now() - elapsedTime
+
+    // Timer per l'aggiornamento del tempo trascorso (ogni secondo)
+    const tick = () => {
+      setElapsedTime(Date.now() - startTimeRef.current)
     }
-    setTime(0)
-    setIsRunning(false)
+    tick() // Esegui subito
+    const elapsedTimerId = setInterval(tick, 1000)
+
+    // Timer per la callback (ogni 'interval' millisecondi)
+    const callbackTimerId = setInterval(() => {
+      callbackRef.current()
+    }, interval)
+
+    intervalRef.current = {
+      elapsed: elapsedTimerId,
+      callback: callbackTimerId,
+    } as any // Cast per semplicità, in un'app reale si potrebbe usare un oggetto più strutturato
+  }, [isRunning, elapsedTime, interval])
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        // @ts-ignore
+        clearInterval(intervalRef.current.elapsed)
+        // @ts-ignore
+        clearInterval(intervalRef.current.callback)
+      }
+    }
   }, [])
 
-  return {
-    time,
-    isRunning,
-    startTimer,
-    stopTimer,
-    resetTimer,
+  const formatTime = (timeInMs: number) => {
+    const totalSeconds = Math.floor(timeInMs / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, "0")
+    const seconds = (totalSeconds % 60).toString().padStart(2, "0")
+    return `${minutes}:${seconds}`
   }
+
+  return { isRunning, elapsedTime, startTimer, stopTimer, formattedTime: formatTime(elapsedTime) }
 }

@@ -1,165 +1,140 @@
 "use client"
 
-import type { Profile } from "@/contexts/auth-context"
-import type { Review } from "@/types/review.types" // FIX: Import from central location
 import { useState } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import type { Profile } from "@/contexts/auth-context"
+import type { Review } from "@/types/review.types"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Star, MessageSquare, Phone, Mail, Clock, User, Info } from "lucide-react"
-import { ConstellationBackground } from "./constellation-background"
-import { ReviewCard } from "./review-card"
+import { Card, CardContent } from "@/components/ui/card"
+import { Star, MessageCircle, Phone, Video, ShieldCheck, Loader2 } from "lucide-react"
+import ReviewCard from "@/components/review-card"
+import { useToast } from "@/components/ui/use-toast"
+import { startChatSession } from "@/lib/actions/chat.actions"
 
 interface OperatorProfileClientProps {
   operator: Profile
   reviews: Review[]
 }
 
-export function OperatorProfileClient({ operator, reviews }: OperatorProfileClientProps) {
-  const [activeTab, setActiveTab] = useState("about")
+export default function OperatorProfileClient({ operator, reviews }: OperatorProfileClientProps) {
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isStartingChat, setIsStartingChat] = useState(false)
 
-  const servicePrices = operator.service_prices as { chat?: number; call?: number; email?: number } | null
+  const handleStartChat = async () => {
+    if (!user) {
+      toast({
+        title: "Accesso Richiesto",
+        description: "Devi accedere per iniziare una chat.",
+        variant: "destructive",
+      })
+      router.push("/login")
+      return
+    }
+
+    setIsStartingChat(true)
+    const result = await startChatSession(operator.id)
+    setIsStartingChat(false)
+
+    if (result.success && result.sessionId) {
+      router.push(`/chat/${result.sessionId}`)
+    } else {
+      toast({
+        title: "Errore",
+        description: result.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const averageRating =
+    reviews.length > 0 ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1) : "N/A"
 
   return (
-    <div className="relative overflow-hidden text-white">
-      <ConstellationBackground goldVisible={true} />
-      <div className="container mx-auto px-4 py-12 relative z-10">
-        {/* -- Header Profilo -- */}
-        <header className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center mb-12">
-          <div className="flex flex-col items-center md:items-start col-span-1 md:col-span-2">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="relative">
-                <Image
-                  src={operator.profile_image_url || "/placeholder.svg?width=128&height=128&query=avatar"}
-                  alt={operator.stage_name || "Operatore"}
-                  width={128}
-                  height={128}
-                  className="rounded-full border-4 border-yellow-400/50 shadow-lg"
-                />
-                {operator.is_available && (
-                  <div className="absolute bottom-2 right-2 w-5 h-5 bg-green-400 rounded-full border-2 border-slate-800 animate-pulse" />
-                )}
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-center md:text-left">{operator.stage_name}</h1>
-                <p className="text-lg text-yellow-300 text-center md:text-left">
-                  {operator.specializations?.join(", ")}
-                </p>
-                <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
-                  <div className="flex items-center text-yellow-400">
-                    <Star className="w-5 h-5 fill-current" />
-                    <span className="ml-1 font-bold">{operator.average_rating?.toFixed(1) || "N/A"}</span>
-                  </div>
-                  <span className="text-slate-400">({operator.review_count || 0} recensioni)</span>
-                </div>
-              </div>
+    <div className="text-white">
+      <div className="relative h-64 md:h-80 w-full">
+        <Image
+          src={operator.profile_image_url || "/images/placeholder.svg?width=1200&height=400&query=operator+banner"}
+          alt={`Banner di ${operator.stage_name}`}
+          layout="fill"
+          objectFit="cover"
+          className="rounded-t-lg"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent" />
+        <div className="absolute bottom-0 left-0 p-4 md:p-8">
+          <h1 className="text-4xl md:text-6xl font-bold text-white">{operator.stage_name}</h1>
+          <p className="text-lg text-gray-300">{operator.full_name}</p>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div>
+            <h2 className="text-2xl font-semibold mb-4 text-indigo-300">Chi sono</h2>
+            <p className="text-gray-300 leading-relaxed">{operator.bio}</p>
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold mb-4 text-indigo-300">Recensioni ({reviews.length})</h2>
+            <div className="space-y-4">
+              {reviews.length > 0 ? (
+                reviews.map((review) => <ReviewCard key={review.id} review={review} />)
+              ) : (
+                <p className="text-gray-400">Nessuna recensione ancora.</p>
+              )}
             </div>
           </div>
+        </div>
 
-          <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-center">Contatta {operator.stage_name}</h3>
-            <Button
-              size="lg"
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90"
-              disabled={!operator.is_available}
-            >
-              <MessageSquare className="mr-2 h-5 w-5" /> Inizia Chat
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full bg-transparent border-sky-500 text-sky-300 hover:bg-sky-500/20 hover:text-white"
-              disabled={!operator.is_available}
-            >
-              <Phone className="mr-2 h-5 w-5" /> Chiama Ora
-            </Button>
-          </div>
-        </header>
-
-        {/* -- Contenuto Profilo con Tab -- */}
-        <Tabs defaultValue="about" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-slate-800/70 backdrop-blur-sm">
-            <TabsTrigger value="about">
-              <User className="mr-2 h-4 w-4" />A Proposito
-            </TabsTrigger>
-            <TabsTrigger value="services">
-              <Info className="mr-2 h-4 w-4" />
-              Servizi
-            </TabsTrigger>
-            <TabsTrigger value="availability">
-              <Clock className="mr-2 h-4 w-4" />
-              Disponibilità
-            </TabsTrigger>
-            <TabsTrigger value="reviews">
-              <Star className="mr-2 h-4 w-4" />
-              Recensioni ({reviews.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="mt-6 bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8 min-h-[300px]">
-            <TabsContent value="about">
-              <h3 className="text-2xl font-bold mb-4 text-yellow-300">Chi sono</h3>
-              <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{operator.bio}</p>
-            </TabsContent>
-
-            <TabsContent value="services">
-              <h3 className="text-2xl font-bold mb-4 text-yellow-300">Servizi e Tariffe</h3>
-              <div className="space-y-4">
-                {servicePrices?.chat && (
-                  <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <MessageSquare className="text-green-400" />
-                      <span className="font-semibold">Consulenza Chat</span>
-                    </div>
-                    <span className="font-bold text-lg">€ {servicePrices.chat.toFixed(2)} / min</span>
-                  </div>
-                )}
-                {servicePrices?.call && (
-                  <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Phone className="text-sky-400" />
-                      <span className="font-semibold">Consulenza Telefonica</span>
-                    </div>
-                    <span className="font-bold text-lg">€ {servicePrices.call.toFixed(2)} / min</span>
-                  </div>
-                )}
-                {servicePrices?.email && (
-                  <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Mail className="text-purple-400" />
-                      <span className="font-semibold">Consulto via Email</span>
-                    </div>
-                    <span className="font-bold text-lg">€ {servicePrices.email.toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="availability">
-              <h3 className="text-2xl font-bold mb-4 text-yellow-300">Orari di Disponibilità</h3>
-              <p className="text-slate-400">
-                Questi sono gli orari indicativi. Lo stato "Online" in tempo reale ha sempre la precedenza.
-              </p>
-              {/* Qui andrebbe un componente calendario per mostrare `operator.availability_schedule` */}
-              <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
-                <p>Componente calendario della disponibilità non ancora implementato.</p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="reviews">
-              <h3 className="text-2xl font-bold mb-4 text-yellow-300">Cosa dicono i clienti</h3>
-              {reviews.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {reviews.map((review) => (
-                    <ReviewCard key={review.id} review={review} />
-                  ))}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="bg-gray-800/50 border-gray-700/50">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <span
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${operator.is_available ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}
+                >
+                  {operator.is_available ? "Disponibile Ora" : "Non Disponibile"}
+                </span>
+                <div className="flex items-center gap-1 text-yellow-400">
+                  <Star className="w-5 h-5" />
+                  <span className="font-bold text-lg">{averageRating}</span>
                 </div>
-              ) : (
-                <p className="text-slate-400">Questo operatore non ha ancora ricevuto recensioni.</p>
-              )}
-            </TabsContent>
-          </div>
-        </Tabs>
+              </div>
+
+              <Button
+                onClick={handleStartChat}
+                disabled={!operator.is_available || authLoading || isStartingChat}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 text-lg rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isStartingChat ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <MessageCircle className="mr-2 h-5 w-5" />
+                )}
+                {isStartingChat ? "Avvio..." : "Inizia a Chattare"}
+              </Button>
+              {/* @ts-ignore */}
+              <p className="text-center text-gray-400 mt-2">al costo di {operator.service_prices?.chat}€/min</p>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center gap-3 text-gray-300">
+                  <Phone className="w-5 h-5 text-indigo-400" />
+                  <span>Consulti Telefonici</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <Video className="w-5 h-5 text-indigo-400" />
+                  <span>Consulti Video</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <ShieldCheck className="w-5 h-5 text-green-400" />
+                  <span>Operatore Verificato</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
