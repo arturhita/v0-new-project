@@ -1,11 +1,25 @@
--- 1. CREATE CUSTOM TYPES (with CASCADE to avoid errors on re-run)
-DROP TYPE IF EXISTS public.user_role CASCADE;
-CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
+-- =================================================================
+--  SCHEMA RESET SCRIPT V3
+--  This script is idempotent and can be run multiple times.
+--  It will drop existing objects before recreating them.
+-- =================================================================
 
+-- 1. DROP EXISTING OBJECTS in reverse order of dependency
+DROP TABLE IF EXISTS public.reviews CASCADE;
+DROP TABLE IF EXISTS public.written_consultations CASCADE;
+DROP TABLE IF EXISTS public.articles CASCADE;
+DROP TABLE IF EXISTS public.categories CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP TYPE IF EXISTS public.consultation_status CASCADE;
+DROP TYPE IF EXISTS public.user_role CASCADE;
+
+-- 2. CREATE CUSTOM TYPES
+CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
 CREATE TYPE public.consultation_status AS ENUM ('pending', 'answered', 'rejected', 'in_progress');
 
--- 2. CREATE PROFILES TABLE
+-- 3. CREATE PROFILES TABLE
 -- This table will hold public user data, extending auth.users
 CREATE TABLE public.profiles (
   id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -22,13 +36,13 @@ CREATE TABLE public.profiles (
 );
 COMMENT ON TABLE public.profiles IS 'Public profile data for users.';
 
--- 3. SETUP ROW LEVEL SECURITY (RLS) FOR PROFILES
+-- 4. SETUP ROW LEVEL SECURITY (RLS) FOR PROFILES
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- 4. CREATE FUNCTION TO HANDLE NEW USERS
+-- 5. CREATE FUNCTION TO HANDLE NEW USERS
 -- This trigger automatically creates a profile when a new user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -46,13 +60,12 @@ BEGIN
 END;
 $$;
 
--- 5. CREATE TRIGGER FOR NEW USERS
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- 6. CREATE TRIGGER FOR NEW USERS
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- 6. CREATE CONTENT TABLES (BLOG/ASTROMAG)
+-- 7. CREATE CONTENT TABLES (BLOG/ASTROMAG)
 CREATE TABLE public.categories (
   id bigserial PRIMARY KEY,
   name character varying(255) NOT NULL,
@@ -74,7 +87,7 @@ CREATE TABLE public.articles (
 ALTER TABLE public.articles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Articles are viewable by everyone." ON public.articles FOR SELECT USING (published_at IS NOT NULL AND published_at <= now());
 
--- 7. CREATE INTERACTION TABLES
+-- 8. CREATE INTERACTION TABLES
 CREATE TABLE public.written_consultations (
   id bigserial PRIMARY KEY,
   client_id uuid NOT NULL REFERENCES public.profiles(id),
@@ -102,7 +115,7 @@ ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Reviews are viewable by everyone." ON public.reviews FOR SELECT USING (true);
 CREATE POLICY "Clients can insert reviews for their consultations." ON public.reviews FOR INSERT WITH CHECK (auth.uid() = client_id);
 
--- 8. SEED DATA (Optional, for testing)
+-- 9. SEED DATA (Optional, for testing)
 INSERT INTO public.categories (name, slug) VALUES
 ('Cartomanzia', 'cartomanzia'),
 ('Astrologia', 'astrologia'),
