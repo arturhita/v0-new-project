@@ -272,3 +272,94 @@ export async function getOperatorDashboardData(operatorId: string) {
     return { success: false, message: errorMessage, data: null }
   }
 }
+
+// Funzione per ottenere tutti gli operatori per la tabella di amministrazione
+export async function getAllOperatorsForAdmin() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("admin_operators_view")
+    .select("*")
+    .order("joined_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching operators for admin:", error)
+    throw new Error("Impossibile caricare gli operatori.")
+  }
+  return data
+}
+
+// Funzione per ottenere i dettagli completi di un operatore per la pagina di modifica
+export async function getOperatorForEdit(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("admin_operators_view").select("*").eq("id", operatorId).single()
+
+  if (error) {
+    console.error(`Error fetching operator ${operatorId} for edit:`, error)
+    throw new Error("Operatore non trovato o errore nel caricamento.")
+  }
+  return data
+}
+
+// Funzione per aggiornare il profilo di un operatore
+export async function updateOperatorProfile(operatorId: string, profileData: any) {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      full_name: profileData.full_name,
+      stage_name: profileData.stage_name,
+      phone: profileData.phone,
+      main_discipline: profileData.main_discipline,
+      bio: profileData.bio,
+      is_available: profileData.is_available,
+      status: profileData.status,
+    })
+    .eq("id", operatorId)
+
+  if (error) {
+    console.error(`Error updating profile for operator ${operatorId}:`, error)
+    return { success: false, message: "Errore durante l'aggiornamento del profilo." }
+  }
+
+  revalidatePath("/admin/operators")
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  return { success: true, message: "Profilo operatore aggiornato con successo." }
+}
+
+// Funzione per aggiornare la commissione di un operatore
+export async function updateOperatorCommission(operatorId: string, commission: number) {
+  const supabase = createClient()
+
+  if (commission < 0 || commission > 100) {
+    return { success: false, message: "La commissione deve essere tra 0 e 100." }
+  }
+
+  const { error } = await supabase.from("profiles").update({ commission_rate: commission }).eq("id", operatorId)
+
+  if (error) {
+    console.error(`Error updating commission for operator ${operatorId}:`, error)
+    return { success: false, message: "Errore durante l'aggiornamento della commissione." }
+  }
+
+  revalidatePath("/admin/operators")
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  return { success: true, message: "Commissione aggiornata con successo." }
+}
+
+// Funzione per sospendere un operatore
+export async function suspendOperator(operatorId: string) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status: "Sospeso", is_available: false })
+    .eq("id", operatorId)
+
+  if (error) {
+    console.error(`Error suspending operator ${operatorId}:`, error)
+    return { success: false, message: "Errore durante la sospensione." }
+  }
+
+  revalidatePath("/admin/operators")
+  return { success: true, message: "Operatore sospeso." }
+}
