@@ -1,6 +1,7 @@
 "use client"
 
-import { useFormState, useFormStatus } from "react-dom"
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,7 @@ function LoginButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useFormState(login, undefined)
+  const [state, formAction] = useActionState(login, undefined)
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
