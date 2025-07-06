@@ -1,23 +1,24 @@
-import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
+"use server"
 
-export interface OperatorApplication {
+import { createClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
+
+export type ApplicationWithProfile = {
   id: string
-  user_id: string
+  created_at: string
   status: "pending" | "approved" | "rejected"
   phone: string
   bio: string
   specializations: string[]
   cv_url: string | null
-  created_at: string
-  profile: {
+  user_id: string
+  profiles: {
     name: string | null
     email: string | null
   } | null
 }
 
-export async function getOperatorApplications(): Promise<OperatorApplication[]> {
-  noStore()
+export async function getOperatorApplications(): Promise<ApplicationWithProfile[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
@@ -25,33 +26,32 @@ export async function getOperatorApplications(): Promise<OperatorApplication[]> 
     .select(
       `
       id,
-      user_id,
+      created_at,
       status,
       phone,
       bio,
       specializations,
       cv_url,
-      created_at,
-      profile:profiles (
+      user_id,
+      profiles (
         name,
         email
       )
     `,
     )
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching applications:", error.message)
-    throw new Error(`Error fetching applications: ${error.message}`)
+    console.error("Error fetching applications from Supabase:", error)
+    throw new Error(`Errore nel recupero delle candidature. Dettagli: ${error.message}`)
   }
 
-  // Supabase types can be tricky with relations. We cast to ensure type safety.
-  return data as OperatorApplication[]
+  return data as ApplicationWithProfile[]
 }
 
 export async function approveApplication(applicationId: string, userId: string) {
   const supabase = createClient()
+
   const { error } = await supabase.rpc("approve_operator_application", {
     p_application_id: applicationId,
     p_user_id: userId,
@@ -59,20 +59,25 @@ export async function approveApplication(applicationId: string, userId: string) 
 
   if (error) {
     console.error("Error approving application:", error)
-    return { success: false, message: error.message }
+    return { success: false, message: `Errore durante l'approvazione: ${error.message}` }
   }
-  return { success: true, message: "Application approved successfully." }
+
+  revalidatePath("/admin/operator-approvals")
+  return { success: true, message: "Candidatura approvata con successo." }
 }
 
 export async function rejectApplication(applicationId: string) {
   const supabase = createClient()
+
   const { error } = await supabase.rpc("reject_operator_application", {
     p_application_id: applicationId,
   })
 
   if (error) {
     console.error("Error rejecting application:", error)
-    return { success: false, message: error.message }
+    return { success: false, message: `Errore durante il rifiuto: ${error.message}` }
   }
-  return { success: true, message: "Application rejected successfully." }
+
+  revalidatePath("/admin/operator-approvals")
+  return { success: true, message: "Candidatura rifiutata." }
 }
