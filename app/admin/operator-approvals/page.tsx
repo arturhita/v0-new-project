@@ -1,167 +1,159 @@
-"use client"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Eye, CheckCircle, XCircle, UserCircle } from "lucide-react"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription as DialogDesc,
-  DialogFooter,
-} from "@/components/ui/dialog"
+  getOperatorApplications,
+  approveApplication,
+  rejectApplication,
+  type ApplicationWithProfile,
+} from "@/lib/actions/admin.actions"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Check, X, Clock, User, Mail, Phone, BookUser, Sparkles } from "lucide-react"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 
-interface PendingOperator {
-  id: string
-  stageName: string
-  name: string
-  surname: string
-  email: string
-  discipline: string
-  bio: string
-  requestedDate: string
+function StatusBadge({ status }: { status: ApplicationWithProfile["status"] }) {
+  const statusConfig = {
+    pending: {
+      label: "In Attesa",
+      className: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      icon: <Clock className="mr-1 h-3 w-3" />,
+    },
+    approved: {
+      label: "Approvata",
+      className: "bg-green-100 text-green-800 border-green-300",
+      icon: <Check className="mr-1 h-3 w-3" />,
+    },
+    rejected: {
+      label: "Rifiutata",
+      className: "bg-red-100 text-red-800 border-red-300",
+      icon: <X className="mr-1 h-3 w-3" />,
+    },
+  }
+  const config = statusConfig[status]
+  return (
+    <Badge variant="outline" className={`flex items-center w-fit ${config.className}`}>
+      {config.icon}
+      {config.label}
+    </Badge>
+  )
 }
 
-const initialPendingOperators: PendingOperator[] = [
-  {
-    id: "pendingOp1",
-    stageName: "Mago Silvan",
-    name: "Silvano",
-    surname: "Boschi",
-    email: "silvan@example.com",
-    discipline: "Cartomanzia",
-    bio: "Esperto lettore di tarocchi con focus sulla crescita personale.",
-    requestedDate: "2025-06-20",
-  },
-  {
-    id: "pendingOp2",
-    stageName: "Astrea Luminosa",
-    name: "Lucia",
-    surname: "Stelle",
-    email: "lucia.s@example.com",
-    discipline: "Astrologia Evolutiva",
-    bio: "Interpreto il tema natale per svelare talenti e sfide.",
-    requestedDate: "2025-06-21",
-  },
-]
-
-export default function OperatorApprovalsPage() {
-  const [pendingOperators, setPendingOperators] = useState<PendingOperator[]>(initialPendingOperators)
-  const [selectedOperator, setSelectedOperator] = useState<PendingOperator | null>(null)
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-
-  const handleApprove = (operatorId: string) => {
-    setPendingOperators((prev) => prev.filter((op) => op.id !== operatorId))
-    // In un'app reale, aggiorneresti lo stato dell'operatore nel database
-    alert(`Operatore ${operatorId} approvato e profilo attivato (simulazione).`)
+function ApplicationActions({ application }: { application: ApplicationWithProfile }) {
+  if (application.status !== "pending") {
+    return null
   }
 
-  const handleReject = (operatorId: string) => {
-    setPendingOperators((prev) => prev.filter((op) => op.id !== operatorId))
-    // In un'app reale, invieresti una notifica e/o aggiorneresti lo stato
-    alert(`Richiesta dell'operatore ${operatorId} rifiutata (simulazione).`)
+  const approveAction = approveApplication.bind(null, application.id, application.user_id)
+  const rejectAction = rejectApplication.bind(null, application.id)
+
+  return (
+    <div className="flex gap-2">
+      <form action={approveAction}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700 bg-transparent"
+        >
+          <Check className="mr-2 h-4 w-4" /> Approva
+        </Button>
+      </form>
+      <form action={rejectAction}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 bg-transparent"
+        >
+          <X className="mr-2 h-4 w-4" /> Rifiuta
+        </Button>
+      </form>
+    </div>
+  )
+}
+
+export default async function OperatorApprovalsPage() {
+  const { applications, error } = await getOperatorApplications()
+
+  if (error) {
+    return <div className="text-red-500 p-4">{error}</div>
   }
 
-  const openProfileModal = (operator: PendingOperator) => {
-    setSelectedOperator(operator)
-    setIsProfileModalOpen(true)
+  if (!applications || applications.length === 0) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        <h2 className="text-xl font-semibold">Nessuna candidatura trovata.</h2>
+        <p>Al momento non ci sono nuove candidature da revisionare.</p>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Approvazione Operatori</h1>
-      <CardDescription className="text-slate-500 -mt-4">
-        Valuta e gestisci le nuove richieste di registrazione degli operatori.
-      </CardDescription>
-
-      {pendingOperators.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-slate-500">
-            Nessuna richiesta di approvazione pendente al momento.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {pendingOperators.map((op) => (
-            <Card key={op.id} className="shadow-lg rounded-xl">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                  <CardTitle className="text-lg text-slate-700 flex items-center">
-                    <UserCircle className="h-5 w-5 mr-2 text-[hsl(var(--primary-medium))]" />
-                    {op.stageName}{" "}
-                    <span className="text-sm text-slate-500 ml-2">
-                      ({op.name} {op.surname})
-                    </span>
-                  </CardTitle>
-                  <Badge variant="outline" className="mt-2 sm:mt-0">
-                    Richiesta del: {op.requestedDate}
-                  </Badge>
-                </div>
-                <CardDescription className="text-sm text-slate-500 pt-1">
-                  Disciplina: {op.discipline} | Email: {op.email}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600 mb-4 truncate">{op.bio}</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => openProfileModal(op)}>
-                    <Eye className="mr-2 h-4 w-4" /> Vedi Profilo Completo (Anteprima)
-                  </Button>
-                  <Button
-                    onClick={() => handleApprove(op.id)}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" /> Approva
-                  </Button>
-                  <Button
-                    onClick={() => handleReject(op.id)}
-                    variant="destructive"
-                    className="bg-red-500 hover:bg-red-600 text-white"
-                  >
-                    <XCircle className="mr-2 h-4 w-4" /> Rifiuta
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {selectedOperator && (
-        <Dialog open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Anteprima Profilo Operatore: {selectedOperator.stageName}</DialogTitle>
-              <DialogDesc>Questo è come apparirà il profilo una volta approvato. Non è ancora attivo.</DialogDesc>
-            </DialogHeader>
-            <div className="py-4 space-y-3">
-              <p>
-                <strong>Nome d'Arte:</strong> {selectedOperator.stageName}
-              </p>
-              <p>
-                <strong>Nome Reale:</strong> {selectedOperator.name} {selectedOperator.surname}
-              </p>
-              <p>
-                <strong>Email:</strong> {selectedOperator.email}
-              </p>
-              <p>
-                <strong>Disciplina:</strong> {selectedOperator.discipline}
-              </p>
-              <p>
-                <strong>Bio:</strong> {selectedOperator.bio}
-              </p>
-              <p className="text-xs text-slate-500">Profilo richiesto il: {selectedOperator.requestedDate}</p>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsProfileModalOpen(false)}>
-                Chiudi Anteprima
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+    <div className="p-4 md:p-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Approvazione Operatori</CardTitle>
+          <CardDescription>
+            Revisiona e gestisci le candidature per diventare operatore sulla piattaforma.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Candidato</TableHead>
+                <TableHead>Dettagli</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {applications.map((app) => (
+                <TableRow key={app.id}>
+                  <TableCell>
+                    <div className="font-medium flex items-center">
+                      <User className="mr-2 h-4 w-4 text-slate-500" />
+                      {app.profiles?.name || "Nome non disponibile"}
+                    </div>
+                    <div className="text-sm text-slate-500 flex items-center">
+                      <Mail className="mr-2 h-4 w-4 text-slate-400" />
+                      {app.profiles?.email || "Email non disponibile"}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm text-slate-600 mb-2 flex items-center">
+                      <Phone className="mr-2 h-4 w-4 text-slate-400" />
+                      {app.phone}
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-2" title={app.bio}>
+                      <BookUser className="inline mr-1 h-3 w-3" />
+                      {app.bio}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Sparkles className="inline mr-1 h-3 w-3 mt-1 text-slate-400" />
+                      {app.specializations.map((spec) => (
+                        <Badge key={spec} variant="secondary" className="text-xs">
+                          {spec}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>{format(new Date(app.created_at), "dd MMM yyyy", { locale: it })}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={app.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <ApplicationActions application={app} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+        <CardFooter>
+          <div className="text-xs text-slate-500">Mostrando {applications.length} candidature.</div>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

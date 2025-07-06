@@ -1,7 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { createClient } from "@/lib/supabase/client"
+// Importiamo direttamente l'istanza singleton
+import supabase from "@/lib/supabase/client"
 import type { User, AuthError } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 
@@ -31,7 +32,6 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const supabase = createClient()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -46,12 +46,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(currentUser)
 
       if (currentUser) {
-        // Usiamo maybeSingle() per evitare errori se il profilo non esiste ancora
         const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle()
         setProfile(userProfile ? (userProfile as Profile) : null)
 
         if (event === "SIGNED_IN" && userProfile) {
-          // Reindirizza dopo il login in base al ruolo
           switch ((userProfile as Profile).role) {
             case "admin":
               router.push("/admin/dashboard")
@@ -71,14 +69,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false)
     })
 
-    // Carica la sessione iniziale
     const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       if (session) {
         setUser(session.user)
-        // Usiamo maybeSingle() anche qui per sicurezza
         const { data: userProfile } = await supabase
           .from("profiles")
           .select("*")
@@ -93,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [router])
 
   const login = async (credentials: any) => {
     const { error } = await supabase.auth.signInWithPassword(credentials)
