@@ -1,45 +1,42 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
-import type { Operator } from "@/types/operator.types"
+import { createClient } from "@/lib/supabase/server"
+import type { Operator, OperatorProfile } from "@/types/operator.types"
 
-export async function getOperators(
-  category?: string,
-  limit = 12,
-  offset = 0,
-): Promise<{ operators: Operator[]; total: number }> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
-
-  let query = supabase.from("operators_view").select("*", { count: "exact" })
-
-  if (category && category !== "tutti") {
-    query = query.contains("categories", [category])
-  }
-
-  query = query.range(offset, offset + limit - 1)
-
-  const { data, error, count } = await query
+export async function getOperators(): Promise<Operator[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo")
 
   if (error) {
     console.error("Error fetching operators:", error)
-    return { operators: [], total: 0 }
+    return []
   }
-
-  return { operators: data as Operator[], total: count ?? 0 }
+  return data as Operator[]
 }
 
-export async function getOperatorByUsername(stageName: string): Promise<Operator | null> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
-
-  const { data, error } = await supabase.from("operators_view").select("*").eq("stage_name", stageName).single()
+export async function getOperatorsByCategory(category: string): Promise<Operator[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+    .contains("categories", [category])
 
   if (error) {
-    console.error("Error fetching operator by username:", error)
+    console.error(`Error fetching operators for category ${category}:`, error)
+    return []
+  }
+  return data as Operator[]
+}
+
+export async function getOperatorByUsername(username: string): Promise<OperatorProfile | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("stage_name", username).single()
+
+  if (error) {
+    console.error(`Error fetching operator ${username}:`, error)
     return null
   }
-
-  return data as Operator
+  return data as OperatorProfile
 }

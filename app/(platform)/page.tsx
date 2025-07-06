@@ -2,7 +2,7 @@
 import type { Operator as OperatorCardType } from "@/components/operator-card"
 import type { Review as ReviewCardType } from "@/components/review-card"
 import { getOperators } from "@/lib/actions/operator.public.actions"
-import { HomeClient } from "./home-client"
+import HomeClient from "./home-client"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -157,8 +157,7 @@ export const allMockReviews: ReviewCardType[] = [
 ]
 
 export default async function HomePage() {
-  // Carica gli operatori dal server
-  const { operators } = await getOperators(undefined, 8)
+  const operators = await getOperators()
 
-  return <HomeClient initialOperators={operators} />
+  return <HomeClient operators={operators} />
 }
