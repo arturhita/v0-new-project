@@ -1,73 +1,119 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { randomBytes } from "crypto"
 
-export type ActionState = {
-  error?: string
-  success?: boolean
-  message?: string
-  temporaryPassword?: string
-} | null
+// Funzione per creare un nuovo operatore
+export async function createOperator(operatorData: any) {
+  const supabase = createClient() // Client per il contesto utente (per controllare i permessi)
 
-export async function createOperator(prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const supabaseAdmin = createAdminClient()
+  try {
+    // 1. Verifica che l'utente corrente sia un admin
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) {
+      return { success: false, message: "Devi essere loggato per eseguire questa azione." }
+    }
+    const { data: adminProfile, error: adminProfileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", currentUser.id)
+      .single()
 
-  const fullName = formData.get("fullName") as string
-  const stageName = formData.get("stageName") as string
-  const email = formData.get("email") as string
-  const bio = formData.get("bio") as string
-  const commission = formData.get("commission") as string
+    if (adminProfileError || adminProfile?.role !== "admin") {
+      return { success: false, message: "Non hai i permessi per creare un operatore." }
+    }
 
-  if (!fullName || !stageName || !email || !commission) {
-    return { error: "Tutti i campi con * sono obbligatori." }
-  }
+    // 2. Genera una password temporanea sicura
+    const temporaryPassword = randomBytes(16).toString("hex")
 
-  // Generate a secure temporary password
-  const temporaryPassword = Math.random().toString(36).slice(-8)
+    // 3. Crea l'utente usando il CLIENT ADMIN
+    // Questo farà scattare il trigger `handle_new_user` che crea un profilo base con ruolo 'client'.
+    const {
+      data: { user },
+      error: createUserError,
+    } = await supabaseAdmin.auth.admin.createUser({
+      email: operatorData.email,
+      password: temporaryPassword,
+      email_confirm: true, // L'utente è già confermato
+      user_metadata: {
+        full_name: operatorData.fullName,
+      },
+    })
 
-  // 1. Create user in auth.users with metadata
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password: temporaryPassword,
-    email_confirm: true, // Auto-confirm email for admin-created users
-    user_metadata: {
-      full_name: fullName,
-      username: stageName,
-      role: "operator", // Pass role in metadata for the trigger
-    },
-  })
+    if (createUserError || !user) {
+      console.error("Error creating operator user:", createUserError?.message)
+      if (createUserError?.message.includes("already registered")) {
+        return { success: false, message: "Un utente con questa email è già registrato." }
+      }
+      return { success: false, message: `Errore nella creazione dell'utente: ${createUserError?.message}` }
+    }
 
-  if (authError) {
-    console.error("Error creating auth user:", authError)
-    return { error: `Errore durante la creazione dell'utente: ${authError.message}` }
-  }
+    // --- FIX: Use UPDATE instead of INSERT to modify the profile created by the trigger.
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        role: "operator" as const,
+        full_name: operatorData.fullName,
+        stage_name: operatorData.stageName,
+        bio: operatorData.bio,
+        profile_image_url: operatorData.avatarUrl,
+        is_available: operatorData.isOnline,
+        service_prices: {
+          chat: Number.parseFloat(operatorData.services.chatPrice),
+          call: Number.parseFloat(operatorData.services.callPrice),
+          email: Number.parseFloat(operatorData.services.emailPrice),
+        },
+        commission_rate: Number.parseFloat(operatorData.commission),
+        availability_schedule: operatorData.availability,
+        status: operatorData.status,
+        phone: operatorData.phone,
+        main_discipline: operatorData.categories.length > 0 ? operatorData.categories[0] : null,
+      })
+      .eq("id", user.id) // Specify which profile to update
 
-  const userId = authData.user.id
+    if (profileError) {
+      console.error("Error updating operator profile:", profileError.message)
+      // Rollback: if updating the profile fails, delete the newly created user
+      await supabaseAdmin.auth.admin.deleteUser(user.id)
+      return { success: false, message: `Errore nell'aggiornamento del profilo: ${profileError.message}` }
+    }
 
-  // The trigger 'on_auth_user_created' should have already created the profile.
-  // Now, we just need to insert into the 'operators' table.
+    // 5. Associa le categorie all'operatore usando il CLIENT ADMIN
+    if (operatorData.categories && operatorData.categories.length > 0) {
+      const { data: categoriesData, error: categoriesError } = await supabaseAdmin
+        .from("categories")
+        .select("id, slug")
+        .in("name", operatorData.categories)
 
-  // 2. Create operator-specific data in public.operators
-  const { error: operatorError } = await supabaseAdmin.from("operators").insert({
-    profile_id: userId,
-    bio: bio,
-    commission_rate: Number.parseInt(commission, 10),
-    status: "pending", // Default status
-  })
+      if (categoriesError) {
+        console.error("Error fetching categories for association:", categoriesError.message)
+      } else if (categoriesData) {
+        const associations = categoriesData.map((cat) => ({
+          operator_id: user.id,
+          category_id: cat.id,
+        }))
+        const { error: associationError } = await supabaseAdmin.from("operator_categories").insert(associations)
 
-  if (operatorError) {
-    console.error("Error creating operator data:", operatorError)
-    // Cleanup: if operator creation fails, delete the auth user
-    await supabaseAdmin.auth.admin.deleteUser(userId)
-    return { error: `Errore durante la creazione dei dati operatore: ${operatorError.message}` }
-  }
+        if (associationError) {
+          console.error("Error creating operator category associations:", associationError.message)
+        }
+      }
+    }
 
-  revalidatePath("/admin/operators")
+    revalidatePath("/admin/operators")
+    revalidatePath("/")
 
-  return {
-    success: true,
-    message: `Operatore ${fullName} creato con successo!`,
-    temporaryPassword: temporaryPassword,
+    return {
+      success: true,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      temporaryPassword: temporaryPassword,
+    }
+  } catch (error) {
+    console.error("Unexpected error in createOperator:", error)
+    return { success: false, message: "Un errore imprevisto è accaduto." }
   }
 }
