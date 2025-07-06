@@ -17,53 +17,37 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          // Se il client di autenticazione vuole impostare un cookie,
-          // lo impostiamo sulla risposta in modo che venga inviato al browser.
-          response.cookies.set(name, value, options)
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          // Se il client di autenticazione vuole rimuovere un cookie,
-          // lo rimuoviamo dalla risposta.
-          response.cookies.set(name, "", options)
+          response.cookies.set({ name, value: "", ...options })
         },
       },
     },
   )
 
-  // Rinfresca la sessione utente se è scaduta.
-  // IMPORTANTE: `getSession()` deve essere chiamato per far funzionare l'autenticazione server-side.
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
   const url = request.nextUrl
 
-  // Se l'utente non è loggato e cerca di accedere a una rotta protetta,
-  // lo reindirizziamo alla pagina di login.
+  // Se l'utente non è loggato e cerca di accedere a una rotta protetta
   if (!session && (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard"))) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Se l'utente è loggato e cerca di accedere a /admin, verifichiamo il suo ruolo.
+  // Se l'utente è loggato e cerca di accedere a /admin, verifichiamo il ruolo
   if (session && url.pathname.startsWith("/admin")) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-    // Se il ruolo non è 'admin', lo reindirizziamo alla home page.
     if (profile?.role !== "admin") {
       return NextResponse.redirect(new URL("/", request.url))
     }
   }
 
-  // Se l'utente è loggato e cerca di accedere a /login o /register,
-  // lo reindirizziamo alla sua dashboard.
-  if (session && (url.pathname === "/login" || url.pathname === "/register")) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-    if (profile?.role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url))
-    } else if (profile?.role === "operator") {
-      return NextResponse.redirect(new URL("/dashboard/operator", request.url))
-    } else {
-      return NextResponse.redirect(new URL("/dashboard/client", request.url))
-    }
+  // Se l'utente è loggato e cerca di accedere a /login, lo reindirizziamo
+  if (session && url.pathname === "/login") {
+    return NextResponse.redirect(new URL("/", request.url))
   }
 
   return response
