@@ -107,7 +107,8 @@ export function OperatorProfileForm({ profile: initialProfile }: OperatorProfile
                   src={
                     avatarPreview ||
                     profile.avatar_url ||
-                    "/placeholder.svg?height=120&width=120&query=mystic+woman+portrait"
+                    "/placeholder.svg?height=120&width=120&query=mystic+woman+portrait" ||
+                    "/placeholder.svg"
                   }
                   alt={profile.nickname || `${profile.name} ${profile.surname}`}
                 />
