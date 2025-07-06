@@ -68,8 +68,7 @@ export default function CreateOperatorPage() {
   const [copied, setCopied] = useState(false)
 
   const [operator, setOperator] = useState({
-    name: "",
-    surname: "",
+    fullName: "",
     stageName: "",
     email: "",
     phone: "",
@@ -179,7 +178,7 @@ export default function CreateOperatorPage() {
   }
 
   const handleSave = async () => {
-    if (!operator.name || !operator.surname || !operator.stageName || !operator.email) {
+    if (!operator.fullName || !operator.stageName || !operator.email) {
       toast({ title: "Campi obbligatori mancanti", variant: "destructive" })
       return
     }
@@ -376,22 +375,11 @@ export default function CreateOperatorPage() {
                 </div>
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Nome Reale *</Label>
+                    <Label htmlFor="fullName">Nome e Cognome Reale *</Label>
                     <Input
-                      id="name"
-                      name="name"
-                      value={operator.name}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="surname">Cognome Reale *</Label>
-                    <Input
-                      id="surname"
-                      name="surname"
-                      value={operator.surname}
+                      id="fullName"
+                      name="fullName"
+                      value={operator.fullName}
                       onChange={handleInputChange}
                       className="mt-1"
                       required

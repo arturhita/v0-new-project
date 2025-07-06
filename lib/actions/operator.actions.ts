@@ -10,6 +10,7 @@ export async function createOperator(operatorData: any) {
   const supabase = createClient()
 
   try {
+    // 1. Verifica che l'utente corrente sia un admin
     const {
       data: { user: currentUser },
     } = await supabase.auth.getUser()
@@ -26,15 +27,17 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: "Non hai i permessi per creare un operatore." }
     }
 
+    // 2. Genera una password temporanea sicura
     const temporaryPassword = randomBytes(16).toString("hex")
 
+    // 3. Crea l'utente nel sistema di autenticazione di Supabase
     const {
       data: { user },
       error: createUserError,
     } = await supabase.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
-      email_confirm: true,
+      email_confirm: true, // L'utente non dovrà confermare l'email
       user_metadata: {
         full_name: operatorData.fullName,
       },
@@ -45,9 +48,10 @@ export async function createOperator(operatorData: any) {
       if (createUserError?.message.includes("already registered")) {
         return { success: false, message: "Un utente con questa email è già registrato." }
       }
-      return { success: false, message: "Errore nella creazione dell'utente operatore." }
+      return { success: false, message: `Errore nella creazione dell'utente: ${createUserError?.message}` }
     }
 
+    // 4. Aggiorna il profilo dell'utente (creato dal trigger) con i dati dell'operatore
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
@@ -57,23 +61,33 @@ export async function createOperator(operatorData: any) {
         bio: operatorData.bio,
         profile_image_url: operatorData.avatarUrl,
         is_available: operatorData.isOnline,
+        service_prices: {
+          chat: Number.parseFloat(operatorData.services.chatPrice),
+          call: Number.parseFloat(operatorData.services.callPrice),
+          email: Number.parseFloat(operatorData.services.emailPrice),
+        },
+        commission_rate: Number.parseFloat(operatorData.commission),
+        availability_schedule: operatorData.availability,
       })
       .eq("id", user.id)
 
     if (profileError) {
       console.error("Error updating operator profile:", profileError.message)
-      return { success: false, message: "Errore nell'aggiornamento del profilo operatore." }
+      // Rollback: se l'aggiornamento del profilo fallisce, elimina l'utente appena creato
+      await supabase.auth.admin.deleteUser(user.id)
+      return { success: false, message: `Errore nell'aggiornamento del profilo: ${profileError.message}` }
     }
 
+    // 5. Associa le categorie all'operatore
     if (operatorData.categories && operatorData.categories.length > 0) {
       const { data: categoriesData, error: categoriesError } = await supabase
         .from("categories")
-        .select("id")
-        .in("slug", operatorData.categories)
+        .select("id, slug")
+        .in("name", operatorData.categories) // Cerca per nome, non per slug
 
       if (categoriesError) {
         console.error("Error fetching categories for association:", categoriesError.message)
-      } else {
+      } else if (categoriesData) {
         const associations = categoriesData.map((cat) => ({
           operator_id: user.id,
           category_id: cat.id,
@@ -86,8 +100,11 @@ export async function createOperator(operatorData: any) {
       }
     }
 
+    // 6. Invalida la cache per aggiornare le liste di operatori
     revalidatePath("/admin/operators")
     revalidatePath("/")
+
+    // 7. Restituisci successo e password temporanea
     return {
       success: true,
       message: `Operatore ${operatorData.stageName} creato con successo!`,
