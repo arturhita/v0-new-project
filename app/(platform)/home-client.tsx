@@ -1,23 +1,23 @@
 "use client"
 
-import { useState } from "react"
-import { motion } from "framer-motion"
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Search, ChevronRight, Star, Users, Calendar, Sparkles } from "lucide-react"
-import OperatorCard from "@/components/operator-card"
-import ReviewCard, { type Review as ReviewCardType } from "@/components/review-card"
+import { OperatorCard } from "@/components/operator-card" // FIX: Changed to named import
+import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
+import { ConstellationBackground } from "@/components/constellation-background"
 import type { Profile } from "@/contexts/auth-context"
-import Image from "next/image"
 
-const categories = [
-  { name: "Cartomanzia", icon: Sparkles },
-  { name: "Astrologia", icon: Sparkles },
-  { name: "S मीडियम", icon: Sparkles },
-  { name: "Guarigione Energetica", icon: Sparkles },
-]
+const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
+  const date = new Date()
+  if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
+  if (hoursAgo) date.setHours(date.getHours() - hoursAgo)
+  if (minutesAgo) date.setMinutes(date.getMinutes() - minutesAgo)
+  return date.toISOString()
+}
 
-const allMockReviews: ReviewCardType[] = [
+export const allMockReviews: ReviewCardType[] = [
   {
     id: "r1",
     userName: "Giulia R.",
@@ -25,7 +25,7 @@ const allMockReviews: ReviewCardType[] = [
     operatorName: "Luna Stellare",
     rating: 5,
     comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
-    date: new Date(Date.now() - 49 * 60 * 1000).toISOString(),
+    date: generateTimeAgo(0, 0, 49),
   },
   {
     id: "r2",
@@ -34,7 +34,7 @@ const allMockReviews: ReviewCardType[] = [
     operatorName: "Maestro Cosmos",
     rating: 5,
     comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
-    date: new Date(Date.now() - 57 * 60 * 1000).toISOString(),
+    date: generateTimeAgo(0, 0, 57),
   },
   {
     id: "r3",
@@ -44,7 +44,7 @@ const allMockReviews: ReviewCardType[] = [
     rating: 4,
     comment:
       "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
-    date: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    date: generateTimeAgo(0, 1),
   },
 ]
 
@@ -53,197 +53,407 @@ interface HomeClientProps {
 }
 
 export function HomeClient({ initialOperators }: HomeClientProps) {
-  const [activeCategory, setActiveCategory] = useState("Cartomanzia")
-  const [reviews] = useState<ReviewCardType[]>(allMockReviews)
+  const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
+  const [isLoaded, setIsLoaded] = useState(false)
 
-  const operatorsForCategory = initialOperators
-    .filter((op) => op.specializations?.some((s) => s.toLowerCase() === activeCategory.toLowerCase()))
-    .map((op) => ({
-      id: op.id,
-      name: op.stage_name || "Operatore",
-      avatarUrl: op.profile_image_url || "/placeholder.svg?width=96&height=96", // FIX: Changed avatar_url to profile_image_url
-      specialization: op.specializations?.[0] || "N/A",
-      rating: op.average_rating || 0,
-      reviewsCount: op.review_count || 0,
-      description: op.bio || "Nessuna descrizione",
-      tags: op.specializations || [],
-      isOnline: op.is_available || false,
-      services: {
-        chatPrice: op.service_prices?.chat || undefined,
-        callPrice: op.service_prices?.call || undefined,
-        emailPrice: op.service_prices?.email || undefined,
-      },
-      joinedDate: op.created_at || new Date().toISOString(),
-    }))
+  useEffect(() => {
+    setIsLoaded(true)
+    const updateReviews = () => {
+      const shuffled = [...allMockReviews].sort(() => 0.5 - Math.random())
+      setDisplayedReviews(shuffled.slice(0, 3))
+    }
+    updateReviews()
+    const intervalId = setInterval(updateReviews, 15000)
+    return () => clearInterval(intervalId)
+  }, [])
+
+  const newTalents = initialOperators
+    .filter((op) => op.created_at && new Date(op.created_at) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
+    .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
+    .slice(0, 3)
 
   return (
-    <div className="bg-slate-900 text-white">
-      {/* Hero Section */}
-      <section className="relative py-20 md:py-32 text-center overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src="/images/hero-background.png"
-            alt="Sfondo mistico"
-            layout="fill"
-            objectFit="cover"
-            quality={100}
-            className="opacity-20"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900/80 to-slate-900"></div>
-        </div>
-        <div className="container relative z-10">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-4xl md:text-6xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-white to-purple-300"
-          >
-            Il Tuo Futuro, Svelato.
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="mt-4 max-w-2xl mx-auto text-lg text-slate-300"
-          >
-            Connettiti con i migliori cartomanti, astrologi e guide spirituali. Ricevi risposte chiare e guida per il
-            tuo cammino.
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            <div className="relative w-full sm:w-auto flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <Input
-                type="search"
-                placeholder="Cerca un esperto o un servizio..."
-                className="w-full pl-10 pr-4 py-3 rounded-full bg-slate-800 border-slate-700 focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-            <Button className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 rounded-full px-8 py-3 text-base font-semibold transition-transform transform hover:scale-105">
-              Cerca Ora
-            </Button>
-          </motion.div>
-        </div>
-      </section>
+    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
+      <style jsx>{`
+       @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
-      {/* Operators Section */}
-      <section className="py-16 md:py-24">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold">I Nostri Esperti</h2>
-            <p className="mt-3 text-slate-400 max-w-xl mx-auto">
-              Professionisti selezionati per offrirti consulenze di alta qualità, con empatia e riservatezza.
-            </p>
+       .font-playfair {
+         font-family: "Playfair Display", serif;
+       }
+       @keyframes fadeInUp {
+         from {
+           opacity: 0;
+           transform: translateY(30px);
+         }
+         to {
+           opacity: 1;
+           transform: translateY(0);
+         }
+       }
+       @keyframes fadeInLeft {
+         from {
+           opacity: 0;
+           transform: translateX(-30px);
+         }
+         to {
+           opacity: 1;
+           transform: translateX(0);
+         }
+       }
+       @keyframes fadeInRight {
+         from {
+           opacity: 0;
+           transform: translateX(30px);
+         }
+         to {
+           opacity: 1;
+           transform: translateX(0);
+         }
+       }
+       @keyframes scaleIn {
+         from {
+           opacity: 0;
+           transform: scale(0.9);
+         }
+         to {
+           opacity: 1;
+           transform: scale(1);
+         }
+       }
+       @keyframes float {
+         0%,
+         100% {
+           transform: translateY(0px);
+         }
+         50% {
+           transform: translateY(-10px);
+         }
+       }
+       @keyframes glow {
+         0%,
+         100% {
+           box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
+         }
+         50% {
+           box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
+         }
+       }
+       .animate-fadeInUp {
+         animation: fadeInUp 1s ease-out forwards;
+       }
+       .animate-fadeInLeft {
+         animation: fadeInLeft 0.8s ease-out forwards;
+       }
+       .animate-fadeInRight {
+         animation: fadeInRight 0.8s ease-out forwards;
+       }
+       .animate-scaleIn {
+         animation: scaleIn 0.6s ease-out forwards;
+       }
+       .animate-float {
+         animation: float 3s ease-in-out infinite;
+       }
+       .animate-glow {
+         animation: glow 2s ease-in-out infinite;
+       }
+     `}</style>
+
+      <main className="flex-1">
+        {/* Hero Section - RIPRISTINATA */}
+        <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/images/hero-background.png')" }}
+          >
+            <div className="absolute inset-0 bg-black/40"></div>
           </div>
 
-          <div className="mb-8 flex justify-center flex-wrap gap-2">
-            {categories.map((category) => (
+          <div
+            className={`relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 ${
+              isLoaded ? "animate-fadeInUp" : "opacity-0"
+            }`}
+          >
+            <h1
+              className="font-playfair font-bold text-white text-6xl md:text-8xl"
+              style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
+            >
+              Il Viaggio
+            </h1>
+            <h2
+              className="font-playfair text-white text-4xl md:text-5xl"
+              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
+            >
+              Inizia da Qui
+            </h2>
+            <Link href="/esperti/cartomanzia" passHref>
               <Button
-                key={category.name}
-                variant={activeCategory === category.name ? "default" : "outline"}
-                onClick={() => setActiveCategory(category.name)}
-                className={`rounded-full px-6 py-2 transition-all duration-300 ${
-                  activeCategory === category.name
-                    ? "bg-purple-600 text-white border-purple-600"
-                    : "text-slate-300 border-slate-600 hover:bg-slate-800 hover:text-white"
-                }`}
+                size="lg"
+                className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
               >
-                <category.icon className="w-4 h-4 mr-2" />
-                {category.name}
+                Cerca Esperti
               </Button>
-            ))}
+            </Link>
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {operatorsForCategory.map((operator) => (
-              <motion.div
-                key={operator.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <OperatorCard {...operator} />
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="mt-12 text-center">
-            <Button variant="ghost" className="text-purple-400 hover:text-purple-300 group">
-              Vedi tutti gli esperti{" "}
-              <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* How it works Section */}
-      <section className="py-16 md:py-24 bg-slate-950/50">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold">Come Funziona</h2>
-            <p className="mt-3 text-slate-400 max-w-xl mx-auto">
-              Inizia il tuo percorso di scoperta in tre semplici passi.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div className="flex flex-col items-center p-6 bg-slate-800/50 rounded-xl">
-              <div className="p-4 bg-purple-900/50 rounded-full mb-4">
-                <Users className="h-8 w-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">1. Scegli il tuo Esperto</h3>
-              <p className="text-slate-400">
-                Sfoglia i profili, leggi le recensioni e trova la guida spirituale perfetta per te.
+        {/* Operator Boxes Section - CON DATI REALI */}
+        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
+          <ConstellationBackground goldVisible={true} />
+          <div className="container px-4 md:px-6 relative z-10">
+            <div className="text-center mb-12 md:mb-16">
+              <h2 className="text-3xl font-bold md:text-4xl text-white">Esperti pronti ad illuminarti</h2>
+              <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+                Trova la tua guida spirituale, disponibile ora per svelare i misteri del tuo destino.
               </p>
             </div>
-            <div className="flex flex-col items-center p-6 bg-slate-800/50 rounded-xl">
-              <div className="p-4 bg-purple-900/50 rounded-full mb-4">
-                <Calendar className="h-8 w-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">2. Ricarica e Chiama</h3>
-              <p className="text-slate-400">
-                Aggiungi credito al tuo account in modo sicuro e avvia una chat o una chiamata quando vuoi.
-              </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {initialOperators.slice(0, 8).map((operator, index) => (
+                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                  <OperatorCard operator={operator} />
+                </div>
+              ))}
             </div>
-            <div className="flex flex-col items-center p-6 bg-slate-800/50 rounded-xl">
-              <div className="p-4 bg-purple-900/50 rounded-full mb-4">
-                <Sparkles className="h-8 w-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">3. Ottieni le tue Risposte</h3>
-              <p className="text-slate-400">
-                Ricevi una consulenza personale e illuminante per fare chiarezza nella tua vita.
-              </p>
+            <div className="text-center mt-12">
+              <Link href="/esperti/cartomanzia" passHref>
+                <Button
+                  variant="default"
+                  size="lg"
+                  className="rounded-full px-8 py-3 text-lg bg-gradient-to-r from-white to-blue-300 text-[#1E3C98] hover:from-blue-100 hover:to-blue-400 transition-all duration-300 group shadow-lg hover:shadow-blue-500/20 hover:scale-105 font-semibold group"
+                >
+                  <Sparkles className="mr-2 h-5 w-5 group-hover:animate-pulse" />
+                  Vedi Tutti gli Esperti
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Reviews Section */}
-      <section className="py-16 md:py-24">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold">Le Voci dei Nostri Utenti</h2>
-            <div className="flex items-center justify-center mt-3 text-amber-400">
-              <Star className="w-6 h-6 fill-current" />
-              <Star className="w-6 h-6 fill-current" />
-              <Star className="w-6 h-6 fill-current" />
-              <Star className="w-6 h-6 fill-current" />
-              <Star className="w-6 h-6 fill-current" />
-              <span className="ml-3 text-slate-300 font-semibold">4.9 stelle su 500+ recensioni</span>
+        {/* Quote Section - RIPRISTINATA */}
+        <section className="py-12 md:py-16">
+          <div className="container mx-auto px-4">
+            <div className="bg-gradient-to-r from-blue-900/50 to-slate-800/50 rounded-2xl shadow-xl p-8 md:p-12">
+              <blockquote className="text-center">
+                <p className="text-2xl md:text-3xl italic text-white font-playfair">
+                  "L'intuizione è la voce dell'anima. Impara ad ascoltarla."
+                </p>
+              </blockquote>
             </div>
           </div>
-          <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {reviews.map((review) => (
-                <ReviewCard key={review.id} {...review} />
+        </section>
+
+        {/* Services Section */}
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+          <ConstellationBackground goldVisible={false} />
+          <div className="container px-4 md:px-6 relative z-10">
+            <div className="text-center mb-12 md:mb-16">
+              <h2 className="text-3xl font-bold md:text-4xl text-white">Servizi Spirituali Disponibili</h2>
+              <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+                Esplora i diversi cammini verso l'illuminazione attraverso le nostre discipline mistiche.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {[
+                { title: "Cartomanzia", description: "Letture di tarocchi e carte per svelare il futuro", icon: "🔮" },
+                {
+                  title: "Numerologia",
+                  description: "Scopri i segreti nascosti nei numeri del tuo destino",
+                  icon: "🔢",
+                },
+                {
+                  title: "Astrologia",
+                  description: "Carte natali e interpretazioni astrali personalizzate",
+                  icon: "⭐",
+                },
+                { title: "Canalizzazione", description: "Connessioni spirituali con energie superiori", icon: "✨" },
+                {
+                  title: "Guarigione Energetica",
+                  description: "Riequilibrio dei chakra e armonizzazione energetica",
+                  icon: "🌟",
+                },
+                { title: "Rune", description: "Antiche divinazioni attraverso simboli runici", icon: "🪬" },
+                { title: "Cristalloterapia", description: "Poteri curativi e energetici dei cristalli", icon: "💎" },
+                { title: "Medianità", description: "Comunicazione con il mondo spirituale", icon: "👻" },
+              ].map((service, index) => (
+                <div
+                  key={service.title}
+                  className="group relative overflow-hidden bg-gradient-to-br from-blue-900/50 via-slate-800/50 to-blue-900/50 backdrop-blur-md rounded-2xl shadow-lg hover:shadow-yellow-400/10 transition-all duration-500 transform hover:-translate-y-2 cursor-pointer animate-scaleIn border border-blue-700/50"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="relative p-8 text-center h-full flex flex-col items-center">
+                    <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-500 animate-float">
+                      {service.icon}
+                    </div>
+                    <h3 className="text-xl font-bold mb-4 text-white">{service.title}</h3>
+                    <p className="text-slate-300 text-sm leading-relaxed flex-1">{service.description}</p>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* Reviews Section */}
+        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
+          <ConstellationBackground goldVisible={true} />
+          <div className="container px-4 md:px-6 relative z-10">
+            <div className="text-center mb-12 md:mb-16">
+              <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
+              <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+                Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
+              </p>
+            </div>
+            {displayedReviews.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                {displayedReviews.map((review, index) => (
+                  <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                    <ReviewCard review={review} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-slate-400">Caricamento testimonianze...</div>
+            )}
+          </div>
+        </section>
+
+        {/* Why Trust Us Section */}
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+          <ConstellationBackground goldVisible={false} />
+          <div className="container px-4 md:px-6 relative z-10">
+            <div className="text-center mb-16 md:mb-20">
+              <h2 className="text-3xl font-bold md:text-4xl lg:text-5xl text-white mb-6">La Magia di Moonthir</h2>
+              <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
+                Scopri perché migliaia di anime si affidano alla nostra guida spirituale per illuminare il loro cammino
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              <div className="space-y-8 animate-fadeInLeft">
+                {[
+                  {
+                    number: "01",
+                    title: "Esperti Certificati",
+                    description:
+                      "I nostri maestri spirituali sono selezionati attraverso rigorosi test di competenza e sensibilità. Ogni consulente porta anni di esperienza e una connessione autentica con le energie universali.",
+                    icon: "✨",
+                  },
+                  {
+                    number: "02",
+                    title: "Disponibilità 24/7",
+                    description:
+                      "L'universo non dorme mai, e nemmeno noi. I nostri esperti sono disponibili in ogni momento per guidarti attraverso le sfide della vita, quando ne hai più bisogno.",
+                    icon: "🌙",
+                  },
+                  {
+                    number: "03",
+                    title: "Letture Personalizzate",
+                    description:
+                      "Ogni consulenza è unica come la tua anima. Utilizziamo tecniche antiche e moderne per offrirti insight profondi e consigli su misura per il tuo percorso spirituale.",
+                    icon: "🔮",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="group flex items-start space-x-6">
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-800 to-slate-800 flex items-center justify-center text-xl font-bold text-yellow-400 shadow-lg group-hover:scale-110 transition-transform duration-300 border-2 border-blue-700">
+                        {item.number}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-white mb-2">
+                        {item.icon} {item.title}
+                      </h3>
+                      <p className="text-slate-300 leading-relaxed">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="relative animate-fadeInRight">
+                <div className="relative bg-gradient-to-br from-blue-900/50 to-slate-800/50 backdrop-blur-md rounded-2xl p-8 border border-blue-700/50 shadow-2xl">
+                  <div className="text-center space-y-8">
+                    <div>
+                      <div className="text-7xl font-black text-white">98%</div>
+                      <p className="text-xl text-slate-300">Clienti Soddisfatti</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="text-center p-4 rounded-xl bg-slate-800/50 border border-blue-800">
+                        <div className="text-4xl font-black text-white mb-2">15K+</div>
+                        <p className="text-sm text-slate-400">Consulenze</p>
+                      </div>
+                      <div className="text-center p-4 rounded-xl bg-slate-800/50 border border-blue-800">
+                        <div className="text-4xl font-black text-white mb-2">24/7</div>
+                        <p className="text-sm text-slate-400">Supporto</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* New Talents Section */}
+        {newTalents.length > 0 && (
+          <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
+            <ConstellationBackground goldVisible={true} />
+            <div className="container px-4 md:px-6 relative z-10">
+              <div className="text-center mb-12 md:mb-16">
+                <h2 className="text-3xl font-bold md:text-4xl text-white">Nuovi talenti Moonthir</h2>
+                <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+                  Scopri i maestri spirituali che si sono uniti di recente alla nostra comunità mistica.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                {newTalents.map((operator, index) => (
+                  <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                    <OperatorCard operator={operator} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Ready to Reveal Section */}
+        <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+          <ConstellationBackground goldVisible={true} />
+          <div className="container px-4 md:px-6 relative z-10">
+            <div className="text-center max-w-3xl mx-auto">
+              <div className="mb-8 animate-float">
+                <div className="text-6xl md:text-8xl">🌙</div>
+              </div>
+              <h2 className="text-4xl font-bold md:text-5xl text-white mb-6">
+                Pronto a Svelare i Misteri del Tuo Destino?
+              </h2>
+              <p className="text-xl text-slate-300 mb-12">
+                L'universo ha preparato per te un cammino unico. I nostri maestri sono qui per illuminare ogni passo del
+                tuo viaggio.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
+                >
+                  <Link href="/esperti/cartomanzia">
+                    Inizia la Tua Prima Lettura
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="text-white border-2 border-yellow-400/60 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:border-yellow-400 text-lg px-8 py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
+                >
+                  <Link href="/esperti/cartomanzia">Esplora i Nostri Esperti</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }
