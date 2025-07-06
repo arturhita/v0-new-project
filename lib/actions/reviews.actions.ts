@@ -1,7 +1,6 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
 
 export interface Review {
   id: string
@@ -164,36 +163,51 @@ export async function moderateReview(reviewId: string, approved: boolean) {
   return { success: true }
 }
 
-export async function getReviewsForOperator(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(`
-      id,
-      rating,
-      comment,
-      created_at,
-      service_type,
-      client:profiles!client_id (
-        id,
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq("operator_id", operatorId)
-    .order("created_at", { ascending: false })
+// Per ora, usiamo delle recensioni mock. In futuro, le leggeremo dal database.
+const mockReviews = [
+  {
+    id: "rev1",
+    user_id: "user1",
+    operator_id: "op1",
+    rating: 5,
+    comment: "Una guida eccezionale! Le sue parole mi hanno dato la chiarezza che cercavo. Consigliatissima!",
+    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    user_full_name: "Elena R.",
+  },
+  {
+    id: "rev2",
+    user_id: "user2",
+    operator_id: "op1",
+    rating: 5,
+    comment: "Professionale, empatica e incredibilmente accurata. Mi ha aiutato a superare un momento difficile.",
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    user_full_name: "Marco V.",
+  },
+  {
+    id: "rev3",
+    user_id: "user3",
+    operator_id: "op1",
+    rating: 4,
+    comment: "Lettura molto interessante e piena di spunti di riflessione. Grazie di cuore.",
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    user_full_name: "Sofia G.",
+  },
+]
 
-  if (error) {
-    console.error("Error fetching reviews:", error)
-    return []
-  }
-  // Semplifichiamo l'oggetto di ritorno
-  return data.map((review) => ({
-    id: review.id,
-    userName: review.client?.full_name || "Utente Anonimo",
-    rating: review.rating,
-    comment: review.comment,
-    date: new Date(review.created_at).toLocaleDateString("it-IT", { day: "numeric", month: "short" }),
-    serviceType: review.service_type,
-  }))
+export async function getReviewsForOperator(operatorId: string) {
+  // const supabase = createClient();
+  // const { data, error } = await supabase
+  //   .from('reviews')
+  //   .select('*, profiles(full_name)')
+  //   .eq('operator_id', operatorId)
+  //   .order('created_at', { ascending: false });
+
+  // if (error) {
+  //   console.error('Error fetching reviews:', error);
+  //   return [];
+  // }
+
+  // Per ora, restituiamo dati finti
+  console.log(`Fetching reviews for operator: ${operatorId}`)
+  return mockReviews.map((review) => ({ ...review, operator_id: operatorId }))
 }
