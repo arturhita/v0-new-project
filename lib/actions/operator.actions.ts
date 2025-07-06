@@ -10,7 +10,6 @@ export async function createOperator(operatorData: any) {
   const supabase = createClient()
 
   try {
-    // Controllo di sicurezza: verifica che l'utente che esegue l'azione sia un admin
     const {
       data: { user: currentUser },
     } = await supabase.auth.getUser()
@@ -27,17 +26,15 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: "Non hai i permessi per creare un operatore." }
     }
 
-    // 1. Genera una password temporanea sicura
     const temporaryPassword = randomBytes(16).toString("hex")
 
-    // 2. Crea l'utente direttamente con email e password
     const {
       data: { user },
       error: createUserError,
     } = await supabase.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
-      email_confirm: true, // Conferma automaticamente l'email
+      email_confirm: true,
       user_metadata: {
         full_name: `${operatorData.name} ${operatorData.surname}`,
       },
@@ -51,7 +48,6 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: "Errore nella creazione dell'utente operatore." }
     }
 
-    // 3. Preparare i dati per l'inserimento nella tabella 'profiles'
     const profileData = {
       id: user.id,
       role: "operator" as const,
@@ -60,8 +56,7 @@ export async function createOperator(operatorData: any) {
       email: operatorData.email,
       phone_number: operatorData.phone,
       bio: operatorData.bio,
-      profile_image_url: operatorData.avatarUrl, // FIX: Changed avatar_url to profile_image_url
-      specializations: operatorData.categories,
+      profile_image_url: operatorData.avatarUrl,
       is_available: operatorData.isOnline,
       commission_rate: Number.parseFloat(operatorData.commission),
       service_prices: {
@@ -72,7 +67,6 @@ export async function createOperator(operatorData: any) {
       availability_schedule: operatorData.availability,
     }
 
-    // 4. Inserire il profilo nella tabella 'profiles'
     const { error: profileError } = await supabase.from("profiles").insert(profileData)
 
     if (profileError) {
@@ -81,11 +75,33 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: "Errore nella creazione del profilo operatore." }
     }
 
+    if (operatorData.categories && operatorData.categories.length > 0) {
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from("categories")
+        .select("id")
+        .in("slug", operatorData.categories)
+
+      if (categoriesError) {
+        console.error("Error fetching categories for association:", categoriesError.message)
+      } else {
+        const associations = categoriesData.map((cat) => ({
+          operator_id: user.id,
+          category_id: cat.id,
+        }))
+        const { error: associationError } = await supabase.from("operator_categories").insert(associations)
+
+        if (associationError) {
+          console.error("Error creating operator category associations:", associationError.message)
+        }
+      }
+    }
+
     revalidatePath("/admin/operators")
+    revalidatePath("/")
     return {
       success: true,
       message: `Operatore ${operatorData.stageName} creato con successo!`,
-      temporaryPassword: temporaryPassword, // Restituisce la password per mostrarla all'admin
+      temporaryPassword: temporaryPassword,
     }
   } catch (error) {
     console.error("Unexpected error in createOperator:", error)
@@ -93,11 +109,7 @@ export async function createOperator(operatorData: any) {
   }
 }
 
-// Funzioni esistenti per recuperare gli operatori
-export async function getOperators(options?: {
-  limit?: number
-  category?: string
-}): Promise<Profile[]> {
+export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
   const supabase = createClient()
 
   let query = supabase
@@ -107,22 +119,22 @@ export async function getOperators(options?: {
       id,
       stage_name,
       bio,
-      specializations,
       is_available,
       profile_image_url, 
       service_prices,
       average_rating,
-      review_count 
+      review_count,
+      categories ( name, slug )
     `,
     )
     .eq("role", "operator")
 
-  if (options?.limit) {
-    query = query.limit(options.limit)
+  if (options?.category) {
+    query = query.filter("categories.slug", "eq", options.category)
   }
 
-  if (options?.category) {
-    query = query.contains("specializations", [options.category.charAt(0).toUpperCase() + options.category.slice(1)])
+  if (options?.limit) {
+    query = query.limit(options.limit)
   }
 
   query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
@@ -134,14 +146,25 @@ export async function getOperators(options?: {
     return []
   }
 
-  return data as Profile[]
+  const profiles = data.map((profile) => ({
+    ...profile,
+    // @ts-ignore
+    specializations: profile.categories.map((cat) => cat.name),
+  }))
+
+  return profiles as Profile[]
 }
 
 export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select(
+      `
+        *,
+        categories ( name, slug )
+    `,
+    )
     .eq("stage_name", stageName)
     .eq("role", "operator")
     .single()
@@ -151,17 +174,38 @@ export async function getOperatorByStageName(stageName: string): Promise<Profile
     return null
   }
 
-  return data as Profile
+  const profile = {
+    ...data,
+    // @ts-ignore
+    specializations: data.categories.map((cat) => cat.name),
+  }
+
+  return profile as Profile
 }
 
 export async function getOperatorById(id: string): Promise<Profile | null> {
   const supabase = createClient()
 
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+        *,
+        categories ( name, slug )
+    `,
+    )
+    .eq("id", id)
+    .single()
 
   if (error) {
     console.error(`Error fetching operator by ID ${id}:`, error.message)
     return null
+  }
+
+  const profile = {
+    ...data,
+    // @ts-ignore
+    specializations: data.categories.map((cat) => cat.name),
   }
 
   return data as Profile
