@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,7 +11,9 @@ import GamificationWidget from "@/components/gamification-widget"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { WalletRecharge } from "@/components/wallet-recharge"
+import { getClientDashboardData } from "@/lib/actions/client.actions"
 
+// Componente per le card informative con stato di caricamento
 const InfoCard = ({
   title,
   value,
@@ -19,6 +21,7 @@ const InfoCard = ({
   link,
   linkText,
   gradient,
+  isLoading,
 }: {
   title: string
   value: string
@@ -26,6 +29,7 @@ const InfoCard = ({
   link?: string
   linkText?: string
   gradient?: string
+  isLoading?: boolean
 }) => (
   <Card
     className={`backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl ${gradient || ""}`}
@@ -35,51 +39,80 @@ const InfoCard = ({
       <Icon className="h-5 w-5 text-white/80" />
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      {link && linkText && (
-        <Link href={link} className="text-xs text-white/70 hover:text-white transition-colors mt-1 inline-block">
-          {linkText}
-        </Link>
+      {isLoading ? (
+        <div className="h-8 flex items-center">
+          <Loader2 className="h-5 w-5 animate-spin text-white/80" />
+        </div>
+      ) : (
+        <>
+          <div className="text-2xl font-bold text-white">{value}</div>
+          {link && linkText && (
+            <Link href={link} className="text-xs text-white/70 hover:text-white transition-colors mt-1 inline-block">
+              {linkText}
+            </Link>
+          )}
+        </>
       )}
     </CardContent>
   </Card>
 )
 
+// Dati statici per gli esperti preferiti
+const favoriteExperts = [
+  {
+    id: "exp1",
+    name: "Dott.ssa Elena Bianchi",
+    specialty: "Psicologia Clinica",
+    avatar: "/placeholder.svg?height=40&width=40",
+    status: "online",
+  },
+  {
+    id: "exp2",
+    name: "Avv. Marco Rossetti",
+    specialty: "Diritto Civile",
+    avatar: "/placeholder.svg?height=40&width=40",
+    status: "busy",
+  },
+  {
+    id: "exp3",
+    name: "Ing. Sofia Moretti",
+    specialty: "Consulenza Energetica",
+    avatar: "/placeholder.svg?height=40&width=40",
+    status: "offline",
+  },
+]
+
 export default function ClientDashboardPage() {
-  const { profile, loading, user } = useAuth()
+  const { profile, loading: authLoading, user } = useAuth()
   const router = useRouter()
 
+  const [dashboardData, setDashboardData] = useState<{
+    walletBalance: number
+    recentConsultationsCount: number
+    unreadMessagesCount: number
+  } | null>(null)
+  const [dataLoading, setDataLoading] = useState(true)
+
+  // Protezione della rotta e caricamento dati
   useEffect(() => {
-    if (!loading && (!user || profile?.role !== "client")) {
-      router.push("/login")
+    if (!authLoading) {
+      if (!user || profile?.role !== "client") {
+        router.push("/login")
+      } else if (profile) {
+        getClientDashboardData(profile.id)
+          .then((data) => {
+            setDashboardData(data)
+          })
+          .catch(console.error)
+          .finally(() => {
+            setDataLoading(false)
+          })
+      }
     }
-  }, [loading, user, profile, router])
+  }, [authLoading, user, profile, router])
 
-  const favoriteExperts = [
-    {
-      id: "exp1",
-      name: "Dott.ssa Elena Bianchi",
-      specialty: "Psicologia Clinica",
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "online",
-    },
-    {
-      id: "exp2",
-      name: "Avv. Marco Rossetti",
-      specialty: "Diritto Civile",
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "busy",
-    },
-    {
-      id: "exp3",
-      name: "Ing. Sofia Moretti",
-      specialty: "Consulenza Energetica",
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "offline",
-    },
-  ]
-
-  if (loading || !profile) {
+  // Stato di caricamento principale
+  if (authLoading || !profile) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -89,8 +122,8 @@ export default function ClientDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] opacity-5"></div>
+      {/* Effetti di sfondo */}
+      <div className="absolute inset-0 bg-[url('/images/crescent-moon-concept.avif')] bg-cover bg-center opacity-10"></div>
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/20 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
@@ -107,42 +140,49 @@ export default function ClientDashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <InfoCard
             title="Consulenze Recenti"
-            value="2"
+            value={dashboardData?.recentConsultationsCount.toString() ?? "0"}
             icon={Clock}
             link="/dashboard/client/consultations"
             linkText="Vedi storico completo"
             gradient="bg-gradient-to-br from-sky-500/20 to-sky-600/20"
+            isLoading={dataLoading}
           />
           <InfoCard
             title="Messaggi Non Letti"
-            value="3"
+            value={dashboardData?.unreadMessagesCount.toString() ?? "0"}
             icon={MessageSquare}
             link="/dashboard/client/messages"
             linkText="Vai ai messaggi"
             gradient="bg-gradient-to-br from-teal-500/20 to-teal-600/20"
+            isLoading={dataLoading}
           />
           <InfoCard
             title="Saldo Wallet"
-            value="€ 55.00"
+            value={`€ ${dashboardData?.walletBalance.toFixed(2) ?? "0.00"}`}
             icon={Wallet}
             link="/dashboard/client/wallet"
             linkText="Gestisci wallet"
             gradient="bg-gradient-to-br from-indigo-500/20 to-indigo-600/20"
+            isLoading={dataLoading}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="bg-gray-800 border-gray-700 text-white">
+          <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700 text-white">
             <CardHeader>
               <CardTitle>Il Mio Credito</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold">€ 25,00</p>
+              {dataLoading ? (
+                <Loader2 className="h-8 w-8 animate-spin text-white/80" />
+              ) : (
+                <p className="text-4xl font-bold">€ {dashboardData?.walletBalance.toFixed(2) ?? "0.00"}</p>
+              )}
               <WalletRecharge />
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-800 border-gray-700 text-white">
+          <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700 text-white">
             <CardHeader>
               <CardTitle>Prossima Consulenza</CardTitle>
             </CardHeader>
@@ -157,7 +197,7 @@ export default function ClientDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-800 border-gray-700 text-white">
+          <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700 text-white">
             <CardHeader>
               <CardTitle>Messaggi Recenti</CardTitle>
             </CardHeader>
