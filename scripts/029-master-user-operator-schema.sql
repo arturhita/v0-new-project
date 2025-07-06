@@ -1,16 +1,21 @@
 -- =================================================================
--- FULL SCHEMA RESET SCRIPT (v2 - CASCADE FIX)
--- This script resets and rebuilds the user/operator schema and all its dependencies.
--- It uses CASCADE to ensure a clean teardown and solve dependency errors.
+-- FULL SCHEMA RESET SCRIPT (v3 - TRIGGER FIX)
+-- This script resets and rebuilds the entire user/operator schema and all its dependencies.
+-- It explicitly drops the trigger on auth.users before dropping the function to solve dependency errors.
 -- =================================================================
 
--- Step 1: Drop dependent views first to be explicit
+-- Step 1: Drop dependent views first.
 DROP VIEW IF EXISTS public.operators_view;
 DROP VIEW IF EXISTS public.admin_users_view;
 DROP VIEW IF EXISTS public.admin_operators_view; -- legacy name
 
--- Step 2: Drop the core tables with CASCADE. This will remove all related FKs, indexes, etc.
--- This is the key fix for the "cannot drop table profiles because other objects depend on it" error.
+-- Step 2: Drop the trigger from the auth.users table. THIS IS THE CRITICAL FIX.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Step 3: Now that the trigger is gone, drop the function.
+DROP FUNCTION IF EXISTS public.handle_new_user();
+
+-- Step 4: Drop the core tables with CASCADE.
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.operators CASCADE;
 DROP TABLE IF EXISTS public.categories CASCADE;
@@ -19,9 +24,7 @@ DROP TABLE IF EXISTS public.wallets CASCADE;
 DROP TABLE IF EXISTS public.chat_sessions CASCADE;
 DROP TABLE IF EXISTS public.messages CASCADE;
 
--- Step 3: Drop types and functions. CASCADE from table drop might handle this, but being explicit is safer.
-DROP FUNCTION IF EXISTS public.handle_new_user();
-DROP FUNCTION IF EXISTS public.is_admin(uuid);
+-- Step 5: Drop types.
 DROP TYPE IF EXISTS public.user_role;
 DROP TYPE IF EXISTS public.operator_status;
 
@@ -29,11 +32,11 @@ DROP TYPE IF EXISTS public.operator_status;
 -- REBUILD SCHEMA
 -- =================================================================
 
--- Step 4: Re-create custom ENUM types.
+-- Step 6: Re-create custom ENUM types.
 CREATE TYPE public.user_role AS ENUM ('admin', 'client', 'operator');
 CREATE TYPE public.operator_status AS ENUM ('active', 'pending', 'suspended');
 
--- Step 5: Re-create the 'profiles' table.
+-- Step 7: Re-create the 'profiles' table.
 CREATE TABLE public.profiles (
     id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name text,
@@ -44,7 +47,7 @@ CREATE TABLE public.profiles (
 );
 COMMENT ON TABLE public.profiles IS 'Stores public profile data for all users, linking to auth.users.';
 
--- Step 6: Re-create the 'operators' table.
+-- Step 8: Re-create the 'operators' table.
 CREATE TABLE public.operators (
     profile_id uuid NOT NULL PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
     bio text,
@@ -56,7 +59,7 @@ CREATE TABLE public.operators (
 );
 COMMENT ON TABLE public.operators IS 'Stores data specific to users with the ''operator'' role.';
 
--- Step 7: Re-create other core tables that were affected by CASCADE.
+-- Step 9: Re-create other core tables that were affected by CASCADE.
 CREATE TABLE public.categories (
     id serial PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -107,7 +110,7 @@ CREATE TABLE public.messages (
     is_read boolean DEFAULT false
 );
 
--- Step 8: Create the is_admin helper function
+-- Step 10: Create the is_admin helper function
 CREATE OR REPLACE FUNCTION public.is_admin(user_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -121,7 +124,7 @@ BEGIN
 END;
 $$;
 
--- Step 9: Re-create the function to handle new user sign-ups.
+-- Step 11: Re-create the function to handle new user sign-ups.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -145,12 +148,12 @@ BEGIN
 END;
 $$;
 
--- Step 10: Re-create the trigger.
+-- Step 12: Re-create the trigger.
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Step 11: Re-create the necessary views.
+-- Step 13: Re-create the necessary views.
 CREATE OR REPLACE VIEW public.operators_view AS
 SELECT
     p.id AS profile_id, p.full_name, p.username, p.email, p.role, p.created_at AS profile_created_at,
@@ -162,7 +165,7 @@ CREATE OR REPLACE VIEW public.admin_users_view AS
 SELECT p.id, p.full_name, p.username, p.email, p.role, p.created_at, w.balance
 FROM public.profiles p LEFT JOIN public.wallets w ON p.id = w.user_id;
 
--- Step 12: Re-apply Row Level Security (RLS).
+-- Step 14: Re-apply Row Level Security (RLS).
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
@@ -195,7 +198,7 @@ CREATE POLICY "Admins can manage categories." ON public.categories FOR ALL USING
 CREATE POLICY "Operator categories are public." ON public.operator_categories FOR SELECT USING (true);
 CREATE POLICY "Admins can manage operator categories." ON public.operator_categories FOR ALL USING (public.is_admin(auth.uid()));
 
--- Step 13: Seed initial data
+-- Step 15: Seed initial data
 INSERT INTO public.categories (name, slug, description) VALUES
 ('Cartomanzia', 'cartomanzia', 'Lettura dei tarocchi e delle carte per divinazione.'),
 ('Astrologia', 'astrologia', 'Studio degli astri e del loro influsso sulla vita.'),
