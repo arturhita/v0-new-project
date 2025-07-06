@@ -2,13 +2,21 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 import {
   Send,
   Users,
@@ -25,7 +33,6 @@ import {
   Eye,
   Smile,
 } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
 import { sendNewsletter } from "@/lib/actions/settings.actions"
 
 interface SendNewsletterModalProps {
@@ -96,6 +103,7 @@ const templates = [
 const emojis = ["✨", "🔥", "💫", "⭐", "🎯", "💎", "🌟", "🎁", "💝", "🎉", "🚀", "💖", "🌙", "☀️", "🦋"]
 
 export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterModalProps) {
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("compose")
   const [selectedTemplate, setSelectedTemplate] = useState("")
   const [formData, setFormData] = useState({
@@ -245,314 +253,318 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-yellow-500" />
-            Newsletter Creator Pro
-          </DialogTitle>
-          <DialogDescription>
-            Crea newsletter professionali con template, editor avanzato e anteprima live
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto sm:max-w-2xl">
+        <form onSubmit={handleSendNewsletter}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-6 w-6 text-yellow-500" />
+              Newsletter Creator Pro
+            </DialogTitle>
+            <DialogDescription>
+              Crea newsletter professionali con template, editor avanzato e anteprima live
+            </DialogDescription>
+          </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="templates" className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              Template
-            </TabsTrigger>
-            <TabsTrigger value="compose" className="flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              Componi
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Anteprima
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-          </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="templates" className="flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Template
+              </TabsTrigger>
+              <TabsTrigger value="compose" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Componi
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                Anteprima
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Template Tab */}
-          <TabsContent value="templates" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {templates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-lg ${
-                    selectedTemplate === template.id ? "border-blue-500 bg-blue-50" : "border-gray-200"
-                  }`}
-                  onClick={() => handleTemplateSelect(template.id)}
-                >
-                  <h3 className="font-semibold mb-2">{template.name}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{template.subject}</p>
+            {/* Template Tab */}
+            <TabsContent value="templates" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {templates.map((template) => (
                   <div
-                    className="text-xs bg-gray-100 p-2 rounded max-h-20 overflow-hidden"
-                    dangerouslySetInnerHTML={{ __html: template.content.substring(0, 100) + "..." }}
+                    key={template.id}
+                    className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-lg ${
+                      selectedTemplate === template.id ? "border-blue-500 bg-blue-50" : "border-gray-200"
+                    }`}
+                    onClick={() => handleTemplateSelect(template.id)}
+                  >
+                    <h3 className="font-semibold mb-2">{template.name}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{template.subject}</p>
+                    <div
+                      className="text-xs bg-gray-100 p-2 rounded max-h-20 overflow-hidden"
+                      dangerouslySetInnerHTML={{ __html: template.content.substring(0, 100) + "..." }}
+                    />
+                    <Button
+                      size="sm"
+                      className="w-full mt-3"
+                      variant={selectedTemplate === template.id ? "default" : "outline"}
+                    >
+                      {selectedTemplate === template.id ? "Selezionato" : "Usa Template"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            {/* Compose Tab */}
+            <TabsContent value="compose" className="space-y-6">
+              {/* Oggetto con emoji picker */}
+              <div className="space-y-2">
+                <Label htmlFor="subject">Oggetto Newsletter *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="subject"
+                    placeholder="Oggetto accattivante..."
+                    value={formData.subject}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
+                    className="flex-1"
                   />
-                  <Button
-                    size="sm"
-                    className="w-full mt-3"
-                    variant={selectedTemplate === template.id ? "default" : "outline"}
-                  >
-                    {selectedTemplate === template.id ? "Selezionato" : "Usa Template"}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Compose Tab */}
-          <TabsContent value="compose" className="space-y-6">
-            {/* Oggetto con emoji picker */}
-            <div className="space-y-2">
-              <Label htmlFor="subject">Oggetto Newsletter *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="subject"
-                  placeholder="Oggetto accattivante..."
-                  value={formData.subject}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
-                  className="flex-1"
-                />
-                <div className="relative">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  >
-                    <Smile className="h-4 w-4" />
-                  </Button>
-                  {showEmojiPicker && (
-                    <div className="absolute top-12 right-0 bg-white border rounded-lg p-3 shadow-lg z-50 grid grid-cols-5 gap-1">
-                      {emojis.map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => insertEmoji(emoji)}
-                          className="p-2 hover:bg-gray-100 rounded text-lg"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    >
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                    {showEmojiPicker && (
+                      <div className="absolute top-12 right-0 bg-white border rounded-lg p-3 shadow-lg z-50 grid grid-cols-5 gap-1">
+                        {emojis.map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={() => insertEmoji(emoji)}
+                            className="p-2 hover:bg-gray-100 rounded text-lg"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Toolbar editor */}
-            <div className="space-y-2">
-              <Label>Editor Avanzato</Label>
-              <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
-                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("bold")}>
-                  <Bold className="h-4 w-4" />
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("italic")}>
-                  <Italic className="h-4 w-4" />
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("link")}>
-                  <Link className="h-4 w-4" />
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("list")}>
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button type="button" variant="outline" size="sm">
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
+              {/* Toolbar editor */}
+              <div className="space-y-2">
+                <Label>Editor Avanzato</Label>
+                <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
+                  <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("bold")}>
+                    <Bold className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("italic")}>
+                    <Italic className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("link")}>
+                    <Link className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("list")}>
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="outline" size="sm">
+                    <ImageIcon className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
 
-            {/* Contenuto */}
-            <div className="space-y-2">
-              <Label htmlFor="content">Contenuto Newsletter *</Label>
-              <Textarea
-                id="content"
-                placeholder="Scrivi il contenuto della newsletter qui...
+              {/* Contenuto */}
+              <div className="space-y-2">
+                <Label htmlFor="content">Contenuto Newsletter *</Label>
+                <Textarea
+                  id="content"
+                  placeholder="Scrivi il contenuto della newsletter qui...
 
 Puoi usare HTML per formattare:
 - <strong>Grassetto</strong>
 - <em>Corsivo</em>
 - <a href='#'>Link</a>
 - <ul><li>Liste</li></ul>"
-                value={formData.content}
-                onChange={(e) => setFormData((prev) => ({ ...prev, content: e.target.value }))}
-                rows={15}
-                className="min-h-[400px] font-mono text-sm"
-              />
-            </div>
-
-            {/* Destinatari */}
-            <div className="space-y-4">
-              <Label>Destinatari</Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="sendToUsers"
-                    checked={formData.sendToUsers}
-                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, sendToUsers: checked as boolean }))}
-                  />
-                  <Label htmlFor="sendToUsers" className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Utenti
-                    <Badge variant="secondary">{recipientStats.users.toLocaleString()}</Badge>
-                  </Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="sendToOperators"
-                    checked={formData.sendToOperators}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({ ...prev, sendToOperators: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="sendToOperators" className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    Operatori
-                    <Badge variant="secondary">{recipientStats.operators}</Badge>
-                  </Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="sendToAdmins"
-                    checked={formData.sendToAdmins}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({ ...prev, sendToAdmins: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="sendToAdmins" className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Admin
-                    <Badge variant="secondary">{recipientStats.admins}</Badge>
-                  </Label>
-                </div>
+                  value={formData.content}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, content: e.target.value }))}
+                  rows={15}
+                  className="min-h-[400px] font-mono text-sm"
+                />
               </div>
 
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>📧 Totale destinatari:</strong> {getTotalRecipients().toLocaleString()} persone riceveranno
-                  questa newsletter
-                </p>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Preview Tab */}
-          <TabsContent value="preview" className="space-y-4">
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-gray-100 p-4 border-b">
-                <h3 className="font-semibold">📧 {formData.subject || "Oggetto newsletter"}</h3>
-                <p className="text-sm text-gray-600">Da: Unveilly &lt;noreply@unveilly.com&gt;</p>
-              </div>
-              <div className="p-6 bg-white min-h-[400px]">
-                {formData.content ? (
-                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formData.content }} />
-                ) : (
-                  <div className="text-center text-gray-400 py-20">
-                    <Mail className="h-12 w-12 mx-auto mb-4" />
-                    <p>Anteprima newsletter apparirà qui</p>
+              {/* Destinatari */}
+              <div className="space-y-4">
+                <Label>Destinatari</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sendToUsers"
+                      checked={formData.sendToUsers}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, sendToUsers: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="sendToUsers" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Utenti
+                      <Badge variant="secondary">{recipientStats.users.toLocaleString()}</Badge>
+                    </Label>
                   </div>
-                )}
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sendToOperators"
+                      checked={formData.sendToOperators}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, sendToOperators: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="sendToOperators" className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      Operatori
+                      <Badge variant="secondary">{recipientStats.operators}</Badge>
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sendToAdmins"
+                      checked={formData.sendToAdmins}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, sendToAdmins: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="sendToAdmins" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Admin
+                      <Badge variant="secondary">{recipientStats.admins}</Badge>
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    <strong>📧 Totale destinatari:</strong> {getTotalRecipients().toLocaleString()} persone riceveranno
+                    questa newsletter
+                  </p>
+                </div>
               </div>
+            </TabsContent>
+
+            {/* Preview Tab */}
+            <TabsContent value="preview" className="space-y-4">
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-gray-100 p-4 border-b">
+                  <h3 className="font-semibold">📧 {formData.subject || "Oggetto newsletter"}</h3>
+                  <p className="text-sm text-gray-600">Da: Unveilly &lt;noreply@unveilly.com&gt;</p>
+                </div>
+                <div className="p-6 bg-white min-h-[400px]">
+                  {formData.content ? (
+                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formData.content }} />
+                  ) : (
+                    <div className="text-center text-gray-400 py-20">
+                      <Mail className="h-12 w-12 mx-auto mb-4" />
+                      <p>Anteprima newsletter apparirà qui</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Analytics Tab */}
+            <TabsContent value="analytics" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mail className="h-5 w-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-800">Stima Apertura</h4>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {Math.round(getTotalRecipients() * 0.25).toLocaleString()}
+                  </div>
+                  <p className="text-xs text-blue-600">~25% tasso apertura</p>
+                </div>
+
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BarChart3 className="h-5 w-5 text-green-600" />
+                    <h4 className="font-semibold text-green-800">Stima Click</h4>
+                  </div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {Math.round(getTotalRecipients() * 0.05).toLocaleString()}
+                  </div>
+                  <p className="text-xs text-green-600">~5% tasso click</p>
+                </div>
+
+                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-5 w-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-800">Miglior Orario</h4>
+                  </div>
+                  <div className="text-lg font-bold text-purple-600">10:00 - 11:00</div>
+                  <p className="text-xs text-purple-600">Martedì mattina</p>
+                </div>
+
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-5 w-5 text-yellow-600" />
+                    <h4 className="font-semibold text-yellow-800">Score Qualità</h4>
+                  </div>
+                  <div className="text-2xl font-bold text-yellow-600">8.5/10</div>
+                  <p className="text-xs text-yellow-600">Ottimo contenuto</p>
+                </div>
+              </div>
+
+              <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Suggerimenti per Migliorare
+                </h3>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    Oggetto accattivante con emoji ✅
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    Lunghezza contenuto ottimale ✅
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    Aggiungi più call-to-action
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    Considera di programmare l'invio per martedì mattina
+                  </li>
+                </ul>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Azioni finali */}
+          <DialogFooter className="flex justify-between items-center pt-6 border-t">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Users className="h-4 w-4" />
+              <span>{getTotalRecipients().toLocaleString()} destinatari selezionati</span>
             </div>
-          </TabsContent>
-
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Mail className="h-5 w-5 text-blue-600" />
-                  <h4 className="font-semibold text-blue-800">Stima Apertura</h4>
-                </div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {Math.round(getTotalRecipients() * 0.25).toLocaleString()}
-                </div>
-                <p className="text-xs text-blue-600">~25% tasso apertura</p>
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <BarChart3 className="h-5 w-5 text-green-600" />
-                  <h4 className="font-semibold text-green-800">Stima Click</h4>
-                </div>
-                <div className="text-2xl font-bold text-green-600">
-                  {Math.round(getTotalRecipients() * 0.05).toLocaleString()}
-                </div>
-                <p className="text-xs text-green-600">~5% tasso click</p>
-              </div>
-
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="h-5 w-5 text-purple-600" />
-                  <h4 className="font-semibold text-purple-800">Miglior Orario</h4>
-                </div>
-                <div className="text-lg font-bold text-purple-600">10:00 - 11:00</div>
-                <p className="text-xs text-purple-600">Martedì mattina</p>
-              </div>
-
-              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-5 w-5 text-yellow-600" />
-                  <h4 className="font-semibold text-yellow-800">Score Qualità</h4>
-                </div>
-                <div className="text-2xl font-bold text-yellow-600">8.5/10</div>
-                <p className="text-xs text-yellow-600">Ottimo contenuto</p>
-              </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isSending}>
+                Annulla
+              </Button>
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                disabled={isSending}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {isSending ? "Invio..." : `🚀 Invia Newsletter`}
+              </Button>
             </div>
-
-            <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Suggerimenti per Migliorare
-              </h3>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Oggetto accattivante con emoji ✅
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Lunghezza contenuto ottimale ✅
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                  Aggiungi più call-to-action
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                  Considera di programmare l'invio per martedì mattina
-                </li>
-              </ul>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Azioni finali */}
-        <div className="flex justify-between items-center pt-6 border-t">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Users className="h-4 w-4" />
-            <span>{getTotalRecipients().toLocaleString()} destinatari selezionati</span>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Annulla
-            </Button>
-            <Button
-              onClick={handleSendNewsletter}
-              disabled={isSending}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {isSending ? "Invio..." : `🚀 Invia Newsletter`}
-            </Button>
-          </div>
-        </div>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

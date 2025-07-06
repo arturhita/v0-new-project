@@ -27,10 +27,9 @@ import {
   CreditCard,
   FileText,
   Zap,
+  PenLineIcon as Line,
 } from "lucide-react"
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   BarChart,
@@ -46,7 +45,8 @@ import {
 } from "recharts"
 import SendMessageModal from "@/components/send-message-modal"
 import SendNewsletterModal from "@/components/send-newsletter-modal"
-import { toast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
+import { LineChart } from "recharts"
 
 // Dati mock per analytics
 const revenueData = [
@@ -75,6 +75,7 @@ const recentActivity = [
 ]
 
 export default function AdminDashboardPage() {
+  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState("30d")
   const [showMessageModal, setShowMessageModal] = useState(false)
@@ -233,7 +234,7 @@ export default function AdminDashboardPage() {
               Comandi Rapidi
             </TabsTrigger>
             <TabsTrigger value="activity" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white">
-              <Activity className="w-4 h-4 mr-2" />
+              <Activity className="w-4 h-4 mr-2 text-sky-500" />
               Attività Recenti
             </TabsTrigger>
           </TabsList>
@@ -641,48 +642,6 @@ export default function AdminDashboardPage() {
                 <div>
                   <p className="font-medium text-blue-800">Backup Programmato</p>
                   <p className="text-sm text-blue-600">Prossimo: Oggi 02:00</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Access Gaming System */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-white border border-sky-200">
-            <CardHeader>
-              <CardTitle className="text-sky-800">Sistema Gaming - Accesso Rapido</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Gamepad2 className="w-6 h-6 text-sky-500" />
-                    <div>
-                      <p className="text-sky-800 font-medium">Gestione Gaming</p>
-                      <p className="text-sky-600 text-sm">Punti, Badge, Rewards</p>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={() => (window.location.href = "/admin/gamification")}
-                    className="bg-gradient-to-r from-sky-500 to-cyan-500"
-                  >
-                    Apri
-                  </Button>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-lg font-bold text-sky-800">1,247</p>
-                    <p className="text-xs text-sky-600">Punti Totali</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-sky-800">89</p>
-                    <p className="text-xs text-sky-600">Badge Attivi</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-sky-800">23</p>
-                    <p className="text-xs text-sky-600">Rewards</p>
-                  </div>
                 </div>
               </div>
             </CardContent>
