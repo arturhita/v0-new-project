@@ -48,8 +48,6 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: "Errore nella creazione dell'utente operatore." }
     }
 
-    // Il trigger 'handle_new_user' ha già creato un profilo base.
-    // Ora lo aggiorniamo con i dettagli dell'operatore.
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
@@ -64,8 +62,6 @@ export async function createOperator(operatorData: any) {
 
     if (profileError) {
       console.error("Error updating operator profile:", profileError.message)
-      // Se l'aggiornamento fallisce, l'utente esiste ancora ma senza dettagli da operatore.
-      // Potrebbe essere necessario un cleanup manuale o una logica di rollback più complessa.
       return { success: false, message: "Errore nell'aggiornamento del profilo operatore." }
     }
 
@@ -204,4 +200,58 @@ export async function getOperatorById(id: string): Promise<Profile | null> {
   }
 
   return data as Profile
+}
+
+export async function getOperatorDashboardData(operatorId: string) {
+  if (!operatorId) {
+    return { success: false, message: "Operator ID is required." }
+  }
+
+  const supabase = createClient()
+  const now = new Date()
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+
+  try {
+    // 1. Guadagni del mese corrente
+    const { data: earningsData, error: earningsError } = await supabase
+      .from("earnings")
+      .select("net_earning")
+      .eq("operator_id", operatorId)
+      .gte("created_at", firstDayOfMonth)
+
+    if (earningsError) throw new Error(`Error fetching earnings: ${earningsError.message}`)
+    const monthlyEarnings = earningsData.reduce((sum, record) => sum + record.net_earning, 0)
+
+    // 2. Numero di consulti completati nel mese
+    const { count: consultationsCount, error: consultationsError } = await supabase
+      .from("consultations")
+      .select("*", { count: "exact", head: true })
+      .eq("operator_id", operatorId)
+      .eq("status", "completed")
+      .gte("created_at", firstDayOfMonth)
+
+    if (consultationsError) throw new Error(`Error fetching consultations count: ${consultationsError.message}`)
+
+    // 3. Messaggi non letti
+    const { count: unreadMessagesCount, error: messagesError } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("receiver_id", operatorId)
+      .eq("is_read", false)
+
+    if (messagesError) throw new Error(`Error fetching unread messages count: ${messagesError.message}`)
+
+    return {
+      success: true,
+      data: {
+        monthlyEarnings,
+        consultationsCount: consultationsCount ?? 0,
+        unreadMessagesCount: unreadMessagesCount ?? 0,
+      },
+    }
+  } catch (error) {
+    console.error("Error in getOperatorDashboardData:", error)
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred."
+    return { success: false, message: errorMessage, data: null }
+  }
 }
