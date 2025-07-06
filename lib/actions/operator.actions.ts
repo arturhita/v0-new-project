@@ -48,31 +48,25 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: "Errore nella creazione dell'utente operatore." }
     }
 
-    const profileData = {
-      id: user.id,
-      role: "operator" as const,
-      full_name: operatorData.fullName,
-      stage_name: operatorData.stageName,
-      email: operatorData.email,
-      phone_number: operatorData.phone,
-      bio: operatorData.bio,
-      profile_image_url: operatorData.avatarUrl,
-      is_available: operatorData.isOnline,
-      commission_rate: Number.parseFloat(operatorData.commission),
-      service_prices: {
-        chat: operatorData.services.chatEnabled ? Number.parseFloat(operatorData.services.chatPrice) : null,
-        call: operatorData.services.callEnabled ? Number.parseFloat(operatorData.services.callPrice) : null,
-        email: operatorData.services.emailEnabled ? Number.parseFloat(operatorData.services.emailPrice) : null,
-      },
-      availability_schedule: operatorData.availability,
-    }
-
-    const { error: profileError } = await supabase.from("profiles").insert(profileData)
+    // Il trigger 'handle_new_user' ha già creato un profilo base.
+    // Ora lo aggiorniamo con i dettagli dell'operatore.
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        role: "operator" as const,
+        full_name: operatorData.fullName,
+        stage_name: operatorData.stageName,
+        bio: operatorData.bio,
+        profile_image_url: operatorData.avatarUrl,
+        is_available: operatorData.isOnline,
+      })
+      .eq("id", user.id)
 
     if (profileError) {
-      console.error("Error creating operator profile:", profileError.message)
-      await supabase.auth.admin.deleteUser(user.id)
-      return { success: false, message: "Errore nella creazione del profilo operatore." }
+      console.error("Error updating operator profile:", profileError.message)
+      // Se l'aggiornamento fallisce, l'utente esiste ancora ma senza dettagli da operatore.
+      // Potrebbe essere necessario un cleanup manuale o una logica di rollback più complessa.
+      return { success: false, message: "Errore nell'aggiornamento del profilo operatore." }
     }
 
     if (operatorData.categories && operatorData.categories.length > 0) {
