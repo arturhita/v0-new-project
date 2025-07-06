@@ -59,15 +59,8 @@ export async function getOperatorApplications(): Promise<{
 
   if (error) {
     console.error("Error fetching applications:", error)
-    return { applications: null, error: "Impossibile recuperare le candidature." }
+    return { applications: null, error: `Error fetching applications: ${error.message}` }
   }
-
-  // Supabase aggiunge un livello extra 'profiles' che vogliamo rimuovere per semplicità
-  const applications = data.map((app) => ({
-    ...app,
-    // @ts-ignore
-    profile: Array.isArray(app.profiles) ? app.profiles[0] : app.profiles,
-  }))
 
   return { applications: data as ApplicationWithProfile[], error: null }
 }
