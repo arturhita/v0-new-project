@@ -1,94 +1,69 @@
-"use client"
-
-import { useEffect, useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { getWrittenConsultationsForClient, type WrittenConsultation } from "@/lib/actions/written-consultation.actions"
+import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, MessageSquare, CheckCircle2, Clock } from "lucide-react"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 
-export default function ClientWrittenConsultationsPage() {
-  const { user } = useAuth()
-  const [consultations, setConsultations] = useState<WrittenConsultation[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default async function ClientWrittenConsultationsPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  useEffect(() => {
-    if (user) {
-      setIsLoading(true)
-      getWrittenConsultationsForClient(user.id)
-        .then((data) => {
-          setConsultations(data)
-        })
-        .finally(() => {
-          setIsLoading(false)
-        })
-    }
-  }, [user])
+  if (!user) {
+    return <div>Devi essere loggato per vedere questa pagina.</div>
+  }
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
-      </div>
-    )
+  const { data: consultations, error } = await supabase
+    .from("written_consultations")
+    .select("*, operator:operator_id(name, avatar_url)")
+    .eq("client_id", user.id)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    return <div>Errore nel caricamento dei consulti: {error.message}</div>
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Le Tue Consulenze Scritte</CardTitle>
-        <CardDescription>Qui trovi lo storico delle tue domande e le risposte degli operatori.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {consultations.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <MessageSquare className="mx-auto h-12 w-12" />
-            <p className="mt-4">Non hai ancora inviato nessuna domanda.</p>
-          </div>
-        ) : (
-          <Accordion type="single" collapsible className="w-full">
-            {consultations.map((item) => (
-              <AccordionItem key={item.id} value={item.id}>
-                <AccordionTrigger>
-                  <div className="flex justify-between items-center w-full pr-4">
-                    <div className="text-left">
-                      <p className="font-semibold">Domanda a {item.operatorName}</p>
-                      <p className="text-sm text-gray-500">
-                        Inviata il: {new Date(item.createdAt).toLocaleDateString("it-IT")}
-                      </p>
-                    </div>
-                    <Badge variant={item.status === "answered" ? "default" : "secondary"}>
-                      {item.status === "answered" ? (
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                      ) : (
-                        <Clock className="mr-2 h-4 w-4" />
-                      )}
-                      {item.status === "answered" ? "Risposto" : "In attesa"}
-                    </Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="space-y-4">
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold">I Miei Consulti Scritti</h1>
+      {consultations.length === 0 ? (
+        <p>Non hai ancora richiesto nessun consulto scritto.</p>
+      ) : (
+        <div className="space-y-4">
+          {consultations.map((c) => (
+            <Card key={c.id}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-semibold mb-2">La tua domanda:</h4>
-                    <p className="text-gray-700 bg-gray-50 p-4 rounded-md border">{item.question}</p>
+                    <CardTitle>Consulto con {c.operator.name}</CardTitle>
+                    <CardDescription>
+                      Richiesto il {format(new Date(c.created_at), "d MMMM yyyy, HH:mm", { locale: it })}
+                    </CardDescription>
                   </div>
-                  {item.answer ? (
+                  <Badge variant={c.status === "answered" ? "default" : "secondary"}>
+                    {c.status === "pending" ? "In Attesa" : "Risposto"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold mb-1">La tua domanda:</h3>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-md">{c.question}</p>
+                  </div>
+                  {c.answer && (
                     <div>
-                      <h4 className="font-semibold mb-2">Risposta di {item.operatorName}:</h4>
-                      <p className="text-gray-800 bg-sky-50 p-4 rounded-md border border-sky-200 whitespace-pre-wrap">
-                        {item.answer}
-                      </p>
+                      <h3 className="font-semibold mb-1">La risposta di {c.operator.name}:</h3>
+                      <p className="text-gray-800 bg-blue-50 p-3 rounded-md whitespace-pre-wrap">{c.answer}</p>
                     </div>
-                  ) : (
-                    <p className="text-gray-500 italic">L'operatore non ha ancora risposto.</p>
                   )}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
-      </CardContent>
-    </Card>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

@@ -1,128 +1,131 @@
-import { getOperatorById } from "@/lib/actions/operator.actions"
-import Image from "next/image"
+"use client"
+
+import { useState, useEffect } from "react"
 import { notFound } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Star, MessageSquare, Phone, Mail } from "lucide-react"
-import { ConstellationBackground } from "@/components/constellation-background"
+import { getOperatorById } from "@/lib/actions/operator.actions"
+import type { UserProfile } from "@/types/user.types"
 import { OperatorRealtimeStatus } from "@/components/operator-realtime-status"
+import { WrittenConsultationModal } from "@/components/written-consultation-modal"
 
-type OperatorProfilePageProps = {
-  params: {
-    operatorId: string
+// This is a client component because we need state for the modal
+export default function OperatorProfilePage({ params }: { params: { operatorId: string } }) {
+  const [operator, setOperator] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  useEffect(() => {
+    const fetchOperator = async () => {
+      setLoading(true)
+      const op = await getOperatorById(params.operatorId)
+      if (!op) {
+        notFound()
+      }
+      setOperator(op)
+      setLoading(false)
+    }
+    fetchOperator()
+  }, [params.operatorId])
+
+  if (loading) {
+    return <div>Caricamento del profilo...</div>
   }
-}
 
-export default async function OperatorProfilePage({ params }: OperatorProfilePageProps) {
-  const { data: operator, error } = await getOperatorById(params.operatorId)
-
-  if (error || !operator) {
-    notFound()
+  if (!operator) {
+    return notFound()
   }
 
-  const operatorName = operator.nickname || operator.name || "Operatore"
-  const services = operator.services || {}
+  const writtenService = operator.services?.written
 
   return (
-    <div className="relative min-h-screen bg-slate-950 text-white">
-      <ConstellationBackground />
-      <main className="container mx-auto px-4 py-12 relative z-10">
-        <div className="max-w-4xl mx-auto">
-          {/* Header del Profilo */}
-          <header className="flex flex-col md:flex-row items-center gap-8 p-8 bg-slate-900/50 rounded-2xl border border-purple-500/20 backdrop-blur-sm">
-            <div className="relative">
+    <div className="container mx-auto max-w-4xl py-8 px-4">
+      <Card className="overflow-hidden bg-white shadow-lg">
+        <div className="relative h-48 bg-gradient-to-br from-indigo-200 to-purple-200">
+          <Image src="/images/crescent-moon-concept.avif" alt="Banner" layout="fill" objectFit="cover" />
+          <div className="absolute inset-0 bg-black/20" />
+        </div>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start -mt-20">
+            <div className="relative h-32 w-32 rounded-full border-4 border-white shadow-md">
               <Image
-                src={operator.avatar_url || "/placeholder.svg?width=150&height=150"}
-                alt={`Avatar di ${operatorName}`}
-                width={150}
-                height={150}
-                className="rounded-full border-4 border-purple-400 object-cover shadow-lg shadow-purple-900/50"
+                src={operator.avatar_url || "/placeholder.svg?width=128&height=128"}
+                alt={operator.name || "Avatar"}
+                layout="fill"
+                className="rounded-full object-cover"
               />
-              <OperatorRealtimeStatus operatorId={operator.id} initialIsOnline={!!operator.is_online} />
+              <OperatorRealtimeStatus operatorId={operator.id} />
             </div>
-            <div className="text-center md:text-left">
-              <h1 className="text-4xl font-bold text-purple-300">{operatorName}</h1>
-              <p className="text-slate-400 mt-1">{operator.name}</p>
-              <div className="flex justify-center md:justify-start items-center gap-2 mt-4 text-yellow-400">
-                <Star size={20} className="fill-current" />
-                <Star size={20} className="fill-current" />
-                <Star size={20} className="fill-current" />
-                <Star size={20} className="fill-current" />
-                <Star size={20} className="text-slate-600 fill-current" />
-                <span className="text-white ml-2 font-semibold">4.0 (123 recensioni)</span>
-              </div>
-            </div>
-          </header>
-
-          {/* Corpo del Profilo */}
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Colonna Principale */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Biografia */}
-              <div className="p-6 bg-slate-900/50 rounded-xl border border-purple-500/20">
-                <h2 className="text-2xl font-bold text-purple-300 mb-4">Chi Sono</h2>
-                <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">
-                  {operator.bio || "Questo operatore non ha ancora inserito una biografia."}
-                </p>
-              </div>
-
-              {/* Specializzazioni */}
-              <div className="p-6 bg-slate-900/50 rounded-xl border border-purple-500/20">
-                <h2 className="text-2xl font-bold text-purple-300 mb-4">Le Mie Specializzazioni</h2>
-                <div className="flex flex-wrap gap-3">
-                  {(operator.specialties || ["Nessuna specializzazione"]).map((spec) => (
-                    <Badge
-                      key={spec}
-                      className="text-lg px-4 py-2 bg-purple-500/20 text-purple-300 border-purple-500/30"
-                    >
-                      {spec}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Colonna Laterale */}
-            <div className="space-y-8">
-              <div className="p-6 bg-slate-900/50 rounded-xl border border-purple-500/20">
-                <h2 className="text-2xl font-bold text-purple-300 mb-4">Servizi di Consulto</h2>
-                <div className="space-y-4">
-                  {services.chat?.enabled && (
-                    <div className="flex justify-between items-center p-3 bg-slate-800/70 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <MessageSquare className="text-purple-400" />
-                        <span className="font-medium">Chat</span>
-                      </div>
-                      <span className="font-bold text-lg text-purple-300">{services.chat.price} €/min</span>
-                    </div>
-                  )}
-                  {services.call?.enabled && (
-                    <div className="flex justify-between items-center p-3 bg-slate-800/70 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Phone className="text-purple-400" />
-                        <span className="font-medium">Chiamata</span>
-                      </div>
-                      <span className="font-bold text-lg text-purple-300">{services.call.price} €/min</span>
-                    </div>
-                  )}
-                  {services.email?.enabled && (
-                    <div className="flex justify-between items-center p-3 bg-slate-800/70 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Mail className="text-purple-400" />
-                        <span className="font-medium">Email</span>
-                      </div>
-                      <span className="font-bold text-lg text-purple-300">{services.email.price} €</span>
-                    </div>
-                  )}
-                </div>
-                <Button className="w-full mt-6 bg-purple-600 hover:bg-purple-700 text-lg py-6">
-                  Inizia un Consulto
-                </Button>
+            <div className="mt-4 sm:mt-0 sm:ml-6 text-center sm:text-left">
+              <h1 className="text-3xl font-bold text-gray-800">{operator.name}</h1>
+              <p className="text-md text-gray-500">{operator.nickname}</p>
+              <div className="mt-2 flex items-center justify-center sm:justify-start gap-2">
+                <Star className="h-5 w-5 text-yellow-400" />
+                <span className="font-semibold text-gray-700">4.9 (123 recensioni)</span>
               </div>
             </div>
           </div>
-        </div>
-      </main>
+
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Su di me</h2>
+            <p className="text-gray-600 whitespace-pre-wrap">{operator.bio}</p>
+          </div>
+
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Specializzazioni</h2>
+            <div className="flex flex-wrap gap-2">
+              {operator.specialties?.map((spec) => (
+                <Badge key={spec} variant="secondary" className="text-sm">
+                  {spec}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Servizi di Consulto</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Chat */}
+              <Button variant="outline" size="lg" className="flex flex-col h-auto py-4 bg-transparent" disabled>
+                <MessageSquare className="h-8 w-8 mb-2 text-blue-500" />
+                <span className="font-semibold">Chat</span>
+                <span className="text-sm text-gray-500">2.50 €/min</span>
+              </Button>
+              {/* Call */}
+              <Button variant="outline" size="lg" className="flex flex-col h-auto py-4 bg-transparent" disabled>
+                <Phone className="h-8 w-8 mb-2 text-green-500" />
+                <span className="font-semibold">Chiamata</span>
+                <span className="text-sm text-gray-500">3.00 €/min</span>
+              </Button>
+              {/* Written */}
+              {writtenService?.enabled && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex flex-col h-auto py-4 bg-transparent"
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  <Mail className="h-8 w-8 mb-2 text-purple-500" />
+                  <span className="font-semibold">Consulto Scritto</span>
+                  <span className="text-sm text-gray-500">{writtenService.price.toFixed(2)} €</span>
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      {writtenService?.enabled && (
+        <WrittenConsultationModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          operatorId={operator.id}
+          operatorName={operator.name || "Operatore"}
+          price={writtenService.price}
+        />
+      )}
     </div>
   )
 }
