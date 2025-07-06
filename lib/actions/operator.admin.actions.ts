@@ -45,17 +45,22 @@ export async function createOperator(prevState: ActionState, formData: FormData)
   const userId = authData.user.id
 
   // 2. Create profile in public.profiles
-  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-    id: userId,
-    full_name: fullName,
-    username: stageName,
-    role: "operator",
-    email: email,
-  })
+  // This assumes a trigger handles profile creation. If not, we insert.
+  // Let's upsert to be safe.
+  const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+    {
+      id: userId,
+      full_name: fullName,
+      username: stageName,
+      role: "operator",
+      email: email,
+    },
+    { onConflict: "id" },
+  )
 
   if (profileError) {
-    console.error("Error creating profile:", profileError)
-    await supabaseAdmin.auth.admin.deleteUser(userId)
+    console.error("Error creating/updating profile:", profileError)
+    await supabaseAdmin.auth.admin.deleteUser(userId) // Cleanup
     return { error: `Errore durante la creazione del profilo: ${profileError.message}` }
   }
 
@@ -64,11 +69,12 @@ export async function createOperator(prevState: ActionState, formData: FormData)
     profile_id: userId,
     bio: bio,
     commission_rate: Number.parseInt(commission, 10),
+    status: "pending", // Default status
   })
 
   if (operatorError) {
     console.error("Error creating operator data:", operatorError)
-    await supabaseAdmin.auth.admin.deleteUser(userId)
+    await supabaseAdmin.auth.admin.deleteUser(userId) // Cleanup
     return { error: `Errore durante la creazione dei dati operatore: ${operatorError.message}` }
   }
 

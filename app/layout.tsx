@@ -21,22 +21,16 @@ export default async function RootLayout({
 }>) {
   const supabase = createClient()
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  let profile = null
-  if (user) {
-    const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-    profile = userProfile
-  }
+  const user = session?.user
 
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider user={user} profile={profile}>
-          <main>{children}</main>
-          <Toaster richColors position="top-center" />
-        </AuthProvider>
+        <AuthProvider user={user}>{children}</AuthProvider>
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   )

@@ -5,14 +5,19 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { PlusCircle, Edit3 } from "lucide-react"
+import { format } from "date-fns"
 
 async function getOperators() {
   const supabase = createClient()
-  const { data, error } = await supabase.from("operators_view").select("*").order("created_at", { ascending: false })
+  // La query ora usa la VISTA che abbiamo creato, semplificando il codice
+  const { data, error } = await supabase.from("operators_view").select("*").order("joined_at", { ascending: false })
 
   if (error) {
-    console.error("Errore nel caricamento operatori:", error)
-    throw new Error("Impossibile caricare la lista degli operatori.")
+    console.error("Errore nel caricamento operatori dalla vista:", error)
+    // Questo errore verrà catturato e mostrato all'utente
+    throw new Error(
+      "Impossibile caricare la lista degli operatori. Assicurati che la vista 'operators_view' esista nel database.",
+    )
   }
   return data
 }
@@ -30,6 +35,19 @@ export default async function ManageOperatorsPage() {
         return "destructive"
       default:
         return "secondary"
+    }
+  }
+
+  const getStatusText = (status: string | null): string => {
+    switch (status) {
+      case "active":
+        return "Attivo"
+      case "pending":
+        return "In Attesa"
+      case "suspended":
+        return "Sospeso"
+      default:
+        return "Sconosciuto"
     }
   }
 
@@ -58,13 +76,14 @@ export default async function ManageOperatorsPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Commissione</TableHead>
                 <TableHead>Stato</TableHead>
+                <TableHead>Registrato il</TableHead>
                 <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {operators.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Nessun operatore trovato.
                   </TableCell>
                 </TableRow>
@@ -76,12 +95,14 @@ export default async function ManageOperatorsPage() {
                     <TableCell>{op.email}</TableCell>
                     <TableCell>{op.commission_rate}%</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(op.status)}>{op.status}</Badge>
+                      <Badge variant={getStatusBadgeVariant(op.status)}>{getStatusText(op.status)}</Badge>
                     </TableCell>
+                    <TableCell>{format(new Date(op.joined_at), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" asChild>
                         <Link href={`/admin/operators/${op.profile_id}/edit`}>
                           <Edit3 className="h-4 w-4" />
+                          <span className="sr-only">Modifica</span>
                         </Link>
                       </Button>
                     </TableCell>
