@@ -15,23 +15,20 @@ export async function requestWrittenConsultation(operatorId: string, question: s
   const clientId = user.id
 
   try {
-    // Usiamo una transazione per garantire che tutte le operazioni abbiano successo o falliscano insieme
-    const { data, error } = await supabase.rpc("process_written_consultation", {
+    const { error } = await supabase.rpc("process_written_consultation", {
       p_client_id: clientId,
       p_operator_id: operatorId,
       p_question: question,
     })
 
     if (error) {
-      console.error("Errore RPC:", error)
-      // Fornisce un messaggio di errore più specifico se disponibile
+      console.error("Errore RPC process_written_consultation:", error)
       if (error.message.includes("insufficient funds")) {
         return { error: "Credito insufficiente per completare la richiesta." }
       }
       return { error: `Si è verificato un errore: ${error.message}` }
     }
 
-    // Revalida le pagine pertinenti per mostrare i dati aggiornati
     revalidatePath(`/dashboard/client/written-consultations`)
     revalidatePath(`/dashboard/operator/written-consultations`)
 
@@ -40,5 +37,38 @@ export async function requestWrittenConsultation(operatorId: string, question: s
     const error = e as Error
     console.error("Catch block error:", error)
     return { error: `Un errore imprevisto ha impedito la richiesta: ${error.message}` }
+  }
+}
+
+export async function answerWrittenConsultation(consultationId: string, answer: string) {
+  const supabase = createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: "Non autorizzato." }
+  }
+
+  try {
+    const { error } = await supabase.rpc("answer_and_credit_operator", {
+      p_consultation_id: consultationId,
+      p_operator_id: user.id,
+      p_answer_text: answer,
+    })
+
+    if (error) {
+      console.error("Errore RPC answer_and_credit_operator:", error)
+      return { error: `Si è verificato un errore: ${error.message}` }
+    }
+
+    revalidatePath(`/dashboard/client/written-consultations`)
+    revalidatePath(`/dashboard/operator/written-consultations`)
+
+    return { success: "Risposta inviata e accreditata con successo!" }
+  } catch (e) {
+    const error = e as Error
+    console.error("Catch block error:", error)
+    return { error: `Un errore imprevisto ha impedito l'invio della risposta: ${error.message}` }
   }
 }

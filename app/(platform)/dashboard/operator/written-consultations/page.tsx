@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
+import { AnswerForm } from "@/components/answer-form"
 
 export default async function OperatorWrittenConsultationsPage() {
   const supabase = createClient()
@@ -58,12 +59,7 @@ export default async function OperatorWrittenConsultationsPage() {
                       <p className="text-gray-800 bg-green-50 p-3 rounded-md whitespace-pre-wrap">{c.answer}</p>
                     </div>
                   ) : (
-                    <div>
-                      {/* Qui andrà il form per rispondere */}
-                      <p className="text-center text-gray-500 p-4 border-dashed border-2 rounded-md">
-                        Area per la risposta (da implementare)
-                      </p>
-                    </div>
+                    <AnswerForm consultationId={c.id} />
                   )}
                 </div>
               </CardContent>
