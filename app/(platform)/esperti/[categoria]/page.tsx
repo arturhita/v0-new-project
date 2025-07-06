@@ -1,71 +1,29 @@
-import { getOperators } from "@/lib/actions/operator.actions"
-import EspertiClientPage from "./client-page"
+import { getOperators } from "@/lib/actions/operator.public.actions"
+import { ClientPage } from "./client-page"
+import { Suspense } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 
-interface EspertiCategoriaPageProps {
-  params: {
-    categoria: string
-  }
-}
-
-// Helper per ottenere i dettagli della categoria in base allo slug dell'URL
-const getCategoryDetails = (slug: string) => {
-  const decodedSlug = decodeURIComponent(slug)
-  const details: { [key: string]: { title: string; description: string } } = {
-    cartomanzia: {
-      title: "Esperti di Cartomanzia",
-      description:
-        "Svela i segreti del tuo destino con i nostri esperti cartomanti. Letture di tarocchi, sibille e carte per offrirti chiarezza e guida.",
-    },
-    astrologia: {
-      title: "Esperti di Astrologia",
-      description:
-        "Interpreta il linguaggio delle stelle. I nostri astrologi creano carte natali, analizzano transiti e svelano l'influenza dei pianeti sulla tua vita.",
-    },
-    numerologia: {
-      title: "Esperti di Numerologia",
-      description:
-        "Scopri il potere nascosto nei numeri. I nostri numerologi analizzano le vibrazioni numeriche legate al tuo nome e alla tua data di nascita.",
-    },
-    canalizzazione: {
-      title: "Esperti di Canalizzazione",
-      description:
-        "Connettiti con guide spirituali e energie superiori. I nostri canalizzatori fungono da ponte per ricevere messaggi illuminanti per il tuo cammino.",
-    },
-    "guarigione-energetica": {
-      title: "Esperti di Guarigione Energetica",
-      description:
-        "Riequilibra i tuoi chakra e armonizza la tua energia vitale. Sessioni di guarigione per il benessere di corpo, mente e spirito.",
-    },
-    rune: {
-      title: "Esperti di Rune",
-      description:
-        "Interroga gli antichi simboli nordici. I nostri esperti di rune ti guideranno attraverso la saggezza e i misteri delle rune.",
-    },
-    cristalloterapia: {
-      title: "Esperti di Cristalloterapia",
-      description:
-        "Sfrutta il potere curativo di cristalli e pietre. I nostri esperti ti aiuteranno a scegliere e utilizzare i cristalli per il tuo benessere.",
-    },
-    medianita: {
-      title: "Esperti di Medianità",
-      description:
-        "Comunica con il mondo spirituale in un ambiente sicuro e protetto. I nostri medium offrono conforto e messaggi dai tuoi cari.",
-    },
-  }
+function LoadingSkeleton() {
   return (
-    details[decodedSlug] || {
-      title: `Esperti di ${decodedSlug.charAt(0).toUpperCase() + decodedSlug.slice(1)}`,
-      description: "Trova l'esperto giusto per te.",
-    }
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="w-full h-96" />
+      ))}
+    </div>
   )
 }
 
-export default async function EspertiCategoriaPage({ params }: EspertiCategoriaPageProps) {
-  const categoria = decodeURIComponent(params.categoria)
-  const categoryDetails = getCategoryDetails(categoria)
+export default async function CategoriaPage({ params }: { params: { categoria: string } }) {
+  const decodedCategory = decodeURIComponent(params.categoria)
+  const { operators, total } = await getOperators(decodedCategory, 12)
 
-  // Usiamo l'opzione 'category' per filtrare gli operatori direttamente dal database
-  const initialOperators = await getOperators({ category: categoria })
-
-  return <EspertiClientPage initialOperators={initialOperators} categoryDetails={categoryDetails} />
+  return (
+    <div className="bg-gray-50 dark:bg-gray-900 py-12 md:py-20">
+      <div className="container mx-auto px-4">
+        <Suspense fallback={<LoadingSkeleton />}>
+          <ClientPage initialOperators={operators} category={decodedCategory} totalOperators={total} />
+        </Suspense>
+      </div>
+    </div>
+  )
 }
