@@ -27,6 +27,7 @@ export async function getReviewsForOperator(operatorId: string): Promise<Review[
     `,
     )
     .eq("operator_id", operatorId)
+    .eq("status", "approved") // Mostra solo recensioni approvate sulla pagina pubblica
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -34,7 +35,6 @@ export async function getReviewsForOperator(operatorId: string): Promise<Review[
     return []
   }
 
-  // Trasformiamo i dati per farli corrispondere al tipo `Review` che il frontend si aspetta
   const reviews = data.map((review) => ({
     id: review.id,
     rating: review.rating,
@@ -44,8 +44,7 @@ export async function getReviewsForOperator(operatorId: string): Promise<Review[
     user_full_name: review.client?.full_name || "Utente Anonimo",
     // @ts-ignore
     user_avatar: review.client?.profile_image_url,
-    // Aggiungiamo valori placeholder per i campi mancanti nel tipo
-    user_id: "placeholder_user_id", // Questo andrebbe recuperato se necessario
+    user_id: "placeholder_user_id",
     operator_id: operatorId,
   }))
 
@@ -54,6 +53,8 @@ export async function getReviewsForOperator(operatorId: string): Promise<Review[
 
 /**
  * Crea una nuova recensione nel database.
+ * Imposta lo stato su 'pending' per recensioni con 3 stelle o meno,
+ * e 'approved' per quelle con 4 o 5 stelle.
  * @param reviewData I dati della recensione da creare.
  * @returns Un oggetto che indica il successo o il fallimento dell'operazione.
  */
@@ -64,11 +65,15 @@ export async function createReview(reviewData: {
   comment: string
 }) {
   const supabase = createClient()
+
+  const status = reviewData.rating <= 3 ? "pending" : "approved"
+
   const { data, error } = await supabase.from("reviews").insert({
     client_id: reviewData.clientId,
     operator_id: reviewData.operatorId,
     rating: reviewData.rating,
     comment: reviewData.comment,
+    status: status,
   })
 
   if (error) {
@@ -76,10 +81,78 @@ export async function createReview(reviewData: {
     return { success: false, message: "Impossibile creare la recensione." }
   }
 
-  // Invalidiamo la cache della pagina dell'operatore per mostrare la nuova recensione
-  revalidatePath(`/esperti/${reviewData.operatorId}`)
+  revalidatePath(`/operator/${reviewData.operatorId}`)
+  revalidatePath("/admin/reviews")
   return { success: true, data }
 }
 
-// Le altre funzioni di gestione delle recensioni (moderazione, etc.) andrebbero
-// implementate qui, interagendo con il database Supabase.
+// --- NUOVE FUNZIONI PER LA MODERAZIONE ---
+
+export interface PendingReview {
+  id: string
+  rating: number
+  comment: string | null
+  createdAt: string
+  clientName: string | null
+  operatorName: string | null
+}
+
+/**
+ * Recupera tutte le recensioni in stato 'pending' per la moderazione.
+ */
+export async function getPendingReviews(): Promise<PendingReview[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("admin_reviews_view")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching pending reviews:", error.message)
+    return []
+  }
+
+  return data.map((review) => ({
+    id: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    createdAt: review.created_at,
+    clientName: review.client_name,
+    operatorName: review.operator_name,
+  }))
+}
+
+/**
+ * Approva una recensione, cambiando il suo stato in 'approved'.
+ * @param reviewId L'ID della recensione da approvare.
+ */
+export async function approveReview(reviewId: string) {
+  const supabase = createClient()
+  const { error } = await supabase.from("reviews").update({ status: "approved" }).eq("id", reviewId)
+
+  if (error) {
+    console.error("Error approving review:", error.message)
+    return { success: false, message: "Errore durante l'approvazione della recensione." }
+  }
+
+  revalidatePath("/admin/reviews")
+  return { success: true, message: "Recensione approvata con successo." }
+}
+
+/**
+ * Rifiuta una recensione, cambiando il suo stato in 'rejected'.
+ * @param reviewId L'ID della recensione da rifiutare.
+ */
+export async function rejectReview(reviewId: string) {
+  const supabase = createClient()
+  const { error } = await supabase.from("reviews").update({ status: "rejected" }).eq("id", reviewId)
+
+  if (error) {
+    console.error("Error rejecting review:", error.message)
+    return { success: false, message: "Errore durante il rifiuto della recensione." }
+  }
+
+  revalidatePath("/admin/reviews")
+  return { success: true, message: "Recensione rifiutata." }
+}
