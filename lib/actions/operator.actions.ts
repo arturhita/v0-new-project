@@ -13,22 +13,27 @@ const operatorProfileSchema = z.object({
   phone: z.string().optional(),
   bio: z.string().max(1000, "La biografia è troppo lunga.").optional(),
   specialties: z.preprocess((val) => {
-    if (typeof val === 'string' && val) {
-      return val.split(',').map(s => s.trim()).filter(Boolean);
+    if (typeof val === "string" && val) {
+      return val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
     }
     if (Array.isArray(val)) {
-      return val.map(s => String(s).trim()).filter(Boolean);
+      return val.map((s) => String(s).trim()).filter(Boolean)
     }
-    return [];
+    return []
   }, z.array(z.string()).optional()),
 })
 
 export async function updateOperatorProfile(prevState: any, formData: FormData) {
   const supabase = createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
-    return { success: false, message: "Utente non autenticato." }
+    return { success: false, message: "Utente non autenticato. Effettua nuovamente il login." }
   }
 
   const rawData = {
@@ -43,8 +48,10 @@ export async function updateOperatorProfile(prevState: any, formData: FormData) 
   const validated = operatorProfileSchema.safeParse(rawData)
 
   if (!validated.success) {
-    console.error("Validation failed:", validated.error.flatten().fieldErrors)
-    return { success: false, message: "Dati non validi. " + validated.error.flatten().fieldErrors }
+    const errors = validated.error.flatten().fieldErrors
+    console.error("Validation failed:", errors)
+    const firstError = Object.values(errors)[0]?.[0] || "Dati non validi."
+    return { success: false, message: firstError }
   }
 
   const { name, surname, stageName, phone, bio, specialties } = validated.data
@@ -65,7 +72,10 @@ export async function updateOperatorProfile(prevState: any, formData: FormData) 
 
   if (profileUpdateError) {
     console.error("Errore aggiornamento profilo:", profileUpdateError)
-    return { success: false, message: "Errore durante l'aggiornamento del profilo." }
+    return {
+      success: false,
+      message: "Errore durante l'aggiornamento del profilo. Potrebbe essere un problema di permessi.",
+    }
   }
 
   // 2. Gestisce il caricamento dell'avatar, se fornito
@@ -74,55 +84,77 @@ export async function updateOperatorProfile(prevState: any, formData: FormData) 
     const fileExt = avatarFile.name.split(".").pop()
     const filePath = `${user.id}/avatar.${fileExt}`
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, avatarFile, { upsert: true }) // upsert: true sovrascrive se esiste già
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, avatarFile, { upsert: true }) // upsert: true sovrascrive se esiste già
 
     if (uploadError) {
       console.error("Errore caricamento avatar:", uploadError)
-      return { success: false, message: "Impossibile caricare l'avatar." }
+      return { success: false, message: "Impossibile caricare l'avatar. Controlla i permessi dello storage." }
     }
 
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath)
+    // Ottieni l'URL pubblico e aggiungi un timestamp per evitare problemi di cache del browser
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath)
+    const finalUrl = `${publicUrl}?t=${new Date().getTime()}`
 
-    const { error: dbError } = await supabase.from("profiles").update({ avatar_url: `${publicUrl}?t=${new Date().getTime()}` }).eq("id", user.id)
+    const { error: dbError } = await supabase.from("profiles").update({ avatar_url: finalUrl }).eq("id", user.id)
     if (dbError) {
       console.error("Errore salvataggio URL avatar:", dbError)
-      return { success: false, message: "Impossibile salvare il nuovo avatar." }
+      return { success: false, message: "Impossibile salvare il nuovo avatar nel profilo." }
     }
   }
 
-  // 3. Gestisce il caricamento della storia, se fornita (logica simile all'avatar)
-  // ... (omesso per brevità, ma la logica sarebbe qui)
+  // La logica per la "storia" andrebbe qui, simile a quella dell'avatar
 
   revalidatePath("/(platform)/profile/operator")
   revalidatePath("/(platform)/esperti")
+  revalidatePath(`/esperti/${user.id}`)
   return { success: true, message: "Il tuo Altare è stato aggiornato con successo!" }
 }
 
+// Le altre funzioni rimangono invariate
 export async function getAllOperators(): Promise<UserProfile[]> {
   const supabase = createClient()
+
   const { data, error } = await supabase
     .from("profiles")
-    .select(`id, name, nickname, avatar_url, bio, is_online, specialties, services`)
+    .select(
+      `
+     id,
+     name,
+     nickname,
+     avatar_url,
+     bio,
+     is_online,
+     specialties,
+     services
+   `,
+    )
     .eq("role", "operator")
-    .eq("status", "approved")
+    .eq("status", "approved") // Mostriamo solo gli operatori approvati
+
   if (error) {
     console.error("Error fetching operators:", error)
     return []
   }
+
   return data as UserProfile[]
 }
 
 export async function getOperatorById(id: string): Promise<{ data: UserProfile | null; error: any }> {
   const supabase = createClient()
+
+  // Validazione base dell'ID per evitare errori noti
   if (!id || id.length < 36) {
     return { data: null, error: { message: "ID operatore non valido." } }
   }
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).eq("role", "operator").single()
+
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).eq("role", "operator").single() // .single() è più efficiente e restituisce un oggetto o un errore se non trova nulla
+
   if (error) {
     console.error(`Error fetching operator by id (${id}):`, error)
     return { data: null, error: { message: "Impossibile caricare l'operatore." } }
   }
+
   return { data: data as UserProfile, error: null }
 }
