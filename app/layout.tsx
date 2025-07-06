@@ -3,7 +3,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "@/components/ui/toaster"
+import { createClient } from "@/lib/supabase/server"
+import type { Profile } from "@/types/database.types"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -13,16 +14,24 @@ export const metadata: Metadata = {
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  let profile: Profile | null = null
+  if (session?.user) {
+    const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+    profile = profileData
+  }
+
   return (
     <html lang="it">
       <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
-        <Toaster />
+        <AuthProvider serverSession={session} serverProfile={profile}>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

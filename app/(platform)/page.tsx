@@ -1,8 +1,8 @@
 "use client"
 import type { Operator as OperatorCardType } from "@/components/operator-card"
 import type { Review as ReviewCardType } from "@/components/review-card"
-import { getOperators } from "@/lib/actions/operator.public.actions"
-import HomeClient from "./home-client"
+import { getOperators } from "@/lib/actions/operator.actions"
+import { HomeClient } from "./home-client"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -157,9 +157,8 @@ export const allMockReviews: ReviewCardType[] = [
 ]
 
 export default async function HomePage() {
-  // Carica gli operatori reali dal server, limitandoli a 8 per la homepage
-  const { operators } = await getOperators(undefined, 8)
+  // Carica gli operatori dal server
+  const operators = await getOperators({ limit: 8 })
 
-  // Passa gli operatori reali al client component che gestirà la visualizzazione
   return <HomeClient initialOperators={operators} />
 }
