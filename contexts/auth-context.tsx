@@ -3,13 +3,15 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Session, User } from "@supabase/supabase-js"
-import type { Profile } from "@/types/user.types"
+import type { Profile, UserRole } from "@/types/user.types"
 import { useRouter } from "next/navigation"
 
 interface AuthContextType {
   user: User | null
   profile: Profile | null
   loading: boolean
+  login: (email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string, role: UserRole) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -48,9 +50,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session: Session | null) => {
+    } = supabase.auth.onAuthStateChange(async (event, session: Session | null) => {
       setLoading(true)
-      fetchUserProfile(session?.user ?? null)
+      await fetchUserProfile(session?.user ?? null)
+
+      if (event === "SIGNED_IN" && session?.user) {
+        const { data: profileData } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+        if (profileData) {
+          switch (profileData.role) {
+            case "admin":
+              router.push("/admin/dashboard")
+              break
+            case "operator":
+              router.push("/dashboard/operator")
+              break
+            case "client":
+            default:
+              router.push("/dashboard/client")
+              break
+          }
+        }
+      }
     })
 
     // Fetch initial session
@@ -67,7 +87,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, fetchUserProfile])
+  }, [supabase, fetchUserProfile, router])
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+    // onAuthStateChange will handle the redirect and user state
+  }
+
+  const register = async (name: string, email: string, password: string, role: UserRole) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name,
+          role: role,
+        },
+      },
+    })
+    if (error) throw error
+    // onAuthStateChange will handle the user state.
+  }
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -80,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     loading,
+    login,
+    register,
     logout,
   }
 

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
@@ -27,7 +26,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      // The redirect is handled by the AuthProvider
+      // The redirect is handled by the AuthProvider's onAuthStateChange
     } catch (err: any) {
       setError(err.message || "Si è verificato un errore durante il login.")
     } finally {
