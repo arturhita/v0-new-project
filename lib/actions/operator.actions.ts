@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import type { Profile } from "@/contexts/auth-context"
 
-// Helper to upload a base64 image to a public bucket
 async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
   if (!dataUrl || !dataUrl.startsWith("data:image")) {
     return null
@@ -15,13 +14,13 @@ async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
   const supabase = createClient()
   const mimeType = dataUrl.match(/data:(.*);/)?.[1]
   const extension = mimeType?.split("/")[1] || "png"
-  const filePath = `public/${userId}/avatar.${extension}`
+  const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
   const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
   const fileBuffer = Buffer.from(base64Str, "base64")
 
   const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, fileBuffer, {
     contentType: mimeType,
-    upsert: true,
+    upsert: false,
   })
 
   if (uploadError) {
@@ -47,17 +46,42 @@ export async function createOperator(operatorData: any) {
   if (adminProfile?.role !== "admin") return { success: false, message: "Non hai i permessi per creare un operatore." }
 
   try {
+    // --- Validazione e Pulizia Dati ---
+    const email = operatorData.email?.trim()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, message: "Formato email non valido." }
+    }
+    const fullName = operatorData.fullName?.trim()
+    if (!fullName) return { success: false, message: "Il nome completo è obbligatorio." }
+    const stageName = operatorData.stageName?.trim()
+    if (!stageName) return { success: false, message: "Il nome d'arte è obbligatorio." }
+
+    const commission = Number.parseFloat(operatorData.commission)
+    if (isNaN(commission) || commission < 0 || commission > 100) {
+      return { success: false, message: "La commissione deve essere un numero valido tra 0 e 100." }
+    }
+
+    const services = {
+      chatEnabled: !!operatorData.services?.chatEnabled,
+      chatPrice: Number.parseFloat(operatorData.services?.chatPrice || "0"),
+      callEnabled: !!operatorData.services?.callEnabled,
+      callPrice: Number.parseFloat(operatorData.services?.callPrice || "0"),
+      emailEnabled: !!operatorData.services?.emailEnabled,
+      emailPrice: Number.parseFloat(operatorData.services?.emailPrice || "0"),
+    }
+    // --- Fine Validazione ---
+
     const temporaryPassword = randomBytes(12).toString("hex")
     const {
       data: { user },
       error: createUserError,
     } = await supabaseAdmin.auth.admin.createUser({
-      email: operatorData.email,
+      email: email,
       password: temporaryPassword,
       email_confirm: true,
       user_metadata: {
-        full_name: operatorData.fullName,
-        stage_name: operatorData.stageName,
+        full_name: fullName,
+        stage_name: stageName,
         role: "operator",
       },
     })
@@ -70,28 +94,28 @@ export async function createOperator(operatorData: any) {
     }
     if (!user) throw new Error("Creazione utente fallita senza un errore specifico.")
 
-    let avatarUrl = null
+    let publicAvatarUrl = null
     if (operatorData.avatarUrl) {
-      avatarUrl = await uploadAvatarFromDataUrl(operatorData.avatarUrl, user.id)
+      publicAvatarUrl = await uploadAvatarFromDataUrl(operatorData.avatarUrl, user.id)
     }
 
-    const { error: updateProfileError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        full_name: operatorData.fullName,
-        stage_name: operatorData.stageName,
-        email: operatorData.email,
-        phone: operatorData.phone,
-        bio: operatorData.bio,
-        specialties: operatorData.specialties,
-        main_discipline: operatorData.categories[0] || null,
-        profile_image_url: avatarUrl,
-        service_prices: operatorData.services,
-        availability_schedule: operatorData.availability,
-        status: operatorData.status,
-        commission_rate: Number.parseFloat(operatorData.commission || "15"),
-      })
-      .eq("id", user.id)
+    const profileToUpdate = {
+      full_name: fullName,
+      stage_name: stageName,
+      email: email,
+      phone: operatorData.phone || null,
+      bio: operatorData.bio || null,
+      specialties: operatorData.specialties || [],
+      main_discipline: operatorData.categories?.[0] || null,
+      profile_image_url: publicAvatarUrl,
+      service_prices: services,
+      availability_schedule: operatorData.availability || {},
+      status: operatorData.status || "In Attesa",
+      is_online: operatorData.isOnline === true,
+      commission_rate: commission,
+    }
+
+    const { error: updateProfileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", user.id)
 
     if (updateProfileError) {
       await supabaseAdmin.auth.admin.deleteUser(user.id)
@@ -102,7 +126,7 @@ export async function createOperator(operatorData: any) {
 
     return {
       success: true,
-      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      message: `Operatore ${stageName} creato con successo!`,
       temporaryPassword: temporaryPassword,
     }
   } catch (error: any) {
@@ -145,7 +169,7 @@ export async function getOperators(options?: { limit?: number; category?: string
     `,
     )
     .eq("role", "operator")
-    .eq("status", "active")
+    .eq("status", "Attivo")
 
   if (options?.category) {
     query = query.filter("categories.slug", "eq", options.category)

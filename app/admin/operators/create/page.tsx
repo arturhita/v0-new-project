@@ -76,7 +76,7 @@ export default function CreateOperatorPage() {
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
-    avatarUrl: "", // This will hold the base64 data URL for preview and upload
+    avatarUrl: "",
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -94,8 +94,8 @@ export default function CreateOperatorPage() {
       saturday: [] as string[],
       sunday: [] as string[],
     },
-    status: "Attivo" as "Attivo" | "In Attesa" | "Sospeso",
-    isOnline: true,
+    status: "In Attesa" as "Attivo" | "In Attesa" | "Sospeso", // Default corretto
+    isOnline: false, // Default corretto
     commission: "15",
   })
 
@@ -198,16 +198,17 @@ export default function CreateOperatorPage() {
       if (result.success) {
         setSuccessInfo({ message: result.message, password: result.temporaryPassword })
       } else {
-        throw new Error(result.message)
+        throw new Error(result.message || "Si è verificato un errore sconosciuto.")
       }
     } catch (error: any) {
       toast({
-        title: "Errore",
-        description: error.message || "Errore nel salvataggio dell'operatore.",
+        title: "Errore nella creazione",
+        description: error.message,
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false) // Garantisce che il pulsante si sblocchi sempre
     }
-    setIsSaving(false)
   }
 
   const copyToClipboard = (text: string) => {
