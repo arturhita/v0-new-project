@@ -1,148 +1,172 @@
-import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
-import { WalletRecharge } from "@/components/wallet-recharge"
+"use client"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Coins, History } from "lucide-react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { DollarSign, History, CreditCard, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import { WalletRecharge } from "@/components/wallet-recharge"
 
-async function getWalletData(userId: string) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
-
-  const { data: wallet, error: walletError } = await supabase
-    .from("wallets")
-    .select("id, balance_cents")
-    .eq("user_id", userId)
-    .single()
-
-  if (walletError || !wallet) {
-    console.error("Wallet not found for user:", userId, walletError)
-    return { balance: 0, transactions: [] }
-  }
-
-  const { data: transactions, error: transactionsError } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("wallet_id", wallet.id)
-    .order("created_at", { ascending: false })
-    .limit(10)
-
-  if (transactionsError) {
-    console.error("Error fetching transactions:", transactionsError)
-  }
-
-  return {
-    balance: wallet.balance_cents / 100,
-    transactions: transactions || [],
-  }
+interface Transaction {
+  id: string
+  date: string
+  type: "Ricarica" | "Pagamento Consulto" | "Rimborso"
+  description: string
+  amount: number
+  status: "Completato" | "In Attesa" | "Fallito"
 }
 
-export default async function WalletPage() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function WalletPage() {
+  const [currentBalance, setCurrentBalance] = useState(55.0)
+  const [transactions] = useState<Transaction[]>([
+    {
+      id: "t1",
+      date: "15 Giugno 2025",
+      type: "Ricarica",
+      description: "Ricarica con carta **** 1234",
+      amount: 75.0,
+      status: "Completato",
+    },
+    {
+      id: "t2",
+      date: "16 Giugno 2025",
+      type: "Pagamento Consulto",
+      description: "Consulto con Luna Stellare - Chat 30min",
+      amount: -20.0,
+      status: "Completato",
+    },
+    {
+      id: "t3",
+      date: "18 Giugno 2025",
+      type: "Ricarica",
+      description: "Ricarica con PayPal",
+      amount: 50.0,
+      status: "Completato",
+    },
+    {
+      id: "t4",
+      date: "20 Giugno 2025",
+      type: "Pagamento Consulto",
+      description: "Consulto con Sage Aurora - Chiamata 45min",
+      amount: -45.0,
+      status: "Completato",
+    },
+    {
+      id: "t5",
+      date: "22 Giugno 2025",
+      type: "Rimborso",
+      description: "Rimborso consulto cancellato",
+      amount: 15.0,
+      status: "Completato",
+    },
+  ])
 
-  if (!user) {
-    redirect("/login")
+  const getTransactionIcon = (type: Transaction["type"]) => {
+    switch (type) {
+      case "Ricarica":
+      case "Rimborso":
+        return <ArrowUpRight className="h-4 w-4 text-green-600" />
+      case "Pagamento Consulto":
+        return <ArrowDownRight className="h-4 w-4 text-red-600" />
+      default:
+        return <DollarSign className="h-4 w-4" />
+    }
   }
 
-  const { balance, transactions } = await getWalletData(user.id)
+  const getStatusBadge = (status: Transaction["status"]) => {
+    const variants = {
+      Completato: "default",
+      "In Attesa": "secondary",
+      Fallito: "destructive",
+    } as const
+
+    return <Badge variant={variants[status]}>{status}</Badge>
+  }
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-white">Il Mio Portafoglio</h1>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Il Mio Wallet</h1>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-1">
-          <Card className="bg-slate-900/50 border-purple-500/30 text-white">
-            <CardHeader>
-              <CardTitle>Ricarica Credito</CardTitle>
-              <CardDescription className="text-slate-400">
-                Aggiungi fondi al tuo portafoglio per i consulti.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WalletRecharge />
-            </CardContent>
-          </Card>
-        </div>
+      {/* Saldo Attuale */}
+      <Card className="shadow-xl rounded-xl bg-gradient-to-r from-sky-400 to-cyan-500 text-white">
+        <CardHeader>
+          <CardTitle className="text-2xl flex items-center gap-2">
+            <DollarSign className="h-8 w-8" />
+            Saldo Attuale
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-5xl font-bold">€ {currentBalance.toFixed(2)}</div>
+          <p className="text-sky-100 mt-2">Disponibile per consulenze</p>
+        </CardContent>
+      </Card>
 
-        <div className="md:col-span-2">
-          <Card className="bg-slate-900/50 border-purple-500/30 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Coins />
-                Saldo Attuale
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-5xl font-bold text-purple-400">
-                {balance.toLocaleString("it-IT", { style: "currency", currency: "EUR" })}
-              </p>
-            </CardContent>
-          </Card>
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Ricarica Wallet */}
+        <WalletRecharge currentBalance={currentBalance} onBalanceUpdate={setCurrentBalance} />
 
-          <Card className="mt-8 bg-slate-900/50 border-purple-500/30 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History />
-                Ultime Transazioni
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-700 hover:bg-slate-800/50">
-                    <TableHead className="text-white">Data</TableHead>
-                    <TableHead className="text-white">Descrizione</TableHead>
-                    <TableHead className="text-white">Tipo</TableHead>
-                    <TableHead className="text-right text-white">Importo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.length > 0 ? (
-                    transactions.map((tx) => (
-                      <TableRow key={tx.id} className="border-slate-800 hover:bg-slate-800/50">
-                        <TableCell>{new Date(tx.created_at).toLocaleDateString("it-IT")}</TableCell>
-                        <TableCell>{tx.description}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              tx.type === "credit" ? "border-green-500 text-green-400" : "border-red-500 text-red-400",
-                            )}
-                          >
-                            {tx.type === "credit" ? "Credito" : "Debito"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            "text-right font-mono",
-                            tx.type === "credit" ? "text-green-400" : "text-red-400",
-                          )}
-                        >
-                          {(tx.amount_cents / 100).toLocaleString("it-IT", { style: "currency", currency: "EUR" })}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-slate-400">
-                        Nessuna transazione trovata.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Azioni Rapide */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>Azioni Rapide</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button className="w-full justify-start bg-transparent" variant="outline">
+              <CreditCard className="mr-2 h-4 w-4" />
+              Gestisci Metodi di Pagamento
+            </Button>
+            <Button className="w-full justify-start bg-transparent" variant="outline">
+              <History className="mr-2 h-4 w-4" />
+              Scarica Estratto Conto
+            </Button>
+            <Button className="w-full justify-start bg-transparent" variant="outline">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Imposta Ricarica Automatica
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Storico Transazioni */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Storico Transazioni
+          </CardTitle>
+          <CardDescription>Le tue ultime transazioni e movimenti</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transactions.length === 0 ? (
+            <p className="text-center text-slate-500 py-8">Nessuna transazione registrata</p>
+          ) : (
+            <div className="space-y-4">
+              {transactions.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {getTransactionIcon(transaction.type)}
+                    <div>
+                      <p className="font-medium text-slate-900">{transaction.description}</p>
+                      <p className="text-sm text-slate-500">
+                        {transaction.date} • {transaction.type}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className={`font-semibold ${transaction.amount > 0 ? "text-green-600" : "text-red-600"}`}>
+                      {transaction.amount > 0 ? "+" : ""}€{Math.abs(transaction.amount).toFixed(2)}
+                    </p>
+                    {getStatusBadge(transaction.status)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

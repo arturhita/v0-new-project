@@ -1,114 +1,120 @@
 "use client"
 
-import { useState } from "react"
-import { useFormState } from "react-dom"
-import { requestWrittenConsultation } from "@/lib/actions/written-consultation.actions"
-import { Button } from "@/components/ui/button"
+import type React from "react"
+
+import { useState, useTransition } from "react"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Loader2, Send, Wallet } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { createClient } from "@/lib/supabase/client"
+import { submitWrittenConsultation } from "@/lib/actions/written-consultation.actions"
+
+interface OperatorInfo {
+  id: string
+  name: string
+  emailPrice: number
+}
 
 interface WrittenConsultationModalProps {
-  operatorId: string
-  operatorName: string
+  operator: OperatorInfo
+  isOpen: boolean
+  onClose: () => void
 }
 
-const initialState = {
-  message: "",
-  success: false,
-}
+export function WrittenConsultationModal({ operator, isOpen, onClose }: WrittenConsultationModalProps) {
+  const { user } = useAuth()
+  const [question, setQuestion] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
-export function WrittenConsultationModal({ operatorId, operatorName }: WrittenConsultationModalProps) {
-  const [open, setOpen] = useState(false)
-  const { user, profile } = useAuth()
-  const [state, formAction] = useFormState(requestWrittenConsultation, initialState)
-  const supabase = createClient()
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      // Reset form state on close
-      // This is a bit of a hack, but useFormState doesn't have a built-in reset
-      initialState.message = ""
-      initialState.success = false
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+    if (!user) {
+      setError("Devi essere loggato per inviare una domanda.")
+      return
     }
-    setOpen(isOpen)
-  }
+    if (question.trim().length < 20) {
+      setError("La domanda deve contenere almeno 20 caratteri.")
+      return
+    }
 
-  if (!user || !profile) {
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button>Richiedi Consulto Scritto</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Accesso Richiesto</DialogTitle>
-            <DialogDescription>Devi effettuare l'accesso come cliente per richiedere un consulto.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => (window.location.href = "/login")}>Accedi</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    )
+    const formData = new FormData()
+    formData.append("clientId", user.id)
+    formData.append("operatorId", operator.id)
+    formData.append("question", question)
+
+    startTransition(async () => {
+      const result = await submitWrittenConsultation(formData)
+      if (result.success) {
+        alert(result.message)
+        onClose()
+      } else {
+        setError(result.error || "Si è verificato un errore.")
+      }
+    })
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>Richiedi Consulto Scritto</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px] bg-slate-900 text-white border-blue-700">
         <DialogHeader>
-          <DialogTitle>Consulto Scritto con {operatorName}</DialogTitle>
+          <DialogTitle>Domanda Scritta a {operator.name}</DialogTitle>
           <DialogDescription>
-            Descrivi la tua domanda o situazione. L'operatore ti risponderà via email entro 48 ore.
+            Invia la tua domanda. L'operatore risponderà il prima possibile. Il costo verrà addebitato dal tuo wallet.
           </DialogDescription>
         </DialogHeader>
-        {state.success ? (
-          <div className="py-4 text-center">
-            <p className="text-green-600 font-semibold">Richiesta Inviata!</p>
-            <p className="text-sm text-gray-600">{state.message}</p>
-            <Button onClick={() => setOpen(false)} className="mt-4">
-              Chiudi
-            </Button>
-          </div>
-        ) : (
-          <form action={formAction}>
-            <div className="grid gap-4 py-4">
-              <input type="hidden" name="operatorId" value={operatorId} />
-              <input type="hidden" name="clientId" value={user.id} />
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="question" className="text-right">
-                  La tua Domanda
-                </Label>
-                <Textarea
-                  id="question"
-                  name="question"
-                  required
-                  className="col-span-3"
-                  placeholder="Scrivi qui la tua domanda..."
-                />
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="flex items-center justify-between bg-slate-800 p-3 rounded-md">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-cyan-400" />
+                <span className="font-medium">Costo della richiesta:</span>
               </div>
+              <span className="font-bold text-lg text-cyan-400">{operator.emailPrice.toFixed(2)} €</span>
             </div>
-            {state.message && !state.success && (
-              <p className="text-sm text-red-500 text-center pb-2">{state.message}</p>
-            )}
-            <DialogFooter>
-              <Button type="submit">Invia Richiesta</Button>
-            </DialogFooter>
-          </form>
-        )}
+            <div className="grid w-full gap-1.5">
+              <Label htmlFor="question">La tua domanda</Label>
+              <Textarea
+                id="question"
+                placeholder="Scrivi qui la tua domanda in modo dettagliato..."
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                rows={6}
+                className="bg-slate-800 border-slate-700 focus:ring-cyan-500"
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={isPending || question.trim().length < 20}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Invio in corso...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Invia Domanda
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

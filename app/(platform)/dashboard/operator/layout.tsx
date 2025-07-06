@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -45,8 +45,6 @@ import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-con
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
-import { ProtectedRoute } from "@/components/protected-route"
-import { useOperatorPresence } from "@/hooks/use-operator-presence"
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -62,7 +60,7 @@ const navItemsOperator = [
   { href: "/dashboard/operator/platform-messages", label: "Messaggi dalla Piattaforma", icon: MessageSquare },
   { href: "/dashboard/operator/client-notes", label: "Appunti sui Cercatori", icon: BookUser },
   { href: "/dashboard/operator/commission-request", label: "Richiesta Decima", icon: Percent },
-  { href: "/dashboard/operator/profile", label: "Il Mio Altare (Profilo)", icon: Settings },
+  { href: "/profile/operator", label: "Il Mio Altare (Profilo)", icon: Settings },
 ]
 
 const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0]; pathname: string }) => {
@@ -86,11 +84,10 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
 
 function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { logout, profile } = useAuth()
-  const { status, setStatus, pauseTimer } = useOperatorStatus()
+  const router = useRouter()
+  const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
   const { showRequest } = useChatRequest()
-
-  useOperatorPresence(profile?.id)
+  const { logout } = useAuth()
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -100,7 +97,7 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
         fromUserId: "user_sim_123",
         fromUserName: "Mario Simulato",
       })
-    }, 15000)
+    }, 10000)
 
     return () => clearTimeout(timeoutId)
   }, [showRequest])
@@ -158,9 +155,17 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
     </nav>
   )
 
+  const handleLogout = () => {
+    // Implement your logout logic here, e.g., clearing cookies, local storage, etc.
+    // After logging out, redirect the user to the home page or login page.
+    router.push("/")
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Site Navbar */}
       <SiteNavbar />
+
       <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
         <aside className="hidden border-r border-blue-700 bg-blue-800 md:block shadow-xl rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden relative z-10">
           <div className="flex h-full max-h-screen flex-col">
@@ -214,7 +219,7 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
 
             <div className="flex-1">
               <h1 className="text-xl font-semibold text-gray-800 capitalize">
-                {navItemsOperator.find((item) => pathname.startsWith(item.href))?.label || "Panoramica"}
+                {pathname.split("/").pop()?.replace(/-/g, " ") || "Panoramica"}
               </h1>
             </div>
 
@@ -238,7 +243,7 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
                   <DropdownMenuSeparator className="bg-gray-200" />
                   <DropdownMenuItem
                     onClick={() => handleSetStatusManually("online")}
-                    disabled={status === "online"}
+                    disabled={status === "online" && !currentStatusInfo.text.startsWith("In Pausa")}
                     className="text-gray-800 focus:bg-blue-100"
                   >
                     <Sun className="mr-2 h-4 w-4 text-green-500" />
@@ -254,7 +259,7 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleSetStatusManually("offline")}
-                    disabled={status === "offline"}
+                    disabled={status === "offline" && !currentStatusInfo.text.startsWith("In Pausa")}
                     className="text-gray-800 focus:bg-blue-100"
                   >
                     <Moon className="mr-2 h-4 w-4 text-gray-500" />
@@ -272,12 +277,9 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
                 <span className="sr-only">Notifiche</span>
               </Button>
               <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
-                <AvatarImage
-                  src={profile?.avatar_url || "/placeholder.svg?height=38&width=38"}
-                  alt={profile?.nickname || "Operatore"}
-                />
+                <AvatarImage src="/placeholder.svg?height=38&width=38" alt={operatorName} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {(profile?.nickname || "O").substring(0, 1).toUpperCase()}
+                  {operatorName?.substring(0, 1).toUpperCase()}
                 </AvatarFallback>
                 <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
               </Avatar>
@@ -295,12 +297,10 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
 
 export default function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute requiredRole="operator">
-      <OperatorStatusProvider>
-        <ChatRequestProvider>
-          <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
-        </ChatRequestProvider>
-      </OperatorStatusProvider>
-    </ProtectedRoute>
+    <OperatorStatusProvider>
+      <ChatRequestProvider>
+        <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
+      </ChatRequestProvider>
+    </OperatorStatusProvider>
   )
 }

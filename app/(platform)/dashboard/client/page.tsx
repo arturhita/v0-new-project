@@ -4,7 +4,7 @@ import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Clock, Star, MessageSquare, ArrowRight, Search, Wallet, History } from "lucide-react"
+import { Clock, Star, MessageSquare, ArrowRight, Search, Sparkles, Wallet, History } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
 import { useAuth } from "@/contexts/auth-context"
@@ -45,7 +45,7 @@ const InfoCard = ({
 )
 
 export default function ClientDashboardPage() {
-  const { user, profile, loading, logout } = useAuth()
+  const { profile, loading } = useAuth()
   const router = useRouter()
   const favoriteExperts = [
     {
@@ -72,13 +72,11 @@ export default function ClientDashboardPage() {
   ]
 
   if (loading) {
-    return <div>Caricamento...</div>
+    return <div>Caricamento in corso...</div>
   }
 
-  if (!user) {
-    // This should be handled by the AuthProvider, but as a fallback
-    router.push("/(platform)/login")
-    return null
+  if (!profile) {
+    return <div>Profilo non trovato.</div>
   }
 
   return (
@@ -90,15 +88,13 @@ export default function ClientDashboardPage() {
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
 
       <div className="relative z-10 p-6 space-y-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-white dark:text-white">Benvenuto, {profile?.name || user.email}!</h1>
-          <Button onClick={logout} variant="outline">
-            Logout
-          </Button>
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 mr-3 text-yellow-400" />
+            Bentornato, {profile.name}!
+          </h1>
+          <p className="text-white/70 text-lg">Gestisci le tue consulenze e scopri nuovi esperti</p>
         </div>
-        <p className="text-lg text-white/70 mb-8">
-          Questa è la tua dashboard personale. Da qui puoi gestire le tue consulenze, il tuo portafoglio e molto altro.
-        </p>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <InfoCard
@@ -130,8 +126,7 @@ export default function ClientDashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card className="bg-gray-800 border-gray-700 text-white">
             <CardHeader>
-              <CardTitle>Il Mio Portafoglio</CardTitle>
-              <CardDescription>Controlla il tuo saldo e ricarica.</CardDescription>
+              <CardTitle>Il Mio Credito</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-4xl font-bold">€ 25,00</p>
@@ -141,29 +136,27 @@ export default function ClientDashboardPage() {
 
           <Card className="bg-gray-800 border-gray-700 text-white">
             <CardHeader>
-              <CardTitle>Le Mie Consulenze</CardTitle>
-              <CardDescription>Visualizza le tue consulenze passate e future.</CardDescription>
+              <CardTitle>Prossima Consulenza</CardTitle>
             </CardHeader>
             <CardContent>
-              <p>Hai 3 consulenze in programma.</p>
+              <p>Nessuna consulenza prenotata.</p>
               <Button
-                onClick={() => router.push("/dashboard/client/consultations")}
+                onClick={() => router.push("/esperti/cartomanzia")}
                 className="mt-4 bg-purple-600 hover:bg-purple-700"
               >
-                Vedi Consulenze
+                Trova un Esperto
               </Button>
             </CardContent>
           </Card>
 
           <Card className="bg-gray-800 border-gray-700 text-white">
             <CardHeader>
-              <CardTitle>Messaggi</CardTitle>
-              <CardDescription>Leggi i messaggi dei tuoi operatori.</CardDescription>
+              <CardTitle>Messaggi Recenti</CardTitle>
             </CardHeader>
             <CardContent>
-              <p>2 messaggi non letti.</p>
+              <p>Nessun nuovo messaggio.</p>
               <Button
-                onClick={() => router.push("/dashboard/client/messages")}
+                onClick={() => router.push("/(platform)/dashboard/client/messages")}
                 className="mt-4 bg-gray-700 hover:bg-gray-600"
               >
                 Vai ai Messaggi

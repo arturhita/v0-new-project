@@ -2,59 +2,50 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { SupabaseClient, User } from "@supabase/supabase-js"
-import type { Profile, UserRole } from "@/types/user.types"
+import type { User, AuthError } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 
-interface AuthContextType {
+export type Profile = {
+  id: string
+  name: string
+  role: "client" | "operator" | "admin"
+  avatar_url?: string
+  nickname?: string
+}
+
+type AuthContextType = {
   user: User | null
   profile: Profile | null
-  loading: boolean
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: any }>
-  register: (
-    name: string,
-    email: string,
-    password: string,
-    role: UserRole,
-  ) => Promise<{ success: boolean; error?: any }>
+  login: (credentials: any) => Promise<{ success: boolean; error: AuthError | null }>
+  register: (credentials: any) => Promise<{ success: boolean; error: AuthError | null }>
   logout: () => Promise<void>
+  loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const supabase = createClient()
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase: SupabaseClient = createClient()
-  const router = useRouter()
 
   useEffect(() => {
-    const getInitialUser = async () => {
-      const {
-        data: { user: initialUser },
-      } = await supabase.auth.getUser()
-      if (initialUser) {
-        setUser(initialUser)
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", initialUser.id).single()
-        setProfile(userProfile as Profile)
-      }
-      setLoading(false)
-    }
-
-    getInitialUser()
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setLoading(true)
       const currentUser = session?.user ?? null
       setUser(currentUser)
+
       if (currentUser) {
         const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
         setProfile(userProfile as Profile)
 
         if (event === "SIGNED_IN") {
-          switch (userProfile?.role) {
+          // Reindirizza dopo il login in base al ruolo
+          switch ((userProfile as Profile)?.role) {
             case "admin":
               router.push("/admin/dashboard")
               break
@@ -73,22 +64,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
+    // Carica la sessione iniziale
+    const getInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        setUser(session.user)
+        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        setProfile(userProfile as Profile)
+      }
+      setLoading(false)
+    }
+    getInitialSession()
+
     return () => {
       subscription.unsubscribe()
     }
   }, [supabase, router])
 
-  const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const login = async (credentials: any) => {
+    const { error } = await supabase.auth.signInWithPassword(credentials)
     return { success: !error, error }
   }
 
-  const register = async (name: string, email: string, password: string, role: UserRole) => {
+  const register = async (credentials: any) => {
+    const { email, password, name, role } = credentials
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name, role },
+        data: {
+          name,
+          role,
+        },
       },
     })
     return { success: !error, error }
@@ -99,9 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/")
   }
 
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, login, register, logout }}>{children}</AuthContext.Provider>
-  )
+  const value = {
+    user,
+    profile,
+    login,
+    register,
+    logout,
+    loading,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {

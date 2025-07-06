@@ -1,71 +1,60 @@
 "use client"
-
 import { useAuth } from "@/contexts/auth-context"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
 export default function OperatorDashboardPage() {
-  const { user, profile, loading, logout } = useAuth()
+  const { profile, loading } = useAuth()
   const router = useRouter()
 
   if (loading) {
-    return <div>Caricamento...</div>
+    return <div>Caricamento in corso...</div>
   }
 
-  if (!user) {
-    // This should be handled by the AuthProvider, but as a fallback
-    router.push("/(platform)/login")
-    return null
+  if (!profile) {
+    return <div>Profilo non trovato.</div>
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Benvenuto, Operatore {profile?.name || user.email}!
-        </h1>
-        <Button onClick={logout} variant="outline">
-          Logout
-        </Button>
-      </div>
-      <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
-        Gestisci la tua attività, la disponibilità e le consulenze da questa dashboard.
-      </p>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold text-white">Bentornato, {profile.name}!</h1>
+      <p className="text-gray-400">Questa è la tua dashboard operatore.</p>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
+        <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader>
-            <CardTitle>Disponibilità</CardTitle>
-            <CardDescription>Imposta i tuoi orari di lavoro.</CardDescription>
+            <CardTitle>Stato Attuale</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Sei attualmente online.</p>
-            <Button className="mt-4" onClick={() => router.push("/(platform)/dashboard/operator/availability")}>
-              Gestisci Disponibilità
+            <p className="text-2xl font-bold text-green-400">Disponibile</p>
+            <Button className="mt-4 bg-red-600 hover:bg-red-700">Passa a Occupato</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800 border-gray-700 text-white">
+          <CardHeader>
+            <CardTitle>Richieste di Chat</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Nessuna nuova richiesta.</p>
+            <Button disabled className="mt-4 bg-gray-700">
+              Visualizza Coda
             </Button>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader>
-            <CardTitle>Guadagni</CardTitle>
-            <CardDescription>Visualizza i tuoi guadagni e le statistiche.</CardDescription>
+            <CardTitle>Guadagni del Mese</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">€ 1,250.00</p>
-            <Button className="mt-4" onClick={() => router.push("/(platform)/dashboard/operator/earnings")}>
-              Vedi Dettagli
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Messaggi Interni</CardTitle>
-            <CardDescription>Comunicazioni dalla piattaforma.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Nessun nuovo messaggio.</p>
-            <Button className="mt-4" onClick={() => router.push("/(platform)/dashboard/operator/internal-messages")}>
-              Apri Messaggi
+            <p className="text-4xl font-bold">€ 1,250.00</p>
+            <Button
+              onClick={() => router.push("/(platform)/dashboard/operator/earnings")}
+              className="mt-4 bg-gray-700 hover:bg-gray-600"
+            >
+              Dettagli Guadagni
             </Button>
           </CardContent>
         </Card>

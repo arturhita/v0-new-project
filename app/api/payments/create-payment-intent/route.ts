@@ -1,46 +1,40 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
-import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 
-export async function POST(request: Request) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return new NextResponse("Unauthorized", { status: 401 })
-  }
-
-  const { amount } = await request.json() // Amount in EUR
-
-  if (!amount || typeof amount !== "number" || amount <= 0) {
-    return new NextResponse("Invalid amount", { status: 400 })
-  }
-
-  const amountInCents = Math.round(amount * 100)
-
+export async function POST(request: NextRequest) {
   try {
-    // Create a PaymentIntent with the order amount and currency
+    // In un'applicazione reale, l'ID utente non verrebbe passato nel body della richiesta,
+    // ma ottenuto da una sessione di autenticazione sicura sul server.
+    // Questo previene che un utente possa creare pagamenti per conto di un altro.
+    const {
+      amount,
+      currency = "eur",
+      userId /* Esempio: const { userId } = await getAuthSession() */,
+    } = await request.json()
+
+    if (!amount || amount < 50) {
+      // Minimo 0.50€
+      return NextResponse.json({ error: "Importo minimo 0.50€" }, { status: 400 })
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: "eur",
+      amount: Math.round(amount), // Stripe usa centesimi
+      currency,
+      metadata: {
+        userId,
+        type: "wallet_recharge",
+      },
       automatic_payment_methods: {
         enabled: true,
-      },
-      metadata: {
-        userId: user.id,
       },
     })
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
     })
-  } catch (error: any) {
-    console.error("Error creating PaymentIntent:", error)
-    return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 })
+  } catch (error) {
+    console.error("Errore creazione PaymentIntent:", error)
+    return NextResponse.json({ error: "Errore interno del server" }, { status: 500 })
   }
 }

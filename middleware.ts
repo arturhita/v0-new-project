@@ -54,9 +54,8 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // Rinfresca la sessione se l'utente è loggato.
-  // Questo è cruciale per mantenere il login.
-  await supabase.auth.getUser()
+  // Rinfresca la sessione se scade.
+  await supabase.auth.getSession()
 
   return response
 }
@@ -66,9 +65,9 @@ export const config = {
     /*
      * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
      * - _next/static (file statici)
-     * - _next/image (file di ottimizzazione delle immagini)
+     * - _next/image (ottimizzazione immagini)
      * - favicon.ico (file favicon)
-     * Sentiti libero di modificare questo pattern per includere più percorsi.
+     * Sentiti libero di modificare questo per adattarlo alle tue esigenze.
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

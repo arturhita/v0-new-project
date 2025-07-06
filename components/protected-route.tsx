@@ -5,28 +5,33 @@ import type React from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole: "admin" | "operator" | "client"
+  allowedRoles?: ("client" | "operator" | "admin")[]
+  redirectTo?: string
 }
 
-export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { profile, loading } = useAuth()
+export function ProtectedRoute({
+  children,
+  allowedRoles = ["client", "operator", "admin"],
+  redirectTo = "/login",
+}: ProtectedRouteProps) {
+  const { user, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading) {
-      if (!profile) {
-        // If not loading and no profile, redirect to login
-        router.push("/login")
-      } else if (profile.role !== requiredRole) {
-        // If role doesn't match, redirect to a safe page
-        console.warn(`Access denied. User role: '${profile.role}', required: '${requiredRole}'`)
-        switch (profile.role) {
+      if (!user) {
+        router.push(redirectTo)
+        return
+      }
+
+      if (!allowedRoles.includes(user.role)) {
+        // Redirect basato sul ruolo
+        switch (user.role) {
           case "admin":
-            router.push("/admin")
+            router.push("/admin/dashboard")
             break
           case "operator":
             router.push("/dashboard/operator")
@@ -37,19 +42,24 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
           default:
             router.push("/")
         }
+        return
       }
     }
-  }, [profile, loading, requiredRole, router])
+  }, [user, loading, router, allowedRoles, redirectTo])
 
-  if (loading || !profile || profile.role !== requiredRole) {
+  if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-          <p className="text-lg font-medium text-gray-700">Verifica in corso...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Caricamento...</p>
         </div>
       </div>
     )
+  }
+
+  if (!user || !allowedRoles.includes(user.role)) {
+    return null
   }
 
   return <>{children}</>

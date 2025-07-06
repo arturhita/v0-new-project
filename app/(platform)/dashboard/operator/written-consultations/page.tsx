@@ -1,98 +1,125 @@
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import type React from "react"
+
+import { useEffect, useState, useTransition } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import {
+  getWrittenConsultationsForOperator,
+  answerWrittenConsultation,
+  type WrittenConsultation,
+} from "@/lib/actions/written-consultation.actions"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { FileQuestion, ShieldX } from "lucide-react"
-import { redirect } from "next/navigation"
+import { Textarea } from "@/components/ui/textarea"
+import { Loader2, Send, User, Calendar } from "lucide-react"
 
-export default async function WrittenConsultationsPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+function AnswerForm({ consultationId }: { consultationId: string }) {
+  const [isPending, startTransition] = useTransition()
+  const [answer, setAnswer] = useState("")
 
-  if (!user) {
-    redirect("/login")
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData()
+    formData.append("consultationId", consultationId)
+    formData.append("answer", answer)
+
+    startTransition(async () => {
+      const result = await answerWrittenConsultation(formData)
+      if (result.success) {
+        alert(result.message)
+        // The revalidation should refresh the list
+      } else {
+        alert(`Errore: ${result.error}`)
+      }
+    })
   }
 
-  const { data: consultations, error } = await supabase
-    .from("written_consultations")
-    .select(`
-      id,
-      created_at,
-      question,
-      status,
-      client:profiles(name, nickname)
-    `)
-    .eq("operator_id", user.id)
-    .order("created_at", { ascending: false })
+  return (
+    <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+      <Textarea
+        placeholder="Scrivi qui la tua risposta..."
+        rows={8}
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        required
+        className="bg-white"
+      />
+      <Button type="submit" disabled={isPending || answer.trim().length < 10}>
+        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+        Invia Risposta
+      </Button>
+    </form>
+  )
+}
 
-  if (error) {
+export default function OperatorWrittenConsultationsPage() {
+  const { user } = useAuth()
+  const [consultations, setConsultations] = useState<WrittenConsultation[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Assuming operator ID is stored in user object for simplicity
+    if (user && user.role === "operator") {
+      setIsLoading(true)
+      getWrittenConsultationsForOperator(user.id)
+        .then((data) => {
+          setConsultations(data)
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+    }
+  }, [user])
+
+  const pendingConsultations = consultations.filter((c) => c.status === "pending_operator_response")
+
+  if (isLoading) {
     return (
-      <Alert variant="destructive">
-        <ShieldX className="h-4 w-4" />
-        <AlertTitle>Errore di Caricamento</AlertTitle>
-        <AlertDescription>Impossibile caricare i dati dei consulti. Riprova più tardi.</AlertDescription>
-      </Alert>
+      <div className="flex justify-center items-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
+      </div>
     )
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Consulti Epistolari</CardTitle>
-        <CardDescription>Qui trovi tutte le richieste di consulto scritto che hai ricevuto.</CardDescription>
+        <CardTitle>Consulenze Scritte da Gestire</CardTitle>
+        <CardDescription>
+          Qui trovi le domande in attesa di una tua risposta. Rispondi per completare la consulenza.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {!consultations || consultations.length === 0 ? (
-          <div className="text-center py-10 border-2 border-dashed rounded-lg">
-            <FileQuestion className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Nessun consulto scritto</h3>
-            <p className="mt-1 text-sm text-gray-500">Non hai ancora ricevuto richieste.</p>
+        {pendingConsultations.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>Non ci sono nuove domande in attesa.</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {consultations.map((consultation) => (
-              <div
-                key={consultation.id}
-                className="border p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-              >
-                <div className="flex-grow">
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="font-semibold">
-                      Da: {consultation.client?.nickname || consultation.client?.name || "Utente"}
-                    </p>
-                    <Badge
-                      variant={consultation.status === "pending" ? "destructive" : "secondary"}
-                      className={consultation.status === "pending" ? "animate-pulse" : ""}
-                    >
-                      {consultation.status === "pending" ? "In attesa di risposta" : "Risposto"}
-                    </Badge>
+          <Accordion type="single" collapsible className="w-full">
+            {pendingConsultations.map((item) => (
+              <AccordionItem key={item.id} value={item.id}>
+                <AccordionTrigger>
+                  <div className="flex justify-between items-center w-full pr-4">
+                    <div className="text-left">
+                      <p className="font-semibold flex items-center gap-2">
+                        <User className="h-4 w-4" /> Domanda da {item.clientName}
+                      </p>
+                      <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                        <Calendar className="h-4 w-4" /> Ricevuta il: {new Date(item.createdAt).toLocaleString("it-IT")}
+                      </p>
+                    </div>
+                    <span className="font-bold text-sky-600">{item.cost.toFixed(2)} €</span>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    Ricevuta il:{" "}
-                    {new Date(consultation.created_at).toLocaleDateString("it-IT", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <p className="text-sm text-gray-800 mt-2 line-clamp-2">
-                    <strong>Domanda:</strong> {consultation.question}
-                  </p>
-                </div>
-                <div className="flex-shrink-0">
-                  <Button asChild>
-                    <Link href={`/dashboard/operator/written-consultations/${consultation.id}`}>
-                      {consultation.status === "pending" ? "Rispondi Ora" : "Vedi Dettagli"}
-                    </Link>
-                  </Button>
-                </div>
-              </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-gray-700 bg-gray-50 p-4 rounded-md border mb-4">{item.question}</p>
+                  <AnswerForm consultationId={item.id} />
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         )}
       </CardContent>
     </Card>
