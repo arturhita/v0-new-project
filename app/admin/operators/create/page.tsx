@@ -30,7 +30,7 @@ import {
   Tags,
 } from "lucide-react"
 import Link from "next/link"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { createOperator } from "@/lib/actions/operator.actions"
 
 const categories = [
@@ -58,6 +58,7 @@ const weekDays = [
 
 export default function CreateOperatorPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -110,7 +111,11 @@ export default function CreateOperatorPage() {
     setOperator((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleServiceChange = (service: string, field: string, value: string | boolean) => {
+  const handleServiceChange = (
+    service: "chat" | "call" | "email",
+    field: "Enabled" | "Price",
+    value: string | boolean,
+  ) => {
     setOperator((prev) => ({
       ...prev,
       services: {
@@ -200,42 +205,27 @@ export default function CreateOperatorPage() {
     setIsSaving(true)
 
     try {
-      // Salva nel localStorage per simulare il database
-      const existingOperators = JSON.parse(localStorage.getItem("mock_operators") || "[]")
-      const newOperator = {
-        ...operator,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString().split("T")[0],
-      }
-
-      existingOperators.push(newOperator)
-      localStorage.setItem("mock_operators", JSON.stringify(existingOperators))
-
-      // Chiama anche la server action
-      const result = await createOperator(newOperator)
+      const result = await createOperator(operator)
 
       if (result.success) {
         toast({
           title: "✅ Operatore Creato!",
-          description: `${operator.stageName} è stato aggiunto con successo.`,
+          description: result.message,
           className: "bg-green-100 border-green-300 text-green-700",
         })
-
-        // Notifica aggiornamento
-        window.dispatchEvent(new CustomEvent("operatorsUpdated"))
 
         // Redirect alla lista operatori
         setTimeout(() => {
           router.push("/admin/operators")
-        }, 1500)
+        }, 2000)
       } else {
         throw new Error(result.message)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Errore nel salvataggio:", error)
       toast({
         title: "Errore",
-        description: "Errore nel salvataggio dell'operatore. Riprova.",
+        description: error.message || "Errore nel salvataggio dell'operatore. Riprova.",
         variant: "destructive",
       })
     }
@@ -463,7 +453,7 @@ export default function CreateOperatorPage() {
                 />
               </div>
               <div>
-                <Label>Categorie *</Label>
+                <Label>Categorie (Specializzazioni) *</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                   {categories.map((category) => (
                     <div key={category} className="flex items-center space-x-2">
@@ -480,7 +470,7 @@ export default function CreateOperatorPage() {
                 </div>
               </div>
               <div>
-                <Label>Specializzazioni</Label>
+                <Label>Tag Aggiuntivi</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {operator.specialties.map((spec) => (
                     <Badge
@@ -502,7 +492,7 @@ export default function CreateOperatorPage() {
                   <Input
                     value={newSpecialty}
                     onChange={(e) => setNewSpecialty(e.target.value)}
-                    placeholder="Aggiungi specializzazione"
+                    placeholder="Aggiungi tag"
                     className="flex-grow"
                     onKeyPress={(e) => {
                       if (e.key === "Enter") handleAddSpecialty()
@@ -664,7 +654,9 @@ export default function CreateOperatorPage() {
                   <Label htmlFor="status">Stato</Label>
                   <Select
                     value={operator.status}
-                    onValueChange={(value: any) => setOperator((prev) => ({ ...prev, status: value }))}
+                    onValueChange={(value: "Attivo" | "In Attesa" | "Sospeso") =>
+                      setOperator((prev) => ({ ...prev, status: value }))
+                    }
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
