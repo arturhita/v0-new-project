@@ -94,8 +94,8 @@ export default function CreateOperatorPage() {
       saturday: [] as string[],
       sunday: [] as string[],
     },
-    status: "In Attesa" as "Attivo" | "In Attesa" | "Sospeso", // Default corretto
-    isOnline: false, // Default corretto
+    status: "In Attesa" as "Attivo" | "In Attesa" | "Sospeso",
+    isOnline: false,
     commission: "15",
   })
 
@@ -193,21 +193,32 @@ export default function CreateOperatorPage() {
     }
 
     setIsSaving(true)
+    console.log("Client: Avvio salvataggio operatore...")
+
     try {
+      console.log("Client: Chiamata all'azione createOperator con i seguenti dati:", operator)
       const result = await createOperator(operator)
-      if (result.success) {
+      console.log("Client: Risultato ricevuto dall'azione:", result)
+
+      if (result && result.success) {
+        toast({
+          title: "Successo!",
+          description: result.message,
+        })
         setSuccessInfo({ message: result.message, password: result.temporaryPassword })
       } else {
-        throw new Error(result.message || "Si è verificato un errore sconosciuto.")
+        throw new Error(result?.message || "Si è verificato un errore sconosciuto durante la creazione.")
       }
     } catch (error: any) {
+      console.error("Client: Errore nel blocco catch di handleSave:", error)
       toast({
-        title: "Errore nella creazione",
+        title: "Errore nella Creazione",
         description: error.message,
         variant: "destructive",
       })
     } finally {
-      setIsSaving(false) // Garantisce che il pulsante si sblocchi sempre
+      console.log("Client: Esecuzione del blocco finally, sblocco del pulsante.")
+      setIsSaving(false)
     }
   }
 

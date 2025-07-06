@@ -35,18 +35,28 @@ async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
 }
 
 export async function createOperator(operatorData: any) {
+  console.log("Azione 'createOperator' avviata.")
   const supabase = createClient()
 
-  const {
-    data: { user: currentUser },
-  } = await supabase.auth.getUser()
-  if (!currentUser) return { success: false, message: "Autenticazione richiesta." }
-
-  const { data: adminProfile } = await supabase.from("profiles").select("role").eq("id", currentUser.id).single()
-  if (adminProfile?.role !== "admin") return { success: false, message: "Non hai i permessi per creare un operatore." }
-
   try {
-    // --- Validazione e Pulizia Dati ---
+    // 1. Check Admin Permissions
+    console.log("Step 1: Verifica permessi admin...")
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) {
+      console.error("Errore: Utente non autenticato.")
+      return { success: false, message: "Autenticazione richiesta." }
+    }
+    const { data: adminProfile } = await supabase.from("profiles").select("role").eq("id", currentUser.id).single()
+    if (adminProfile?.role !== "admin") {
+      console.error(`Errore: L'utente ${currentUser.id} non ha i permessi di admin.`)
+      return { success: false, message: "Non hai i permessi per creare un operatore." }
+    }
+    console.log("Permessi admin verificati.")
+
+    // 2. Validate and Sanitize Data
+    console.log("Step 2: Validazione e pulizia dati...")
     const email = operatorData.email?.trim()
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return { success: false, message: "Formato email non valido." }
@@ -69,8 +79,10 @@ export async function createOperator(operatorData: any) {
       emailEnabled: !!operatorData.services?.emailEnabled,
       emailPrice: Number.parseFloat(operatorData.services?.emailPrice || "0"),
     }
-    // --- Fine Validazione ---
+    console.log("Dati validati con successo.")
 
+    // 3. Create Auth User
+    console.log(`Step 3: Creazione utente auth per ${email}...`)
     const temporaryPassword = randomBytes(12).toString("hex")
     const {
       data: { user },
@@ -87,18 +99,29 @@ export async function createOperator(operatorData: any) {
     })
 
     if (createUserError) {
+      console.error("Errore durante la creazione dell'utente in Supabase Auth:", createUserError.message)
       if (createUserError.message.includes("already registered")) {
         return { success: false, message: "Un utente con questa email è già registrato." }
       }
       throw createUserError
     }
     if (!user) throw new Error("Creazione utente fallita senza un errore specifico.")
+    console.log(`Utente auth creato con ID: ${user.id}`)
 
+    // 4. Upload Avatar
+    console.log("Step 4: Gestione upload avatar...")
     let publicAvatarUrl = null
     if (operatorData.avatarUrl) {
       publicAvatarUrl = await uploadAvatarFromDataUrl(operatorData.avatarUrl, user.id)
+      console.log(
+        publicAvatarUrl ? `Avatar caricato: ${publicAvatarUrl}` : "Upload avatar saltato o fallito (non critico).",
+      )
+    } else {
+      console.log("Nessun avatar fornito.")
     }
 
+    // 5. Update Profile
+    console.log(`Step 5: Aggiornamento profilo per l'utente ${user.id}...`)
     const profileToUpdate = {
       full_name: fullName,
       stage_name: stageName,
@@ -114,24 +137,29 @@ export async function createOperator(operatorData: any) {
       is_online: operatorData.isOnline === true,
       commission_rate: commission,
     }
-
     const { error: updateProfileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", user.id)
 
     if (updateProfileError) {
+      console.error("ERRORE CRITICO durante l'aggiornamento del profilo:", updateProfileError.message)
+      console.log(`Tentativo di rollback: eliminazione utente auth ${user.id}...`)
       await supabaseAdmin.auth.admin.deleteUser(user.id)
+      console.log("Rollback completato.")
       throw new Error(`Fallimento critico: impossibile aggiornare il profilo. ${updateProfileError.message}`)
     }
+    console.log("Profilo aggiornato con successo.")
 
+    // 6. Revalidate and Return Success
+    console.log("Step 6: Revalidazione cache e invio risposta di successo...")
     revalidatePath("/admin/operators")
-
+    console.log("Azione 'createOperator' completata con successo.")
     return {
       success: true,
       message: `Operatore ${stageName} creato con successo!`,
       temporaryPassword: temporaryPassword,
     }
   } catch (error: any) {
-    console.error("Errore imprevisto in createOperator:", error)
-    return { success: false, message: error.message || "Un errore imprevisto è accaduto." }
+    console.error("ERRORE IMPREVISTO nel blocco catch principale di 'createOperator':", error)
+    return { success: false, message: error.message || "Un errore imprevisto è accaduto durante la creazione." }
   }
 }
 
