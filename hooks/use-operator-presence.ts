@@ -1,42 +1,48 @@
 "use client"
 
-import { useEffect } from "react"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 import type { RealtimeChannel } from "@supabase/supabase-js"
 
-export function useOperatorPresence(operatorId: string | undefined) {
-  const supabase = getSupabaseBrowserClient()
+export function useOperatorPresence(operatorId: string) {
+  const [isOnline, setIsOnline] = useState(false)
+  const supabase = createClient()
+  let channel: RealtimeChannel | null = null
 
   useEffect(() => {
     if (!operatorId) return
 
-    const channel: RealtimeChannel = supabase.channel(`operator-status:${operatorId}`)
+    const channelName = `operator-presence:${operatorId}`
+    channel = supabase.channel(channelName, {
+      config: {
+        presence: {
+          key: operatorId,
+        },
+      },
+    })
 
-    const updateUserStatus = async (online: boolean) => {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_online: online, last_seen: new Date().toISOString() })
-        .eq("id", operatorId)
-
-      if (error) {
-        console.error(`[Presence] Failed to update status for operator ${operatorId}:`, error.message)
-      }
+    const onPresenceChange = (newState: any, oldState: any) => {
+      // Simple check: if the operator's key is in the presence state, they are online.
+      const presences = channel?.presenceState()
+      const operatorPresence = presences?.[operatorId]
+      setIsOnline(!!operatorPresence && operatorPresence.length > 0)
     }
+
+    channel.on("presence", { event: "sync" }, onPresenceChange)
 
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        // Quando l'operatore si iscrive al canale, traccia la sua presenza
-        await channel.track({ user_id: operatorId, online_at: new Date().toISOString() })
-        await updateUserStatus(true)
+        await channel?.track({ online_at: new Date().toISOString() })
       }
     })
 
-    // Cleanup function: viene eseguita quando il componente viene smontato (es. logout, chiusura tab)
     return () => {
-      updateUserStatus(false).then(() => {
+      if (channel) {
         channel.untrack()
         supabase.removeChannel(channel)
-      })
+      }
     }
   }, [operatorId, supabase])
+
+  return isOnline
 }

@@ -1,108 +1,114 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { useFormState } from "react-dom"
+import { requestWrittenConsultation } from "@/lib/actions/written-consultation.actions"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
-import { requestWrittenConsultation } from "@/lib/actions/written-consultation.actions"
-import { Loader2 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 
 interface WrittenConsultationModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   operatorId: string
   operatorName: string
-  price: number
 }
 
-export function WrittenConsultationModal({
-  open,
-  onOpenChange,
-  operatorId,
-  operatorName,
-  price,
-}: WrittenConsultationModalProps) {
-  const [question, setQuestion] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
+const initialState = {
+  message: "",
+  success: false,
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (question.trim().length < 20) {
-      toast({
-        title: "Domanda troppo breve",
-        description: "Per favore, fornisci più dettagli nella tua domanda (minimo 20 caratteri).",
-        variant: "destructive",
-      })
-      return
+export function WrittenConsultationModal({ operatorId, operatorName }: WrittenConsultationModalProps) {
+  const [open, setOpen] = useState(false)
+  const { user, profile } = useAuth()
+  const [state, formAction] = useFormState(requestWrittenConsultation, initialState)
+  const supabase = createClient()
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      // Reset form state on close
+      // This is a bit of a hack, but useFormState doesn't have a built-in reset
+      initialState.message = ""
+      initialState.success = false
     }
+    setOpen(isOpen)
+  }
 
-    setIsSubmitting(true)
-    const result = await requestWrittenConsultation(operatorId, question)
-    setIsSubmitting(false)
-
-    if (result.error) {
-      toast({
-        title: "Errore",
-        description: result.error,
-        variant: "destructive",
-      })
-    } else {
-      toast({
-        title: "Successo!",
-        description: result.success,
-        variant: "default",
-      })
-      setQuestion("")
-      onOpenChange(false)
-    }
+  if (!user || !profile) {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button>Richiedi Consulto Scritto</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Accesso Richiesto</DialogTitle>
+            <DialogDescription>Devi effettuare l'accesso come cliente per richiedere un consulto.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => (window.location.href = "/login")}>Accedi</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-white">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Consulto Scritto con {operatorName}</DialogTitle>
-            <DialogDescription>
-              Scrivi qui la tua domanda. L'operatore ti risponderà il prima possibile. Il costo del consulto di{" "}
-              {price.toFixed(2)}€ sarà addebitato dal tuo portafoglio.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid w-full gap-1.5">
-              <Label htmlFor="question">La tua domanda</Label>
-              <Textarea
-                id="question"
-                placeholder="Descrivi in dettaglio la tua situazione e la tua domanda..."
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                rows={6}
-                required
-              />
-            </div>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button>Richiedi Consulto Scritto</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Consulto Scritto con {operatorName}</DialogTitle>
+          <DialogDescription>
+            Descrivi la tua domanda o situazione. L'operatore ti risponderà via email entro 48 ore.
+          </DialogDescription>
+        </DialogHeader>
+        {state.success ? (
+          <div className="py-4 text-center">
+            <p className="text-green-600 font-semibold">Richiesta Inviata!</p>
+            <p className="text-sm text-gray-600">{state.message}</p>
+            <Button onClick={() => setOpen(false)} className="mt-4">
+              Chiudi
+            </Button>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Annulla
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Invia Richiesta
-            </Button>
-          </DialogFooter>
-        </form>
+        ) : (
+          <form action={formAction}>
+            <div className="grid gap-4 py-4">
+              <input type="hidden" name="operatorId" value={operatorId} />
+              <input type="hidden" name="clientId" value={user.id} />
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="question" className="text-right">
+                  La tua Domanda
+                </Label>
+                <Textarea
+                  id="question"
+                  name="question"
+                  required
+                  className="col-span-3"
+                  placeholder="Scrivi qui la tua domanda..."
+                />
+              </div>
+            </div>
+            {state.message && !state.success && (
+              <p className="text-sm text-red-500 text-center pb-2">{state.message}</p>
+            )}
+            <DialogFooter>
+              <Button type="submit">Invia Richiesta</Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   )
