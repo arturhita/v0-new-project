@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,11 +12,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Star, MessageSquare, Phone, Mail, Copy, Check } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 import { createOperator } from "@/lib/actions/operator.admin.actions"
-import { Loader2 } from "lucide-react"
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom"
+import { useFormState, useFormStatus } from "react-dom"
 
 const categories = [
   "Tarocchi",
@@ -44,16 +42,16 @@ const weekDays = [
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending ? <Loader2 className="animate-spin" /> : "Crea Operatore"}
+    <Button type="submit" disabled={pending}>
+      {pending ? "Creazione in corso..." : "Crea Operatore"}
     </Button>
   )
 }
 
 export default function CreateOperatorPage() {
   const router = useRouter()
-  const { toast } = useToast()
-  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [state, formAction] = useFormState(createOperator, null)
+  const formRef = useRef<HTMLFormElement>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [successInfo, setSuccessInfo] = useState<{ message: string; password?: string } | null>(null)
   const [copied, setCopied] = useState(false)
@@ -92,7 +90,14 @@ export default function CreateOperatorPage() {
   const [newSpecialty, setNewSpecialty] = useState("")
   const [showPreview, setShowPreview] = useState(false)
 
-  const [state, formAction] = useActionState(createOperator, undefined)
+  useEffect(() => {
+    if (state?.success) {
+      toast.success(state.message)
+      formRef.current?.reset()
+    } else if (state?.error) {
+      toast.error(state.error)
+    }
+  }, [state])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -155,11 +160,7 @@ export default function CreateOperatorPage() {
     const file = event.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File troppo grande",
-          description: "L'immagine non deve superare i 5MB.",
-          variant: "destructive",
-        })
+        toast.error("L'immagine non deve superare i 5MB.")
         return
       }
       const reader = new FileReader()
@@ -172,11 +173,11 @@ export default function CreateOperatorPage() {
 
   const handleSave = async () => {
     if (!operator.fullName || !operator.stageName || !operator.email) {
-      toast({ title: "Campi obbligatori mancanti", variant: "destructive" })
+      toast.error("Campi obbligatori mancanti")
       return
     }
     if (operator.categories.length === 0) {
-      toast({ title: "Seleziona almeno una categoria.", variant: "destructive" })
+      toast.error("Seleziona almeno una categoria.")
       return
     }
 
@@ -189,11 +190,7 @@ export default function CreateOperatorPage() {
         throw new Error(result.message)
       }
     } catch (error: any) {
-      toast({
-        title: "Errore",
-        description: error.message || "Errore nel salvataggio dell'operatore.",
-        variant: "destructive",
-      })
+      toast.error(error.message || "Errore nel salvataggio dell'operatore.")
     }
     setIsSaving(false)
   }
@@ -315,7 +312,7 @@ export default function CreateOperatorPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="space-y-6">
+          <form ref={formRef} action={formAction} className="space-y-6">
             {state?.error && <p className="text-red-500 bg-red-100 p-3 rounded-md">{state.error}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

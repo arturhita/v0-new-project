@@ -60,16 +60,14 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith("/admin")) {
-    if (!session) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
+  if (!session && (pathname.startsWith("/admin") || pathname.startsWith("/dashboard"))) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
 
+  if (session && pathname.startsWith("/admin")) {
     const { data: profile, error } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
 
     if (error || !profile || profile.role !== "admin") {
-      console.error("Admin access error:", error?.message)
-      // Redirect non-admins away from admin pages
       return NextResponse.redirect(new URL("/", request.url))
     }
   }
@@ -78,14 +76,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/admin/:path*", "/dashboard/:path*", "/login", "/register"],
 }

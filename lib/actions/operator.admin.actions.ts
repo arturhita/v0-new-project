@@ -1,77 +1,77 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 
 export async function createOperator(formData: FormData) {
-  const supabase = createClient()
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    },
+  )
 
   const email = formData.get("email") as string
   const password = formData.get("password") as string
-  const fullName = formData.get("full_name") as string
+  const fullName = formData.get("fullName") as string
   const username = formData.get("username") as string
   const bio = formData.get("bio") as string
-  const costPerMinute = formData.get("cost_per_minute") as string
-  const specializationsString = (formData.get("specializations") as string) || ""
+  const costPerMinute = formData.get("costPerMinute") as string
+  const specializations = formData.getAll("specializations") as string[]
 
-  // Divide la stringa per virgola e pulisce gli spazi
-  const specializations = specializationsString
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-
-  if (!email || !password || !fullName || !username || !costPerMinute) {
-    return { error: "Tutti i campi obbligatori devono essere compilati." }
+  if (!email || !password || !fullName || !username) {
+    return { error: "Email, password, nome completo e username sono obbligatori." }
   }
 
-  // Step 1: Crea l'utente in auth.users usando il client admin per evitare la conferma email
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  // 1. Crea l'utente in auth.users
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
-    email_confirm: true, // Conferma automaticamente l'email
-    user_metadata: {
-      full_name: fullName,
-      username: username,
+    options: {
+      data: {
+        full_name: fullName,
+        username: username,
+      },
     },
   })
 
   if (authError || !authData.user) {
-    console.error("Error creating user in auth:", authError)
-    return { error: `Errore durante la creazione dell'utente: ${authError?.message}` }
+    console.error("Errore creazione utente in Auth:", authError)
+    return { error: authError?.message || "Impossibile creare l'utente." }
   }
 
   const userId = authData.user.id
 
-  // Step 2: Aggiorna il profilo dell'utente per impostare il ruolo a 'operator'
-  // Il trigger handle_new_user avrà già creato un profilo 'client'.
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({ role: "operator", username, full_name: fullName })
-    .eq("id", userId)
+  // 2. Aggiorna il ruolo in profiles a 'operator'
+  const { error: profileError } = await supabase.from("profiles").update({ role: "operator" }).eq("id", userId)
 
   if (profileError) {
-    console.error("Error updating profile to operator:", profileError)
-    // Pulizia: cancella l'utente se l'aggiornamento del profilo fallisce
-    await supabase.auth.admin.deleteUser(userId)
-    return { error: `Errore durante l'aggiornamento del profilo a operatore: ${profileError.message}` }
+    console.error("Errore aggiornamento profilo:", profileError)
+    // Potenziale rollback manuale dell'utente auth
+    return { error: "Impossibile aggiornare il ruolo del profilo." }
   }
 
-  // Step 3: Crea i dati specifici dell'operatore nella tabella operators
+  // 3. Inserisci i dati nella tabella operators
   const { error: operatorError } = await supabase.from("operators").insert({
     id: userId,
     bio,
-    specializations,
     cost_per_minute: Number.parseFloat(costPerMinute),
+    specializations,
   })
 
   if (operatorError) {
-    console.error("Error creating operator details:", operatorError)
-    // Pulizia: cancella l'utente se la creazione dell'operatore fallisce
-    await supabase.auth.admin.deleteUser(userId)
-    return { error: `Errore durante la creazione dei dettagli operatore: ${operatorError.message}` }
+    console.error("Errore inserimento operatore:", operatorError)
+    // Potenziale rollback manuale
+    return { error: "Impossibile creare i dati dell'operatore." }
   }
 
   revalidatePath("/admin/operators")
-  redirect("/admin/operators")
+  return { success: true, message: "Operatore creato con successo." }
 }
