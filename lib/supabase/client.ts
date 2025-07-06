@@ -1,12 +1,17 @@
 import { createBrowserClient } from "@supabase/ssr"
 
-// Questa funzione viene eseguita una sola volta, creando un'istanza singleton.
-function createClient() {
+/**
+ * Crea un client Supabase per l'uso nel browser.
+ * Questa funzione può essere chiamata in qualsiasi componente client o hook.
+ */
+export function createClient() {
   return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 }
 
-// Esportiamo l'istanza, non la funzione di creazione.
-// In questo modo, ogni parte dell'app che importa `supabase` userà lo stesso oggetto.
+/**
+ * Esportiamo anche un'istanza singleton per comodità e per mantenere
+ * la compatibilità con il codice esistente che usa `import supabase from '...'`.
+ */
 const supabase = createClient()
 
 export default supabase
