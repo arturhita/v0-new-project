@@ -1,22 +1,41 @@
 -- =================================================================
--- FULL SCHEMA RESET SCRIPT (v5 - COMPLETE SCHEMA FIX)
--- This script fixes the schema by adding all required columns and creating a robust view.
--- It explicitly drops every object in the correct order to prevent dependency errors.
+-- FULL SCHEMA RESET SCRIPT (v6 - RLS POLICY FIX)
+-- This script fixes the dependency error by dropping RLS policies before dropping the function.
+-- This is a complete and meticulously ordered teardown and rebuild.
 -- =================================================================
 
--- Step 1: Drop Views that depend on tables.
+-- Step 1: Drop Views
 DROP VIEW IF EXISTS public.operators_view;
 DROP VIEW IF EXISTS public.admin_users_view;
-DROP VIEW IF EXISTS public.admin_operators_view; -- Legacy name
+DROP VIEW IF EXISTS public.admin_operators_view;
 
--- Step 2: Drop the trigger from the auth.users table.
+-- Step 2: Drop the trigger from the auth.users table
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Step 3: Drop functions.
+-- Step 3: Drop ALL RLS Policies from every table that has them. THIS IS THE CRITICAL FIX.
+DROP POLICY IF EXISTS "Admins can manage operator categories." ON public.operator_categories;
+DROP POLICY IF EXISTS "Operator categories are public." ON public.operator_categories;
+DROP POLICY IF EXISTS "Admins can manage categories." ON public.categories;
+DROP POLICY IF EXISTS "Categories are public." ON public.categories;
+DROP POLICY IF EXISTS "Users can access messages in their sessions." ON public.messages;
+DROP POLICY IF EXISTS "Users can access their own chat sessions." ON public.chat_sessions;
+DROP POLICY IF EXISTS "Admins can manage all reviews." ON public.reviews;
+DROP POLICY IF EXISTS "Users can create reviews." ON public.reviews;
+DROP POLICY IF EXISTS "Reviews are public." ON public.reviews;
+DROP POLICY IF EXISTS "Admins can view all wallets." ON public.wallets;
+DROP POLICY IF EXISTS "Users can view their own wallet." ON public.wallets;
+DROP POLICY IF EXISTS "Admins can manage all operators." ON public.operators;
+DROP POLICY IF EXISTS "Operators can update their own data." ON public.operators;
+DROP POLICY IF EXISTS "Operator data is viewable by everyone." ON public.operators;
+DROP POLICY IF EXISTS "Admins can manage all profiles." ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
+
+-- Step 4: Now that policies are gone, drop the functions they depended on.
 DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP FUNCTION IF EXISTS public.is_admin(uuid);
 
--- Step 4: Drop tables in the correct dependency order.
+-- Step 5: Drop tables in correct dependency order.
 DROP TABLE IF EXISTS public.operator_categories;
 DROP TABLE IF EXISTS public.reviews;
 DROP TABLE IF EXISTS public.messages;
@@ -26,7 +45,7 @@ DROP TABLE IF EXISTS public.operators;
 DROP TABLE IF EXISTS public.categories;
 DROP TABLE IF EXISTS public.profiles;
 
--- Step 5: Drop custom types.
+-- Step 6: Drop custom types.
 DROP TYPE IF EXISTS public.user_role;
 DROP TYPE IF EXISTS public.operator_status;
 DROP TYPE IF EXISTS public.operator_availability;
@@ -35,12 +54,12 @@ DROP TYPE IF EXISTS public.operator_availability;
 -- REBUILD SCHEMA FROM A CLEAN SLATE
 -- =================================================================
 
--- Step 6: Re-create custom ENUM types.
+-- Step 7: Re-create custom ENUM types.
 CREATE TYPE public.user_role AS ENUM ('admin', 'client', 'operator');
 CREATE TYPE public.operator_status AS ENUM ('active', 'pending', 'suspended');
 CREATE TYPE public.operator_availability AS ENUM ('online', 'offline', 'busy');
 
--- Step 7: Re-create the 'profiles' table with all necessary columns.
+-- Step 8: Re-create the 'profiles' table with all necessary columns.
 CREATE TABLE public.profiles (
     id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name text,
@@ -52,7 +71,7 @@ CREATE TABLE public.profiles (
 );
 COMMENT ON TABLE public.profiles IS 'Stores public profile data for all users, linking to auth.users.';
 
--- Step 8: Re-create the 'operators' table with all necessary columns.
+-- Step 9: Re-create the 'operators' table with all necessary columns.
 CREATE TABLE public.operators (
     profile_id uuid NOT NULL PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
     bio text,
@@ -66,7 +85,7 @@ CREATE TABLE public.operators (
 );
 COMMENT ON TABLE public.operators IS 'Stores data specific to users with the ''operator'' role.';
 
--- Step 9: Re-create other core tables.
+-- Step 10: Re-create other core tables.
 CREATE TABLE public.categories (
     id serial PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -117,7 +136,7 @@ CREATE TABLE public.messages (
     is_read boolean DEFAULT false
 );
 
--- Step 10: Create the is_admin helper function
+-- Step 11: Create the is_admin helper function
 CREATE OR REPLACE FUNCTION public.is_admin(user_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE user_role public.user_role;
@@ -127,7 +146,7 @@ BEGIN
 END;
 $$;
 
--- Step 11: Re-create the function to handle new user sign-ups.
+-- Step 12: Re-create the function to handle new user sign-ups.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -142,12 +161,12 @@ BEGIN
 END;
 $$;
 
--- Step 12: Re-create the trigger.
+-- Step 13: Re-create the trigger.
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Step 13: Re-create the necessary views.
+-- Step 14: Re-create the necessary views.
 CREATE OR REPLACE VIEW public.operators_view AS
 SELECT
     p.id,
@@ -174,8 +193,7 @@ CREATE OR REPLACE VIEW public.admin_users_view AS
 SELECT p.id, p.full_name, p.username, p.email, p.role, p.created_at, w.balance
 FROM public.profiles p LEFT JOIN public.wallets w ON p.id = w.user_id;
 
--- Step 14: Re-apply Row Level Security (RLS).
--- (RLS policies remain the same as the previous version)
+-- Step 15: Re-apply Row Level Security (RLS).
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
@@ -208,7 +226,7 @@ CREATE POLICY "Admins can manage categories." ON public.categories FOR ALL USING
 CREATE POLICY "Operator categories are public." ON public.operator_categories FOR SELECT USING (true);
 CREATE POLICY "Admins can manage operator categories." ON public.operator_categories FOR ALL USING (public.is_admin(auth.uid()));
 
--- Step 15: Seed initial data
+-- Step 16: Seed initial data
 INSERT INTO public.categories (name, slug, description) VALUES
 ('Cartomanzia', 'cartomanzia', 'Lettura dei tarocchi e delle carte per divinazione.'),
 ('Astrologia', 'astrologia', 'Studio degli astri e del loro influsso sulla vita.'),
