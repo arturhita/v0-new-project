@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
 
 export interface Review {
   id: string
@@ -161,4 +162,38 @@ export async function moderateReview(reviewId: string, approved: boolean) {
     revalidatePath("/admin/reviews")
   }
   return { success: true }
+}
+
+export async function getReviewsForOperator(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(`
+      id,
+      rating,
+      comment,
+      created_at,
+      service_type,
+      client:profiles!client_id (
+        id,
+        full_name,
+        avatar_url
+      )
+    `)
+    .eq("operator_id", operatorId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching reviews:", error)
+    return []
+  }
+  // Semplifichiamo l'oggetto di ritorno
+  return data.map((review) => ({
+    id: review.id,
+    userName: review.client?.full_name || "Utente Anonimo",
+    rating: review.rating,
+    comment: review.comment,
+    date: new Date(review.created_at).toLocaleDateString("it-IT", { day: "numeric", month: "short" }),
+    serviceType: review.service_type,
+  }))
 }
