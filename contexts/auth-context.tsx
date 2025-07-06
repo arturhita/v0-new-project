@@ -1,9 +1,10 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User, Profile } from "@/types/database.types"
+import type { User } from "@supabase/supabase-js"
+import type { Profile } from "@/types/database.types"
 
 type AuthContextType = {
   user: User | null
@@ -17,51 +18,64 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
 })
 
-export const AuthProvider = ({ children, user: initialUser }: { children: React.ReactNode; user: User | null }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const supabase = createClient()
-  const [user, setUser] = useState<User | null>(initialUser)
+  const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const fetchProfile = useCallback(
+    async (userToFetch: User | null) => {
+      if (!userToFetch) {
+        setProfile(null)
+        return
+      }
+      try {
+        const { data, error } = await supabase.from("profiles").select("*").eq("id", userToFetch.id).single()
+        if (error) throw error
+        setProfile(data as Profile)
+      } catch (error) {
+        console.error("Error fetching profile:", error)
+        setProfile(null)
+      }
+    },
+    [supabase],
+  )
 
   useEffect(() => {
     let isMounted = true
 
-    const getProfileData = async (userId: string) => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).single()
+    const initializeAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (isMounted) {
-        setProfile(data as Profile | null)
-      }
-    }
-
-    const handleUser = async (userToHandle: User | null) => {
-      if (userToHandle) {
-        await getProfileData(userToHandle.id)
-      } else {
-        setProfile(null)
-      }
-      if (isMounted) {
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        await fetchProfile(currentUser)
         setLoading(false)
       }
     }
 
-    // Handle initial user from server
-    handleUser(user)
+    initializeAuth()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isMounted) return
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      setLoading(true)
-      await handleUser(currentUser)
+      if (isMounted) {
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
+        await fetchProfile(currentUser)
+        if (loading) setLoading(false)
+      }
     })
 
     return () => {
       isMounted = false
       subscription.unsubscribe()
     }
-  }, [supabase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchProfile])
 
   return <AuthContext.Provider value={{ user, profile, loading }}>{children}</AuthContext.Provider>
 }

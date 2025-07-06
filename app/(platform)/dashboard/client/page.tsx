@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback } from "react"
+
+import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { getClientDashboardData } from "@/lib/actions/client.actions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Clock, MessageSquare, ArrowRight, Wallet, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { WalletRecharge } from "@/components/wallet-recharge"
 import GamificationWidget from "@/components/gamification-widget"
 
@@ -76,7 +78,8 @@ const favoriteExperts = [
 ]
 
 export default function ClientDashboardPage() {
-  const { profile, loading: authLoading } = useAuth()
+  const { profile } = useAuth()
+  const router = useRouter()
 
   const [dashboardData, setDashboardData] = useState<{
     walletBalance: number
@@ -85,51 +88,23 @@ export default function ClientDashboardPage() {
   } | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
 
-  const loadDashboardData = useCallback(async (profileId: string) => {
-    setDataLoading(true)
-    try {
-      const data = await getClientDashboardData(profileId)
-      setDashboardData(data)
-    } catch (error) {
-      console.error("Failed to load client dashboard data:", error)
-    } finally {
-      setDataLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
-    if (profile?.id) {
-      loadDashboardData(profile.id)
-    } else if (!authLoading) {
-      // If auth is done loading and there's still no profile, stop loading.
-      setDataLoading(false)
+    if (profile) {
+      getClientDashboardData(profile.id)
+        .then(setDashboardData)
+        .catch(console.error)
+        .finally(() => setDataLoading(false))
     }
-  }, [profile, authLoading, loadDashboardData])
-
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
-      </div>
-    )
-  }
+  }, [profile])
 
   if (!profile) {
-    return (
-      <div className="text-center p-8">
-        <h2 className="text-xl font-semibold">Profilo non trovato.</h2>
-        <p className="text-muted-foreground">Potrebbe essere necessario effettuare nuovamente il login.</p>
-        <Button asChild className="mt-4">
-          <Link href="/login">Vai al Login</Link>
-        </Button>
-      </div>
-    )
+    return null // Il layout gestisce già il caricamento e il reindirizzamento
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Bentornato, {profile.full_name || "Utente"}!</h1>
+        <h1 className="text-3xl font-bold">Bentornato, {profile.full_name}!</h1>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

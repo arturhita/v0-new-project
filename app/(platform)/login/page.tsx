@@ -16,15 +16,14 @@ import { toast } from "sonner"
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
     setLoading(true)
+    const toastId = toast.loading("Accesso in corso...")
 
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -33,9 +32,7 @@ export default function LoginPage() {
       })
 
       if (signInError) {
-        setError(signInError.message)
-        setLoading(false)
-        return
+        throw new Error(signInError.message)
       }
 
       if (data.user) {
@@ -45,19 +42,15 @@ export default function LoginPage() {
           .eq("id", data.user.id)
           .single()
 
-        if (profileError || !profile) {
-          console.error("Profile fetch error:", profileError)
-          setError(
-            "Impossibile recuperare il profilo dopo il login. L'utente potrebbe non essere configurato correttamente.",
-          )
+        if (profileError) {
           await supabase.auth.signOut()
-          setLoading(false)
-          return
+          throw new Error(
+            "Profilo utente non trovato. La registrazione potrebbe essere incompleta. Contattare l'assistenza.",
+          )
         }
 
-        toast.success("Login effettuato con successo!")
+        toast.success("Login effettuato con successo!", { id: toastId })
 
-        // Redirect based on role
         switch (profile.role) {
           case "admin":
             router.push("/admin/dashboard")
@@ -69,14 +62,15 @@ export default function LoginPage() {
             router.push("/dashboard/client")
             break
         }
-        router.refresh() // Force a refresh to ensure layout updates correctly
       } else {
-        setError("Login fallito. Utente non trovato o credenziali errate.")
-        setLoading(false)
+        throw new Error("Login fallito. Utente non trovato o credenziali errate.")
       }
-    } catch (e: any) {
-      console.error("Unexpected login error:", e)
-      setError(e.message || "Si è verificato un errore imprevisto durante il login.")
+    } catch (error: any) {
+      console.error("Login error:", error)
+      toast.error("Errore di login", {
+        id: toastId,
+        description: error.message || "Si è verificato un errore imprevisto.",
+      })
       setLoading(false)
     }
   }
@@ -103,7 +97,6 @@ export default function LoginPage() {
               <h1 className="text-3xl font-bold text-white">Bentornato</h1>
               <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
             </div>
-            {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4 text-center">{error}</p>}
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="email" className="text-slate-200">

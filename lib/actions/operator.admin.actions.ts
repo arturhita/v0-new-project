@@ -1,7 +1,17 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { randomBytes } from "crypto"
+import { z } from "zod"
+
+import { createClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
+
+const CreateOperatorSchema = z.object({
+  fullName: z.string().min(3, "Il nome completo è obbligatorio."),
+  stageName: z.string().min(3, "Il nome d'arte è obbligatorio."),
+  email: z.string().email("L'email non è valida."),
+})
 
 export type ActionState = {
   error?: string
@@ -11,72 +21,91 @@ export type ActionState = {
 } | null
 
 export async function createOperator(prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const supabaseAdmin = createAdminClient()
+  const supabase = createClient()
 
-  const fullName = formData.get("fullName") as string
-  const stageName = formData.get("stageName") as string
-  const email = formData.get("email") as string
-  const bio = formData.get("bio") as string
-  const commission = formData.get("commission") as string
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser()
+  if (!currentUser) {
+    return { error: "Autenticazione richiesta." }
+  }
+  const { data: adminProfile } = await supabase.from("profiles").select("role").eq("id", currentUser.id).single()
 
-  if (!fullName || !stageName || !email || !commission) {
-    return { error: "Tutti i campi con * sono obbligatori." }
+  if (adminProfile?.role !== "admin") {
+    return { error: "Non hai i permessi per creare un operatore." }
   }
 
-  const temporaryPassword = Math.random().toString(36).slice(-8)
-
-  // 1. Create user in auth.users. This will trigger handle_new_user.
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password: temporaryPassword,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName,
-      username: stageName, // Pass username here for the trigger
-    },
+  const validatedFields = CreateOperatorSchema.safeParse({
+    fullName: formData.get("fullName"),
+    stageName: formData.get("stageName"),
+    email: formData.get("email"),
   })
 
-  if (authError) {
-    console.error("Error creating auth user:", authError)
-    if (authError.message.includes("already registered")) {
-      return { error: "Un utente con questa email esiste già." }
+  if (!validatedFields.success) {
+    return {
+      error: Object.values(validatedFields.error.flatten().fieldErrors).flat()[0] || "Dati del modulo non validi.",
     }
-    return { error: `Errore durante la creazione dell'utente: ${authError.message}` }
   }
 
-  const userId = authData.user.id
+  const { fullName, stageName, email } = validatedFields.data
 
-  // 2. The trigger has created a profile. Now, update it to be an operator and insert operator-specific data.
+  try {
+    const temporaryPassword = randomBytes(12).toString("hex")
 
-  // Update profile to set role to 'operator'
-  const { error: profileError } = await supabaseAdmin.from("profiles").update({ role: "operator" }).eq("id", userId)
+    const {
+      data: { user },
+      error: createUserError,
+    } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        stage_name: stageName,
+        role: "operator",
+      },
+    })
 
-  if (profileError) {
-    console.error("Error updating profile to operator:", profileError)
-    await supabaseAdmin.auth.admin.deleteUser(userId) // Cleanup
-    return { error: `Errore durante l'aggiornamento del ruolo del profilo: ${profileError.message}` }
-  }
+    if (createUserError) {
+      if (createUserError.message.includes("already registered")) {
+        return { error: "Un utente con questa email è già registrato." }
+      }
+      throw createUserError
+    }
+    if (!user) {
+      throw new Error("Creazione utente fallita senza un errore specifico.")
+    }
 
-  // Insert into operators table
-  const { error: operatorError } = await supabaseAdmin.from("operators").insert({
-    profile_id: userId,
-    bio: bio,
-    commission_rate: Number.parseInt(commission, 10),
-    status: "pending",
-  })
+    // Il trigger `handle_new_user` nel database dovrebbe creare il profilo.
+    // Aggiungiamo un controllo di sicurezza per inserirlo manualmente se il trigger fallisce.
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-  if (operatorError) {
-    console.error("Error creating operator data:", operatorError)
-    await supabaseAdmin.auth.admin.deleteUser(userId) // Cleanup
-    return { error: `Errore durante la creazione dei dati operatore: ${operatorError.message}` }
-  }
+    const { error: profileCheckError } = await supabaseAdmin.from("profiles").select("id").eq("id", user.id).single()
 
-  revalidatePath("/admin/operators")
-  revalidatePath("/admin/users")
+    if (profileCheckError) {
+      console.warn("Trigger `handle_new_user` non ha funzionato. Inserimento manuale del profilo.")
+      const { error: insertProfileError } = await supabaseAdmin.from("profiles").insert({
+        id: user.id,
+        full_name: fullName,
+        stage_name: stageName,
+        email: email,
+        role: "operator",
+      })
+      if (insertProfileError) {
+        await supabaseAdmin.auth.admin.deleteUser(user.id)
+        throw new Error(`Fallimento critico: impossibile creare il profilo. ${insertProfileError.message}`)
+      }
+    }
 
-  return {
-    success: true,
-    message: `Operatore ${fullName} creato con successo!`,
-    temporaryPassword: temporaryPassword,
+    revalidatePath("/admin/operators")
+
+    return {
+      success: true,
+      message: `Operatore ${stageName} creato con successo!`,
+      temporaryPassword: temporaryPassword,
+    }
+  } catch (error: any) {
+    console.error("Errore imprevisto in createOperator:", error)
+    return { error: error.message || "Un errore imprevisto è accaduto." }
   }
 }
