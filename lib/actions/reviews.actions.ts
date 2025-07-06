@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
 import type { Review } from "@/types/review.types"
 
 // Simulazione database recensioni
@@ -146,45 +147,47 @@ export async function moderateReview(reviewId: string, approved: boolean) {
   return { success: true }
 }
 
-// Per ora, usiamo delle recensioni mock. In futuro, le leggeremo dal database.
-const mockReviews: Review[] = [
-  {
-    id: "rev1",
-    user_id: "user1",
-    operator_id: "op1",
-    rating: 5,
-    comment: "Una guida eccezionale! Le sue parole mi hanno dato la chiarezza che cercavo. Consigliatissima!",
-    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    user_full_name: "Elena R.",
-  },
-  {
-    id: "rev2",
-    user_id: "user2",
-    operator_id: "op1",
-    rating: 5,
-    comment: "Professionale, empatica e incredibilmente accurata. Mi ha aiutato a superare un momento difficile.",
-    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    user_full_name: "Marco V.",
-  },
-  {
-    id: "rev3",
-    user_id: "user3",
-    operator_id: "op1",
-    rating: 4,
-    comment: "Lettura molto interessante e piena di spunti di riflessione. Grazie di cuore.",
-    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    user_full_name: "Sofia G.",
-  },
-]
-
 /**
- * Recupera le recensioni per un dato operatore.
+ * Recupera le recensioni per un dato operatore dal database.
  * @param operatorId L'ID dell'operatore.
  * @returns Una promessa che si risolve in un array di recensioni.
  */
 export async function getReviewsForOperator(operatorId: string): Promise<Review[]> {
-  console.log(`Fetching reviews for operator: ${operatorId}`)
-  // NOTA: In uno scenario reale, filtreresti le recensioni per operatorId.
-  // Per ora, restituiamo tutte le recensioni mock per garantire che ci siano dati da visualizzare.
-  return mockReviews
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(
+      `
+      id,
+      rating,
+      comment,
+      created_at,
+      client:profiles!client_id (
+        full_name
+      )
+    `,
+    )
+    .eq("operator_id", operatorId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching reviews:", error)
+    return []
+  }
+
+  // Trasformiamo i dati per farli corrispondere al tipo `Review` che il frontend si aspetta
+  const reviews = data.map((review) => ({
+    id: review.id,
+    rating: review.rating,
+    comment: review.comment || "",
+    created_at: review.created_at,
+    // @ts-ignore: Supabase types can be tricky with nested selects
+    user_full_name: review.client?.full_name || "Utente",
+    // Aggiungiamo valori placeholder per i campi mancanti nel tipo
+    user_id: "placeholder",
+    operator_id: operatorId,
+  }))
+
+  return reviews
 }
