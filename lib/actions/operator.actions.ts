@@ -9,11 +9,14 @@ export async function getOperators(options?: {
 }): Promise<Profile[]> {
   const supabase = createClient()
 
-  // Inizia la query selezionando tutti i profili che sono operatori approvati
-  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "approved")
+  // Inizia la query selezionando tutti i profili che sono operatori
+  // La logica di approvazione è che il loro ruolo è 'operator'
+  let query = supabase.from("profiles").select("*").eq("role", "operator")
 
   // Se è specificata una categoria, filtra gli operatori
-  // il cui array 'categories' contiene la categoria data.
+  // il cui array 'categories' (se esiste) contiene la categoria data.
+  // Nota: lo schema attuale non ha 'categories' in profiles, questo è per futura espansione.
+  // Per ora, questo filtro non avrà effetto.
   if (options?.category) {
     query = query.contains("categories", [options.category])
   }
@@ -23,8 +26,8 @@ export async function getOperators(options?: {
     query = query.limit(options.limit)
   }
 
-  // Ordina per disponibilità (online prima) e poi per valutazione
-  query = query.order("is_available", { ascending: false }).order("average_rating", { ascending: false })
+  // Ordina per disponibilità (online prima) e poi per data di creazione
+  query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
 
   const { data, error } = await query
 

@@ -157,8 +157,8 @@ export const allMockReviews: ReviewCardType[] = [
 ]
 
 export default async function HomePage() {
-  // Recuperiamo i primi 8 operatori disponibili dal database
-  const operators = await getOperators({ limit: 8 })
+  // Carica gli operatori dal server
+  const operators = await getOperators({ limit: 4 })
 
-  return <HomeClient initialOperators={operators} />
+  return <HomeClient operators={operators} />
 }
