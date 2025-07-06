@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
+import { useFormStatus } from "react-dom"
 
 import type { Profile } from "@/types/user.types"
-import { useFormState, useFormStatus } from "react-dom"
-import { useEffect, useRef, useState } from "react"
 import { updateOperatorProfile } from "@/lib/actions/operator.actions"
+
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,7 +31,7 @@ function SubmitButton() {
 }
 
 export function OperatorProfileForm({ profile }: { profile: Profile }) {
-  const [state, formAction] = useFormState(updateOperatorProfile, initialState)
+  const [state, formAction] = useActionState(updateOperatorProfile, initialState)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
