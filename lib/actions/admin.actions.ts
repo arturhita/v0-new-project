@@ -58,8 +58,8 @@ export async function getOperatorApplications(): Promise<{
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching applications:", error)
-    return { applications: null, error: `Error fetching applications: ${error.message}` }
+    console.error("Error fetching applications from Supabase:", error)
+    return { applications: null, error: `Errore nel recupero delle candidature. Dettagli: ${error.message}` }
   }
 
   return { applications: data as ApplicationWithProfile[], error: null }
