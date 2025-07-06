@@ -1,7 +1,7 @@
 "use client"
 
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom"
+import type React from "react"
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -9,23 +9,55 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { Loader2 } from "lucide-react"
-import { login } from "@/lib/actions/auth.actions"
-
-function LoginButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button
-      type="submit"
-      className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
-      disabled={pending}
-    >
-      {pending ? <Loader2 className="animate-spin" /> : "Accedi"}
-    </Button>
-  )
-}
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, undefined)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const supabase = createClient()
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (signInError) {
+      setError(signInError.message)
+      setLoading(false)
+      return
+    }
+
+    if (data.user) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
+
+      if (profile) {
+        switch (profile.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          default:
+            router.push("/dashboard/client")
+            break
+        }
+      } else {
+        // Fallback redirect
+        router.push("/")
+      }
+      router.refresh() // Assicura che il layout si aggiorni con i dati dell'utente
+    }
+  }
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
@@ -44,12 +76,12 @@ export default function LoginPage() {
         </div>
 
         <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
-          <form action={formAction}>
+          <form onSubmit={handleSubmit}>
             <div className="grid gap-2 text-center mb-6">
               <h1 className="text-3xl font-bold text-white">Bentornato</h1>
               <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
             </div>
-            {state?.error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4">{state.error}</p>}
+            {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4">{error}</p>}
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="email" className="text-slate-200">
@@ -58,9 +90,10 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  name="email"
                   placeholder="mario@esempio.com"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                 />
               </div>
@@ -76,12 +109,19 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
-                  name="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                 />
               </div>
-              <LoginButton />
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="animate-spin" /> : "Accedi"}
+              </Button>
             </div>
           </form>
           <div className="mt-6 text-center text-sm text-slate-300">

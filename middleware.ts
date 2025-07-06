@@ -1,5 +1,5 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { createServerClient } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
+        set(name: string, value: string, options) {
           request.cookies.set({
             name,
             value,
@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
             ...options,
           })
         },
-        remove(name: string, options: CookieOptions) {
+        remove(name: string, options) {
           request.cookies.set({
             name,
             value: "",
@@ -54,27 +54,21 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  const { pathname } = request.nextUrl
-
-  if (!session && (pathname.startsWith("/admin") || pathname.startsWith("/dashboard"))) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  if (session && pathname.startsWith("/admin")) {
-    const { data: profile, error } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-
-    if (error || !profile || profile.role !== "admin") {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-  }
+  // Rinfresca la sessione se scade.
+  await supabase.auth.getSession()
 
   return response
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard/:path*", "/login", "/register"],
+  matcher: [
+    /*
+     * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
+     * - _next/static (file statici)
+     * - _next/image (ottimizzazione immagini)
+     * - favicon.ico (file favicon)
+     * Sentiti libero di modificare questo per adattarlo alle tue esigenze.
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 }

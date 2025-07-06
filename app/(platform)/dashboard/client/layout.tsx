@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Clock, Home, LifeBuoy, LogOut, Menu, MessageSquare, Star, Wallet } from "lucide-react"
@@ -9,6 +10,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { signOut } from "@/lib/actions/auth.actions"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +57,7 @@ export default function ClientDashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { profile, loading, user, logout } = useAuth()
+  const { profile, loading, user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -114,20 +116,24 @@ export default function ClientDashboardLayout({
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={profile.avatar_url || undefined} />
-                  <AvatarFallback>{profile.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{profile.full_name?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Apri menu utente</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{profile.username}</DropdownMenuLabel>
+              <DropdownMenuLabel>{profile.full_name}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push("/profile")}>Profilo</DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/dashboard/client/support")}>Supporto</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Logout</span>
+              <DropdownMenuItem>
+                <form action={signOut} className="w-full">
+                  <button type="submit" className="flex items-center w-full text-left">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                  </button>
+                </form>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
