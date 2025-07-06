@@ -1,13 +1,14 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin" // Importa il nuovo client admin
 import type { Profile } from "@/contexts/auth-context"
 import { revalidatePath } from "next/cache"
 import { randomBytes } from "crypto"
 
 // Funzione per creare un nuovo operatore
 export async function createOperator(operatorData: any) {
-  const supabase = createClient()
+  const supabase = createClient() // Client per il contesto utente (per controllare i permessi)
 
   try {
     // 1. Verifica che l'utente corrente sia un admin
@@ -30,14 +31,14 @@ export async function createOperator(operatorData: any) {
     // 2. Genera una password temporanea sicura
     const temporaryPassword = randomBytes(16).toString("hex")
 
-    // 3. Crea l'utente nel sistema di autenticazione di Supabase
+    // 3. Crea l'utente usando il CLIENT ADMIN
     const {
       data: { user },
       error: createUserError,
-    } = await supabase.auth.admin.createUser({
+    } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
-      email_confirm: true, // L'utente non dovrà confermare l'email
+      email_confirm: true,
       user_metadata: {
         full_name: operatorData.fullName,
       },
@@ -51,8 +52,8 @@ export async function createOperator(operatorData: any) {
       return { success: false, message: `Errore nella creazione dell'utente: ${createUserError?.message}` }
     }
 
-    // 4. Aggiorna il profilo dell'utente (creato dal trigger) con i dati dell'operatore
-    const { error: profileError } = await supabase
+    // 4. Aggiorna il profilo dell'utente con i dati dell'operatore usando il CLIENT ADMIN
+    const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         role: "operator" as const,
@@ -77,16 +78,16 @@ export async function createOperator(operatorData: any) {
     if (profileError) {
       console.error("Error updating operator profile:", profileError.message)
       // Rollback: se l'aggiornamento del profilo fallisce, elimina l'utente appena creato
-      await supabase.auth.admin.deleteUser(user.id)
+      await supabaseAdmin.auth.admin.deleteUser(user.id)
       return { success: false, message: `Errore nell'aggiornamento del profilo: ${profileError.message}` }
     }
 
-    // 5. Associa le categorie all'operatore
+    // 5. Associa le categorie all'operatore usando il CLIENT ADMIN
     if (operatorData.categories && operatorData.categories.length > 0) {
-      const { data: categoriesData, error: categoriesError } = await supabase
+      const { data: categoriesData, error: categoriesError } = await supabaseAdmin
         .from("categories")
         .select("id, slug")
-        .in("name", operatorData.categories) // Cerca per nome, non per slug
+        .in("name", operatorData.categories)
 
       if (categoriesError) {
         console.error("Error fetching categories for association:", categoriesError.message)
@@ -95,7 +96,7 @@ export async function createOperator(operatorData: any) {
           operator_id: user.id,
           category_id: cat.id,
         }))
-        const { error: associationError } = await supabase.from("operator_categories").insert(associations)
+        const { error: associationError } = await supabaseAdmin.from("operator_categories").insert(associations)
 
         if (associationError) {
           console.error("Error creating operator category associations:", associationError.message)
@@ -103,11 +104,9 @@ export async function createOperator(operatorData: any) {
       }
     }
 
-    // 6. Invalida la cache per aggiornare le liste di operatori
     revalidatePath("/admin/operators")
     revalidatePath("/")
 
-    // 7. Restituisci successo e password temporanea
     return {
       success: true,
       message: `Operatore ${operatorData.stageName} creato con successo!`,
@@ -305,9 +304,7 @@ export async function getOperatorForEdit(operatorId: string) {
 
 // Funzione per aggiornare il profilo di un operatore
 export async function updateOperatorProfile(operatorId: string, profileData: any) {
-  const supabase = createClient()
-
-  const { error } = await supabase
+  const { error } = await supabaseAdmin // USARE CLIENT ADMIN
     .from("profiles")
     .update({
       full_name: profileData.full_name,
@@ -332,13 +329,14 @@ export async function updateOperatorProfile(operatorId: string, profileData: any
 
 // Funzione per aggiornare la commissione di un operatore
 export async function updateOperatorCommission(operatorId: string, commission: number) {
-  const supabase = createClient()
-
   if (commission < 0 || commission > 100) {
     return { success: false, message: "La commissione deve essere tra 0 e 100." }
   }
 
-  const { error } = await supabase.from("profiles").update({ commission_rate: commission }).eq("id", operatorId)
+  const { error } = await supabaseAdmin // USARE CLIENT ADMIN
+    .from("profiles")
+    .update({ commission_rate: commission })
+    .eq("id", operatorId)
 
   if (error) {
     console.error(`Error updating commission for operator ${operatorId}:`, error)
@@ -352,8 +350,7 @@ export async function updateOperatorCommission(operatorId: string, commission: n
 
 // Funzione per sospendere un operatore
 export async function suspendOperator(operatorId: string) {
-  const supabase = createClient()
-  const { error } = await supabase
+  const { error } = await supabaseAdmin // USARE CLIENT ADMIN
     .from("profiles")
     .update({ status: "suspended", is_available: false })
     .eq("id", operatorId)
