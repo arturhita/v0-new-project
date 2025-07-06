@@ -5,25 +5,31 @@ import type { Profile } from "@/contexts/auth-context"
 
 export async function getOperators(options?: {
   limit?: number
-  specialization?: string
+  category?: string
 }): Promise<Profile[]> {
   const supabase = createClient()
 
-  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("is_available", true) // Mostriamo solo gli operatori disponibili
+  // Inizia la query selezionando tutti i profili che sono operatori approvati
+  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "approved")
 
-  if (options?.specialization) {
-    // Cerca se l'array delle specializzazioni contiene il valore specificato
-    query = query.contains("specializations", [options.specialization])
+  // Se è specificata una categoria, filtra gli operatori
+  // il cui array 'categories' contiene la categoria data.
+  if (options?.category) {
+    query = query.contains("categories", [options.category])
   }
 
+  // Se è specificato un limite, applicalo
   if (options?.limit) {
     query = query.limit(options.limit)
   }
 
+  // Ordina per disponibilità (online prima) e poi per valutazione
+  query = query.order("is_available", { ascending: false }).order("average_rating", { ascending: false })
+
   const { data, error } = await query
 
   if (error) {
-    console.error("Error fetching operators:", error)
+    console.error("Error fetching operators:", error.message)
     return []
   }
 
@@ -41,7 +47,20 @@ export async function getOperatorByStageName(stageName: string): Promise<Profile
     .single()
 
   if (error) {
-    console.error(`Error fetching operator ${stageName}:`, error)
+    console.error(`Error fetching operator ${stageName}:`, error.message)
+    return null
+  }
+
+  return data as Profile
+}
+
+export async function getOperatorById(id: string): Promise<Profile | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+
+  if (error) {
+    console.error(`Error fetching operator by ID ${id}:`, error.message)
     return null
   }
 

@@ -4,13 +4,15 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Star, MessageCircle, Phone, Mail, Users, Sparkles, Loader2 } from "lucide-react"
+import { Star, MessageCircle, Phone, Mail, Users, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "./written-consultation-modal"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent } from "@/components/ui/card"
+import type { Profile } from "@/contexts/auth-context"
 
 export interface Operator {
   id: string
@@ -32,7 +34,7 @@ export interface Operator {
 }
 
 interface OperatorCardProps {
-  operator: Operator
+  operator: Operator | Profile
   showNewBadge?: boolean
 }
 
@@ -92,178 +94,111 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
     setIsEmailModalOpen(true)
   }
 
+  const stageName = (operator as Profile).stage_name || operator.name || "Operatore"
+  const specializations = (operator as Profile).specializations || [operator.specialization]
+  const avatarUrl = (operator as Profile).avatar_url || operator.avatarUrl || "/placeholder.svg?width=100&height=100"
+  const isAvailable = (operator as Profile).is_available || operator.isOnline || false
+  const averageRating = (operator as Profile).average_rating || operator.rating || 0
+  const reviewCount = (operator as Profile).review_count || operator.reviewsCount || 0
+
   return (
     <>
-      <div className="group relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-700 transform hover:-translate-y-3 hover:scale-105 border border-yellow-600/20 hover:border-yellow-600/40 h-full flex flex-col">
-        {/* Online Status & New Badge */}
-        <div className="absolute top-4 left-4 z-20">
-          {isNewOperator && (
-            <Badge className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
-              <Sparkles className="w-3 h-3 mr-1" />
-              NUOVO
-            </Badge>
-          )}
-        </div>
-        <div className="absolute top-4 right-4 z-20">
-          <div
-            className={cn(
-              "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur-xl",
-              operator.isOnline ? "bg-green-500/90 text-white animate-pulse" : "bg-gray-500/90 text-white",
-            )}
-          >
-            <div className={cn("w-2 h-2 rounded-full", operator.isOnline ? "bg-white animate-ping" : "bg-gray-300")} />
-            {operator.isOnline ? "Online" : "Offline"}
-          </div>
-        </div>
-
-        {/* Card Content */}
-        <div className="relative p-6 text-center flex-1 flex flex-col">
-          <div className="relative mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
-            <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-600/30 group-hover:ring-yellow-600/50 transition-all duration-500">
-              {!imageError ? (
-                <img
-                  src={operator.avatarUrl || "/placeholder.svg"}
-                  alt={operator.name}
-                  className="w-full h-full object-cover"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-yellow-600 flex items-center justify-center text-white text-2xl font-bold">
-                  {operator.name.charAt(0)}
-                </div>
-              )}
+      <Link href={`/operator/${encodeURIComponent(stageName)}`} className="group block h-full">
+        <Card className="h-full overflow-hidden rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl transition-all duration-300 group-hover:shadow-cyan-500/20 group-hover:scale-105">
+          <CardContent className="p-6 flex flex-col h-full">
+            <div className="flex items-start gap-4">
+              <Avatar className="w-20 h-20 border-4 border-cyan-300/30 flex-shrink-0">
+                <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={stageName} />
+                <AvatarFallback className="text-xl bg-blue-900 text-white">
+                  {stageName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-grow">
+                <h3 className="text-2xl font-bold text-white group-hover:text-cyan-300 transition-colors">
+                  {stageName}
+                </h3>
+                <p className="text-blue-200 text-sm h-10 overflow-hidden">
+                  {specializations.length > 0 ? specializations.join(", ") : "Nessuna specializzazione"}
+                </p>
+              </div>
             </div>
-            <div className="absolute inset-0 rounded-full bg-yellow-600/20 blur-md scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          </div>
-
-          <h3 className="text-lg font-bold mb-2 text-white group-hover:text-yellow-100 transition-colors duration-500">
-            {operator.name}
-          </h3>
-          <p className="text-sm text-white/80 mb-3 font-medium group-hover:text-white/90 transition-colors duration-500">
-            {operator.specialization}
-          </p>
-
-          <div className="flex items-center justify-center space-x-1 mb-3">
-            <div className="flex">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={cn(
-                    "w-4 h-4 transition-colors duration-300",
-                    i < Math.floor(operator.rating) ? "text-yellow-500 fill-current" : "text-gray-400",
+            <div className="mt-4 flex-grow flex flex-col justify-end">
+              <div className="flex items-center justify-between">
+                <Badge
+                  variant="secondary"
+                  className={`${
+                    isAvailable ? "bg-green-500 text-white border-green-400" : "bg-gray-400 text-white border-gray-500"
+                  }`}
+                >
+                  <MessageCircle className="w-3 h-3 mr-1.5" />
+                  {isAvailable ? "Disponibile" : "Non Disponibile"}
+                </Badge>
+                <div className="flex items-center space-x-1 text-sm">
+                  <Star className="w-4 h-4 fill-cyan-400 text-cyan-400" />
+                  <span className="font-bold text-white">{averageRating.toFixed(1)}</span>
+                  <span className="text-blue-300">({reviewCount})</span>
+                </div>
+              </div>
+              <div className="space-y-2 mt-4">
+                <div className="grid grid-cols-3 gap-2">
+                  {(operator as Operator).services.chatPrice && (
+                    <Button
+                      onClick={handleStartChat}
+                      disabled={isStartingChat || !isAvailable}
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+                    >
+                      {isStartingChat ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <MessageCircle className="w-3 h-3 mr-1" />
+                      )}
+                      Chat
+                    </Button>
                   )}
-                />
-              ))}
-            </div>
-            <span className="text-sm font-medium text-white/90">
-              {operator.rating} ({operator.reviewsCount})
-            </span>
-          </div>
-
-          <p className="text-sm text-white/70 mb-4 leading-relaxed flex-1 group-hover:text-white/80 transition-colors duration-500">
-            {operator.description}
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-1 mb-4">
-            {operator.tags.slice(0, 3).map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="text-xs bg-blue-700/50 text-white border border-yellow-600/30 hover:bg-blue-600/50 transition-colors duration-300"
-              >
-                {tag}
-              </Badge>
-            ))}
-          </div>
-
-          <div className="space-y-2 mb-4">
-            {typeof operator.services.chatPrice === "number" && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2 text-white/80">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Chat</span>
-                </div>
-                <span className="font-medium text-yellow-200">{operator.services.chatPrice.toFixed(2)} €/min</span>
-              </div>
-            )}
-            {typeof operator.services.callPrice === "number" && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2 text-white/80">
-                  <Phone className="w-4 h-4" />
-                  <span>Chiamata</span>
-                </div>
-                <span className="font-medium text-yellow-200">{operator.services.callPrice.toFixed(2)} €/min</span>
-              </div>
-            )}
-            {typeof operator.services.emailPrice === "number" && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2 text-white/80">
-                  <Mail className="w-4 h-4" />
-                  <span>Email</span>
-                </div>
-                <span className="font-medium text-yellow-200">{operator.services.emailPrice.toFixed(2)} €</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="p-6 pt-0 mt-auto">
-          <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2">
-              {operator.services.chatPrice && (
-                <Button
-                  onClick={handleStartChat}
-                  disabled={isStartingChat || !operator.isOnline}
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
-                >
-                  {isStartingChat ? (
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  ) : (
-                    <MessageCircle className="w-3 h-3 mr-1" />
+                  {(operator as Operator).services.callPrice && (
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+                    >
+                      <Phone className="w-3 h-3 mr-1" />
+                      Chiama
+                    </Button>
                   )}
-                  Chat
-                </Button>
-              )}
-              {operator.services.callPrice && (
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
-                >
-                  <Phone className="w-3 h-3 mr-1" />
-                  Chiama
-                </Button>
-              )}
-              {operator.services.emailPrice && (
-                <Button
-                  onClick={handleOpenEmailModal}
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
-                >
-                  <Mail className="w-3 h-3 mr-1" />
-                  Email
-                </Button>
-              )}
+                  {(operator as Operator).services.emailPrice && (
+                    <Button
+                      onClick={handleOpenEmailModal}
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+                    >
+                      <Mail className="w-3 h-3 mr-1" />
+                      Email
+                    </Button>
+                  )}
+                </div>
+                <Link href={profileLink} className="block">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 border-0 font-semibold"
+                  >
+                    <Users className="w-3 h-3 mr-2" />
+                    Vedi Profilo
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <Link href={profileLink} className="block">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 border-0 font-semibold"
-              >
-                <Users className="w-3 h-3 mr-2" />
-                Vedi Profilo
-              </Button>
-            </Link>
-          </div>
-        </div>
-        <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-yellow-600/30 transition-all duration-500 pointer-events-none"></div>
-      </div>
-      {operator.services.emailPrice && (
+          </CardContent>
+        </Card>
+      </Link>
+      {(operator as Operator).services.emailPrice && (
         <WrittenConsultationModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
-          operator={{ id: operator.id, name: operator.name, emailPrice: operator.services.emailPrice }}
+          operator={{ id: operator.id, name: stageName, emailPrice: (operator as Operator).services.emailPrice }}
         />
       )}
     </>
