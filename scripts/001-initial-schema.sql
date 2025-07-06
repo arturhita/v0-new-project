@@ -1,13 +1,12 @@
--- 1. CREATE CUSTOM TYPES
--- Questo ci aiuta a mantenere i dati consistenti
-DROP TYPE IF EXISTS public.user_role;
+-- 1. CREATE CUSTOM TYPES (with CASCADE to avoid errors on re-run)
+DROP TYPE IF EXISTS public.user_role CASCADE;
 CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
 
-DROP TYPE IF EXISTS public.consultation_status;
+DROP TYPE IF EXISTS public.consultation_status CASCADE;
 CREATE TYPE public.consultation_status AS ENUM ('pending', 'answered', 'rejected', 'in_progress');
 
 -- 2. CREATE PROFILES TABLE
--- Questa tabella conterrà i dati pubblici degli utenti, estendendo auth.users
+-- This table will hold public user data, extending auth.users
 CREATE TABLE public.profiles (
   id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   updated_at timestamp with time zone,
@@ -15,11 +14,11 @@ CREATE TABLE public.profiles (
   name character varying(255),
   nickname character varying(50) UNIQUE,
   avatar_url text,
-  bio text, -- Per gli operatori
-  specialties text[], -- Array di specializzazioni per gli operatori
-  is_online boolean DEFAULT false, -- Stato di disponibilità dell'operatore
-  wallet_balance numeric(10, 2) NOT NULL DEFAULT 0.00, -- Per i clienti
-  operator_rate_per_minute numeric(10, 2) -- Tariffa per gli operatori
+  bio text, -- For operators
+  specialties text[], -- Array of specialties for operators
+  is_online boolean DEFAULT false, -- Operator's availability status
+  wallet_balance numeric(10, 2) NOT NULL DEFAULT 0.00, -- For clients
+  operator_rate_per_minute numeric(10, 2) -- Rate for operators
 );
 COMMENT ON TABLE public.profiles IS 'Public profile data for users.';
 
@@ -30,7 +29,7 @@ CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSER
 CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- 4. CREATE FUNCTION TO HANDLE NEW USERS
--- Questo trigger crea automaticamente un profilo quando un nuovo utente si registra
+-- This trigger automatically creates a profile when a new user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -41,7 +40,7 @@ BEGIN
   VALUES (
     new.id,
     new.raw_user_meta_data->>'name',
-    (new.raw_user_meta_data->>'role')::user_role
+    COALESCE((new.raw_user_meta_data->>'role')::user_role, 'client'::user_role) -- Default to 'client' if role is not provided
   );
   RETURN new;
 END;
@@ -94,7 +93,7 @@ CREATE TABLE public.reviews (
   id bigserial PRIMARY KEY,
   client_id uuid NOT NULL REFERENCES public.profiles(id),
   operator_id uuid NOT NULL REFERENCES public.profiles(id),
-  consultation_id bigint, -- Può essere legato a una consulenza specifica
+  consultation_id bigint, -- Can be linked to a specific consultation
   rating smallint NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment text,
   created_at timestamp with time zone DEFAULT now()
@@ -107,6 +106,7 @@ CREATE POLICY "Clients can insert reviews for their consultations." ON public.re
 INSERT INTO public.categories (name, slug) VALUES
 ('Cartomanzia', 'cartomanzia'),
 ('Astrologia', 'astrologia'),
-('Spiritualità', 'spiritualita');
+('Spiritualità', 'spiritualita')
+ON CONFLICT (slug) DO NOTHING;
 
--- Fine dello script
+-- End of script

@@ -95,14 +95,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const register = async (credentials: any) => {
-    const { email, password, name, role } = credentials
+    const { email, password, name, role } = credentials // Il ruolo viene passato qui
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           name,
-          role,
+          role, // E usato qui
         },
       },
     })
