@@ -1,213 +1,98 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import type { Profile } from "@/contexts/auth-context"
-import { revalidatePath } from "next/cache"
-import { randomBytes } from "crypto"
+import { createServerClient } from "@/lib/supabase/server"
+import type { Operator } from "@/types/operator.types"
 
-// Funzione per creare un nuovo operatore
-export async function createOperator(operatorData: any) {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { user: currentUser },
-    } = await supabase.auth.getUser()
-    if (!currentUser) {
-      return { success: false, message: "Devi essere loggato per eseguire questa azione." }
-    }
-    const { data: adminProfile, error: adminProfileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", currentUser.id)
-      .single()
-
-    if (adminProfileError || adminProfile?.role !== "admin") {
-      return { success: false, message: "Non hai i permessi per creare un operatore." }
-    }
-
-    const temporaryPassword = randomBytes(16).toString("hex")
-
-    const {
-      data: { user },
-      error: createUserError,
-    } = await supabase.auth.admin.createUser({
-      email: operatorData.email,
-      password: temporaryPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: operatorData.fullName,
-      },
-    })
-
-    if (createUserError || !user) {
-      console.error("Error creating operator user:", createUserError?.message)
-      if (createUserError?.message.includes("already registered")) {
-        return { success: false, message: "Un utente con questa email è già registrato." }
-      }
-      return { success: false, message: "Errore nella creazione dell'utente operatore." }
-    }
-
-    const profileData = {
-      id: user.id,
-      role: "operator" as const,
-      full_name: operatorData.fullName,
-      stage_name: operatorData.stageName,
-      email: operatorData.email,
-      phone_number: operatorData.phone,
-      bio: operatorData.bio,
-      profile_image_url: operatorData.avatarUrl,
-      is_available: operatorData.isOnline,
-      commission_rate: Number.parseFloat(operatorData.commission),
-      service_prices: {
-        chat: operatorData.services.chatEnabled ? Number.parseFloat(operatorData.services.chatPrice) : null,
-        call: operatorData.services.callEnabled ? Number.parseFloat(operatorData.services.callPrice) : null,
-        email: operatorData.services.emailEnabled ? Number.parseFloat(operatorData.services.emailPrice) : null,
-      },
-      availability_schedule: operatorData.availability,
-    }
-
-    const { error: profileError } = await supabase.from("profiles").insert(profileData)
-
-    if (profileError) {
-      console.error("Error creating operator profile:", profileError.message)
-      await supabase.auth.admin.deleteUser(user.id)
-      return { success: false, message: "Errore nella creazione del profilo operatore." }
-    }
-
-    if (operatorData.categories && operatorData.categories.length > 0) {
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from("categories")
-        .select("id")
-        .in("slug", operatorData.categories)
-
-      if (categoriesError) {
-        console.error("Error fetching categories for association:", categoriesError.message)
-      } else {
-        const associations = categoriesData.map((cat) => ({
-          operator_id: user.id,
-          category_id: cat.id,
-        }))
-        const { error: associationError } = await supabase.from("operator_categories").insert(associations)
-
-        if (associationError) {
-          console.error("Error creating operator category associations:", associationError.message)
-        }
-      }
-    }
-
-    revalidatePath("/admin/operators")
-    revalidatePath("/")
-    return {
-      success: true,
-      message: `Operatore ${operatorData.stageName} creato con successo!`,
-      temporaryPassword: temporaryPassword,
-    }
-  } catch (error) {
-    console.error("Unexpected error in createOperator:", error)
-    return { success: false, message: "Un errore imprevisto è accaduto." }
-  }
-}
-
-export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
-  const supabase = createClient()
+export async function getOperators(categorySlug?: string): Promise<Operator[]> {
+  const supabase = createServerClient()
 
   let query = supabase
     .from("profiles")
-    .select(
-      `
+    .select(`
       id,
       full_name,
       stage_name,
       bio,
       is_available,
-      profile_image_url, 
-      service_prices,
+      profile_image_url,
       average_rating,
       review_count,
-      categories ( name, slug )
-    `,
-    )
+      categories (
+        slug,
+        name
+      )
+    `)
     .eq("role", "operator")
+    .order("is_available", { ascending: false })
+    .order("average_rating", { ascending: false, nulls: "last" })
 
-  if (options?.category) {
-    query = query.filter("categories.slug", "eq", options.category)
+  if (categorySlug) {
+    query = query.in("categories.slug", [categorySlug])
   }
 
-  if (options?.limit) {
-    query = query.limit(options.limit)
-  }
-
-  query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
-
-  const { data, error } = await query
+  const { data: operators, error } = await query
 
   if (error) {
-    console.error("Error fetching operators:", error)
-    return []
+    console.error("Error fetching operators:", error.message)
+    throw new Error(`Error fetching operators: ${error.message}`)
   }
 
-  const profiles = data.map((profile) => ({
-    ...profile,
-    // @ts-ignore
-    specializations: profile.categories.map((cat) => cat.name),
+  return operators.map((op: any) => ({
+    id: op.id,
+    fullName: op.full_name,
+    stageName: op.stage_name,
+    bio: op.bio,
+    isAvailable: op.is_available,
+    profileImageUrl: op.profile_image_url,
+    averageRating: op.average_rating,
+    reviewCount: op.review_count,
+    categories: op.categories.map((cat: any) => cat.name),
   }))
-
-  return profiles as Profile[]
 }
 
-export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
-  const supabase = createClient()
+export async function getOperatorByStageName(stageName: string): Promise<Operator | null> {
+  const supabase = createServerClient()
+
   const { data, error } = await supabase
     .from("profiles")
-    .select(
-      `
-        *,
-        categories ( name, slug )
-    `,
-    )
-    .eq("stage_name", stageName)
+    .select(`
+      id,
+      full_name,
+      stage_name,
+      bio,
+      is_available,
+      profile_image_url,
+      average_rating,
+      review_count,
+      categories (
+        slug,
+        name
+      )
+    `)
     .eq("role", "operator")
+    .eq("stage_name", stageName)
     .single()
 
   if (error) {
-    console.error("Error fetching operator by stage name:", error)
-    return null
+    if (error.code === "PGRST116") {
+      // "PGRST116" is the code for "0 rows returned"
+      return null
+    }
+    console.error("Error fetching operator by stage name:", error.message)
+    throw new Error(`Error fetching operator: ${error.message}`)
   }
 
-  const profile = {
-    ...data,
-    // @ts-ignore
-    specializations: data.categories.map((cat) => cat.name),
+  if (!data) return null
+
+  return {
+    id: data.id,
+    fullName: data.full_name,
+    stageName: data.stage_name,
+    bio: data.bio,
+    isAvailable: data.is_available,
+    profileImageUrl: data.profile_image_url,
+    averageRating: data.average_rating,
+    reviewCount: data.review_count,
+    categories: data.categories.map((cat: any) => cat.name),
   }
-
-  return profile as Profile
-}
-
-export async function getOperatorById(id: string): Promise<Profile | null> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-        *,
-        categories ( name, slug )
-    `,
-    )
-    .eq("id", id)
-    .single()
-
-  if (error) {
-    console.error(`Error fetching operator by ID ${id}:`, error.message)
-    return null
-  }
-
-  const profile = {
-    ...data,
-    // @ts-ignore
-    specializations: data.categories.map((cat) => cat.name),
-  }
-
-  return data as Profile
 }
