@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Save,
   ArrowLeft,
@@ -28,6 +29,8 @@ import {
   Clock,
   Euro,
   Tags,
+  Copy,
+  Check,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
@@ -61,22 +64,19 @@ export default function CreateOperatorPage() {
   const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [successInfo, setSuccessInfo] = useState<{ message: string; password?: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const [operator, setOperator] = useState({
-    // Dati personali
     name: "",
     surname: "",
     stageName: "",
     email: "",
     phone: "",
-
-    // Profilo pubblico
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
     avatarUrl: "",
-
-    // Servizi e prezzi
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -85,8 +85,6 @@ export default function CreateOperatorPage() {
       emailEnabled: true,
       emailPrice: "15.00",
     },
-
-    // Disponibilità
     availability: {
       monday: [] as string[],
       tuesday: [] as string[],
@@ -96,8 +94,6 @@ export default function CreateOperatorPage() {
       saturday: [] as string[],
       sunday: [] as string[],
     },
-
-    // Stato
     status: "Attivo" as "Attivo" | "In Attesa" | "Sospeso",
     isOnline: true,
     commission: "15",
@@ -183,54 +179,73 @@ export default function CreateOperatorPage() {
   }
 
   const handleSave = async () => {
-    // Validazione
     if (!operator.name || !operator.surname || !operator.stageName || !operator.email) {
-      toast({
-        title: "Campi obbligatori mancanti",
-        description: "Compila tutti i campi obbligatori.",
-        variant: "destructive",
-      })
+      toast({ title: "Campi obbligatori mancanti", variant: "destructive" })
       return
     }
-
     if (operator.categories.length === 0) {
-      toast({
-        title: "Categoria richiesta",
-        description: "Seleziona almeno una categoria.",
-        variant: "destructive",
-      })
+      toast({ title: "Seleziona almeno una categoria.", variant: "destructive" })
       return
     }
 
     setIsSaving(true)
-
     try {
       const result = await createOperator(operator)
-
       if (result.success) {
-        toast({
-          title: "✅ Operatore Creato!",
-          description: result.message,
-          className: "bg-green-100 border-green-300 text-green-700",
-        })
-
-        // Redirect alla lista operatori
-        setTimeout(() => {
-          router.push("/admin/operators")
-        }, 2000)
+        setSuccessInfo({ message: result.message, password: result.temporaryPassword })
       } else {
         throw new Error(result.message)
       }
     } catch (error: any) {
-      console.error("Errore nel salvataggio:", error)
       toast({
         title: "Errore",
-        description: error.message || "Errore nel salvataggio dell'operatore. Riprova.",
+        description: error.message || "Errore nel salvataggio dell'operatore.",
         variant: "destructive",
       })
     }
-
     setIsSaving(false)
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (successInfo) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Alert className="max-w-md bg-green-50 border-green-300">
+          <Check className="h-5 w-5 text-green-600" />
+          <AlertTitle className="text-green-800 font-bold">Operatore Creato con Successo!</AlertTitle>
+          <AlertDescription className="text-green-700">
+            <p>{successInfo.message}</p>
+            {successInfo.password && (
+              <div className="mt-4">
+                <p className="font-semibold">Password Temporanea:</p>
+                <div className="flex items-center gap-2 mt-1 p-2 bg-green-100 rounded-md">
+                  <code className="text-sm font-mono flex-grow">{successInfo.password}</code>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => copyToClipboard(successInfo.password!)}
+                    className="h-7 w-7"
+                  >
+                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs mt-2">
+                  Comunica questa password all'operatore. Potrà cambiarla dopo il primo accesso.
+                </p>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => router.push("/admin/operators")} className="mt-6">
+          Torna alla Lista Operatori
+        </Button>
+      </div>
+    )
   }
 
   const PreviewCard = () => (
@@ -243,7 +258,6 @@ export default function CreateOperatorPage() {
           </div>
         )}
       </div>
-
       <div className="relative flex flex-col items-center p-6 space-y-4 h-full">
         <div className="relative mt-2">
           <Avatar className="w-24 h-24 border-4 border-sky-400/50 shadow-lg">
@@ -256,23 +270,18 @@ export default function CreateOperatorPage() {
             </AvatarFallback>
           </Avatar>
         </div>
-
         <h3 className="text-xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-400">
           {operator.stageName || "Nome d'Arte"}
         </h3>
-
         <p className="text-sm font-medium text-cyan-300 text-center">{operator.categories.join(", ") || "Categorie"}</p>
-
         <div className="flex items-center space-x-1 text-sm">
           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
           <span className="font-semibold text-white">5.0</span>
           <span className="text-slate-400">(Nuovo)</span>
         </div>
-
         <p className="text-xs text-slate-300 text-center leading-relaxed h-12 overflow-hidden line-clamp-3">
           {operator.bio || "Descrizione del profilo..."}
         </p>
-
         <div className="flex flex-wrap justify-center gap-1.5 py-2">
           {operator.specialties.slice(0, 3).map((tag) => (
             <Badge key={tag} variant="outline" className="text-xs bg-sky-500/20 border-sky-400/50 text-sky-200">
@@ -280,7 +289,6 @@ export default function CreateOperatorPage() {
             </Badge>
           ))}
         </div>
-
         <div className="w-full pt-2 space-y-2">
           <p className="text-xs font-semibold text-slate-300 text-center">Servizi disponibili:</p>
           <div className="flex flex-wrap justify-center gap-1.5 text-xs">

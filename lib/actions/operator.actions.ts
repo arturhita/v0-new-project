@@ -3,35 +3,57 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/contexts/auth-context"
 import { revalidatePath } from "next/cache"
+import { randomBytes } from "crypto"
 
 // Funzione per creare un nuovo operatore
 export async function createOperator(operatorData: any) {
   const supabase = createClient()
 
   try {
-    // 1. Invitare l'utente via email. Questo crea l'utente in auth.users
-    // e gli invia un link per impostare la password.
+    // Controllo di sicurezza: verifica che l'utente che esegue l'azione sia un admin
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser()
+    if (!currentUser) {
+      return { success: false, message: "Devi essere loggato per eseguire questa azione." }
+    }
+    const { data: adminProfile, error: adminProfileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", currentUser.id)
+      .single()
+
+    if (adminProfileError || adminProfile?.role !== "admin") {
+      return { success: false, message: "Non hai i permessi per creare un operatore." }
+    }
+
+    // 1. Genera una password temporanea sicura
+    const temporaryPassword = randomBytes(16).toString("hex")
+
+    // 2. Crea l'utente direttamente con email e password
     const {
       data: { user },
-      error: inviteError,
-    } = await supabase.auth.admin.inviteUserByEmail(operatorData.email, {
-      data: {
+      error: createUserError,
+    } = await supabase.auth.admin.createUser({
+      email: operatorData.email,
+      password: temporaryPassword,
+      email_confirm: true, // Conferma automaticamente l'email
+      user_metadata: {
         full_name: `${operatorData.name} ${operatorData.surname}`,
       },
     })
 
-    if (inviteError || !user) {
-      console.error("Error inviting operator:", inviteError?.message)
-      // Fornisce un messaggio di errore più specifico se l'utente esiste già
-      if (inviteError?.message.includes("already registered")) {
+    if (createUserError || !user) {
+      console.error("Error creating operator user:", createUserError?.message)
+      if (createUserError?.message.includes("already registered")) {
         return { success: false, message: "Un utente con questa email è già registrato." }
       }
       return { success: false, message: "Errore nella creazione dell'utente operatore." }
     }
 
-    // 2. Preparare i dati per l'inserimento nella tabella 'profiles'
+    // 3. Preparare i dati per l'inserimento nella tabella 'profiles'
     const profileData = {
-      id: user.id, // ID dall'utente appena creato
+      id: user.id,
       role: "operator" as const,
       full_name: `${operatorData.name} ${operatorData.surname}`,
       stage_name: operatorData.stageName,
@@ -39,10 +61,9 @@ export async function createOperator(operatorData: any) {
       phone_number: operatorData.phone,
       bio: operatorData.bio,
       avatar_url: operatorData.avatarUrl,
-      specializations: operatorData.categories, // Usiamo il campo categories del form per le specializzazioni
+      specializations: operatorData.categories,
       is_available: operatorData.isOnline,
       commission_rate: Number.parseFloat(operatorData.commission),
-      // Trasforma i dati del form in oggetti JSONB come richiesto dal DB
       service_prices: {
         chat: operatorData.services.chatEnabled ? Number.parseFloat(operatorData.services.chatPrice) : null,
         call: operatorData.services.callEnabled ? Number.parseFloat(operatorData.services.callPrice) : null,
@@ -51,21 +72,20 @@ export async function createOperator(operatorData: any) {
       availability_schedule: operatorData.availability,
     }
 
-    // 3. Inserire il profilo nella tabella 'profiles'
+    // 4. Inserire il profilo nella tabella 'profiles'
     const { error: profileError } = await supabase.from("profiles").insert(profileData)
 
     if (profileError) {
       console.error("Error creating operator profile:", profileError.message)
-      // Se l'inserimento del profilo fallisce, è buona norma eliminare l'utente auth creato
       await supabase.auth.admin.deleteUser(user.id)
       return { success: false, message: "Errore nella creazione del profilo operatore." }
     }
 
-    // 4. Se tutto va bene, rivalida la cache e ritorna successo
     revalidatePath("/admin/operators")
     return {
       success: true,
-      message: `Operatore ${operatorData.stageName} creato con successo! È stato inviato un invito via email.`,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      temporaryPassword: temporaryPassword, // Restituisce la password per mostrarla all'admin
     }
   } catch (error) {
     console.error("Unexpected error in createOperator:", error)
