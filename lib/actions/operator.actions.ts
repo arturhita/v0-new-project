@@ -2,9 +2,27 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin" // Importa il nuovo client admin
-import type { Profile } from "@/contexts/auth-context"
 import { revalidatePath } from "next/cache"
 import { randomBytes } from "crypto"
+
+// Helper function to map view data to component props
+const mapOperatorData = (op: any) => ({
+  id: op.id,
+  name: op.stage_name,
+  avatarUrl: op.profile_image_url,
+  specialization: op.main_discipline,
+  rating: op.average_rating,
+  reviewsCount: op.review_count,
+  description: op.bio,
+  tags: op.specializations || [],
+  isOnline: op.is_online,
+  services: op.service_prices,
+  joinedDate: op.joined_at,
+  // Include any other fields needed by components
+  fullName: op.full_name,
+  status: op.status,
+  availability: op.availability,
+})
 
 // Funzione per creare un nuovo operatore
 export async function createOperator(operatorData: any) {
@@ -53,27 +71,25 @@ export async function createOperator(operatorData: any) {
     }
 
     // 4. Aggiorna il profilo dell'utente con i dati dell'operatore usando il CLIENT ADMIN
-    const { error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        role: "operator" as const,
-        full_name: operatorData.fullName,
-        stage_name: operatorData.stageName,
-        bio: operatorData.bio,
-        profile_image_url: operatorData.avatarUrl,
-        is_available: operatorData.isOnline,
-        service_prices: {
-          chat: Number.parseFloat(operatorData.services.chatPrice),
-          call: Number.parseFloat(operatorData.services.callPrice),
-          email: Number.parseFloat(operatorData.services.emailPrice),
-        },
-        commission_rate: Number.parseFloat(operatorData.commission),
-        availability_schedule: operatorData.availability,
-        status: operatorData.status,
-        phone: operatorData.phone,
-        main_discipline: operatorData.categories.length > 0 ? operatorData.categories[0] : null,
-      })
-      .eq("id", user.id)
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      id: user.id,
+      role: "operator" as const,
+      full_name: operatorData.fullName,
+      stage_name: operatorData.stageName,
+      bio: operatorData.bio,
+      profile_image_url: operatorData.avatarUrl,
+      is_available: operatorData.isOnline,
+      service_prices: {
+        chat: Number.parseFloat(operatorData.services.chatPrice),
+        call: Number.parseFloat(operatorData.services.callPrice),
+        email: Number.parseFloat(operatorData.services.emailPrice),
+      },
+      commission_rate: Number.parseFloat(operatorData.commission),
+      availability_schedule: operatorData.availability,
+      status: operatorData.status,
+      phone: operatorData.phone,
+      main_discipline: operatorData.categories.length > 0 ? operatorData.categories[0] : null,
+    })
 
     if (profileError) {
       console.error("Error updating operator profile:", profileError.message)
@@ -118,107 +134,54 @@ export async function createOperator(operatorData: any) {
   }
 }
 
-export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
+export async function getOperators(options?: { limit?: number; category?: string }): Promise<any[]> {
   const supabase = createClient()
 
-  let query = supabase
-    .from("profiles")
-    .select(
-      `
-      id,
-      full_name,
-      stage_name,
-      bio,
-      is_available,
-      profile_image_url, 
-      service_prices,
-      average_rating,
-      review_count,
-      categories ( name, slug )
-    `,
-    )
-    .eq("role", "operator")
+  let query = supabase.from("operators_view").select("*")
 
   if (options?.category) {
-    query = query.filter("categories.slug", "eq", options.category)
+    query = query.cs("category_slugs", `{${options.category}}`)
   }
 
   if (options?.limit) {
     query = query.limit(options.limit)
   }
 
-  query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
+  query = query.order("is_online", { ascending: false }).order("joined_at", { ascending: false })
 
   const { data, error } = await query
 
   if (error) {
-    console.error("Error fetching operators:", error)
-    return []
+    console.error("Error fetching operators:", error.message)
+    throw new Error(`Error fetching operators: ${error.message}`)
   }
 
-  const profiles = data.map((profile) => ({
-    ...profile,
-    // @ts-ignore
-    specializations: profile.categories.map((cat) => cat.name),
-  }))
-
-  return profiles as Profile[]
+  return (data || []).map(mapOperatorData)
 }
 
-export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
+export async function getOperatorByStageName(stageName: string): Promise<any | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-        *,
-        categories ( name, slug )
-    `,
-    )
-    .eq("stage_name", stageName)
-    .eq("role", "operator")
-    .single()
+  const { data, error } = await supabase.from("operators_view").select("*").eq("stage_name", stageName).single()
 
   if (error) {
-    console.error("Error fetching operator by stage name:", error)
+    console.error(`Error fetching operator by stage name ${stageName}:`, error.message)
     return null
   }
 
-  const profile = {
-    ...data,
-    // @ts-ignore
-    specializations: data.categories.map((cat) => cat.name),
-  }
-
-  return profile as Profile
+  return data ? mapOperatorData(data) : null
 }
 
-export async function getOperatorById(id: string): Promise<Profile | null> {
+export async function getOperatorById(id: string): Promise<any | null> {
   const supabase = createClient()
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-        *,
-        categories ( name, slug )
-    `,
-    )
-    .eq("id", id)
-    .single()
+  const { data, error } = await supabase.from("operators_view").select("*").eq("id", id).single()
 
   if (error) {
     console.error(`Error fetching operator by ID ${id}:`, error.message)
     return null
   }
 
-  const profile = {
-    ...data,
-    // @ts-ignore
-    specializations: data.categories.map((cat) => cat.name),
-  }
-
-  return data as Profile
+  return data ? mapOperatorData(data) : null
 }
 
 export async function getOperatorDashboardData(operatorId: string) {
@@ -231,7 +194,8 @@ export async function getOperatorDashboardData(operatorId: string) {
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
   try {
-    // 1. Guadagni del mese corrente
+    // This part of the code might need updates if table names like 'earnings' or 'consultations' changed.
+    // Assuming they exist and are correct for now.
     const { data: earningsData, error: earningsError } = await supabase
       .from("earnings")
       .select("net_earning")
@@ -241,7 +205,6 @@ export async function getOperatorDashboardData(operatorId: string) {
     if (earningsError) throw new Error(`Error fetching earnings: ${earningsError.message}`)
     const monthlyEarnings = earningsData.reduce((sum, record) => sum + record.net_earning, 0)
 
-    // 2. Numero di consulti completati nel mese
     const { count: consultationsCount, error: consultationsError } = await supabase
       .from("consultations")
       .select("*", { count: "exact", head: true })
@@ -251,7 +214,6 @@ export async function getOperatorDashboardData(operatorId: string) {
 
     if (consultationsError) throw new Error(`Error fetching consultations count: ${consultationsError.message}`)
 
-    // 3. Messaggi non letti
     const { count: unreadMessagesCount, error: messagesError } = await supabase
       .from("messages")
       .select("*", { count: "exact", head: true })
