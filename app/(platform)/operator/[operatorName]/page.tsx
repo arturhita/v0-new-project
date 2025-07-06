@@ -1,25 +1,36 @@
-import { getOperatorByStageName } from "@/lib/actions/operator.actions"
-import { OperatorProfileClient } from "@/components/operator-profile-client"
 import { notFound } from "next/navigation"
+import { getOperatorByStageName } from "@/lib/actions/operator.actions"
+// import { getReviewsForOperator } from "@/lib/actions/reviews.actions"
+import { OperatorProfileClient } from "@/components/operator-profile-client"
+import { SiteNavbar } from "@/components/site-navbar"
 
-export default async function OperatorProfilePage({ params }: { params: { operatorName: string } }) {
+interface OperatorProfilePageProps {
+  params: {
+    operatorName: string
+  }
+}
+
+export default async function OperatorProfilePage({ params }: OperatorProfilePageProps) {
   const operatorName = decodeURIComponent(params.operatorName)
 
+  // 1. Carica i dati dell'operatore usando la nuova azione sicura
   const operator = await getOperatorByStageName(operatorName)
 
+  // 2. Se l'operatore non esiste, mostra una pagina 404
   if (!operator) {
     notFound()
   }
 
-  // Example of fetching related data
-  // const reviews = await getReviewsForOperator(operator.id);
+  // 3. (Futuro) Carica le recensioni per quell'operatore
+  // const reviews = await getReviewsForOperator(operator.id)
 
+  // 4. Passa i dati al componente client che gestirà l'interattività
   return (
-    <div className="container mx-auto px-4 py-8">
-      <OperatorProfileClient
-        operator={operator}
-        // reviews={reviews}
-      />
+    <div className="bg-slate-900 min-h-screen">
+      <SiteNavbar />
+      <main className="pt-20">
+        <OperatorProfileClient operator={operator} reviews={[]} />
+      </main>
     </div>
   )
 }

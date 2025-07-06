@@ -47,7 +47,10 @@ export const allMockReviews: ReviewCardType[] = [
 ]
 
 export default async function HomePage() {
+  // Carica gli operatori dal server usando la nostra nuova azione.
+  // Se c'è un errore, Next.js mostrerà la sua pagina di errore predefinita.
   const operators = await getOperators({ limit: 8 })
 
+  // Passa i dati reali al componente client per il rendering.
   return <HomeClient initialOperators={operators} />
 }

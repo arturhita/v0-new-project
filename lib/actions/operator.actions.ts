@@ -5,10 +5,29 @@ import { supabaseAdmin } from "@/lib/supabase/admin" // Importa il nuovo client 
 import { revalidatePath } from "next/cache"
 import { randomBytes } from "crypto"
 
+// Definiamo un tipo di dati standard per gli operatori, usato in tutta l'app.
+export type OperatorData = {
+  id: string
+  name: string // Questo è stage_name dalla vista
+  fullName: string
+  avatarUrl: string | null
+  specialization: string | null
+  rating: number
+  reviewsCount: number
+  description: string | null
+  tags: string[]
+  isOnline: boolean
+  services: { [key: string]: number } | null
+  joinedDate: string
+  status: string
+  availability: string
+}
+
 // Helper function to map view data to component props
-const mapOperatorData = (op: any) => ({
+const mapOperatorData = (op: any): OperatorData => ({
   id: op.id,
   name: op.stage_name,
+  fullName: op.full_name,
   avatarUrl: op.profile_image_url,
   specialization: op.main_discipline,
   rating: op.average_rating,
@@ -18,8 +37,6 @@ const mapOperatorData = (op: any) => ({
   isOnline: op.is_online,
   services: op.service_prices,
   joinedDate: op.joined_at,
-  // Include any other fields needed by components
-  fullName: op.full_name,
   status: op.status,
   availability: op.availability,
 })
@@ -134,7 +151,7 @@ export async function createOperator(operatorData: any) {
   }
 }
 
-export async function getOperators(options?: { limit?: number; category?: string }): Promise<any[]> {
+export async function getOperators(options?: { limit?: number; category?: string }): Promise<OperatorData[]> {
   const supabase = createClient()
 
   let query = supabase.from("operators_view").select("*")
@@ -152,26 +169,29 @@ export async function getOperators(options?: { limit?: number; category?: string
   const { data, error } = await query
 
   if (error) {
-    console.error("Error fetching operators:", error.message)
-    throw new Error(`Error fetching operators: ${error.message}`)
+    console.error("Error fetching operators from view:", error.message)
+    // L'errore verrà catturato da Next.js e mostrerà una pagina di errore.
+    throw new Error(`Impossibile caricare gli operatori: ${error.message}`)
   }
 
   return (data || []).map(mapOperatorData)
 }
 
-export async function getOperatorByStageName(stageName: string): Promise<any | null> {
+export async function getOperatorByStageName(stageName: string): Promise<OperatorData | null> {
   const supabase = createClient()
   const { data, error } = await supabase.from("operators_view").select("*").eq("stage_name", stageName).single()
 
   if (error) {
-    console.error(`Error fetching operator by stage name ${stageName}:`, error.message)
+    // È normale che .single() fallisca se non trova righe.
+    // Restituiamo null senza lanciare un errore che bloccherebbe la pagina.
+    console.log(`Operatore non trovato per stage name ${stageName}:`, error.message)
     return null
   }
 
   return data ? mapOperatorData(data) : null
 }
 
-export async function getOperatorById(id: string): Promise<any | null> {
+export async function getOperatorById(id: string): Promise<OperatorData | null> {
   const supabase = createClient()
 
   const { data, error } = await supabase.from("operators_view").select("*").eq("id", id).single()
