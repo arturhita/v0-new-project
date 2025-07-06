@@ -62,7 +62,6 @@ const navItemsOperator = [
   { href: "/dashboard/operator/platform-messages", label: "Messaggi dalla Piattaforma", icon: MessageSquare },
   { href: "/dashboard/operator/client-notes", label: "Appunti sui Cercatori", icon: BookUser },
   { href: "/dashboard/operator/commission-request", label: "Richiesta Decima", icon: Percent },
-  // --- LINK CORRETTO QUI ---
   { href: "/dashboard/operator/profile", label: "Il Mio Altare (Profilo)", icon: Settings },
 ]
 
@@ -87,11 +86,11 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
 
 function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { logout, user } = useAuth()
+  const { logout, profile } = useAuth()
   const { status, setStatus, pauseTimer } = useOperatorStatus()
   const { showRequest } = useChatRequest()
 
-  useOperatorPresence(user?.id)
+  useOperatorPresence(profile?.id)
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -274,11 +273,11 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
               </Button>
               <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
                 <AvatarImage
-                  src={user?.avatar_url || "/placeholder.svg?height=38&width=38"}
-                  alt={user?.name || "Operatore"}
+                  src={profile?.avatar_url || "/placeholder.svg?height=38&width=38"}
+                  alt={profile?.nickname || "Operatore"}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {user?.name?.substring(0, 1).toUpperCase()}
+                  {(profile?.nickname || "O").substring(0, 1).toUpperCase()}
                 </AvatarFallback>
                 <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
               </Avatar>
