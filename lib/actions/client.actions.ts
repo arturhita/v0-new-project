@@ -1,51 +1,50 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
 
-export async function getClientDashboardData(userId: string) {
-  // Impedisce la cache statica dei dati, così sono sempre aggiornati
-  noStore()
+interface ClientDashboardData {
+  walletBalance: number
+  recentConsultationsCount: number
+  unreadMessagesCount: number
+}
 
+export async function getClientDashboardData(clientId: string): Promise<ClientDashboardData> {
   const supabase = createClient()
 
-  // Array di promesse per eseguire le query in parallelo
-  const [walletData, consultationsData, messagesData] = await Promise.all([
-    // 1. Recupera il saldo del wallet
-    supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", userId)
-      .single(),
+  const { data: walletData, error: walletError } = await supabase
+    .from("wallets")
+    .select("balance")
+    .eq("user_id", clientId)
+    .single()
 
-    // 2. Conta le consulenze passate
-    supabase
-      .from("consultations")
-      .select("id", { count: "exact" })
-      .eq("client_id", userId),
-
-    // 3. Conta i messaggi non letti
-    supabase
-      .from("messages")
-      .select("id", { count: "exact" })
-      .eq("receiver_id", userId)
-      .eq("is_read", false),
-  ])
-
-  // Gestione degli errori e formattazione dei risultati
-  if (walletData.error) {
-    console.error("Error fetching wallet:", walletData.error.message)
+  if (walletError && walletError.code !== "PGRST116") {
+    // PGRST116: no rows found
+    console.error("Error fetching wallet balance:", walletError)
   }
-  if (consultationsData.error) {
-    console.error("Error fetching consultations:", consultationsData.error.message)
+
+  const { count: consultationsCount, error: consultationsError } = await supabase
+    .from("consultations")
+    .select("*", { count: "exact", head: true })
+    .eq("client_id", clientId)
+  // .gte('start_time', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Esempio: ultimi 30 giorni
+
+  if (consultationsError) {
+    console.error("Error fetching consultations count:", consultationsError)
   }
-  if (messagesData.error) {
-    console.error("Error fetching messages:", messagesData.error.message)
+
+  const { count: messagesCount, error: messagesError } = await supabase
+    .from("messages")
+    .select("*", { count: "exact", head: true })
+    .eq("receiver_id", clientId)
+    .eq("is_read", false)
+
+  if (messagesError) {
+    console.error("Error fetching unread messages count:", messagesError)
   }
 
   return {
-    walletBalance: walletData.data?.balance ?? 0,
-    recentConsultationsCount: consultationsData.count ?? 0,
-    unreadMessagesCount: messagesData.count ?? 0,
+    walletBalance: walletData?.balance ?? 0,
+    recentConsultationsCount: consultationsCount ?? 0,
+    unreadMessagesCount: messagesCount ?? 0,
   }
 }
