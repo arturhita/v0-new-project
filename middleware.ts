@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -17,10 +17,38 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          response.cookies.set({ name, value, ...options })
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
         },
         remove(name: string, options: CookieOptions) {
-          response.cookies.set({ name, value: "", ...options })
+          request.cookies.set({
+            name,
+            value: "",
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value: "",
+            ...options,
+          })
         },
       },
     },
@@ -30,24 +58,20 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  const url = request.nextUrl
+  const { pathname } = request.nextUrl
 
-  // Se l'utente non è loggato e cerca di accedere a una rotta protetta
-  if (!session && (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard"))) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
+  if (pathname.startsWith("/admin")) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
 
-  // Se l'utente è loggato e cerca di accedere a /admin, verifichiamo il ruolo
-  if (session && url.pathname.startsWith("/admin")) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-    if (profile?.role !== "admin") {
+    const { data: profile, error } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+
+    if (error || !profile || profile.role !== "admin") {
+      console.error("Admin access error:", error?.message)
+      // Redirect non-admins away from admin pages
       return NextResponse.redirect(new URL("/", request.url))
     }
-  }
-
-  // Se l'utente è loggato e cerca di accedere a /login, lo reindirizziamo
-  if (session && url.pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url))
   }
 
   return response
@@ -56,13 +80,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
-     * - _next/static (file statici)
-     * - _next/image (ottimizzazione immagini)
-     * - favicon.ico (file favicon)
-     * - /auth/callback (rotta di callback di Supabase)
-     * Sentiti libero di modificare questo per adattarlo alle tue esigenze.
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

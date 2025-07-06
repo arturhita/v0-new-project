@@ -1,7 +1,19 @@
+-- Usa un DO block per creare in modo sicuro i tipi enum se non esistono.
+-- Questo previene errori se lo script viene eseguito più volte.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM ('client', 'operator', 'admin');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'operator_status') THEN
+        CREATE TYPE operator_status AS ENUM ('online', 'offline', 'busy');
+    END IF;
+END$$;
+
 -- Assicura che la tabella profiles esista con le colonne necessarie
 CREATE TABLE IF NOT EXISTS public.profiles (
     id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    username text,
+    username text UNIQUE,
     full_name text,
     avatar_url text,
     website text,
@@ -14,13 +26,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, avatar_url, role)
+  INSERT INTO public.profiles (id, full_name, avatar_url, role, username)
   VALUES (
     new.id,
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'avatar_url',
-    'client' -- Tutti i nuovi utenti partono come 'client'
-  );
+    'client',
+    new.raw_user_meta_data->>'username'
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -42,12 +56,28 @@ CREATE TABLE IF NOT EXISTS public.operators (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
--- Assicura che l'utente admin esista e abbia il ruolo corretto
--- Sostituisci con la tua vera email e password admin
-INSERT INTO auth.users (id, email, encrypted_password, role, aud, instance_id, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-VALUES ('YOUR_ADMIN_UUID', 'admin@moonthir.com', 'YOUR_ENCRYPTED_PASSWORD', 'authenticated', 'authenticated', 'YOUR_INSTANCE_ID', '{"provider":"email","providers":["email"]}', '{"provider":"email"}', now(), now())
-ON CONFLICT (id) DO NOTHING;
+-- Vista per ottenere dettagli completi degli operatori
+CREATE OR REPLACE VIEW public.detailed_operators AS
+SELECT
+    p.id,
+    p.full_name,
+    p.username,
+    u.email,
+    o.bio,
+    o.specializations,
+    o.cost_per_minute,
+    o.availability_status
+FROM
+    public.profiles p
+JOIN
+    auth.users u ON p.id = u.id
+JOIN
+    public.operators o ON p.id = o.id
+WHERE
+    p.role = 'operator';
 
-INSERT INTO public.profiles (id, full_name, role)
-VALUES ('YOUR_ADMIN_UUID', 'Admin', 'admin')
-ON CONFLICT (id) DO UPDATE SET role = 'admin';
+-- Istruzioni per l'utente per creare un admin:
+-- 1. Crea un utente normale tramite la tua applicazione o la dashboard di Supabase.
+-- 2. Vai alla tabella 'profiles' in Supabase.
+-- 3. Trova la riga corrispondente al tuo utente admin.
+-- 4. Cambia il valore nella colonna 'role' da 'client' a 'admin'.

@@ -1,52 +1,47 @@
 import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 import { PlusCircle } from "lucide-react"
 
-async function getOperators() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      id,
-      full_name,
-      username,
-      users (
-        email
-      ),
-      operators (
-        cost_per_minute,
-        availability_status
-      )
-    `,
-    )
-    .eq("role", "operator")
-
-  if (error) {
-    console.error("Errore nel caricamento operatori:", error)
-    throw new Error("Impossibile caricare gli operatori.")
-  }
-
-  // Semplifichiamo la struttura dei dati
-  return data.map((profile) => ({
-    id: profile.id,
-    fullName: profile.full_name,
-    username: profile.username,
-    email: (profile.users as any)?.email || "N/A",
-    costPerMinute: (profile.operators as any)?.cost_per_minute || 0,
-    status: (profile.operators as any)?.availability_status || "offline",
-  }))
+// Questo tipo corrisponde alla struttura della view 'detailed_operators'
+type Operator = {
+  id: string
+  full_name: string | null
+  email: string | null
+  cost_per_minute: number | null
+  availability_status: string | null
 }
 
-export default async function ManageOperatorsPage() {
-  const operators = await getOperators()
+async function loadOperators(): Promise<Operator[]> {
+  const supabase = createClient()
+  // Interroga la nuova vista per ottenere tutti i dettagli dell'operatore in una sola volta
+  const { data, error } = await supabase.from("detailed_operators").select("*")
+
+  if (error) {
+    console.error("Error loading operators from view:", error)
+    throw new Error("Errore nel caricamento degli operatori.")
+  }
+
+  return data || []
+}
+
+export default async function OperatorsPage() {
+  let operators: Operator[] = []
+  let errorMessage: string | null = null
+
+  try {
+    operators = await loadOperators()
+  } catch (error) {
+    if (error instanceof Error) {
+      errorMessage = error.message
+    } else {
+      errorMessage = "Si è verificato un errore sconosciuto."
+    }
+  }
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Gestione Operatori</h1>
         <Button asChild>
@@ -56,44 +51,62 @@ export default async function ManageOperatorsPage() {
           </Link>
         </Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Elenco Operatori</CardTitle>
-          <CardDescription>Visualizza e gestisci gli operatori della piattaforma.</CardDescription>
-        </CardHeader>
-        <CardContent>
+
+      {errorMessage ? (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Errore!</strong>
+          <span className="block sm:inline"> {errorMessage}</span>
+        </div>
+      ) : (
+        <div className="bg-white p-4 rounded-lg shadow">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome Completo</TableHead>
-                <TableHead>Username</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Costo/min</TableHead>
                 <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
+                <TableHead>Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {operators.map((op) => (
-                <TableRow key={op.id}>
-                  <TableCell className="font-medium">{op.fullName}</TableCell>
-                  <TableCell>{op.username}</TableCell>
-                  <TableCell>{op.email}</TableCell>
-                  <TableCell>€{op.costPerMinute.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Badge variant={op.status === "online" ? "default" : "secondary"}>{op.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm">
-                      Modifica
-                    </Button>
+              {operators.length > 0 ? (
+                operators.map((operator) => (
+                  <TableRow key={operator.id}>
+                    <TableCell>{operator.full_name}</TableCell>
+                    <TableCell>{operator.email}</TableCell>
+                    <TableCell>€{operator.cost_per_minute?.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          operator.availability_status === "online"
+                            ? "bg-green-100 text-green-800"
+                            : operator.availability_status === "busy"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {operator.availability_status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/admin/operators/${operator.id}/edit`}>Modifica</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    Nessun operatore trovato.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   )
 }

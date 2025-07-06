@@ -327,16 +327,14 @@ export default function CreateOperatorPage() {
                 <Label htmlFor="username">Username</Label>
                 <Input id="username" name="username" required />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password Temporanea</Label>
-              <Input id="password" name="password" type="password" required />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password Temporanea</Label>
+                <Input id="password" name="password" type="password" required />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -344,12 +342,25 @@ export default function CreateOperatorPage() {
               <Textarea id="bio" name="bio" />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="costPerMinute">Costo al Minuto (€)</Label>
-              <Input id="costPerMinute" name="costPerMinute" type="number" step="0.01" placeholder="1.50" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="costPerMinute">Costo al Minuto (€)</Label>
+                <Input id="costPerMinute" name="costPerMinute" type="number" step="0.01" placeholder="1.50" />
+              </div>
+              <div>
+                <Label htmlFor="specializations">Specializzazioni (separate da virgola)</Label>
+                <Input
+                  id="specializations"
+                  name="specializations"
+                  type="text"
+                  placeholder="es. Tarocchi, Astrologia, Cartomanzia"
+                />
+              </div>
             </div>
 
-            <SubmitButton />
+            <div className="flex justify-end">
+              <SubmitButton />
+            </div>
           </form>
         </CardContent>
       </Card>
