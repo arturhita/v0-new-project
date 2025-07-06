@@ -36,7 +36,7 @@ export async function createOperator(operatorData: any) {
       password: temporaryPassword,
       email_confirm: true,
       user_metadata: {
-        full_name: `${operatorData.name} ${operatorData.surname}`,
+        full_name: operatorData.fullName,
       },
     })
 
@@ -51,7 +51,7 @@ export async function createOperator(operatorData: any) {
     const profileData = {
       id: user.id,
       role: "operator" as const,
-      full_name: `${operatorData.name} ${operatorData.surname}`,
+      full_name: operatorData.fullName,
       stage_name: operatorData.stageName,
       email: operatorData.email,
       phone_number: operatorData.phone,
@@ -117,6 +117,7 @@ export async function getOperators(options?: { limit?: number; category?: string
     .select(
       `
       id,
+      full_name,
       stage_name,
       bio,
       is_available,
