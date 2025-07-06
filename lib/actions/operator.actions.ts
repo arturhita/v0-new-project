@@ -10,15 +10,12 @@ export async function getOperators(options?: {
   const supabase = createClient()
 
   // Inizia la query selezionando tutti i profili che sono operatori
-  // La logica di approvazione è che il loro ruolo è 'operator'
   let query = supabase.from("profiles").select("*").eq("role", "operator")
 
   // Se è specificata una categoria, filtra gli operatori
-  // il cui array 'categories' (se esiste) contiene la categoria data.
-  // Nota: lo schema attuale non ha 'categories' in profiles, questo è per futura espansione.
-  // Per ora, questo filtro non avrà effetto.
+  // il cui array 'specializations' contiene la categoria data.
   if (options?.category) {
-    query = query.contains("categories", [options.category])
+    query = query.contains("specializations", [options.category])
   }
 
   // Se è specificato un limite, applicalo
