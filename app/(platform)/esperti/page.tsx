@@ -1,20 +1,20 @@
-import { getAllOperators } from "@/lib/actions/operator.actions"
+import { getApprovedOperators } from "@/lib/actions/operator.actions"
 import { OperatorCard } from "@/components/operator-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 
 export default async function EspertiPage() {
-  const operators = await getAllOperators()
+  const operators = await getApprovedOperators()
 
   return (
-    <div className="relative min-h-screen bg-slate-950 text-white">
+    <div className="relative min-h-screen bg-slate-900 text-white">
       <ConstellationBackground />
-      <main className="container mx-auto px-4 py-12 relative z-10">
+      <main className="container mx-auto px-4 py-16 relative z-10">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-purple-300 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400">
             I Nostri Esperti
           </h1>
-          <p className="mt-4 text-lg text-slate-400 max-w-2xl mx-auto">
-            Trova la guida che cerchi. I nostri operatori sono pronti ad ascoltarti e a offrirti la loro saggezza.
+          <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+            Connettiti con i nostri maestri di discipline olistiche. Trova la guida che risuona con la tua anima.
           </p>
         </div>
 
@@ -25,12 +25,9 @@ export default async function EspertiPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-slate-900/50 rounded-lg">
-            <p className="text-slate-400 text-xl">
-              Al momento non ci sono operatori disponibili.
-            </p>
-            <p className="text-slate-500 mt-2">
-              Riprova più tardi o contatta il supporto.
+          <div className="text-center py-20">
+            <p className="text-xl text-slate-400">
+              Al momento non ci sono operatori disponibili. Torna a trovarci presto!
             </p>
           </div>
         )}
