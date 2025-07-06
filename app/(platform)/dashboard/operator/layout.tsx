@@ -101,7 +101,7 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
         fromUserId: "user_sim_123",
         fromUserName: "Mario Simulato",
       })
-    }, 15000) // Aumentato a 15 secondi
+    }, 15000)
 
     return () => clearTimeout(timeoutId)
   }, [showRequest])
@@ -274,11 +274,11 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
               </Button>
               <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
                 <AvatarImage
-                  src={user?.user_metadata.avatar_url || "/placeholder.svg?height=38&width=38"}
-                  alt={operatorName}
+                  src={user?.avatar_url || "/placeholder.svg?height=38&width=38"}
+                  alt={user?.name || "Operatore"}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {operatorName?.substring(0, 1).toUpperCase()}
+                  {user?.name?.substring(0, 1).toUpperCase()}
                 </AvatarFallback>
                 <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
               </Avatar>
