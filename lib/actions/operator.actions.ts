@@ -68,6 +68,9 @@ export async function createOperator(operatorData: any) {
         },
         commission_rate: Number.parseFloat(operatorData.commission),
         availability_schedule: operatorData.availability,
+        status: operatorData.status,
+        phone: operatorData.phone,
+        main_discipline: operatorData.categories.length > 0 ? operatorData.categories[0] : null,
       })
       .eq("id", user.id)
 
@@ -352,7 +355,7 @@ export async function suspendOperator(operatorId: string) {
   const supabase = createClient()
   const { error } = await supabase
     .from("profiles")
-    .update({ status: "Sospeso", is_available: false })
+    .update({ status: "suspended", is_available: false })
     .eq("id", operatorId)
 
   if (error) {

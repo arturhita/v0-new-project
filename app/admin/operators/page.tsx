@@ -57,6 +57,8 @@ export default function ManageOperatorsPage() {
   }, [])
 
   const handleSuspend = (operatorId: string) => {
+    if (!confirm("Sei sicuro di voler sospendere questo operatore?")) return
+
     startTransition(async () => {
       const result = await suspendOperator(operatorId)
       if (result.success) {
@@ -75,11 +77,30 @@ export default function ManageOperatorsPage() {
     })
   }
 
-  const getStatusBadgeVariant = (status: string | null) => {
-    if (status === "active" || status === "Attivo") return "default"
-    if (status === "pending" || status === "In Attesa") return "outline"
-    if (status === "suspended" || status === "Sospeso") return "destructive"
-    return "secondary"
+  const getStatusBadgeVariant = (status: string | null): "default" | "outline" | "destructive" | "secondary" => {
+    switch (status) {
+      case "active":
+        return "default"
+      case "pending":
+        return "outline"
+      case "suspended":
+        return "destructive"
+      default:
+        return "secondary"
+    }
+  }
+
+  const getStatusText = (status: string | null): string => {
+    switch (status) {
+      case "active":
+        return "Attivo"
+      case "pending":
+        return "In Attesa"
+      case "suspended":
+        return "Sospeso"
+      default:
+        return "Sconosciuto"
+    }
   }
 
   if (isLoading) {
@@ -145,7 +166,7 @@ export default function ManageOperatorsPage() {
                   <TableCell>{op.full_name || "N/D"}</TableCell>
                   <TableCell>{op.main_discipline || "N/D"}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(op.status)}>{op.status || "N/D"}</Badge>
+                    <Badge variant={getStatusBadgeVariant(op.status)}>{getStatusText(op.status)}</Badge>
                   </TableCell>
                   <TableCell>
                     <span className="font-semibold text-green-600">{op.commission_rate ?? 0}%</span>
