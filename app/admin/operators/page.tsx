@@ -97,7 +97,7 @@ export default async function ManageOperatorsPage() {
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(op.status)}>{getStatusText(op.status)}</Badge>
                     </TableCell>
-                    <TableCell>{format(new Date(op.joined_at), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{op.joined_at ? format(new Date(op.joined_at), "dd/MM/yyyy") : "N/A"}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" asChild>
                         <Link href={`/admin/operators/${op.profile_id}/edit`}>

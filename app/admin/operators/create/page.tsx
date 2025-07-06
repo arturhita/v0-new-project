@@ -1,21 +1,16 @@
 "use client"
 
-import { useActionState, useEffect, useRef } from "react"
-import { createOperator, type ActionState } from "@/lib/actions/operator.admin.actions"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
+import { useActionState, useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Copy, Check } from "lucide-react"
-import { useState } from "react"
+import { toast } from "sonner"
+import { ArrowLeft, Check, Copy } from "lucide-react"
 
-function SubmitButton() {
-  // This component is not needed anymore as we use isPending from useActionState
-  return null
-}
+import { type ActionState, createOperator } from "@/lib/actions/operator.admin.actions"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function CreateOperatorPage() {
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(createOperator, null)
@@ -36,6 +31,7 @@ export default function CreateOperatorPage() {
     if (state?.temporaryPassword) {
       navigator.clipboard.writeText(state.temporaryPassword)
       setCopied(true)
+      toast.info("Password temporanea copiata negli appunti.")
       setTimeout(() => setCopied(false), 2000)
     }
   }

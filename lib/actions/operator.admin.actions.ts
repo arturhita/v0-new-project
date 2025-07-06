@@ -26,14 +26,15 @@ export async function createOperator(prevState: ActionState, formData: FormData)
   // Generate a secure temporary password
   const temporaryPassword = Math.random().toString(36).slice(-8)
 
-  // 1. Create user in auth.users
+  // 1. Create user in auth.users with metadata
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password: temporaryPassword,
     email_confirm: true, // Auto-confirm email for admin-created users
     user_metadata: {
       full_name: fullName,
-      role: "operator",
+      username: stageName,
+      role: "operator", // Pass role in metadata for the trigger
     },
   })
 
@@ -44,27 +45,10 @@ export async function createOperator(prevState: ActionState, formData: FormData)
 
   const userId = authData.user.id
 
-  // 2. Create profile in public.profiles
-  // This assumes a trigger handles profile creation. If not, we insert.
-  // Let's upsert to be safe.
-  const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
-    {
-      id: userId,
-      full_name: fullName,
-      username: stageName,
-      role: "operator",
-      email: email,
-    },
-    { onConflict: "id" },
-  )
+  // The trigger 'on_auth_user_created' should have already created the profile.
+  // Now, we just need to insert into the 'operators' table.
 
-  if (profileError) {
-    console.error("Error creating/updating profile:", profileError)
-    await supabaseAdmin.auth.admin.deleteUser(userId) // Cleanup
-    return { error: `Errore durante la creazione del profilo: ${profileError.message}` }
-  }
-
-  // 3. Create operator-specific data in public.operators
+  // 2. Create operator-specific data in public.operators
   const { error: operatorError } = await supabaseAdmin.from("operators").insert({
     profile_id: userId,
     bio: bio,
@@ -74,7 +58,8 @@ export async function createOperator(prevState: ActionState, formData: FormData)
 
   if (operatorError) {
     console.error("Error creating operator data:", operatorError)
-    await supabaseAdmin.auth.admin.deleteUser(userId) // Cleanup
+    // Cleanup: if operator creation fails, delete the auth user
+    await supabaseAdmin.auth.admin.deleteUser(userId)
     return { error: `Errore durante la creazione dei dati operatore: ${operatorError.message}` }
   }
 
