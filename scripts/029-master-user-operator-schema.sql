@@ -1,42 +1,44 @@
 -- =================================================================
--- FULL SCHEMA RESET SCRIPT (v3 - TRIGGER FIX)
--- This script resets and rebuilds the entire user/operator schema and all its dependencies.
--- It explicitly drops the trigger on auth.users before dropping the function to solve dependency errors.
+-- FULL SCHEMA RESET SCRIPT (v4 - EXPLICIT DROP FIX)
+-- This script resets and rebuilds the entire schema by explicitly dropping every object
+-- in the correct order to prevent any dependency errors.
 -- =================================================================
 
--- Step 1: Drop dependent views first.
+-- Step 1: Drop Views that depend on tables.
 DROP VIEW IF EXISTS public.operators_view;
 DROP VIEW IF EXISTS public.admin_users_view;
-DROP VIEW IF EXISTS public.admin_operators_view; -- legacy name
+DROP VIEW IF EXISTS public.admin_operators_view; -- Legacy name
 
--- Step 2: Drop the trigger from the auth.users table. THIS IS THE CRITICAL FIX.
+-- Step 2: Drop the trigger from the auth.users table.
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Step 3: Now that the trigger is gone, drop the function.
+-- Step 3: Drop functions.
 DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.is_admin(uuid);
 
--- Step 4: Drop the core tables with CASCADE.
-DROP TABLE IF EXISTS public.profiles CASCADE;
-DROP TABLE IF EXISTS public.operators CASCADE;
-DROP TABLE IF EXISTS public.categories CASCADE;
-DROP TABLE IF EXISTS public.reviews CASCADE;
-DROP TABLE IF EXISTS public.wallets CASCADE;
-DROP TABLE IF EXISTS public.chat_sessions CASCADE;
-DROP TABLE IF EXISTS public.messages CASCADE;
+-- Step 4: Drop tables. We drop tables with foreign keys first.
+DROP TABLE IF EXISTS public.operator_categories;
+DROP TABLE IF EXISTS public.reviews;
+DROP TABLE IF EXISTS public.messages;
+DROP TABLE IF EXISTS public.chat_sessions;
+DROP TABLE IF EXISTS public.wallets;
+DROP TABLE IF EXISTS public.operators;
+DROP TABLE IF EXISTS public.categories;
+DROP TABLE IF EXISTS public.profiles; -- This is the root table for many others.
 
--- Step 5: Drop types.
+-- Step 5: Drop custom types.
 DROP TYPE IF EXISTS public.user_role;
 DROP TYPE IF EXISTS public.operator_status;
 
 -- =================================================================
--- REBUILD SCHEMA
+-- REBUILD SCHEMA FROM A CLEAN SLATE
 -- =================================================================
 
 -- Step 6: Re-create custom ENUM types.
 CREATE TYPE public.user_role AS ENUM ('admin', 'client', 'operator');
 CREATE TYPE public.operator_status AS ENUM ('active', 'pending', 'suspended');
 
--- Step 7: Re-create the 'profiles' table.
+-- Step 7: Re-create the 'profiles' table (root table).
 CREATE TABLE public.profiles (
     id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name text,
@@ -59,7 +61,7 @@ CREATE TABLE public.operators (
 );
 COMMENT ON TABLE public.operators IS 'Stores data specific to users with the ''operator'' role.';
 
--- Step 9: Re-create other core tables that were affected by CASCADE.
+-- Step 9: Re-create other core tables.
 CREATE TABLE public.categories (
     id serial PRIMARY KEY,
     name text NOT NULL UNIQUE,
@@ -131,6 +133,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
+  -- Create a profile for the new user
   INSERT INTO public.profiles (id, full_name, username, email, role)
   VALUES (
     new.id,
@@ -139,7 +142,9 @@ BEGIN
     new.email,
     COALESCE((new.raw_user_meta_data->>'role')::public.user_role, 'client'::public.user_role)
   );
+  -- Create a wallet for the new user
   INSERT INTO public.wallets (user_id) VALUES (new.id);
+  -- If the new user is an operator, create an entry in the operators table
   IF (new.raw_user_meta_data->>'role')::public.user_role = 'operator' THEN
     INSERT INTO public.operators (profile_id, main_discipline)
     VALUES (new.id, new.raw_user_meta_data->>'main_discipline');
