@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -17,44 +17,52 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          response.cookies.set({ name, value, ...options })
+          // Se il client di autenticazione vuole impostare un cookie,
+          // lo impostiamo sulla risposta in modo che venga inviato al browser.
+          response.cookies.set(name, value, options)
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options })
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          response.cookies.set({ name, value: "", ...options })
+          // Se il client di autenticazione vuole rimuovere un cookie,
+          // lo rimuoviamo dalla risposta.
+          response.cookies.set(name, "", options)
         },
       },
     },
   )
 
-  // Rinfresca la sessione utente se è scaduta
+  // Rinfresca la sessione utente se è scaduta.
+  // IMPORTANTE: `getSession()` deve essere chiamato per far funzionare l'autenticazione server-side.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
   const url = request.nextUrl
 
-  // Protezione delle rotte: se l'utente non è loggato e cerca di accedere
-  // a /admin o /dashboard, viene reindirizzato alla pagina di login.
-  if (!user && (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard"))) {
+  // Se l'utente non è loggato e cerca di accedere a una rotta protetta,
+  // lo reindirizziamo alla pagina di login.
+  if (!session && (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard"))) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Protezione ruolo Admin: se l'utente è loggato e accede a /admin,
-  // controlliamo che abbia il ruolo corretto.
-  if (user && url.pathname.startsWith("/admin")) {
-    const { data: profile, error } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-    // Se c'è un errore o il ruolo non è 'admin', reindirizza alla home.
-    if (error || profile?.role !== "admin") {
+  // Se l'utente è loggato e cerca di accedere a /admin, verifichiamo il suo ruolo.
+  if (session && url.pathname.startsWith("/admin")) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+    // Se il ruolo non è 'admin', lo reindirizziamo alla home page.
+    if (profile?.role !== "admin") {
       return NextResponse.redirect(new URL("/", request.url))
+    }
+  }
+
+  // Se l'utente è loggato e cerca di accedere a /login o /register,
+  // lo reindirizziamo alla sua dashboard.
+  if (session && (url.pathname === "/login" || url.pathname === "/register")) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+    if (profile?.role === "admin") {
+      return NextResponse.redirect(new URL("/admin", request.url))
+    } else if (profile?.role === "operator") {
+      return NextResponse.redirect(new URL("/dashboard/operator", request.url))
+    } else {
+      return NextResponse.redirect(new URL("/dashboard/client", request.url))
     }
   }
 
@@ -68,9 +76,9 @@ export const config = {
      * - _next/static (file statici)
      * - _next/image (ottimizzazione immagini)
      * - favicon.ico (file favicon)
-     * - /login, /register (pagine di autenticazione)
+     * - /auth/callback (rotta di callback di Supabase)
      * Sentiti libero di modificare questo per adattarlo alle tue esigenze.
      */
-    "/((?!_next/static|_next/image|favicon.ico|login|register|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }
