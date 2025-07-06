@@ -1,84 +1,57 @@
-"use server"
+import { createClient } from "@/lib/supabase/server"
+import { unstable_noStore as noStore } from "next/cache"
 
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
-import { revalidatePath } from "next/cache"
-
-// Tipo per i dati delle candidature che leggeremo dal DB
-export type ApplicationWithProfile = {
+export interface OperatorApplication {
   id: string
-  created_at: string
+  user_id: string
   status: "pending" | "approved" | "rejected"
   phone: string
   bio: string
   specializations: string[]
   cv_url: string | null
-  user_id: string
-  profiles: {
+  created_at: string
+  profile: {
     name: string | null
     email: string | null
   } | null
 }
 
-export async function getOperatorApplications(): Promise<{
-  applications: ApplicationWithProfile[] | null
-  error: string | null
-}> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    },
-  )
+export async function getOperatorApplications(): Promise<OperatorApplication[]> {
+  noStore()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("operator_applications")
     .select(
       `
       id,
-      created_at,
+      user_id,
       status,
       phone,
       bio,
       specializations,
       cv_url,
-      user_id,
-      profiles (
+      created_at,
+      profile:profiles (
         name,
         email
       )
     `,
     )
-    .order("created_at", { ascending: false })
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
 
   if (error) {
-    console.error("Error fetching applications from Supabase:", error)
-    return { applications: null, error: `Errore nel recupero delle candidature. Dettagli: ${error.message}` }
+    console.error("Error fetching applications:", error.message)
+    throw new Error(`Error fetching applications: ${error.message}`)
   }
 
-  return { applications: data as ApplicationWithProfile[], error: null }
+  // Supabase types can be tricky with relations. We cast to ensure type safety.
+  return data as OperatorApplication[]
 }
 
 export async function approveApplication(applicationId: string, userId: string) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    },
-  )
-
+  const supabase = createClient()
   const { error } = await supabase.rpc("approve_operator_application", {
     p_application_id: applicationId,
     p_user_id: userId,
@@ -86,36 +59,20 @@ export async function approveApplication(applicationId: string, userId: string) 
 
   if (error) {
     console.error("Error approving application:", error)
-    return { success: false, message: "Errore durante l'approvazione." }
+    return { success: false, message: error.message }
   }
-
-  revalidatePath("/admin/operator-approvals")
-  return { success: true, message: "Candidatura approvata con successo." }
+  return { success: true, message: "Application approved successfully." }
 }
 
 export async function rejectApplication(applicationId: string) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    },
-  )
-
+  const supabase = createClient()
   const { error } = await supabase.rpc("reject_operator_application", {
     p_application_id: applicationId,
   })
 
   if (error) {
     console.error("Error rejecting application:", error)
-    return { success: false, message: "Errore durante il rifiuto della candidatura." }
+    return { success: false, message: error.message }
   }
-
-  revalidatePath("/admin/operator-approvals")
-  return { success: true, message: "Candidatura rifiutata." }
+  return { success: true, message: "Application rejected successfully." }
 }
