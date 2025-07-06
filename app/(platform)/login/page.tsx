@@ -39,47 +39,38 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        // --- FIX: Use .limit(1) instead of .single() to prevent crashing if no profile is found.
-        const { data: profiles, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", data.user.id)
-          .limit(1)
+          .single()
 
-        if (profileError) {
-          console.error("Database error fetching profile:", profileError)
-          setError("Errore del database durante il recupero del profilo. Contattare l'assistenza.")
+        if (profileError || !profile) {
+          console.error("Profile fetch error:", profileError)
+          setError(
+            "Impossibile recuperare il profilo dopo il login. L'utente potrebbe non essere configurato correttamente.",
+          )
           await supabase.auth.signOut()
           setLoading(false)
           return
         }
 
-        if (profiles && profiles.length > 0) {
-          const profile = profiles[0]
-          toast.success("Login effettuato con successo!")
-          switch (profile.role) {
-            case "admin":
-              router.push("/admin/dashboard")
-              break
-            case "operator":
-              router.push("/dashboard/operator")
-              break
-            default:
-              router.push("/dashboard/client")
-              break
-          }
-          // No need to set loading to false, the component will unmount
-        } else {
-          // This is the case where the user exists in auth, but not in profiles.
-          console.error("Profile not found for user:", data.user.id)
-          setError(
-            "Profilo utente non trovato. La registrazione potrebbe essere incompleta o l'utente non è stato configurato correttamente.",
-          )
-          await supabase.auth.signOut() // Log out the user to prevent a broken state
-          setLoading(false)
+        toast.success("Login effettuato con successo!")
+
+        // Redirect based on role
+        switch (profile.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          default:
+            router.push("/dashboard/client")
+            break
         }
+        router.refresh() // Force a refresh to ensure layout updates correctly
       } else {
-        // This case should be covered by signInError, but as a fallback.
         setError("Login fallito. Utente non trovato o credenziali errate.")
         setLoading(false)
       }

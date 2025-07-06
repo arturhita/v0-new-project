@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { ArrowLeft, Check, Copy } from "lucide-react"
+import { ArrowLeft, Check, Copy, Loader2 } from "lucide-react"
 
 import { type ActionState, createOperator } from "@/lib/actions/operator.admin.actions"
 import { Button } from "@/components/ui/button"
@@ -81,7 +81,13 @@ export default function CreateOperatorPage() {
           </CardContent>
           <CardFooter className="flex justify-end">
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Salvataggio in corso..." : "Crea Operatore"}
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvataggio...
+                </>
+              ) : (
+                "Crea Operatore"
+              )}
             </Button>
           </CardFooter>
         </form>
