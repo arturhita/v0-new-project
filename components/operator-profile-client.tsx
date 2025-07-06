@@ -1,302 +1,157 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Star, MessageCircle, Phone, Mail, Calendar, Loader2 } from "lucide-react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAuth } from "@/contexts/auth-context"
-import { initiateChatRequest } from "@/lib/actions/chat.actions"
-import { WrittenConsultationModal } from "@/components/written-consultation-modal"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Star, Phone, MessageSquare, Mail, Shield, Calendar, Clock, UserCheck } from "lucide-react"
 import type { Profile } from "@/contexts/auth-context"
-import { ReviewCard } from "./review-card"
-
-type Review = {
-  id: string
-  userName: string
-  rating: number
-  comment: string | null
-  date: string
-  serviceType: string | null
-}
+import type { Review } from "@/components/review-card"
+import ReviewCard from "@/components/review-card"
+import { useState } from "react"
+import WrittenConsultationModal from "./written-consultation-modal"
 
 interface OperatorProfileClientProps {
   operator: Profile
   reviews: Review[]
 }
 
-export function OperatorProfileClient({ operator, reviews }: OperatorProfileClientProps) {
-  const router = useRouter()
-  const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState("biografia")
-  const [isStartingChat, setIsStartingChat] = useState(false)
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+export default function OperatorProfileClient({ operator, reviews }: OperatorProfileClientProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const handleStartChat = async () => {
-    if (!user) {
-      alert("Devi effettuare l'accesso per avviare una chat.")
-      router.push("/login")
-      return
-    }
-    if (!operator.is_online) {
-      alert("L'operatore non è al momento online.")
-      return
-    }
-    setIsStartingChat(true)
-    try {
-      // Assicurati che l'ID dell'operatore sia una stringa
-      const operatorId = typeof operator.id === "string" ? operator.id : String(operator.id)
-      const result = await initiateChatRequest(user.id, operatorId)
-      if (result.success && result.sessionId) {
-        router.push(`/chat/${result.sessionId}`)
-      } else {
-        alert(`Errore: ${result.error || "Impossibile avviare la chat."}`)
-      }
-    } catch (error) {
-      console.error("Failed to initiate chat:", error)
-      alert("Si è verificato un errore tecnico. Riprova più tardi.")
-    } finally {
-      setIsStartingChat(false)
-    }
-  }
+  const handleOpenModal = () => setIsModalOpen(true)
+  const handleCloseModal = () => setIsModalOpen(false)
 
-  const handleOpenEmailModal = () => {
-    if (!user) {
-      alert("Devi effettuare l'accesso per inviare una domanda.")
-      router.push("/login")
-      return
-    }
-    setIsEmailModalOpen(true)
-  }
-
-  const getDayInItalian = (day: string) => {
-    const days: { [key: string]: string } = {
-      monday: "Lunedì",
-      tuesday: "Martedì",
-      wednesday: "Mercoledì",
-      thursday: "Giovedì",
-      friday: "Venerdì",
-      saturday: "Sabato",
-      sunday: "Domenica",
-    }
-    return days[day.toLowerCase()] || day
-  }
-
-  const availability = (operator.availability as { [key: string]: string[] }) || {}
+  const services = [
+    {
+      name: "Chat",
+      price: operator.service_prices?.chat,
+      icon: MessageSquare,
+      action: () => console.log("Start Chat"),
+    },
+    {
+      name: "Chiamata",
+      price: operator.service_prices?.call,
+      icon: Phone,
+      action: () => console.log("Start Call"),
+    },
+    {
+      name: "Consulto Scritto",
+      price: operator.service_prices?.email,
+      icon: Mail,
+      action: handleOpenModal,
+    },
+  ].filter((service) => service.price != null)
 
   return (
-    <>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Card Operatore - Sinistra */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Profilo Operatore */}
-          <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
-            <CardContent className="p-8 text-center">
-              <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-cyan-300/50 shadow-xl">
-                <AvatarImage src={operator.avatar_url || "/placeholder.svg"} alt={operator.stage_name || "Operatore"} />
-                <AvatarFallback className="text-2xl bg-blue-900 text-white">
-                  {operator.stage_name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-
-              <h1 className="text-3xl font-bold text-white mb-2">{operator.stage_name}</h1>
-              <p className="text-blue-200 text-lg mb-4">{operator.specializations?.join(", ")}</p>
-
-              <div className="flex items-center justify-center space-x-2 mb-4">
-                <Star className="w-5 h-5 fill-cyan-400 text-cyan-400" />
-                <span className="text-white font-bold text-lg">{operator.average_rating?.toFixed(1) || "N/A"}</span>
-                <span className="text-blue-300">({operator.reviews_count || 0} rec.)</span>
+    <div className="bg-slate-900 text-white min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Operator Card */}
+          <div className="lg:col-span-1">
+            <div className="bg-slate-800/50 rounded-xl p-6 sticky top-8">
+              <div className="relative w-40 h-40 mx-auto mb-4">
+                <Image
+                  alt={operator.stage_name || "Operatore"}
+                  className="rounded-full object-cover border-4 border-purple-500"
+                  layout="fill"
+                  src={operator.profile_image_url || "/placeholder.svg?width=160&height=160"} // FIX: Changed avatar_url to profile_image_url
+                />
+                {operator.is_available && (
+                  <span className="absolute bottom-2 right-2 block h-5 w-5 rounded-full bg-green-500 border-2 border-slate-800 ring-2 ring-green-500" />
+                )}
               </div>
+              <h1 className="text-3xl font-bold text-center">{operator.stage_name}</h1>
+              <p className="text-center text-purple-400 text-lg">{operator.specializations?.[0]}</p>
 
-              <Badge
-                variant="secondary"
-                className={`mb-6 ${operator.is_online ? "bg-green-500 text-white border-green-400" : "bg-gray-400 text-white border-gray-500"}`}
-              >
-                {operator.is_online ? "Online" : "Offline"}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          {/* Disponibilità Indicativa */}
-          <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl text-white flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-blue-300" />
-                Disponibilità Indicativa
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {Object.entries(availability).map(([day, hours]) => (
-                <div
-                  key={day}
-                  className="bg-[#1E3C98]/20 rounded-xl p-4 border border-blue-600/50 backdrop-blur-sm hover:bg-[#1E3C98]/40 transition-all duration-300"
-                >
-                  <h4 className="font-semibold text-white mb-2">{getDayInItalian(day)}</h4>
-                  {!hours || hours.length === 0 ? (
-                    <p className="text-blue-300 italic text-sm">Non disponibile</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {hours.map((timeSlot, index) => (
-                        <p key={index} className="text-blue-100 text-sm font-medium bg-blue-800/50 rounded px-2 py-1">
-                          {timeSlot}
-                        </p>
-                      ))}
-                    </div>
-                  )}
+              <div className="flex items-center justify-center my-4">
+                <div className="flex items-center text-amber-400">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-5 h-5 ${
+                        i < Math.round(operator.average_rating || 0) ? "fill-current" : "text-slate-600"
+                      }`}
+                    />
+                  ))}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Contenuto Principale - Destra */}
-        <div className="lg:col-span-8 space-y-6">
-          <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
-            <CardContent className="p-8">
-              <div className="flex items-center mb-4">
-                <MessageCircle className="w-6 h-6 text-blue-300 mr-3" />
-                <h2 className="text-2xl font-bold text-white">Un Breve Saluto</h2>
+                <span className="ml-2 text-slate-300">
+                  {operator.average_rating?.toFixed(1)} ({operator.review_count} recensioni)
+                </span>
               </div>
-              <p className="text-blue-100 leading-relaxed mb-8 text-lg">
-                {operator.bio || "Nessuna descrizione fornita."}
-              </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Button
-                  onClick={handleStartChat}
-                  disabled={!operator.is_online || isStartingChat}
-                  className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-6 px-4 text-sm font-semibold shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col items-center justify-center min-h-[80px] border border-cyan-300/30"
-                >
-                  {isStartingChat ? (
-                    <Loader2 className="w-5 h-5 mb-1 animate-spin" />
-                  ) : (
-                    <MessageCircle className="w-5 h-5 mb-1" />
-                  )}
-                  <div className="text-center leading-tight">
-                    <div>{isStartingChat ? "Avvio..." : "Avvia Chat Ora"}</div>
-                    <div className="text-xs mt-1">{operator.chat_price_per_minute?.toFixed(2) || "N/A"}€/min</div>
-                    {!operator.is_online && <div className="text-xs opacity-75">(Offline)</div>}
-                  </div>
-                </Button>
-                <Button
-                  className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-6 px-4 text-sm font-semibold shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col items-center justify-center min-h-[80px] border border-cyan-300/30"
-                  disabled={!operator.is_online}
-                >
-                  <Phone className="w-5 h-5 mb-1" />
-                  <div className="text-center leading-tight">
-                    <div>Chiama</div>
-                    <div className="text-xs mt-1">{operator.call_price_per_minute?.toFixed(2) || "N/A"}€/min</div>
-                  </div>
-                </Button>
-                <Button
-                  onClick={handleOpenEmailModal}
-                  className="bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-800 hover:to-blue-900 text-white py-6 px-4 text-sm font-semibold shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col items-center justify-center min-h-[80px] border border-cyan-300/30"
-                >
-                  <Mail className="w-5 h-5 mb-1" />
-                  <div className="text-center leading-tight">
-                    <div>Email</div>
-                    <div className="text-xs mt-1">
-                      {operator.written_consultation_price?.toFixed(2) || "N/A"}€/consulto
+              <div className="space-y-3">
+                {services.map((service) => (
+                  <Button
+                    key={service.name}
+                    onClick={service.action}
+                    className="w-full justify-between bg-slate-700 hover:bg-slate-600 h-14 text-lg"
+                  >
+                    <div className="flex items-center">
+                      <service.icon className="w-6 h-6 mr-3 text-purple-400" />
+                      <span>{service.name}</span>
                     </div>
-                  </div>
-                </Button>
+                    <span className="font-semibold">
+                      {service.price}€{service.name !== "Consulto Scritto" && "/min"}
+                    </span>
+                  </Button>
+                ))}
               </div>
 
-              {!operator.is_online && (
-                <div className="bg-gradient-to-r from-blue-900/50 via-[#1E3C98]/30 to-blue-900/50 border border-blue-700/50 rounded-xl p-4 flex items-center backdrop-blur-sm">
-                  <div className="w-6 h-6 text-yellow-400 mr-3">⚠️</div>
-                  <p className="text-blue-100 font-medium">
-                    L'operatore è attualmente offline. Puoi comunque richiedere una consulenza via email.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl overflow-hidden">
-            <div className="flex border-b border-blue-700/50">
-              <button
-                onClick={() => setActiveTab("biografia")}
-                className={`px-8 py-4 font-medium transition-all duration-300 ${
-                  activeTab === "biografia"
-                    ? "text-white border-b-2 border-cyan-400 bg-[#1E3C98]/30"
-                    : "text-blue-300 hover:text-white hover:bg-[#1E3C98]/20"
-                }`}
-              >
-                Biografia
-              </button>
-              <button
-                onClick={() => setActiveTab("specializzazioni")}
-                className={`px-8 py-4 font-medium transition-all duration-300 ${
-                  activeTab === "specializzazioni"
-                    ? "text-white border-b-2 border-cyan-400 bg-[#1E3C98]/30"
-                    : "text-blue-300 hover:text-white hover:bg-[#1E3C98]/20"
-                }`}
-              >
-                Specializzazioni
-              </button>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-slate-400">
+                  <Shield className="inline w-4 h-4 mr-1" /> Pagamenti sicuri e riservati
+                </p>
+              </div>
             </div>
+          </div>
 
-            <CardContent className="p-8">
-              {activeTab === "biografia" && (
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-4">La Mia Storia</h3>
-                  <p className="text-blue-100 leading-relaxed text-lg">{operator.bio}</p>
+          {/* Right Column: Tabs */}
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="about" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-slate-800">
+                <TabsTrigger value="about">Chi Sono</TabsTrigger>
+                <TabsTrigger value="reviews">Recensioni ({reviews.length})</TabsTrigger>
+                <TabsTrigger value="availability">Disponibilità</TabsTrigger>
+              </TabsList>
+              <TabsContent value="about" className="mt-6 p-6 bg-slate-800/50 rounded-xl">
+                <h2 className="text-2xl font-bold mb-4 text-purple-300">Un po' di me...</h2>
+                <div className="prose prose-invert prose-p:text-slate-300 prose-strong:text-white">
+                  <p>{operator.bio}</p>
                 </div>
-              )}
-              {activeTab === "specializzazioni" && (
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-6">Le Mie Specializzazioni</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(operator.specializations || []).map((specialty, index) => (
-                      <div
-                        key={index}
-                        className="bg-gradient-to-br from-[#1E3C98]/40 via-[#1E3C98]/20 to-transparent rounded-xl p-6 border border-blue-600/50 backdrop-blur-sm hover:from-[#1E3C98]/60 hover:shadow-lg hover:scale-105 transition-all duration-300 cursor-pointer"
-                      >
-                        <h4 className="font-semibold text-white mb-2 text-lg">{specialty}</h4>
-                      </div>
-                    ))}
+                <div className="mt-6 grid grid-cols-2 gap-4 text-slate-300">
+                  <div className="flex items-center">
+                    <UserCheck className="w-5 h-5 mr-2 text-purple-400" />
+                    <span>Esperto dal {new Date(operator.created_at || "").toLocaleDateString("it-IT")}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Clock className="w-5 h-5 mr-2 text-purple-400" />
+                    <span>Ultimo consulto: 2 ore fa</span>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl text-white flex items-center">
-                  <Star className="w-5 h-5 mr-2 text-cyan-400" />
-                  Recensioni dei Clienti
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {reviews.length > 0 ? (
-                reviews.map((review) => <ReviewCard key={review.id} review={review} />)
-              ) : (
-                <p className="text-blue-300 text-center py-4">Nessuna recensione ancora.</p>
-              )}
-            </CardContent>
-          </Card>
+              </TabsContent>
+              <TabsContent value="reviews" className="mt-6">
+                <div className="space-y-6">
+                  {reviews.map((review) => (
+                    <ReviewCard key={review.id} {...review} />
+                  ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="availability" className="mt-6 p-6 bg-slate-800/50 rounded-xl">
+                <h2 className="text-2xl font-bold mb-4 text-purple-300">I miei orari</h2>
+                <p className="text-slate-400 mb-6">
+                  Questi sono i miei orari di disponibilità generali. Per appuntamenti specifici, contattami.
+                </p>
+                {/* Placeholder for availability calendar */}
+                <div className="flex items-center justify-center h-64 bg-slate-700/50 rounded-lg">
+                  <Calendar className="w-16 h-16 text-slate-500" />
+                  <p className="ml-4 text-slate-400">Componente Calendario Disponibilità qui</p>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
-      {operator.written_consultation_price && (
-        <WrittenConsultationModal
-          isOpen={isEmailModalOpen}
-          onClose={() => setIsEmailModalOpen(false)}
-          operator={{
-            id: operator.id,
-            name: operator.stage_name || "Operatore",
-            emailPrice: operator.written_consultation_price,
-          }}
-        />
-      )}
-    </>
+      <WrittenConsultationModal isOpen={isModalOpen} onClose={handleCloseModal} operator={operator} />
+    </div>
   )
 }

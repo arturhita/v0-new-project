@@ -60,7 +60,7 @@ export async function createOperator(operatorData: any) {
       email: operatorData.email,
       phone_number: operatorData.phone,
       bio: operatorData.bio,
-      avatar_url: operatorData.avatarUrl,
+      profile_image_url: operatorData.avatarUrl, // FIX: Changed avatar_url to profile_image_url
       specializations: operatorData.categories,
       is_available: operatorData.isOnline,
       commission_rate: Number.parseFloat(operatorData.commission),
@@ -109,7 +109,7 @@ export async function getOperators(options?: {
       bio,
       specializations,
       is_available,
-      avatar_url, 
+      profile_image_url, 
       service_prices,
       average_rating,
       review_count 
