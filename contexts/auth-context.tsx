@@ -46,12 +46,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(currentUser)
 
       if (currentUser) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
+        // Usiamo maybeSingle() per evitare errori se il profilo non esiste ancora
+        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle()
         setProfile(userProfile ? (userProfile as Profile) : null)
 
-        if (event === "SIGNED_IN") {
+        if (event === "SIGNED_IN" && userProfile) {
           // Reindirizza dopo il login in base al ruolo
-          switch ((userProfile as Profile)?.role) {
+          switch ((userProfile as Profile).role) {
             case "admin":
               router.push("/admin/dashboard")
               break
@@ -77,7 +78,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } = await supabase.auth.getSession()
       if (session) {
         setUser(session.user)
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        // Usiamo maybeSingle() anche qui per sicurezza
+        const { data: userProfile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .maybeSingle()
         setProfile(userProfile ? (userProfile as Profile) : null)
       }
       setLoading(false)
@@ -95,14 +101,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const register = async (credentials: any) => {
-    const { email, password, name, role } = credentials // Il ruolo viene passato qui
+    const { email, password, name, role } = credentials
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           name,
-          role, // E usato qui
+          role,
         },
       },
     })
