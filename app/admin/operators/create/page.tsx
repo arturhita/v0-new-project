@@ -34,7 +34,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { createOperator } from "@/lib/actions/operator.actions"
+import { createOperator } from "@/lib/actions/operator.admin.actions"
 
 const categories = [
   "Tarocchi",
