@@ -1,129 +1,136 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
+import { ConstellationBackground } from "@/components/constellation-background"
 import { Loader2 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const supabase = createClient()
-  const { toast } = useToast()
+  const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setError(null)
+    setLoading(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (error) {
-      toast({
-        title: "Errore di accesso",
-        description: error.message || "Le credenziali inserite non sono corrette. Riprova.",
-        variant: "destructive",
-      })
-      setIsLoading(false)
+    if (signInError) {
+      setError(signInError.message)
+      setLoading(false)
       return
     }
 
     if (data.user) {
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
 
-      toast({
-        title: "Accesso effettuato!",
-        description: "Bentornato/a!",
-      })
-
-      // Redirect based on role
-      switch (profile?.role) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/dashboard/operator")
-          break
-        case "client":
-        default:
-          router.push("/dashboard/client")
-          break
+      if (profile) {
+        switch (profile.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          default:
+            router.push("/dashboard/client")
+            break
+        }
+      } else {
+        // Fallback redirect
+        router.push("/")
       }
+      router.refresh() // Assicura che il layout si aggiorni con i dati dell'utente
     }
   }
 
   return (
-    <div className="w-full lg:grid lg:min-h-[calc(100vh-4rem)] lg:grid-cols-2 xl:min-h-[calc(100vh-4rem)]">
-      <div className="flex items-center justify-center py-12">
-        <div className="mx-auto grid w-[350px] gap-6">
-          <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">Accedi</h1>
-            <p className="text-balance text-muted-foreground">Inserisci la tua email per accedere al tuo account</p>
-          </div>
-          <form onSubmit={handleLogin} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="mario@rossi.it"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-              />
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
+      <ConstellationBackground goldVisible={true} />
+      <div className="relative z-10 w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link href="/">
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={180}
+              height={50}
+              className="mx-auto"
+            />
+          </Link>
+        </div>
+
+        <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-2 text-center mb-6">
+              <h1 className="text-3xl font-bold text-white">Bentornato</h1>
+              <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
             </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="ml-auto inline-block text-sm underline">
-                  Password dimenticata?
-                </Link>
+            {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-md mb-4">{error}</p>}
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-slate-200">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="mario@esempio.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-              />
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password" className="text-slate-200">
+                    Password
+                  </Label>
+                  <Link href="#" className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline">
+                    Password dimenticata?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="animate-spin" /> : "Accedi"}
+              </Button>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Accedi
-            </Button>
-            <Button variant="outline" className="w-full bg-transparent" disabled={isLoading}>
-              Accedi con Google
-            </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-6 text-center text-sm text-slate-300">
             Non hai un account?{" "}
-            <Link href="/register" className="underline">
+            <Link href="/register" className="underline text-blue-400 hover:text-blue-300 font-semibold">
               Registrati
             </Link>
           </div>
         </div>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        <img
-          src="/images/mystical-design-reference.jpg"
-          alt="Image"
-          width="1920"
-          height="1080"
-          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-        />
       </div>
     </div>
   )
