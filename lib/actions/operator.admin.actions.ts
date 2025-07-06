@@ -1,8 +1,7 @@
 "use server"
 
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import type { OperatorProfile, OperatorServicePrices, OperatorAvailability } from "@/types/operator.types"
 
@@ -90,9 +89,8 @@ export async function createOperator(operatorData: {
 }
 
 export async function getOperatorForEdit(operatorId: string): Promise<OperatorProfile | null> {
-  const cookieStore = cookies()
   // Usiamo il client server normale qui perché è una lettura
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("id", operatorId).single()
 
   if (error) {
