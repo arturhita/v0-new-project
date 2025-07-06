@@ -82,6 +82,7 @@ export async function applyAsExpert(prevState: ApplicationState, formData: FormD
         errors: { server: ["Non puoi inviare una nuova candidatura finché la precedente non è stata valutata."] },
       }
     }
+    console.error("Supabase error:", error)
     return {
       message: "Errore del server. Riprova più tardi.",
       success: false,
