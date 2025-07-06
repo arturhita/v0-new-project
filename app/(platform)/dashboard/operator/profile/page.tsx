@@ -1,22 +1,37 @@
-import { getOperatorProfile } from "@/lib/actions/operator.actions"
-import { OperatorProfileForm } from "@/components/operator-profile-form"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { OperatorProfileForm } from "@/components/operator-profile-form"
+import type { Profile } from "@/types/user.types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle, ShieldAlert } from "lucide-react"
 
 export default async function OperatorProfilePage() {
-  const profile = await getOperatorProfile()
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!profile) {
+  if (!user) {
     redirect("/login")
+  }
+
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+  if (error || !profile) {
+    console.error("Failed to fetch operator profile:", error)
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Errore</AlertTitle>
+        <AlertDescription>Impossibile caricare il profilo. Riprova più tardi.</AlertDescription>
+      </Alert>
+    )
   }
 
   const getStatusAlert = () => {
     switch (profile.status) {
       case "pending":
         return (
-          <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800">
+          <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800 mb-6">
             <AlertCircle className="h-4 w-4 !text-yellow-800" />
             <AlertTitle>Profilo in Attesa di Approvazione</AlertTitle>
             <AlertDescription>
@@ -27,7 +42,7 @@ export default async function OperatorProfilePage() {
         )
       case "approved":
         return (
-          <Alert variant="default" className="bg-green-50 border-green-200 text-green-800">
+          <Alert variant="default" className="bg-green-50 border-green-200 text-green-800 mb-6">
             <CheckCircle className="h-4 w-4 !text-green-800" />
             <AlertTitle>Profilo Approvato e Visibile</AlertTitle>
             <AlertDescription>
@@ -38,7 +53,7 @@ export default async function OperatorProfilePage() {
         )
       case "rejected":
         return (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mb-6">
             <ShieldAlert className="h-4 w-4" />
             <AlertTitle>Profilo Rifiutato</AlertTitle>
             <AlertDescription>
@@ -49,7 +64,7 @@ export default async function OperatorProfilePage() {
         )
       default:
         return (
-          <Alert>
+          <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Completa il tuo Profilo</AlertTitle>
             <AlertDescription>
@@ -61,19 +76,9 @@ export default async function OperatorProfilePage() {
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold">Il Mio Altare</CardTitle>
-          <CardDescription>
-            Questo è il tuo spazio sacro. Gestisci le informazioni del tuo profilo pubblico qui.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6">{getStatusAlert()}</div>
-          <OperatorProfileForm profile={profile} />
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {getStatusAlert()}
+      <OperatorProfileForm profile={profile as Profile} />
     </div>
   )
 }

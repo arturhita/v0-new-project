@@ -62,7 +62,8 @@ const navItemsOperator = [
   { href: "/dashboard/operator/platform-messages", label: "Messaggi dalla Piattaforma", icon: MessageSquare },
   { href: "/dashboard/operator/client-notes", label: "Appunti sui Cercatori", icon: BookUser },
   { href: "/dashboard/operator/commission-request", label: "Richiesta Decima", icon: Percent },
-  { href: "/profile/operator", label: "Il Mio Altare (Profilo)", icon: Settings },
+  // --- LINK CORRETTO QUI ---
+  { href: "/dashboard/operator/profile", label: "Il Mio Altare (Profilo)", icon: Settings },
 ]
 
 const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0]; pathname: string }) => {
@@ -87,10 +88,9 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
 function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { logout, user } = useAuth()
-  const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
+  const { status, setStatus, pauseTimer } = useOperatorStatus()
   const { showRequest } = useChatRequest()
 
-  // Attiva il tracciamento della presenza usando l'ID dell'utente loggato
   useOperatorPresence(user?.id)
 
   useEffect(() => {
