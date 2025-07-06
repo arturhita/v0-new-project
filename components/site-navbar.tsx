@@ -2,216 +2,197 @@
 
 import Link from "next/link"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { NavigationMenuDemo } from "@/components/navigation-menu"
 import { useAuth } from "@/contexts/auth-context"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User, Settings, LogOut, Menu, X } from "lucide-react"
-import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
-import { signOut } from "@/lib/actions/auth.actions"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { LayoutDashboard, LogOut, User, Menu } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { useState } from "react"
+
+const navLinks = [
+  { href: "/esperti/cartomanzia", label: "Cartomanzia" },
+  { href: "/esperti/astrologia", label: "Astrologia" },
+  { href: "/esperti/sensitivi", label: "Sensitivi" },
+  { href: "/oroscopo", label: "Oroscopo" },
+  { href: "/affinita-di-coppia", label: "Affinità di coppia" },
+  { href: "/tarocchi-online", label: "Tarocchi Online" },
+  { href: "/astromag", label: "Astromag" },
+]
 
 export function SiteNavbar() {
-  const { user, profile, loading } = useAuth()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
-
-  // Chiude il menu mobile quando la rotta cambia
-  useEffect(() => {
-    if (isMenuOpen) {
-      setIsMenuOpen(false)
-    }
-  }, [pathname, isMenuOpen])
+  const { user, profile, logout } = useAuth()
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const getDashboardLink = () => {
     if (!profile) return "/login"
     switch (profile.role) {
       case "admin":
-        return "/admin/dashboard"
+        return "/admin"
       case "operator":
         return "/dashboard/operator"
-      case "client":
-        return "/dashboard/client"
       default:
         return "/dashboard/client"
     }
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
-            <Image
-              src="/images/moonthir-logo-white.png"
-              alt="Moonthir Logo"
-              width={140}
-              height={40}
-              className="object-contain"
-              priority
-            />
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-sm border-b border-indigo-500/20">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={32} height={32} />
+            <span className="text-xl font-semibold text-white">Moonthir</span>
           </Link>
 
-          {/* Desktop Navigation Menu */}
-          <div className="hidden md:flex items-center">
-            <NavigationMenuDemo />
+          <div className="hidden md:flex items-center space-x-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "text-sm font-medium text-slate-300 transition-colors hover:text-white",
+                  pathname === link.href && "text-white",
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          {/* Desktop Auth Section */}
-          <div className="hidden md:flex items-center space-x-4">
-            {loading ? (
-              <div className="flex items-center space-x-4">
-                <div className="w-24 h-10 bg-slate-700/50 rounded-md animate-pulse" />
-                <div className="w-24 h-10 bg-slate-700/50 rounded-md animate-pulse" />
-              </div>
-            ) : user && profile ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
-                    <Avatar className="h-10 w-10 border-2 border-white/20">
-                      <AvatarImage
-                        src={profile.profile_image_url || "/placeholder.svg"}
-                        alt={profile.full_name || "User"}
-                      />
-                      <AvatarFallback className="bg-blue-700 text-white">
-                        {profile.full_name?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-56 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg"
-                  align="end"
-                  forceMount
-                >
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium text-slate-900">{profile.full_name}</p>
-                      <p className="w-[200px] truncate text-sm text-slate-500">{user.email}</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator className="bg-slate-200" />
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={getDashboardLink()}
-                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-                    >
-                      <User className="mr-2 h-4 w-4" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/profile"
-                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Profilo
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-slate-200" />
-                  <form action={signOut}>
-                    <DropdownMenuItem asChild>
-                      <button
-                        type="submit"
-                        className="w-full text-left flex items-center text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        Esci
-                      </button>
-                    </DropdownMenuItem>
-                  </form>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] font-semibold transition-colors duration-300 bg-transparent"
-                >
-                  <Link href="/login">Accedi</Link>
-                </Button>
-                <Button
-                  asChild
-                  className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
-                >
-                  <Link href="/register">Inizia Ora</Link>
-                </Button>
-              </>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-white hover:bg-white/10"
-            >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
-            <NavigationMenuDemo />
-            <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">
-              {loading ? (
-                <div className="h-20 w-full bg-slate-700/50 rounded-md animate-pulse" />
-              ) : user ? (
-                <>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center text-white border-blue-600 bg-blue-700"
-                    asChild
-                  >
-                    <Link href={getDashboardLink()}>
-                      <User className="mr-2 h-4 w-4" />
-                      Dashboard
-                    </Link>
-                  </Button>
-                  <form action={signOut} className="w-full">
-                    <Button type="submit" variant="ghost" className="w-full justify-center text-slate-300">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Logout
+          <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                      <Avatar className="h-10 w-10 border-2 border-indigo-400">
+                        <AvatarImage src={profile?.avatar_url || ""} alt={profile?.username || "User"} />
+                        <AvatarFallback className="bg-indigo-500 text-white">
+                          {profile?.username ? profile.username.charAt(0).toUpperCase() : <User />}
+                        </AvatarFallback>
+                      </Avatar>
                     </Button>
-                  </form>
-                </>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-slate-900 border-slate-800 text-white" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{profile?.username || "Utente"}</p>
+                        <p className="text-xs leading-none text-slate-400">{user.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-slate-800" />
+                    <DropdownMenuItem asChild>
+                      <Link href={getDashboardLink()} className="cursor-pointer flex items-center w-full">
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        <span>Dashboard</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-slate-800" />
+                    <DropdownMenuItem
+                      onClick={logout}
+                      className="cursor-pointer text-red-400 focus:text-red-300 focus:bg-red-500/10"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Logout</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <>
                   <Button
-                    variant="outline"
-                    className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] w-full justify-center font-semibold bg-transparent"
                     asChild
+                    variant="outline"
+                    className="border-indigo-400 text-indigo-300 hover:bg-indigo-500/10 hover:text-white bg-transparent"
                   >
                     <Link href="/login">Accedi</Link>
                   </Button>
-                  <Button
-                    className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md w-full justify-center"
-                    asChild
-                  >
-                    <Link href="/register">Inizia Ora</Link>
+                  <Button asChild className="bg-indigo-600 text-white hover:bg-indigo-500">
+                    <Link href="/register">Registrati</Link>
                   </Button>
                 </>
               )}
             </div>
+
+            <div className="md:hidden">
+              <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-6 w-6 text-white" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="bg-slate-900 border-l-slate-800 text-white w-full max-w-xs">
+                  <div className="flex flex-col h-full">
+                    <div className="py-6 space-y-4">
+                      {navLinks.map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="block px-4 py-2 text-lg text-slate-300 hover:text-white"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                    <div className="mt-auto border-t border-slate-800 p-4 space-y-4">
+                      {user ? (
+                        <>
+                          <Link
+                            href={getDashboardLink()}
+                            className="flex items-center w-full px-4 py-2 text-lg text-slate-300 hover:text-white"
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            <LayoutDashboard className="mr-2 h-5 w-5" />
+                            <span>Dashboard</span>
+                          </Link>
+                          <button
+                            onClick={() => {
+                              logout()
+                              setMobileMenuOpen(false)
+                            }}
+                            className="flex items-center w-full px-4 py-2 text-lg text-red-400 hover:text-red-300"
+                          >
+                            <LogOut className="mr-2 h-5 w-5" />
+                            <span>Logout</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col space-y-2">
+                          <Button
+                            asChild
+                            variant="outline"
+                            className="w-full border-indigo-400 text-indigo-300 hover:bg-indigo-500/10 hover:text-white bg-transparent"
+                          >
+                            <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                              Accedi
+                            </Link>
+                          </Button>
+                          <Button asChild className="w-full bg-indigo-600 text-white hover:bg-indigo-500">
+                            <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                              Registrati
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
-      )}
-    </header>
+      </div>
+    </nav>
   )
 }
