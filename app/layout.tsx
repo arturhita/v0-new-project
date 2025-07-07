@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "sonner" // CORREZIONE: Import corretto
 import { SiteNavbar } from "@/components/site-navbar"
 import { SiteFooter } from "@/components/site-footer"
 import { CookieBanner } from "@/components/cookie-banner"
@@ -31,7 +31,7 @@ export default function RootLayout({
             <SiteFooter />
           </div>
           <CookieBanner />
-          <Toaster />
+          <Toaster richColors />
         </AuthProvider>
       </body>
     </html>
