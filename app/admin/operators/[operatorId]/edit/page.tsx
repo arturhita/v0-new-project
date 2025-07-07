@@ -9,121 +9,76 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Save, ArrowLeft, User, DollarSign, Settings } from "lucide-react"
+import { Save, ArrowLeft, User, DollarSign, Settings, ShieldCheck, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { getOperatorById, updateOperator, updateOperatorCommission, type Operator } from "@/lib/mock-data"
+import { getOperatorById, updateOperatorByAdmin, updateOperatorCommissionByAdmin } from "@/lib/actions/operator.actions"
+import type { DetailedOperatorProfile } from "@/types/database"
 
 export default function EditOperatorPage() {
   const params = useParams()
   const router = useRouter()
   const operatorId = params.operatorId as string
 
-  const [operator, setOperator] = useState<Operator | null>(null)
+  const [operator, setOperator] = useState<DetailedOperatorProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [commissionValue, setCommissionValue] = useState<number>(0)
 
   useEffect(() => {
-    // Carica dati operatore
-    setIsLoading(true)
-    setTimeout(() => {
-      const foundOperator = getOperatorById(operatorId)
-      if (foundOperator) {
-        setOperator(foundOperator)
-        // Estrai il valore numerico dalla commissione (es: "15%" -> 15)
-        const commissionNum = Number.parseInt(foundOperator.commission.replace("%", "")) || 0
-        setCommissionValue(commissionNum)
-      }
-      setIsLoading(false)
-    }, 500)
+    if (operatorId) {
+      setIsLoading(true)
+      getOperatorById(operatorId)
+        .then((foundOperator) => {
+          if (foundOperator) {
+            setOperator(foundOperator)
+          }
+        })
+        .finally(() => setIsLoading(false))
+    }
   }, [operatorId])
 
-  const handleSaveOperator = async () => {
+  const handleSave = async () => {
     if (!operator) return
-
     setIsSaving(true)
     try {
-      // Simula salvataggio
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Aggiorna l'operatore nel storage condiviso
-      const success = updateOperator(operatorId, {
-        name: operator.name,
+      await updateOperatorByAdmin(operatorId, {
+        full_name: operator.full_name,
         email: operator.email,
         phone: operator.phone,
-        discipline: operator.discipline,
-        description: operator.description,
-        isActive: operator.isActive,
-        status: operator.status,
+        bio: operator.bio,
+        is_online: operator.is_online,
       })
-
-      if (success) {
-        toast({
-          title: "Operatore aggiornato",
-          description: "I dati dell'operatore sono stati salvati con successo.",
-        })
-
-        // Torna alla lista operatori
-        router.push("/admin/operators")
-      } else {
-        throw new Error("Errore nel salvataggio")
-      }
-    } catch (error) {
+      await updateOperatorCommissionByAdmin(operatorId, operator.commission_rate)
+      toast({
+        title: "Operatore aggiornato",
+        description: "I dati sono stati salvati con successo.",
+      })
+      router.push("/admin/operators")
+    } catch (error: any) {
       toast({
         title: "Errore",
-        description: "Errore nel salvataggio dei dati.",
+        description: error.message || "Errore nel salvataggio dei dati.",
         variant: "destructive",
       })
     }
     setIsSaving(false)
   }
 
-  const handleUpdateCommission = async () => {
-    if (!operator) return
-
-    setIsSaving(true)
-    try {
-      // Simula aggiornamento commissione
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
-      // Aggiorna la commissione nel storage condiviso
-      const success = updateOperatorCommission(operatorId, commissionValue)
-
-      if (success) {
-        // Aggiorna lo stato locale
-        setOperator((prev) => (prev ? { ...prev, commission: `${commissionValue}%` } : null))
-
-        toast({
-          title: "Commissione aggiornata",
-          description: `Commissione aggiornata a ${commissionValue}%`,
-        })
-      } else {
-        throw new Error("Errore nell'aggiornamento")
-      }
-    } catch (error) {
-      toast({
-        title: "Errore",
-        description: "Errore nell'aggiornamento della commissione.",
-        variant: "destructive",
-      })
-    }
-    setIsSaving(false)
-  }
-
-  const handleInputChange = (field: keyof Operator, value: string | number | boolean) => {
-    if (!operator) return
+  const handleInputChange = (field: keyof DetailedOperatorProfile, value: any) => {
     setOperator((prev) => (prev ? { ...prev, [field]: value } : null))
   }
 
   if (isLoading) {
-    return <div className="p-6 text-center">Caricamento operatore...</div>
+    return (
+      <div className="flex justify-center items-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
+      </div>
+    )
   }
 
   if (!operator) {
     return (
       <div className="p-6 text-center">
         <h2 className="text-xl font-semibold text-red-600">Operatore non trovato</h2>
-        <p className="text-slate-600 mt-2">L'operatore richiesto non esiste o è stato rimosso.</p>
         <Button onClick={() => router.push("/admin/operators")} className="mt-4">
           Torna alla lista
         </Button>
@@ -151,15 +106,17 @@ export default function EditOperatorPage() {
             <User className="h-5 w-5 text-sky-600" />
             Informazioni Generali
           </CardTitle>
-          <CardDescription>Dati personali e di contatto dell'operatore</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nome Completo</Label>
-              <Input id="name" value={operator.name} onChange={(e) => handleInputChange("name", e.target.value)} />
+              <Input
+                id="name"
+                value={operator.full_name || ""}
+                onChange={(e) => handleInputChange("full_name", e.target.value)}
+              />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -169,7 +126,6 @@ export default function EditOperatorPage() {
                 onChange={(e) => handleInputChange("email", e.target.value)}
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="phone">Telefono</Label>
               <Input
@@ -178,36 +134,25 @@ export default function EditOperatorPage() {
                 onChange={(e) => handleInputChange("phone", e.target.value)}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="discipline">Specializzazione</Label>
-              <Input
-                id="discipline"
-                value={operator.discipline}
-                onChange={(e) => handleInputChange("discipline", e.target.value)}
-              />
-            </div>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="description">Descrizione</Label>
             <Textarea
               id="description"
-              value={operator.description || ""}
-              onChange={(e) => handleInputChange("description", e.target.value)}
+              value={operator.bio || ""}
+              onChange={(e) => handleInputChange("bio", e.target.value)}
               rows={4}
             />
           </div>
-
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="isActive">Operatore Attivo</Label>
-              <p className="text-sm text-slate-500">L'operatore può ricevere consulenze</p>
+              <Label htmlFor="is_online">Operatore Online</Label>
+              <p className="text-sm text-slate-500">Indica se l'operatore è attualmente online.</p>
             </div>
             <Switch
-              id="isActive"
-              checked={operator.isActive || false}
-              onCheckedChange={(checked) => handleInputChange("isActive", checked)}
+              id="is_online"
+              checked={operator.is_online || false}
+              onCheckedChange={(checked) => handleInputChange("is_online", checked)}
             />
           </div>
         </CardContent>
@@ -220,47 +165,46 @@ export default function EditOperatorPage() {
             <DollarSign className="h-5 w-5 text-sky-600" />
             Gestione Commissioni
           </CardTitle>
-          <CardDescription>Configura la percentuale di commissione dell'operatore</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
+          <Label htmlFor="commission">Percentuale Commissione (%)</Label>
+          <Input
+            id="commission"
+            type="number"
+            min="0"
+            max="100"
+            value={operator.commission_rate}
+            onChange={(e) => handleInputChange("commission_rate", Number(e.target.value))}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Dati Fiscali (Solo Admin) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-sky-600" />
+            Dati Fiscali (Visibili solo ad Admin)
+          </CardTitle>
+          <CardDescription>Informazioni di fatturazione fornite dall'operatore.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="commission">Percentuale Commissione (%)</Label>
-              <Input
-                id="commission"
-                type="number"
-                min="0"
-                max="100"
-                value={commissionValue}
-                onChange={(e) => setCommissionValue(Number(e.target.value))}
-              />
-              <p className="text-sm text-slate-500">Percentuale che l'operatore riceve per ogni consulenza</p>
+            <div>
+              <p className="font-medium text-slate-500">Codice Fiscale</p>
+              <p className="font-semibold text-slate-800">{operator.fiscal_code || "Non fornito"}</p>
             </div>
-
-            <div className="space-y-2">
-              <Label>Stato Commissione</Label>
-              <div className="flex items-center gap-2">
-                <Badge variant="default" className="bg-green-100 text-green-800">
-                  Attiva
-                </Badge>
-                <span className="text-sm text-slate-600">Commissione attuale: {operator.commission}</span>
-              </div>
+            <div>
+              <p className="font-medium text-slate-500">Partita IVA</p>
+              <p className="font-semibold text-slate-800">{operator.vat_number || "N/A"}</p>
             </div>
           </div>
-
-          <div className="flex gap-2">
-            <Button onClick={handleUpdateCommission} disabled={isSaving} className="bg-sky-600 hover:bg-sky-700">
-              <DollarSign className="h-4 w-4 mr-2" />
-              {isSaving ? "Aggiornamento..." : "Aggiorna Commissione"}
-            </Button>
-          </div>
-
-          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-            <h4 className="font-medium text-amber-900 mb-2">💡 Calcolo Commissioni</h4>
-            <p className="text-sm text-amber-800">
-              <strong>Esempio:</strong> Con commissione del {commissionValue}%, se un cliente paga €10 per una
-              consulenza, l'operatore riceverà €{((10 * commissionValue) / 100).toFixed(2)} e la piattaforma €
-              {(10 - (10 * commissionValue) / 100).toFixed(2)}.
+          <div>
+            <p className="font-medium text-slate-500">Indirizzo di Fatturazione</p>
+            <p className="font-semibold text-slate-800">
+              {operator.billing_address
+                ? `${operator.billing_address}, ${operator.billing_zip} ${operator.billing_city} (${operator.billing_country})`
+                : "Non fornito"}
             </p>
           </div>
         </CardContent>
@@ -273,46 +217,38 @@ export default function EditOperatorPage() {
             <Settings className="h-5 w-5 text-sky-600" />
             Impostazioni Account
           </CardTitle>
-          <CardDescription>Stato e configurazioni dell'account operatore</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Stato Account</Label>
-              <Badge
-                variant={operator.status === "Attivo" ? "default" : "secondary"}
-                className={
-                  operator.status === "Attivo"
-                    ? "bg-green-100 text-green-800"
-                    : operator.status === "In Attesa"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-red-100 text-red-800"
-                }
-              >
-                {operator.status}
-              </Badge>
-            </div>
-
-            <div className="space-y-2">
-              <Label>ID Operatore</Label>
-              <p className="text-sm font-mono bg-slate-100 p-2 rounded">{operator.id}</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Data Registrazione</Label>
-              <p className="text-sm text-slate-600">{operator.joined}</p>
-            </div>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Stato Account</Label>
+            <Badge
+              variant={operator.application_status === "approved" ? "default" : "secondary"}
+              className={
+                operator.application_status === "approved"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-yellow-100 text-yellow-800"
+              }
+            >
+              {operator.application_status}
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            <Label>ID Operatore</Label>
+            <p className="text-sm font-mono bg-slate-100 p-2 rounded">{operator.id}</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Data Registrazione</Label>
+            <p className="text-sm text-slate-600">{new Date(operator.created_at).toLocaleDateString()}</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Salva Tutto */}
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => router.push("/admin/operators")}>
           Annulla
         </Button>
-        <Button onClick={handleSaveOperator} disabled={isSaving} className="bg-sky-600 hover:bg-sky-700">
-          <Save className="h-4 w-4 mr-2" />
+        <Button onClick={handleSave} disabled={isSaving} className="bg-sky-600 hover:bg-sky-700">
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
           {isSaving ? "Salvataggio..." : "Salva Tutto"}
         </Button>
       </div>
