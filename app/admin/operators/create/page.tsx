@@ -74,11 +74,11 @@ export default function CreateOperatorPage() {
     avatarUrl: "",
     services: {
       chatEnabled: true,
-      chatPrice: "2.50",
+      chatPrice: 2.5,
       callEnabled: true,
-      callPrice: "3.00",
+      callPrice: 3.0,
       emailEnabled: true,
-      emailPrice: "15.00",
+      emailPrice: 15.0,
     },
     availability: {
       monday: [] as string[],
@@ -91,7 +91,7 @@ export default function CreateOperatorPage() {
     },
     status: "In Attesa" as "Attivo" | "In Attesa" | "Sospeso",
     isOnline: false,
-    commission: "15",
+    commission: 15,
   })
 
   const [newSpecialty, setNewSpecialty] = useState("")
@@ -101,6 +101,7 @@ export default function CreateOperatorPage() {
     event.preventDefault()
     startTransition(async () => {
       try {
+        console.log("Invio dati al server:", operator)
         const response = await fetch("/api/operators/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -108,18 +109,23 @@ export default function CreateOperatorPage() {
         })
 
         const result = await response.json()
+        console.log("Risposta dal server:", result)
 
         if (!response.ok) {
-          throw new Error(result.message || "Qualcosa è andato storto.")
+          throw new Error(result.message || `Errore del server: ${response.status}`)
         }
 
         toast({
           title: "Successo!",
           description: result.message,
         })
+
+        // Naviga e poi forza l'aggiornamento della pagina di destinazione
         router.push("/admin/operators")
+        router.refresh()
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
+        console.error("Errore durante la sottomissione:", errorMessage)
         toast({
           title: "Errore nella Creazione",
           description: errorMessage,
@@ -130,8 +136,9 @@ export default function CreateOperatorPage() {
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setOperator((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type } = e.target
+    const isNumber = type === "number"
+    setOperator((prev) => ({ ...prev, [name]: isNumber ? Number.parseFloat(value) || 0 : value }))
   }
 
   const handleServiceChange = (
@@ -143,7 +150,7 @@ export default function CreateOperatorPage() {
       ...prev,
       services: {
         ...prev.services,
-        [`${service}${field}`]: value,
+        [`${service}${field}`]: typeof value === "string" ? Number.parseFloat(value) || 0 : value,
       },
     }))
   }
@@ -189,10 +196,11 @@ export default function CreateOperatorPage() {
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 2 * 1024 * 1024) {
+        // 2MB limit
         toast({
           title: "File troppo grande",
-          description: "L'immagine non deve superare i 5MB.",
+          description: "L'immagine non deve superare i 2MB.",
           variant: "destructive",
         })
         return
@@ -251,17 +259,17 @@ export default function CreateOperatorPage() {
           <div className="flex flex-wrap justify-center gap-1.5 text-xs">
             {operator.services.chatEnabled && (
               <Badge className="bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-sky-200 border-sky-400/30">
-                <MessageSquare className="h-3 w-3 mr-1" /> Chat €{operator.services.chatPrice}/min
+                <MessageSquare className="h-3 w-3 mr-1" /> Chat €{operator.services.chatPrice.toFixed(2)}/min
               </Badge>
             )}
             {operator.services.callEnabled && (
               <Badge className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-200 border-cyan-400/30">
-                <Phone className="h-3 w-3 mr-1" /> Call €{operator.services.callPrice}/min
+                <Phone className="h-3 w-3 mr-1" /> Call €{operator.services.callPrice.toFixed(2)}/min
               </Badge>
             )}
             {operator.services.emailEnabled && (
               <Badge className="bg-gradient-to-r from-blue-500/20 to-sky-500/20 text-blue-200 border-blue-400/30">
-                <Mail className="h-3 w-3 mr-1" /> Email €{operator.services.emailPrice}
+                <Mail className="h-3 w-3 mr-1" /> Email €{operator.services.emailPrice.toFixed(2)}
               </Badge>
             )}
           </div>
