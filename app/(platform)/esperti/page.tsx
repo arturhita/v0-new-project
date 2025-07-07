@@ -1,5 +1,5 @@
 import { getApprovedOperators } from "@/lib/actions/operator.actions"
-import OperatorCard from "@/components/operator-card"
+import { OperatorCard } from "@/components/operator-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 
 export default async function EspertiPage() {

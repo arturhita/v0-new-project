@@ -1,21 +1,29 @@
 "use server"
+import { createServerClient } from "@/lib/supabase/server"
 
-import { createClient } from "@/lib/supabase/server"
-import type { Profile } from "@/types/database"
+export interface OperatorService {
+  type: "chat" | "call" | "email"
+  price: number | null
+}
 
-// Definiamo un tipo specifico per il profilo pubblico dell'operatore
-export type OperatorProfile = Pick<Profile, "id" | "full_name" | "avatar_url" | "headline" | "is_online"> & {
+export interface OperatorProfile {
+  id: string
+  fullName: string
+  avatarUrl: string | null
+  headline: string | null
+  bio: string | null
+  isOnline: boolean
   specializations: string[]
-  average_rating: number
-  total_reviews: number
+  averageRating: number
+  reviewsCount: number
+  services: OperatorService[]
+  joinedDate: string
 }
 
 export async function getApprovedOperators(): Promise<OperatorProfile[]> {
-  const supabase = createClient()
+  const supabase = createServerClient()
 
-  // Selezioniamo i profili degli operatori approvati e visibili,
-  // includendo le loro recensioni per calcolare la media.
-  const { data, error } = await supabase
+  const { data: operatorsData, error } = await supabase
     .from("profiles")
     .select(
       `
@@ -23,37 +31,50 @@ export async function getApprovedOperators(): Promise<OperatorProfile[]> {
       full_name,
       avatar_url,
       headline,
+      bio,
       is_online,
       specializations,
-      reviews ( rating )
+      created_at,
+      services (
+        type,
+        price_per_minute,
+        price_per_consultation
+      ),
+      reviews (
+        rating
+      )
     `,
     )
     .eq("role", "operator")
     .eq("application_status", "approved")
-    .eq("is_visible", true)
 
   if (error) {
     console.error("Error fetching approved operators:", error)
     return []
   }
 
-  // Calcoliamo la valutazione media e il numero totale di recensioni per ogni operatore
-  const operatorsWithRatings = data.map((operator) => {
-    const reviews = operator.reviews || []
-    const total_reviews = reviews.length
-    const average_rating =
-      total_reviews > 0 ? reviews.reduce((acc, review) => acc + review.rating, 0) / total_reviews : 0
+  return operatorsData.map((op) => {
+    const reviews = op.reviews || []
+    const totalReviews = reviews.length
+    const averageRating = totalReviews > 0 ? reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews : 0
 
-    // Rimuoviamo l'array di recensioni dall'oggetto finale per pulizia
-    const { reviews: _, ...rest } = operator
+    const services = (op.services || []).map((s) => ({
+      type: s.type as "chat" | "call" | "email",
+      price: s.price_per_minute ?? s.price_per_consultation,
+    }))
 
     return {
-      ...rest,
-      specializations: operator.specializations || [],
-      average_rating: Number.parseFloat(average_rating.toFixed(1)),
-      total_reviews,
+      id: op.id,
+      fullName: op.full_name,
+      avatarUrl: op.avatar_url,
+      headline: op.headline,
+      bio: op.bio,
+      isOnline: op.is_online,
+      specializations: op.specializations || [],
+      averageRating: averageRating,
+      reviewsCount: totalReviews,
+      services: services,
+      joinedDate: op.created_at,
     }
   })
-
-  return operatorsWithRatings
 }
