@@ -35,6 +35,14 @@ export async function initiateCallAction(
   ratePerMinute: number,
 ): Promise<{ success: boolean; sessionId?: string; error?: string }> {
   try {
+    // --- SOLUZIONE: Rileva l'URL pubblico automaticamente ---
+    // Vercel (e l'ambiente v0) fornisce la variabile VERCEL_URL.
+    // La usiamo per costruire l'indirizzo corretto.
+    const baseURL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000" // Fallback per sviluppo locale futuro
+
+    console.log(`Using base URL: ${baseURL}`)
+    // --- FINE SOLUZIONE ---
+
     const client = mockData.users[clientId as keyof typeof mockData.users]
     if (!client) throw new Error("Cliente non trovato")
 
@@ -56,11 +64,11 @@ export async function initiateCallAction(
     mockData.callSessions.set(sessionId, callSession)
 
     // URL che Twilio chiamerà per ottenere le istruzioni TwiML
-    const twimlUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${encodeURIComponent(operatorPhone)}`
+    const twimlUrl = `${baseURL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${encodeURIComponent(operatorPhone)}`
     // URL che Twilio chiamerà per gli aggiornamenti di stato
-    const statusCallbackUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/status`
+    const statusCallbackUrl = `${baseURL}/api/calls/status`
 
-    // Usa la nuova funzione basata su fetch
+    // Usa la funzione basata su fetch con gli URL corretti
     const call = await createTwilioCall(client.phone, twimlUrl, statusCallbackUrl)
 
     callSession.twilioCallSid = call.sid
@@ -87,7 +95,7 @@ export async function endCallAction(sessionId: string): Promise<{ success: boole
       return { success: true }
     }
 
-    // Usa la nuova funzione basata su fetch
+    // Usa la funzione basata su fetch
     await endTwilioCall(session.twilioCallSid)
 
     console.log(`✅ Call ended manually: ${sessionId}`)
