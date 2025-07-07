@@ -33,9 +33,9 @@ import {
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { getCategoriesForAdmin } from "@/lib/actions/operator.actions"
+import { generateSignedUploadUrl } from "@/lib/actions/storage.actions"
 
 const availabilitySlots = ["09:00-12:00", "12:00-15:00", "15:00-18:00", "18:00-21:00", "21:00-24:00"]
-
 const weekDays = [
   { key: "monday", label: "Lunedì" },
   { key: "tuesday", label: "Martedì" },
@@ -50,15 +50,12 @@ export default function CreateOperatorPage() {
   const router = useRouter()
   const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isSubmitting, startSubmitTransition] = useTransition()
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [availableCategories, setAvailableCategories] = useState<string[]>([])
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const categories = await getCategoriesForAdmin()
-      setAvailableCategories(categories)
-    }
-    fetchCategories()
+    getCategoriesForAdmin().then(setAvailableCategories)
   }, [])
 
   const [operator, setOperator] = useState({
@@ -68,9 +65,9 @@ export default function CreateOperatorPage() {
     password: "",
     phone: "",
     bio: "",
+    profileImageUrl: "",
     specialties: [] as string[],
     categories: [] as string[],
-    avatarUrl: "",
     services: {
       chatEnabled: true,
       chatPrice: 2.5,
@@ -96,9 +93,44 @@ export default function CreateOperatorPage() {
   const [newSpecialty, setNewSpecialty] = useState("")
   const [showPreview, setShowPreview] = useState(false)
 
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingAvatar(true)
+    try {
+      const { success, error, data } = await generateSignedUploadUrl({
+        fileType: file.type,
+        fileSize: file.size,
+      })
+
+      if (!success || !data) {
+        throw new Error(error || "Impossibile ottenere l'URL di caricamento.")
+      }
+
+      const uploadResponse = await fetch(data.signedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error("Caricamento del file fallito.")
+      }
+
+      setOperator((prev) => ({ ...prev, profileImageUrl: data.publicUrl }))
+      toast({ title: "Avatar caricato con successo!" })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
+      toast({ title: "Errore Caricamento Avatar", description: errorMessage, variant: "destructive" })
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    startTransition(async () => {
+    startSubmitTransition(async () => {
       try {
         const response = await fetch("/api/operators/create", {
           method: "POST",
@@ -107,29 +139,21 @@ export default function CreateOperatorPage() {
         })
 
         const result = await response.json()
-
         if (!response.ok) {
           throw new Error(result.message || `Errore del server: ${response.status}`)
         }
 
-        toast({
-          title: "Successo!",
-          description: result.message,
-        })
-
+        toast({ title: "Successo!", description: result.message })
         router.push("/admin/operators")
         router.refresh()
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
-        toast({
-          title: "Errore nella Creazione",
-          description: errorMessage,
-          variant: "destructive",
-        })
+        toast({ title: "Errore nella Creazione", description: errorMessage, variant: "destructive" })
       }
     })
   }
 
+  // Le altre funzioni di handle (handleInputChange, etc.) rimangono invariate
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
     const isNumber = type === "number"
@@ -188,25 +212,6 @@ export default function CreateOperatorPage() {
     }))
   }
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        toast({
-          title: "File troppo grande",
-          description: "L'immagine non deve superare i 2MB.",
-          variant: "destructive",
-        })
-        return
-      }
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setOperator((prev) => ({ ...prev, avatarUrl: reader.result as string }))
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
   const PreviewCard = () => (
     <Card className="group relative flex flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-sky-500/20 shadow-xl h-full">
       <div className="absolute top-3 right-3 flex items-center space-x-2 z-10">
@@ -220,10 +225,7 @@ export default function CreateOperatorPage() {
       <div className="relative flex flex-col items-center p-6 space-y-4 h-full">
         <div className="relative mt-2">
           <Avatar className="w-24 h-24 border-4 border-sky-400/50 shadow-lg">
-            <AvatarImage
-              src={operator.avatarUrl || "/placeholder.svg?width=96&height=96&query=avatar"}
-              alt={operator.stageName}
-            />
+            <AvatarImage src={operator.profileImageUrl || undefined} alt={operator.stageName} />
             <AvatarFallback className="text-2xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white">
               {operator.stageName.substring(0, 1).toUpperCase()}
             </AvatarFallback>
@@ -297,7 +299,6 @@ export default function CreateOperatorPage() {
 
       <div className={`grid gap-6 ${showPreview ? "lg:grid-cols-3" : "lg:grid-cols-1"}`}>
         <div className={showPreview ? "lg:col-span-2" : ""}>
-          {/* Dati Personali e Profilo Pubblico */}
           <Card className="shadow-xl rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
@@ -310,12 +311,13 @@ export default function CreateOperatorPage() {
               <div className="flex items-start gap-6">
                 <div className="relative">
                   <Avatar className="w-24 h-24 border-4 border-sky-200 shadow-lg">
-                    <AvatarImage
-                      src={operator.avatarUrl || "/placeholder.svg?width=96&height=96&query=avatar"}
-                      alt="Avatar"
-                    />
+                    <AvatarImage src={operator.profileImageUrl || undefined} alt="Avatar" />
                     <AvatarFallback className="text-3xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white">
-                      {operator.stageName.substring(0, 1).toUpperCase() || "?"}
+                      {isUploadingAvatar ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        operator.stageName.substring(0, 1).toUpperCase() || "?"
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   <Button
@@ -324,6 +326,7 @@ export default function CreateOperatorPage() {
                     size="icon"
                     className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white border-2 border-sky-300 text-sky-600 hover:bg-sky-100"
                     onClick={() => avatarInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
                   >
                     <Camera className="h-4 w-4" />
                   </Button>
@@ -333,6 +336,7 @@ export default function CreateOperatorPage() {
                     accept="image/jpeg,image/png,image/gif,image/webp"
                     className="hidden"
                     onChange={handleAvatarChange}
+                    disabled={isUploadingAvatar}
                   />
                 </div>
                 <div className="flex-1 space-y-4">
@@ -402,7 +406,6 @@ export default function CreateOperatorPage() {
             </CardContent>
           </Card>
 
-          {/* Categorie e Specializzazioni */}
           <Card className="shadow-xl rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
@@ -473,7 +476,7 @@ export default function CreateOperatorPage() {
             </CardContent>
           </Card>
 
-          {/* Servizi e Prezzi */}
+          {/* Altre card (Servizi, Disponibilità, Configurazione) rimangono invariate */}
           <Card className="shadow-xl rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
@@ -560,7 +563,6 @@ export default function CreateOperatorPage() {
             </CardContent>
           </Card>
 
-          {/* Disponibilità */}
           <Card className="shadow-xl rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
@@ -591,7 +593,6 @@ export default function CreateOperatorPage() {
             </CardContent>
           </Card>
 
-          {/* Configurazione */}
           <Card className="shadow-xl rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700">Configurazione</CardTitle>
@@ -656,10 +657,10 @@ export default function CreateOperatorPage() {
         <Button
           size="lg"
           type="submit"
-          disabled={isPending}
+          disabled={isSubmitting || isUploadingAvatar}
           className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
         >
-          {isPending ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Salvataggio...

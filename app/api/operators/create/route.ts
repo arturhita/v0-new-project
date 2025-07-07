@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 
-// Schema di validazione per i dati in input dal form
+// Schema di validazione Zod più robusto e preciso
 const OperatorInputSchema = z.object({
   email: z.string().email({ message: "Email non valida." }),
   password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
@@ -10,6 +10,7 @@ const OperatorInputSchema = z.object({
   stageName: z.string().min(3, { message: "Il nome d'arte è obbligatorio." }),
   phone: z.string().optional(),
   bio: z.string().optional(),
+  profileImageUrl: z.string().url({ message: "URL dell'avatar non valido." }).optional(),
   commission: z.coerce.number(),
   status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
   isOnline: z.boolean(),
@@ -23,27 +24,30 @@ const OperatorInputSchema = z.object({
     emailEnabled: z.boolean(),
     emailPrice: z.coerce.number(),
   }),
-  availability: z.any(),
+  // Schema preciso per la disponibilità
+  availability: z.record(z.string(), z.array(z.string())),
 })
 
 export async function POST(request: Request) {
-  console.log("--- API Route (v. stabile): Inizio creazione operatore ---")
+  console.log("--- API Route: Inizio creazione operatore ---")
   let newUserId: string | null = null
   const supabaseAdmin = createSupabaseAdminClient()
 
   try {
     const body = await request.json()
+    console.log("[1/7] Body ricevuto:", body)
 
-    // 1. Validazione
+    // 2. Validazione con schema robusto
     const validation = OperatorInputSchema.safeParse(body)
     if (!validation.success) {
+      console.error("[ERRORE] Validazione Zod fallita:", validation.error.flatten())
       const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0]
       return NextResponse.json({ message: `Dati non validi: ${firstError}` }, { status: 400 })
     }
     const data = validation.data
-    console.log(`[1/5] Dati validati per ${data.email}.`)
+    console.log(`[2/7] Dati validati per ${data.email}.`)
 
-    // 2. Controllo Esistenza
+    // 3. Controllo Esistenza
     const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
       .select("id")
@@ -52,26 +56,24 @@ export async function POST(request: Request) {
     if (existingProfile) {
       return NextResponse.json({ message: "Un operatore con questa email o nome d'arte esiste già." }, { status: 409 })
     }
-    console.log("[2/5] Email e nome d'arte sono unici.")
+    console.log("[3/7] Email e nome d'arte sono unici.")
 
-    // 3. Conversione Categorie in UUID
+    // 4. Conversione Categorie in UUID
     const { data: categoryData, error: categoryError } = await supabaseAdmin
       .from("categories")
       .select("id, name")
       .in("name", data.categories)
 
-    if (categoryError) {
-      throw new Error(`Errore DB recupero categorie: ${categoryError.message}`)
-    }
+    if (categoryError) throw new Error(`Errore DB recupero categorie: ${categoryError.message}`)
     if (categoryData.length !== data.categories.length) {
       const foundNames = categoryData.map((c) => c.name)
       const notFoundNames = data.categories.filter((c) => !foundNames.includes(c))
       throw new Error(`Le seguenti categorie non sono valide o non esistono: ${notFoundNames.join(", ")}`)
     }
     const categoryUuids = categoryData.map((c) => c.id)
-    console.log("[3/5] Categorie convertite in UUIDs.")
+    console.log("[4/7] Categorie convertite in UUIDs.")
 
-    // 4. Creazione Utente Auth
+    // 5. Creazione Utente Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
@@ -80,9 +82,9 @@ export async function POST(request: Request) {
     })
     if (authError) throw new Error(`Errore Auth: ${authError.message}`)
     newUserId = authData.user.id
-    console.log(`[4/5] Utente Auth creato: ${newUserId}`)
+    console.log(`[5/7] Utente Auth creato: ${newUserId}`)
 
-    // 5. Inserimento Profilo DB
+    // 6. Inserimento Profilo DB
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
       email: data.email,
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
       stage_name: data.stageName,
       phone: data.phone,
       bio: data.bio,
+      profile_image_url: data.profileImageUrl,
       commission_rate: data.commission,
       status: data.status,
       is_online: data.isOnline,
@@ -102,16 +105,17 @@ export async function POST(request: Request) {
       availability_schedule: data.availability,
     })
     if (profileError) throw new Error(`Errore DB: ${profileError.message}`)
-    console.log("[5/5] Profilo DB creato.")
+    console.log("[6/7] Profilo DB creato.")
 
-    console.log("--- API Route: SUCCESSO ---")
+    console.log("[7/7] --- API Route: SUCCESSO ---")
     return NextResponse.json({ success: true, message: `Operatore "${data.stageName}" creato con successo.` })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
-    console.error("--- API Route: ERRORE CRITICO:", errorMessage)
+    console.error("--- API Route: ERRORE CRITICO ---", errorMessage)
     if (newUserId) {
-      console.log(`[ROLLBACK] Eliminazione utente orfano: ${newUserId}`)
+      console.log(`[ROLLBACK] Tentativo di eliminazione utente orfano: ${newUserId}`)
       await supabaseAdmin.auth.admin.deleteUser(newUserId)
+      console.log(`[ROLLBACK] Utente orfano eliminato.`)
     }
     return NextResponse.json({ message: `Creazione fallita: ${errorMessage}` }, { status: 500 })
   }
