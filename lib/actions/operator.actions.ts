@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import type { Profile } from "@/contexts/auth-context"
+import type { Profile } from "@/types/database.types"
 
 // La funzione createOperator è stata spostata in un API Route per stabilità.
 // Questo file contiene ora solo le altre funzioni di helper per gli operatori.
@@ -72,8 +72,8 @@ export async function getOperators(options?: { limit?: number; category?: string
     .order("is_online", { ascending: false })
     .order("average_rating", { ascending: false, nullsFirst: false })
 
-  const { data, error } = await query
-  if (error) throw new Error(`Error fetching operators: ${error.message}`)
+  const { data, error: queryError } = await query
+  if (queryError) throw new Error(`Error fetching operators: ${queryError.message}`)
   if (!data) return []
 
   return data as Profile[]
@@ -161,4 +161,69 @@ export async function suspendOperator(operatorId: string) {
   revalidatePath("/admin/operators")
   revalidatePath("/")
   return { success: true, message: "Operatore sospeso." }
+}
+
+export async function getOperatorPublicProfile(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      stage_name,
+      bio,
+      main_discipline,
+      specialties,
+      profile_image_url,
+      service_prices
+    `,
+    )
+    .eq("id", operatorId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching operator profile for edit:", error)
+    return null
+  }
+  return data
+}
+
+export async function updateOperatorPublicProfile(operatorId: string, formData: FormData) {
+  const supabase = createClient()
+
+  const profileData = {
+    stage_name: formData.get("stage_name") as string,
+    bio: formData.get("bio") as string,
+    main_discipline: formData.get("main_discipline") as string,
+    specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
+    service_prices: {
+      chat: Number.parseFloat(formData.get("price_chat") as string),
+      call: Number.parseFloat(formData.get("price_call") as string),
+      video: Number.parseFloat(formData.get("price_video") as string),
+    },
+  }
+
+  // TODO: Aggiungere validazione con Zod
+
+  const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
+
+  if (error) {
+    return { success: false, message: `Errore: ${error.message}` }
+  }
+
+  revalidatePath("/dashboard/operator/profile")
+  revalidatePath(`/operator/${profileData.stage_name}`)
+  return { success: true, message: "Profilo aggiornato con successo!" }
+}
+
+export async function updateOperatorStatus(operatorId: string, isAvailable: boolean) {
+  const supabase = createClient()
+  const { error } = await supabase.from("profiles").update({ is_available: isAvailable }).eq("id", operatorId)
+
+  if (error) {
+    console.error("Error updating operator status:", error)
+    return { success: false, message: "Impossibile aggiornare lo stato." }
+  }
+
+  revalidatePath("/dashboard/operator")
+  return { success: true }
 }
