@@ -1,47 +1,37 @@
 import { Star } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { formatDistanceToNow } from "date-fns"
-import { it } from "date-fns/locale"
-import type { Review } from "@/types/review.types"
+import Image from "next/image"
+import { cn, formatDate } from "@/lib/utils"
+import type { Review } from "@/types/database"
 
 interface ReviewCardProps {
   review: Review
 }
 
-export function ReviewCard({ review }: ReviewCardProps) {
-  let timeAgo = "Data non disponibile"
-  try {
-    // Aggiungiamo un controllo per assicurarci che la data esista e sia valida
-    if (review.created_at) {
-      const date = new Date(review.created_at)
-      if (!isNaN(date.getTime())) {
-        timeAgo = formatDistanceToNow(date, { addSuffix: true, locale: it })
-      }
-    }
-  } catch (error) {
-    console.error("Error formatting date in ReviewCard:", error)
-  }
-
+export default function ReviewCard({ review }: ReviewCardProps) {
   return (
-    <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 h-full flex flex-col">
-      <div className="flex items-center mb-4">
-        <Avatar className="h-10 w-10 mr-4">
-          <AvatarFallback>{review.user_full_name?.charAt(0) || "U"}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <p className="font-semibold text-white">{review.user_full_name || "Utente"}</p>
-          <p className="text-xs text-slate-400">{timeAgo}</p>
+    <div className="flex items-start gap-4">
+      <Image
+        src={review.client?.avatar_url || "/placeholder.svg?width=40&height=40&query=user+avatar"}
+        alt={review.client?.full_name || "Cliente"}
+        width={40}
+        height={40}
+        className="rounded-full"
+      />
+      <div className="flex-1">
+        <div className="flex items-center justify-between">
+          <p className="font-semibold text-gray-800">{review.client?.full_name || "Cliente Anonimo"}</p>
+          <p className="text-xs text-gray-500">{formatDate(review.created_at)}</p>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-1 mt-1">
           {[...Array(5)].map((_, i) => (
             <Star
               key={i}
-              className={`h-5 w-5 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-slate-600"}`}
+              className={cn("h-4 w-4", i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300")}
             />
           ))}
         </div>
+        <p className="text-gray-600 mt-2 text-sm">{review.comment}</p>
       </div>
-      <p className="text-slate-300 text-sm leading-relaxed flex-1">{review.comment}</p>
     </div>
   )
 }
