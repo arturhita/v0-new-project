@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { redirect } from "next/navigation"
 
 // Schema di validazione per i dati del form
 const OperatorSchema = z.object({
@@ -21,6 +22,7 @@ export type OperatorState = {
     server?: string[]
   }
   message?: string | null
+  success?: boolean
 }
 
 export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
@@ -33,10 +35,10 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
   })
 
   if (!validatedFields.success) {
-    console.error("Validation Errors:", validatedFields.error.flatten().fieldErrors)
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Errore di validazione. Controlla i campi inseriti.",
+      success: false,
     }
   }
 
@@ -45,11 +47,10 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
 
   try {
     // 2. Creazione dell'utente in Supabase Auth
-    console.log(`Tentativo di creare l'utente auth per: ${email}`)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: true, // Confermiamo l'email direttamente dato che è un admin a creare l'utente
+      email_confirm: true,
       user_metadata: {
         role: "operator",
         full_name: fullName,
@@ -58,28 +59,18 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (authError) {
-      console.error("Supabase Auth Error:", authError.message)
       if (authError.message.includes("User already registered")) {
-        return {
-          errors: { server: ["Questo indirizzo email è già registrato."] },
-          message: "Questo indirizzo email è già registrato.",
-        }
+        return { errors: { email: ["Questo indirizzo email è già registrato."] }, success: false }
       }
-      return {
-        errors: { server: ["Si è verificato un errore durante la creazione dell'utente."] },
-        message: `Errore Auth: ${authError.message}`,
-      }
+      throw new Error(`Errore Auth: ${authError.message}`)
     }
 
     if (!authData.user) {
       throw new Error("Creazione utente auth fallita, nessun utente restituito.")
     }
-
     const newUserId = authData.user.id
-    console.log(`Utente auth creato con successo. ID: ${newUserId}`)
 
     // 3. Inserimento del profilo nella tabella 'profiles'
-    console.log(`Tentativo di inserire il profilo per l'utente ID: ${newUserId}`)
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
       email: email,
@@ -89,29 +80,20 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (profileError) {
-      console.error("Supabase Profile Error:", profileError.message)
-      // Se l'inserimento del profilo fallisce, per consistenza, eliminiamo l'utente auth appena creato.
-      console.log(`Errore inserimento profilo. Tentativo di rollback cancellando l'utente auth ID: ${newUserId}`)
+      // Rollback: se l'inserimento del profilo fallisce, eliminiamo l'utente auth.
       await supabaseAdmin.auth.admin.deleteUser(newUserId)
-      console.log("Utente auth cancellato con successo.")
-
-      return {
-        errors: { server: ["Si è verificato un errore durante la creazione del profilo utente."] },
-        message: `Errore Profilo: ${profileError.message}`,
-      }
+      throw new Error(`Errore Profilo: ${profileError.message}`)
     }
-
-    console.log(`Profilo creato con successo per l'utente ID: ${newUserId}`)
   } catch (error) {
-    console.error("Unexpected Server Error:", error)
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
     return {
       errors: { server: [errorMessage] },
       message: "Si è verificato un errore imprevisto.",
+      success: false,
     }
   }
 
-  // 4. Se tutto va a buon fine, revalida il path e ritorna successo
+  // 4. Successo
   revalidatePath("/admin/operators")
-  return { message: `Operatore ${stageName} creato con successo.` }
+  redirect("/admin/operators?success=true") // Reindirizza con un parametro di successo
 }
