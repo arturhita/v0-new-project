@@ -100,3 +100,35 @@ export async function getOperatorById(id: string): Promise<OperatorCardData | nu
 
   return transformOperatorData(operator)
 }
+
+/**
+ * Recupera gli operatori per una specifica categoria.
+ * @param categorySlug Lo slug della categoria (es. "cartomanzia")
+ */
+export async function getOperatorsByCategory(categorySlug: string): Promise<OperatorCardData[]> {
+  const supabase = createClient()
+
+  // In un'app reale, avresti una tabella di categorie.
+  // Per ora, cerchiamo lo slug all'interno dell'array di specializzazioni.
+  // Usiamo `cs` che sta per "contains" per gli array di tipo text.
+  const { data: operators, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
+      services ( type, price_per_minute, price_per_consultation ),
+      reviews!reviews_operator_id_fkey ( rating )
+    `,
+    )
+    .eq("role", "operator")
+    .eq("application_status", "approved")
+    .eq("is_visible", true)
+    .cs("specializations", `{${categorySlug}}`) // Cerca se lo slug è presente nell'array
+
+  if (error) {
+    console.error(`Error fetching operators for category ${categorySlug}:`, error)
+    return []
+  }
+
+  return operators.map(transformOperatorData)
+}
