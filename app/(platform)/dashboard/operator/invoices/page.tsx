@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
+import { format } from "date-fns"
 
 export default async function InvoicesPage() {
   const supabase = createClient()
@@ -25,34 +26,36 @@ export default async function InvoicesPage() {
         <h1 className="text-3xl font-bold text-white">Fatture e Ricevute</h1>
         <p className="text-gray-400">Scarica le tue fatture per i pagamenti ricevuti.</p>
       </div>
-      <Card>
+      <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
           <CardTitle>Le Tue Fatture</CardTitle>
-          <CardDescription>Qui troverai le fatture generate per ogni pagamento che hai ricevuto.</CardDescription>
+          <CardDescription className="text-gray-400">
+            Qui troverai le fatture generate per ogni pagamento che hai ricevuto.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Numero Fattura</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Importo</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azione</TableHead>
+              <TableRow className="border-b-gray-700 hover:bg-gray-800/50">
+                <TableHead className="text-white">Numero Fattura</TableHead>
+                <TableHead className="text-white">Data</TableHead>
+                <TableHead className="text-white">Importo</TableHead>
+                <TableHead className="text-white">Stato</TableHead>
+                <TableHead className="text-right text-white">Azione</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {invoices.length > 0 ? (
                 invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.id}</TableCell>
-                    <TableCell>{invoice.date}</TableCell>
+                  <TableRow key={invoice.id} className="border-b-gray-700">
+                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                    <TableCell>{format(new Date(invoice.date), "dd/MM/yyyy")}</TableCell>
                     <TableCell>€{invoice.amount.toFixed(2)}</TableCell>
                     <TableCell>
-                      <Badge variant={invoice.status === "paid" ? "success" : "warning"}>{invoice.status}</Badge>
+                      <Badge variant={invoice.status === "paid" ? "success" : "default"}>{invoice.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" disabled>
+                      <Button variant="outline" size="sm" disabled={!invoice.pdf_url}>
                         <Download className="mr-2 h-4 w-4" />
                         Scarica
                       </Button>

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState, useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getOperatorTaxDetails, saveOperatorTaxDetails } from "@/lib/actions/operator.actions"
@@ -16,7 +15,7 @@ import type { OperatorTaxDetails } from "@/types/database.types"
 export default function TaxInfoPage() {
   const supabase = createClient()
   const { toast } = useToast()
-  const [taxDetails, setTaxDetails] = useState<OperatorTaxDetails | null>(null)
+  const [taxDetails, setTaxDetails] = useState<Partial<OperatorTaxDetails>>({})
   const [loading, setLoading] = useState(true)
   const [isSubmitting, startTransition] = useTransition()
   const [userId, setUserId] = useState<string | null>(null)
@@ -30,7 +29,7 @@ export default function TaxInfoPage() {
         setUserId(user.id)
         setLoading(true)
         getOperatorTaxDetails(user.id)
-          .then(setTaxDetails)
+          .then((data) => setTaxDetails(data || {}))
           .finally(() => setLoading(false))
       } else {
         setLoading(false)
@@ -42,7 +41,6 @@ export default function TaxInfoPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!userId) return
-
     const formData = new FormData(event.currentTarget)
     startTransition(async () => {
       const result = await saveOperatorTaxDetails(userId, formData)
@@ -54,36 +52,28 @@ export default function TaxInfoPage() {
     })
   }
 
-  if (loading) {
-    return <Loader2 className="mx-auto mt-8 h-8 w-8 animate-spin text-primary" />
-  }
+  if (loading) return <Loader2 className="mx-auto mt-8 h-8 w-8 animate-spin text-primary" />
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Dati Fiscali</h1>
-        <p className="text-gray-400">
-          Queste informazioni sono confidenziali e verranno utilizzate solo per scopi fiscali e di fatturazione.
-        </p>
-      </div>
-
-      <Card>
+      <h1 className="text-3xl font-bold text-white">Dati Fiscali</h1>
+      <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
           <CardTitle>I Tuoi Dati</CardTitle>
-          <CardDescription>
-            Assicurati che i dati siano corretti per evitare problemi con pagamenti e fatture.
+          <CardDescription className="text-gray-400">
+            Assicurati che i dati siano corretti per fatture e pagamenti.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="company_name">Nome Azienda / Ditta Individuale</Label>
+                <Label htmlFor="company_name">Nome Azienda / Ditta</Label>
                 <Input
                   id="company_name"
                   name="company_name"
-                  defaultValue={taxDetails?.company_name ?? ""}
-                  placeholder="Es. Mario Rossi"
+                  defaultValue={taxDetails.company_name ?? ""}
+                  className="bg-gray-900 border-gray-600"
                 />
               </div>
               <div className="space-y-2">
@@ -91,36 +81,60 @@ export default function TaxInfoPage() {
                 <Input
                   id="vat_number"
                   name="vat_number"
-                  defaultValue={taxDetails?.vat_number ?? ""}
-                  placeholder="IT12345678901"
+                  defaultValue={taxDetails.vat_number ?? ""}
+                  className="bg-gray-900 border-gray-600"
                 />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="tax_id">Codice Fiscale</Label>
-              <Input id="tax_id" name="tax_id" defaultValue={taxDetails?.tax_id ?? ""} placeholder="RSSMRA80A01H501U" />
+              <Input
+                id="tax_id"
+                name="tax_id"
+                defaultValue={taxDetails.tax_id ?? ""}
+                className="bg-gray-900 border-gray-600"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Indirizzo di Residenza / Sede Legale</Label>
-              <Input id="address" name="address" defaultValue={taxDetails?.address ?? ""} placeholder="Via Roma, 1" />
+              <Label htmlFor="address">Indirizzo Sede Legale</Label>
+              <Input
+                id="address"
+                name="address"
+                defaultValue={taxDetails.address ?? ""}
+                className="bg-gray-900 border-gray-600"
+              />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="city">Città</Label>
-                <Input id="city" name="city" defaultValue={taxDetails?.city ?? ""} placeholder="Milano" />
+                <Input
+                  id="city"
+                  name="city"
+                  defaultValue={taxDetails.city ?? ""}
+                  className="bg-gray-900 border-gray-600"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="zip_code">CAP</Label>
-                <Input id="zip_code" name="zip_code" defaultValue={taxDetails?.zip_code ?? ""} placeholder="20121" />
+                <Input
+                  id="zip_code"
+                  name="zip_code"
+                  defaultValue={taxDetails.zip_code ?? ""}
+                  className="bg-gray-900 border-gray-600"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="country">Paese</Label>
-                <Input id="country" name="country" defaultValue={taxDetails?.country ?? "Italia"} />
+                <Input
+                  id="country"
+                  name="country"
+                  defaultValue={taxDetails.country ?? "Italia"}
+                  className="bg-gray-900 border-gray-600"
+                />
               </div>
             </div>
-            <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salva Dati Fiscali
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salva Dati
             </Button>
           </form>
         </CardContent>

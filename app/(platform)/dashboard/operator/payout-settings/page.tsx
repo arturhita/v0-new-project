@@ -1,17 +1,20 @@
 "use client"
 
+import { Badge } from "@/components/ui/badge"
+
 import type React from "react"
 import { useEffect, useState, useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getOperatorPayoutMethods, saveOperatorPayoutMethod } from "@/lib/actions/payouts.actions"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Trash2, CheckCircle, Banknote, ShoppingCartIcon as Paypal } from "lucide-react"
+import { Loader2, Trash2, Banknote } from "lucide-react"
 import type { PayoutMethod } from "@/types/database.types"
+import { FaPaypal } from "react-icons/fa"
 
 export default function PayoutSettingsPage() {
   const supabase = createClient()
@@ -41,15 +44,12 @@ export default function PayoutSettingsPage() {
   }, [supabase])
 
   const refreshMethods = () => {
-    if (userId) {
-      getOperatorPayoutMethods(userId).then(setMethods)
-    }
+    if (userId) getOperatorPayoutMethods(userId).then(setMethods)
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!userId) return
-
     const formData = new FormData(event.currentTarget)
     startTransition(async () => {
       const result = await saveOperatorPayoutMethod(userId, formData)
@@ -63,21 +63,14 @@ export default function PayoutSettingsPage() {
     })
   }
 
-  if (loading) {
-    return <Loader2 className="mx-auto mt-8 h-8 w-8 animate-spin text-primary" />
-  }
+  if (loading) return <Loader2 className="mx-auto mt-8 h-8 w-8 animate-spin text-primary" />
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Impostazioni di Pagamento</h1>
-        <p className="text-gray-400">Gestisci come vuoi ricevere i tuoi guadagni.</p>
-      </div>
-
-      <Card>
+      <h1 className="text-3xl font-bold text-white">Impostazioni di Pagamento</h1>
+      <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
-          <CardTitle>Metodi di Pagamento Salvati</CardTitle>
-          <CardDescription>Questi sono i metodi che possiamo usare per inviarti i soldi.</CardDescription>
+          <CardTitle>Metodi Salvati</CardTitle>
         </CardHeader>
         <CardContent>
           {methods.length > 0 ? (
@@ -85,16 +78,16 @@ export default function PayoutSettingsPage() {
               {methods.map((method) => (
                 <li
                   key={method.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-card-foreground/5 p-4"
+                  className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900/50 p-4"
                 >
                   <div className="flex items-center gap-4">
                     {method.method_type === "paypal" ? (
-                      <Paypal className="h-6 w-6 text-blue-500" />
+                      <FaPaypal className="h-6 w-6 text-blue-400" />
                     ) : (
-                      <Banknote className="h-6 w-6 text-green-500" />
+                      <Banknote className="h-6 w-6 text-green-400" />
                     )}
                     <div>
-                      <p className="font-semibold capitalize text-white">{method.method_type}</p>
+                      <p className="font-semibold capitalize">{method.method_type}</p>
                       <p className="text-sm text-gray-400">
                         {method.method_type === "paypal"
                           ? method.details.email
@@ -103,53 +96,26 @@ export default function PayoutSettingsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {method.is_default && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                        <CheckCircle className="h-4 w-4" />
-                        Default
-                      </span>
-                    )}
+                    {method.is_default && <Badge variant="success">Default</Badge>}
                     <Button variant="destructive" size="icon" disabled>
                       <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Elimina metodo</span>
                     </Button>
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-center text-gray-500 py-4">Nessun metodo di pagamento salvato.</p>
+            <p className="text-center text-gray-500 py-4">Nessun metodo salvato.</p>
           )}
         </CardContent>
       </Card>
-
-      <Card>
+      <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
           <CardTitle>Aggiungi Nuovo Metodo</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label className="text-base">Tipo di Metodo</Label>
-              <div className="mt-2 flex gap-4">
-                <Button
-                  type="button"
-                  variant={selectedMethod === "paypal" ? "secondary" : "outline"}
-                  onClick={() => setSelectedMethod("paypal")}
-                >
-                  PayPal
-                </Button>
-                <Button
-                  type="button"
-                  variant={selectedMethod === "iban" ? "secondary" : "outline"}
-                  onClick={() => setSelectedMethod("iban")}
-                >
-                  Bonifico (IBAN)
-                </Button>
-              </div>
-              <input type="hidden" name="method_type" value={selectedMethod} />
-            </div>
-
+            <input type="hidden" name="method_type" value={selectedMethod} />
             {selectedMethod === "paypal" && (
               <div className="space-y-2">
                 <Label htmlFor="paypal_email">Email PayPal</Label>
@@ -158,36 +124,33 @@ export default function PayoutSettingsPage() {
                   name="paypal_email"
                   type="email"
                   required
-                  placeholder="tua.email@example.com"
+                  className="bg-gray-900 border-gray-600"
                 />
               </div>
             )}
-
             {selectedMethod === "iban" && (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="iban_account_holder">Intestatario Conto</Label>
-                  <Input id="iban_account_holder" name="iban_account_holder" required placeholder="Mario Rossi" />
+                  <Input
+                    id="iban_account_holder"
+                    name="iban_account_holder"
+                    required
+                    className="bg-gray-900 border-gray-600"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="iban_number">IBAN</Label>
-                  <Input id="iban_number" name="iban_number" required placeholder="IT60X0542811101000000123456" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="iban_bank_name">Nome Banca</Label>
-                  <Input id="iban_bank_name" name="iban_bank_name" required placeholder="Nome della tua banca" />
+                  <Input id="iban_number" name="iban_number" required className="bg-gray-900 border-gray-600" />
                 </div>
               </div>
             )}
-
             <div className="flex items-center space-x-2 pt-4">
               <Switch id="is_default" name="is_default" />
-              <Label htmlFor="is_default">Imposta come metodo di pagamento predefinito</Label>
+              <Label htmlFor="is_default">Imposta come predefinito</Label>
             </div>
-
-            <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salva Metodo
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salva Metodo
             </Button>
           </form>
         </CardContent>

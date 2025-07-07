@@ -22,10 +22,7 @@ export default async function CommissionRequestPage() {
   }
 
   const { data: profile } = await supabase.from("profiles").select("commission_rate").eq("id", user.id).single()
-
-  if (!profile) {
-    return <div>Profilo non trovato.</div>
-  }
+  if (!profile) return <div>Profilo non trovato.</div>
 
   const requests = await getCommissionRequests(user.id)
   const pendingRequest = requests.find((r) => r.status === "pending")
@@ -33,29 +30,24 @@ export default async function CommissionRequestPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold text-white">Richiesta Modifica Commissione</h1>
-
-      <Card className="bg-gray-900 border-gray-800 text-white">
+      <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
-          <CardTitle>Crea una nuova richiesta</CardTitle>
-          <CardDescription>
-            La tua commissione attuale è del {profile.commission_rate}%. Puoi richiedere una nuova percentuale qui.
-          </CardDescription>
+          <CardTitle>Crea Richiesta</CardTitle>
+          <CardDescription className="text-gray-400">Commissione attuale: {profile.commission_rate}%</CardDescription>
         </CardHeader>
         <CardContent>
           {pendingRequest ? (
-            <Alert variant="default" className="bg-gray-800 border-indigo-500">
+            <Alert variant="default" className="bg-gray-800 border-indigo-500 text-white">
               <AlertTitle>Richiesta in Sospeso</AlertTitle>
               <AlertDescription>
-                Hai già una richiesta in sospeso per una commissione del {pendingRequest.requested_commission_rate}%,
-                inviata il {format(new Date(pendingRequest.created_at), "dd/MM/yyyy")}. Non puoi inviare una nuova
-                richiesta finché questa non sarà processata.
+                Hai già una richiesta per il {pendingRequest.requested_commission_rate}% inviata il{" "}
+                {format(new Date(pendingRequest.created_at), "dd/MM/yyyy")}.
               </AlertDescription>
             </Alert>
           ) : (
             <form action={submitCommissionRequest} className="space-y-4">
               <input type="hidden" name="operator_id" value={user.id} />
               <input type="hidden" name="current_commission_rate" value={profile.commission_rate} />
-
               <div>
                 <Label htmlFor="requested_commission_rate">Nuova Commissione Richiesta (%)</Label>
                 <Input
@@ -66,48 +58,36 @@ export default async function CommissionRequestPage() {
                   min="0"
                   max="100"
                   required
-                  className="bg-gray-800 border-gray-700"
+                  className="bg-gray-900 border-gray-700"
                 />
               </div>
               <div>
                 <Label htmlFor="reason">Motivazione</Label>
-                <Textarea
-                  id="reason"
-                  name="reason"
-                  placeholder="Spiega perché richiedi questa modifica..."
-                  required
-                  className="bg-gray-800 border-gray-700"
-                />
+                <Textarea id="reason" name="reason" required className="bg-gray-900 border-gray-700" />
               </div>
-              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
-                Invia Richiesta
-              </Button>
+              <Button type="submit">Invia Richiesta</Button>
             </form>
           )}
         </CardContent>
       </Card>
-
-      <Card className="bg-gray-900 border-gray-800 text-white">
+      <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
           <CardTitle>Storico Richieste</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow className="border-gray-800 hover:bg-gray-800">
+              <TableRow className="hover:bg-gray-800/50 border-b-gray-700">
                 <TableHead>Data</TableHead>
-                <TableHead>Commissione Attuale</TableHead>
-                <TableHead>Commissione Richiesta</TableHead>
+                <TableHead>Richiesta</TableHead>
                 <TableHead>Stato</TableHead>
-                <TableHead>Note Admin</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {requests.length > 0 ? (
                 requests.map((req) => (
-                  <TableRow key={req.id} className="border-gray-800">
+                  <TableRow key={req.id} className="border-b-gray-700">
                     <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{req.current_commission_rate}%</TableCell>
                     <TableCell>{req.requested_commission_rate}%</TableCell>
                     <TableCell>
                       <Badge
@@ -118,13 +98,12 @@ export default async function CommissionRequestPage() {
                         {req.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{req.admin_notes || req.rejection_reason || "N/A"}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    Nessuna richiesta trovata.
+                  <TableCell colSpan={3} className="text-center">
+                    Nessuna richiesta.
                   </TableCell>
                 </TableRow>
               )}

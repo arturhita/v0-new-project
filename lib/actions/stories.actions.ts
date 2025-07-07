@@ -4,21 +4,16 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { v4 as uuidv4 } from "uuid"
 
-const supabase = createClient()
-
-export async function uploadStory(formData: FormData) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { success: false, message: "Utente non autenticato." }
-
+export async function uploadStory(operatorId: string, formData: FormData) {
+  const supabase = createClient()
   const file = formData.get("story_media") as File
+
   if (!file || file.size === 0) {
-    return { success: false, message: "Nessun file fornito." }
+    return { success: false, message: "Nessun file selezionato." }
   }
 
   const fileExtension = file.name.split(".").pop()
-  const fileName = `${user.id}/${uuidv4()}.${fileExtension}`
+  const fileName = `${operatorId}/${uuidv4()}.${fileExtension}`
 
   const { error: uploadError } = await supabase.storage.from("stories").upload(fileName, file)
 
@@ -27,17 +22,13 @@ export async function uploadStory(formData: FormData) {
     return { success: false, message: "Errore durante il caricamento del file." }
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("stories").getPublicUrl(fileName)
-
-  const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 ore da adesso
+  const { data } = supabase.storage.from("stories").getPublicUrl(fileName)
+  const mediaUrl = data.publicUrl
 
   const { error: dbError } = await supabase.from("stories").insert({
-    operator_id: user.id,
-    media_url: publicUrl,
+    operator_id: operatorId,
+    media_url: mediaUrl,
     media_type: file.type.startsWith("video") ? "video" : "image",
-    expires_at: expires_at,
   })
 
   if (dbError) {
@@ -46,17 +37,17 @@ export async function uploadStory(formData: FormData) {
   }
 
   revalidatePath("/dashboard/operator/stories")
-  revalidatePath(`/operator/${user.user_metadata.stage_name}`)
   return { success: true, message: "Storia caricata con successo!" }
 }
 
 export async function getActiveStories(operatorId: string) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("stories")
     .select("*")
     .eq("operator_id", operatorId)
     .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching stories:", error)
@@ -66,27 +57,21 @@ export async function getActiveStories(operatorId: string) {
 }
 
 export async function deleteStory(storyId: string, mediaUrl: string) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { success: false, message: "Utente non autenticato." }
+  const supabase = createClient()
 
   // Delete from database
-  const { error: dbError } = await supabase.from("stories").delete().match({ id: storyId, operator_id: user.id })
+  const { error: dbError } = await supabase.from("stories").delete().eq("id", storyId)
   if (dbError) {
-    console.error("Error deleting story from db:", dbError)
-    return { success: false, message: "Errore durante l'eliminazione della storia." }
+    return { success: false, message: "Errore eliminazione dal database." }
   }
 
   // Delete from storage
   const fileName = mediaUrl.split("/stories/")[1]
   const { error: storageError } = await supabase.storage.from("stories").remove([fileName])
   if (storageError) {
-    console.error("Error deleting story from storage:", storageError)
-    // Non bloccare se il file non esiste, ma logga l'errore
+    return { success: false, message: "Errore eliminazione dallo storage." }
   }
 
   revalidatePath("/dashboard/operator/stories")
-  revalidatePath(`/operator/${user.user_metadata.stage_name}`)
   return { success: true, message: "Storia eliminata." }
 }

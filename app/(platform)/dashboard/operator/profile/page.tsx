@@ -4,6 +4,7 @@ import { OperatorProfileForm } from "@/components/operator-profile-form"
 import { getOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function OperatorProfilePage() {
   const supabase = createClient()
@@ -29,13 +30,17 @@ export default async function OperatorProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Il Tuo Profilo Pubblico</h1>
-        <p className="text-gray-400">
-          Queste sono le informazioni che i clienti vedranno. Mantienile aggiornate per attrarre più consulti.
-        </p>
-      </div>
-      <OperatorProfileForm profileData={profileData} operatorId={user.id} />
+      <Card className="bg-gray-800/50 border-gray-700/50 text-white">
+        <CardHeader>
+          <CardTitle>Gestisci Profilo Pubblico</CardTitle>
+          <CardDescription className="text-gray-400">
+            Queste informazioni saranno visibili ai clienti sulla tua pagina operatore.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OperatorProfileForm profileData={profileData} operatorId={user.id} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

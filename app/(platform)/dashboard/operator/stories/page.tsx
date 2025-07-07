@@ -22,11 +22,11 @@ export default async function OperatorStoriesPage() {
         <CardHeader>
           <CardTitle>Gestisci le Tue Storie</CardTitle>
           <CardDescription className="text-gray-400">
-            Carica immagini o brevi video che saranno visibili per 24 ore sul tuo profilo.
+            Carica immagini o brevi video (max 5MB) che saranno visibili per 24 ore sul tuo profilo.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <StoryUploader currentStories={stories} />
+          <StoryUploader currentStories={stories} operatorId={user.id} />
         </CardContent>
       </Card>
     </div>

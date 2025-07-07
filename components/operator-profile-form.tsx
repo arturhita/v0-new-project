@@ -1,7 +1,9 @@
 "use client"
 
+import type React from "react"
+
 import { useFormState } from "react-dom"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { updateOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { useToast } from "@/hooks/use-toast"
@@ -9,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { SubmitButton } from "@/components/submit-button"
+import { User } from "lucide-react"
 
 type ProfileData = {
   stage_name: string | null
@@ -31,6 +34,7 @@ export function OperatorProfileForm({ profileData, operatorId }: OperatorProfile
   const updateProfileWithId = updateOperatorPublicProfile.bind(null, operatorId)
   const [state, formAction] = useFormState(updateProfileWithId, initialState)
   const formRef = useRef<HTMLFormElement>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(profileData.profile_image_url)
 
   useEffect(() => {
     if (state.message) {
@@ -39,8 +43,18 @@ export function OperatorProfileForm({ profileData, operatorId }: OperatorProfile
         description: state.message,
         variant: state.success ? "default" : "destructive",
       })
+      if (state.success) {
+        formRef.current?.reset()
+      }
     }
   }, [state, toast])
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setPreviewUrl(URL.createObjectURL(file))
+    }
+  }
 
   return (
     <form ref={formRef} action={formAction} className="space-y-8">
@@ -49,19 +63,26 @@ export function OperatorProfileForm({ profileData, operatorId }: OperatorProfile
           Immagine del Profilo
         </Label>
         <div className="flex items-center gap-4">
-          <Image
-            src={profileData.profile_image_url || "/images/placeholder.svg?width=80&height=80"}
-            alt="Avatar attuale"
-            width={80}
-            height={80}
-            className="rounded-full"
-          />
+          {previewUrl ? (
+            <Image
+              src={previewUrl || "/placeholder.svg"}
+              alt="Avatar"
+              width={80}
+              height={80}
+              className="rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center">
+              <User className="w-10 h-10 text-gray-400" />
+            </div>
+          )}
           <Input
             id="profile_image"
             name="profile_image"
             type="file"
             accept="image/*"
-            className="bg-gray-900 border-gray-600"
+            className="bg-gray-900 border-gray-600 file:text-gray-300 file:bg-gray-700 file:border-0 file:rounded-md file:px-3 file:py-1.5"
+            onChange={handleFileChange}
           />
           <input type="hidden" name="current_image_url" value={profileData.profile_image_url || ""} />
         </div>
@@ -117,7 +138,7 @@ export function OperatorProfileForm({ profileData, operatorId }: OperatorProfile
         />
       </div>
 
-      <h3 className="text-lg font-semibold pt-4 border-t border-gray-700">Tariffe al Minuto (€)</h3>
+      <h3 className="text-lg font-semibold pt-4 border-t border-gray-700 text-white">Tariffe al Minuto (€)</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="space-y-2">
           <Label htmlFor="price_chat" className="text-gray-300">
