@@ -1,13 +1,12 @@
-import { getOperatorByStageName } from "@/lib/actions/operator.actions"
 import { notFound } from "next/navigation"
+import { getOperatorByStageName } from "@/lib/actions/operator.actions"
 import Image from "next/image"
 import { Star, ShieldCheck, MessageCircle, Phone, Video } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn, formatCurrency } from "@/lib/utils"
-import ReviewCard from "@/components/review-card"
-import type { Review } from "@/types/database"
+import { ReviewCard } from "@/components/review-card" // CORRECT: Named import
 
 export default async function OperatorProfilePage({ params }: { params: { operatorName: string } }) {
   const operator = await getOperatorByStageName(params.operatorName)
@@ -76,7 +75,7 @@ export default async function OperatorProfilePage({ params }: { params: { operat
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap justify-center sm:justify-start gap-2">
-                      <Badge variant="default">{main_discipline}</Badge>
+                      {main_discipline && <Badge variant="default">{main_discipline}</Badge>}
                       {specialties?.map((spec) => (
                         <Badge key={spec} variant="secondary">
                           {spec}
@@ -103,7 +102,7 @@ export default async function OperatorProfilePage({ params }: { params: { operat
               </CardHeader>
               <CardContent className="space-y-6">
                 {reviews && reviews.length > 0 ? (
-                  (reviews as unknown as Review[]).map((review) => <ReviewCard key={review.id} review={review} />)
+                  reviews.map((review) => <ReviewCard key={review.id} review={review} variant="light" />)
                 ) : (
                   <p className="text-center text-gray-500">Questo operatore non ha ancora ricevuto recensioni.</p>
                 )}

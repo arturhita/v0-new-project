@@ -5,9 +5,9 @@ import Link from "next/link"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import OperatorCard from "@/components/operator-card"
-import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
+import { ReviewCard } from "@/components/review-card" // CORRECT: Named import
 import { ConstellationBackground } from "@/components/constellation-background"
-import type { Profile } from "@/types/database"
+import type { Profile, Review } from "@/types/database" // CORRECT: Using main types
 
 const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
   const date = new Date()
@@ -17,39 +17,37 @@ const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number
   return date.toISOString()
 }
 
-export const allMockReviews: ReviewCardType[] = [
+// CORRECT: Mock data now matches the real database structure
+const allMockReviews: Review[] = [
   {
-    id: "r1",
-    userName: "Giulia R.",
-    userType: "Vip",
-    operatorName: "Luna Stellare",
+    id: "mock-r1",
     rating: 5,
     comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
-    date: generateTimeAgo(0, 0, 49),
+    created_at: generateTimeAgo(0, 0, 49),
+    client: { id: "mock-c1", full_name: "Giulia R.", avatar_url: null, role: "client" },
+    operator: { id: "mock-o1", stage_name: "Luna Stellare" },
   },
   {
-    id: "r2",
-    userName: "Marco B.",
-    userType: "Utente",
-    operatorName: "Maestro Cosmos",
+    id: "mock-r2",
     rating: 5,
     comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
-    date: generateTimeAgo(0, 0, 57),
+    created_at: generateTimeAgo(0, 0, 57),
+    client: { id: "mock-c2", full_name: "Marco B.", avatar_url: null, role: "client" },
+    operator: { id: "mock-o2", stage_name: "Maestro Cosmos" },
   },
   {
-    id: "r3",
-    userName: "Sofia L.",
-    userType: "Vip",
-    operatorName: "Sage Aurora",
+    id: "mock-r3",
     rating: 4,
     comment:
       "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
-    date: generateTimeAgo(0, 1),
+    created_at: generateTimeAgo(0, 1),
+    client: { id: "mock-c3", full_name: "Sofia L.", avatar_url: null, role: "client" },
+    operator: { id: "mock-o3", stage_name: "Sage Aurora" },
   },
 ]
 
 export function HomeClient({ initialOperators }: { initialOperators: Profile[] }) {
-  const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
+  const [displayedReviews, setDisplayedReviews] = useState<Review[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -155,7 +153,7 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
      `}</style>
 
       <main className="flex-1">
-        {/* Hero Section - RIPRISTINATA */}
+        {/* Hero Section */}
         <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
           <div
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -192,7 +190,7 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
           </div>
         </section>
 
-        {/* Operator Boxes Section - CON DATI REALI */}
+        {/* Operator Boxes Section */}
         <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
           <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
@@ -225,7 +223,7 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
           </div>
         </section>
 
-        {/* Quote Section - RIPRISTINATA */}
+        {/* Quote Section */}
         <section className="py-12 md:py-16">
           <div className="container mx-auto px-4">
             <div className="bg-gradient-to-r from-blue-900/50 to-slate-800/50 rounded-2xl shadow-xl p-8 md:p-12">
@@ -303,7 +301,7 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                 {displayedReviews.map((review, index) => (
                   <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                    <ReviewCard review={review} />
+                    <ReviewCard review={review} variant="dark" />
                   </div>
                 ))}
               </div>
@@ -447,22 +445,6 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
                 </Button>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Updated Section */}
-        <section className="py-16 bg-slate-900/50 backdrop-blur-sm">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center mb-12 text-white">I Nostri Esperti</h2>
-            {initialOperators.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
-                {initialOperators.map((operator) => (
-                  <OperatorCard key={operator.id} operator={operator} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-gray-400">Nessun operatore disponibile al momento. Riprova più tardi.</p>
-            )}
           </div>
         </section>
       </main>
