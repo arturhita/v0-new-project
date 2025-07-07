@@ -89,6 +89,37 @@ export async function getOperatorByStageName(stageName: string): Promise<Profile
 // FUNZIONI PER DASHBOARD OPERATORE
 // ============================================================================
 
+export async function getOperatorDashboardData(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operator_dashboard_data", { operator_id_param: operatorId }).single()
+
+  if (error) {
+    console.error("Error fetching operator dashboard data:", error)
+    return { success: false, message: "Impossibile caricare i dati della dashboard." }
+  }
+
+  return {
+    success: true,
+    data: {
+      monthlyEarnings: data.monthly_earnings,
+      consultationsCount: data.consultations_count,
+      unreadMessagesCount: data.unread_messages_count,
+    },
+  }
+}
+
+export async function updateOperatorStatus(operatorId: string, isAvailable: boolean) {
+  const supabase = createClient()
+  const { error } = await supabase.from("profiles").update({ is_available: isAvailable }).eq("id", operatorId)
+
+  if (error) {
+    console.error("Error updating operator status:", error)
+    return { success: false, message: "Impossibile aggiornare lo stato." }
+  }
+  revalidatePath("/dashboard/operator")
+  return { success: true }
+}
+
 export async function getOperatorConsultations(operatorId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
