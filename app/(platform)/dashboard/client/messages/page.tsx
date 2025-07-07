@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { sendMessageAction, getConversations } from "@/lib/actions/chat.actions"
 import type { Conversation, Message } from "@/types/chat.types"
 import { useAuth } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 
 export default function ClientMessagesPage() {
   const { user, loading: authLoading } = useAuth()
@@ -22,27 +23,68 @@ export default function ClientMessagesPage() {
   const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const supabase = createClient()
 
   useEffect(() => {
-    if (authLoading) return
-    if (user) {
-      setIsLoading(true)
-      getConversations(user.id, "client")
-        .then((data) => {
-          setConversations(data)
-          if (data.length > 0 && !selectedConversationId) {
-            setSelectedConversationId(data[0].id)
-          }
-        })
-        .finally(() => setIsLoading(false))
-    } else {
+    if (authLoading || !user) {
       setIsLoading(false)
+      return
     }
+
+    setIsLoading(true)
+    getConversations(user.id, "client")
+      .then((data) => {
+        setConversations(data)
+        if (data.length > 0 && !selectedConversationId) {
+          setSelectedConversationId(data[0].id)
+        }
+      })
+      .finally(() => setIsLoading(false))
   }, [user, authLoading])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [conversations, selectedConversationId])
+
+  // --- REAL-TIME LOGIC ---
+  useEffect(() => {
+    if (!selectedConversationId) return
+
+    const channel = supabase
+      .channel(`realtime-chat-${selectedConversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${selectedConversationId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as Message
+          // Evita di aggiungere due volte il messaggio inviato da questo client
+          if (newMessage.senderId === user?.id) return
+
+          setConversations((prev) =>
+            prev.map((conv) =>
+              conv.id === selectedConversationId
+                ? {
+                    ...conv,
+                    messages: [...(conv.messages || []), newMessage],
+                    lastMessage: newMessage.text,
+                    lastMessageTimestamp: new Date(newMessage.timestamp),
+                  }
+                : conv,
+            ),
+          )
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [selectedConversationId, supabase, user?.id])
 
   const handleSelectConversation = (convId: string) => {
     setSelectedConversationId(convId)
@@ -55,66 +97,51 @@ export default function ClientMessagesPage() {
 
     setIsSending(true)
 
-    const tempMessageId = `temp_${Date.now()}`
     const optimisticMessage: Message = {
-      id: tempMessageId,
+      id: `temp_${Date.now()}`,
       senderId: user.id,
-      senderName: user.name || "Tu",
+      senderName: user.user_metadata.name || "Tu",
       text: newMessageText,
       timestamp: new Date(),
-      avatar: user.avatarUrl,
+      avatar: user.user_metadata.avatar_url,
+      conversation_id: selectedConversationId,
     }
 
     setConversations((prev) =>
-      prev
-        .map((conv) =>
-          conv.id === selectedConversationId
-            ? {
-                ...conv,
-                messages: [...(conv.messages || []), optimisticMessage],
-                lastMessage: newMessageText,
-                lastMessageTimestamp: new Date(),
-              }
-            : conv,
-        )
-        .sort((a, b) => b.lastMessageTimestamp.getTime() - a.lastMessageTimestamp.getTime()),
+      prev.map((conv) =>
+        conv.id === selectedConversationId
+          ? {
+              ...conv,
+              messages: [...(conv.messages || []), optimisticMessage],
+              lastMessage: newMessageText,
+              lastMessageTimestamp: new Date(),
+            }
+          : conv,
+      ),
     )
+
     const messageToSend = newMessageText
     setNewMessageText("")
 
-    const result = await sendMessageAction(
-      selectedConversationId,
-      messageToSend,
-      user.id,
-      user.name || "Cliente",
-      user.avatarUrl,
-    )
+    const result = await sendMessageAction(selectedConversationId, messageToSend)
 
-    if (result.success && result.message) {
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === selectedConversationId
-            ? {
-                ...conv,
-                messages: (conv.messages || []).map((m) => (m.id === tempMessageId ? result.message! : m)),
-              }
-            : conv,
-        ),
-      )
-    } else {
+    if (!result.success) {
       console.error("Errore invio messaggio:", result.error)
+      // Rollback dell'aggiornamento ottimistico
       setConversations((prev) =>
         prev.map((conv) =>
           conv.id === selectedConversationId
             ? {
                 ...conv,
-                messages: (conv.messages || []).filter((m) => m.id !== tempMessageId),
+                messages: (conv.messages || []).filter((m) => m.id !== optimisticMessage.id),
               }
             : conv,
         ),
       )
       alert(`Errore invio: ${result.error || "Riprova più tardi."}`)
     }
+    // Non è più necessario aggiornare lo stato con il messaggio di ritorno
+    // perché il messaggio reale arriverà tramite la sottoscrizione in tempo reale.
     setIsSending(false)
   }
 

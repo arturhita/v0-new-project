@@ -22,6 +22,7 @@ import { useOperatorStatus } from "@/contexts/operator-status-context"
 import { sendOperatorMessageAction, getConversations } from "@/lib/actions/chat.actions"
 import type { Message, Conversation } from "@/types/chat.types"
 import { useAuth } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/client"
 
 const MAX_OPERATOR_MESSAGES_PER_SESSION = 5
 
@@ -35,27 +36,68 @@ export default function OperatorPlatformMessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const { status: operatorGlobalStatus } = useOperatorStatus()
+  const supabase = createClient()
 
   useEffect(() => {
-    if (authLoading) return
-    if (user && user.role === "operator") {
-      setIsLoading(true)
-      getConversations(user.id, "operator")
-        .then((data) => {
-          setConversations(data)
-          if (data.length > 0 && !selectedConversationId) {
-            setSelectedConversationId(data[0].id)
-          }
-        })
-        .finally(() => setIsLoading(false))
-    } else {
+    if (authLoading || !user || user.user_metadata.role !== "operator") {
       setIsLoading(false)
+      return
     }
-  }, [user, authLoading, selectedConversationId])
+
+    setIsLoading(true)
+    getConversations(user.id, "operator")
+      .then((data) => {
+        setConversations(data)
+        if (data.length > 0 && !selectedConversationId) {
+          setSelectedConversationId(data[0].id)
+        }
+      })
+      .finally(() => setIsLoading(false))
+  }, [user, authLoading])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [conversations, selectedConversationId])
+
+  // --- REAL-TIME LOGIC ---
+  useEffect(() => {
+    if (!selectedConversationId) return
+
+    const channel = supabase
+      .channel(`realtime-chat-op-${selectedConversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${selectedConversationId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as Message
+          if (newMessage.senderId === user?.id) return
+
+          setConversations((prev) =>
+            prev.map((conv) =>
+              conv.id === selectedConversationId
+                ? {
+                    ...conv,
+                    messages: [...(conv.messages || []), newMessage],
+                    lastMessage: newMessage.text,
+                    lastMessageTimestamp: new Date(newMessage.timestamp),
+                    unreadMessages: (conv.unreadMessages || 0) + 1,
+                  }
+                : conv,
+            ),
+          )
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [selectedConversationId, supabase, user?.id])
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
   const canOperatorSendMessage = selectedConversation
@@ -81,61 +123,44 @@ export default function OperatorPlatformMessagesPage() {
     }
 
     setIsSending(true)
-    const tempMessageId = `temp_op_${Date.now()}`
+
     const optimisticMessage: Message = {
-      id: tempMessageId,
+      id: `temp_op_${Date.now()}`,
       senderId: user.id,
-      senderName: user.name || "Tu",
+      senderName: user.user_metadata.name || "Tu",
       text: newMessageText,
       timestamp: new Date(),
-      avatar: user.avatarUrl,
+      avatar: user.user_metadata.avatar_url,
+      conversation_id: selectedConversationId,
     }
 
     setConversations((prev) =>
-      prev
-        .map((conv) =>
-          conv.id === selectedConversationId
-            ? {
-                ...conv,
-                messages: [...(conv.messages || []), optimisticMessage],
-                lastMessage: newMessageText,
-                lastMessageTimestamp: new Date(),
-                operatorMessagesSent: (conv.operatorMessagesSent || 0) + 1,
-              }
-            : conv,
-        )
-        .sort((a, b) => b.lastMessageTimestamp.getTime() - a.lastMessageTimestamp.getTime()),
+      prev.map((conv) =>
+        conv.id === selectedConversationId
+          ? {
+              ...conv,
+              messages: [...(conv.messages || []), optimisticMessage],
+              lastMessage: newMessageText,
+              lastMessageTimestamp: new Date(),
+              operatorMessagesSent: (conv.operatorMessagesSent || 0) + 1,
+            }
+          : conv,
+      ),
     )
+
     const messageToSend = newMessageText
     setNewMessageText("")
 
-    const result = await sendOperatorMessageAction(
-      selectedConversationId,
-      messageToSend,
-      user.id,
-      user.name || "Operatore",
-      user.avatarUrl,
-    )
+    const result = await sendOperatorMessageAction(selectedConversationId, messageToSend)
 
-    if (result.success && result.message) {
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === selectedConversationId
-            ? {
-                ...conv,
-                messages: (conv.messages || []).map((m) => (m.id === tempMessageId ? result.message! : m)),
-              }
-            : conv,
-        ),
-      )
-    } else {
+    if (!result.success) {
       console.error("Errore invio messaggio operatore:", result.error)
       setConversations((prev) =>
         prev.map((conv) =>
           conv.id === selectedConversationId
             ? {
                 ...conv,
-                messages: (conv.messages || []).filter((m) => m.id !== tempMessageId),
+                messages: (conv.messages || []).filter((m) => m.id !== optimisticMessage.id),
                 operatorMessagesSent: (conv.operatorMessagesSent || 1) - 1,
               }
             : conv,
