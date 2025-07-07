@@ -53,8 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword(credentials)
     setLoading(false)
     if (error) {
+      toast.error("Credenziali non valide", { description: "Controlla email e password e riprova." })
       return { success: false, error: error.message }
     }
+    toast.success("Accesso effettuato con successo!")
     router.push("/") // Redirect to homepage or dashboard
     return { success: true }
   }
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     setLoading(false)
     if (error) {
+      toast.error("Errore di registrazione", { description: error.message })
       return { success: false, error: error.message }
     }
     if (user) {
@@ -91,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    toast.info("Sei stato disconnesso.")
     router.push("/login")
   }
 
@@ -98,11 +102,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
     })
+    if (error) {
+      toast.error("Errore", { description: error.message })
+    } else {
+      toast.success("Email inviata", { description: "Controlla la tua casella di posta per il link di reset." })
+    }
     return { error }
   }
 
   const resetPassword = async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password })
+    if (error) {
+      toast.error("Errore", { description: error.message })
+    } else {
+      toast.success("Password aggiornata!", { description: "Ora puoi accedere con la tua nuova password." })
+      router.push("/login")
+    }
     return { error }
   }
 
