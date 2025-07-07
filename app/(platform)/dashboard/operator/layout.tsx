@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import OperatorStatusToggle from "@/components/operator-status-toggle"
+import { OperatorStatusToggle } from "@/components/operator-status-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NavClient } from "./nav-client"
 
@@ -50,7 +50,6 @@ export default async function OperatorDashboardLayout({ children }: { children: 
     .single()
 
   if (error || !profile || profile.role !== "operator") {
-    // Se non è un operatore, o c'è un errore, reindirizza
     redirect("/login")
   }
 

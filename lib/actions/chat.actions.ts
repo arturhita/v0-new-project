@@ -46,6 +46,7 @@ export async function startChatSession(operatorId: string) {
       status: "in_progress",
       type: "chat",
       cost: 0, // Il costo verrà aggiornato alla fine
+      start_time: new Date().toISOString(), // Aggiungere il tempo di inizio della chat
     })
     .select()
     .single()
@@ -106,32 +107,49 @@ export async function getChatMessages(sessionId: string) {
   return data
 }
 
-export async function postMessage(sessionId: string, content: string) {
+export async function sendMessage(prevState: any, formData: FormData) {
   const supabase = createClient()
+  const content = formData.get("content") as string
+  const receiverId = formData.get("receiverId") as string
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, message: "Utente non autenticato." }
+    return { success: false, message: "Utente non autenticato.", limitReached: false }
   }
 
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({
-      consultation_id: sessionId,
+  if (!content || !receiverId) {
+    return { success: false, message: "Contenuto o destinatario mancante.", limitReached: false }
+  }
+
+  try {
+    const { error } = await supabase.from("messages").insert({
       sender_id: user.id,
+      receiver_id: receiverId,
       content: content,
     })
-    .select()
-    .single()
 
-  if (error) {
-    console.error("Error posting message:", error)
-    return { success: false, message: "Errore durante l'invio del messaggio." }
+    if (error) {
+      // Controlla specificamente l'errore del nostro trigger
+      if (error.message.includes("Limite di messaggi gratuiti raggiunto")) {
+        return {
+          success: false,
+          message: "Limite di messaggi gratuiti raggiunto. Avvia un consulto per continuare.",
+          limitReached: true,
+        }
+      }
+      console.error("Error sending message:", error)
+      return { success: false, message: "Errore durante l'invio del messaggio.", limitReached: false }
+    }
+
+    revalidatePath(`/chat/${receiverId}`)
+    return { success: true, message: "Messaggio inviato.", limitReached: false }
+  } catch (e: any) {
+    console.error("Exception sending message:", e)
+    return { success: false, message: "Si è verificato un errore imprevisto.", limitReached: false }
   }
-
-  return { success: true, message: data }
 }
 
 export async function chargeForMinute(sessionId: string) {
