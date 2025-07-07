@@ -22,6 +22,22 @@ export async function getAllOperatorsForAdmin() {
   return data
 }
 
+/**
+ * NUOVA FUNZIONE: Recupera le categorie direttamente dal database
+ * per garantire che il form sia sempre sincronizzato.
+ */
+export async function getCategoriesForAdmin() {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("categories").select("name").order("name", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching categories:", error)
+    return []
+  }
+  // Restituisce un array di stringhe, es: ["Astrologia", "Tarocchi"]
+  return data.map((c) => c.name)
+}
+
 export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
   const supabase = createClient()
   let query = supabase
@@ -60,7 +76,6 @@ export async function getOperators(options?: { limit?: number; category?: string
   if (error) throw new Error(`Error fetching operators: ${error.message}`)
   if (!data) return []
 
-  // La mappatura non è più necessaria se il DB è corretto
   return data as Profile[]
 }
 

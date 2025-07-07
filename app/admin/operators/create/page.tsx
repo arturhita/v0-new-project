@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useTransition } from "react"
+import { useState, useRef, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -32,17 +32,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-
-const categories = [
-  "Tarocchi",
-  "Astrologia",
-  "Cartomanzia",
-  "Numerologia",
-  "Rune",
-  "Cristalloterapia",
-  "Medianità",
-  "Angelologia",
-]
+import { getCategoriesForAdmin } from "@/lib/actions/operator.actions"
 
 const availabilitySlots = ["09:00-12:00", "12:00-15:00", "15:00-18:00", "18:00-21:00", "21:00-24:00"]
 
@@ -61,6 +51,15 @@ export default function CreateOperatorPage() {
   const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
+  const [availableCategories, setAvailableCategories] = useState<string[]>([])
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const categories = await getCategoriesForAdmin()
+      setAvailableCategories(categories)
+    }
+    fetchCategories()
+  }, [])
 
   const [operator, setOperator] = useState({
     fullName: "",
@@ -101,7 +100,6 @@ export default function CreateOperatorPage() {
     event.preventDefault()
     startTransition(async () => {
       try {
-        console.log("Invio dati al server:", operator)
         const response = await fetch("/api/operators/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -109,7 +107,6 @@ export default function CreateOperatorPage() {
         })
 
         const result = await response.json()
-        console.log("Risposta dal server:", result)
 
         if (!response.ok) {
           throw new Error(result.message || `Errore del server: ${response.status}`)
@@ -120,12 +117,10 @@ export default function CreateOperatorPage() {
           description: result.message,
         })
 
-        // Naviga e poi forza l'aggiornamento della pagina di destinazione
         router.push("/admin/operators")
         router.refresh()
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
-        console.error("Errore durante la sottomissione:", errorMessage)
         toast({
           title: "Errore nella Creazione",
           description: errorMessage,
@@ -197,7 +192,6 @@ export default function CreateOperatorPage() {
     const file = event.target.files?.[0]
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        // 2MB limit
         toast({
           title: "File troppo grande",
           description: "L'immagine non deve superare i 2MB.",
@@ -420,8 +414,11 @@ export default function CreateOperatorPage() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Categorie (almeno una) *</Label>
+                {availableCategories.length === 0 && (
+                  <p className="text-sm text-slate-500 mt-2">Caricamento categorie...</p>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                  {categories.map((category) => (
+                  {availableCategories.map((category) => (
                     <div key={category} className="flex items-center space-x-2">
                       <Checkbox
                         id={category}

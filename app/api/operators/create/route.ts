@@ -57,10 +57,16 @@ export async function POST(request: Request) {
     // 3. Conversione Categorie in UUID
     const { data: categoryData, error: categoryError } = await supabaseAdmin
       .from("categories")
-      .select("id")
+      .select("id, name")
       .in("name", data.categories)
-    if (categoryError || categoryData.length !== data.categories.length) {
-      throw new Error("Una o più categorie selezionate non sono valide.")
+
+    if (categoryError) {
+      throw new Error(`Errore DB recupero categorie: ${categoryError.message}`)
+    }
+    if (categoryData.length !== data.categories.length) {
+      const foundNames = categoryData.map((c) => c.name)
+      const notFoundNames = data.categories.filter((c) => !foundNames.includes(c))
+      throw new Error(`Le seguenti categorie non sono valide o non esistono: ${notFoundNames.join(", ")}`)
     }
     const categoryUuids = categoryData.map((c) => c.id)
     console.log("[3/5] Categorie convertite in UUIDs.")
