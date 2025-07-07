@@ -21,9 +21,6 @@ export function NavClient({ navItems }: NavClientProps) {
   return (
     <>
       {navItems.map((item) => {
-        // This logic is much cleaner and correct.
-        // The main dashboard link is active only on exact match.
-        // Other links are active if the current path starts with their href.
         const isActive =
           (item.href === "/dashboard/operator" && pathname === item.href) ||
           (item.href !== "/dashboard/operator" && pathname.startsWith(item.href))
@@ -33,11 +30,14 @@ export function NavClient({ navItems }: NavClientProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:bg-gray-800 hover:text-white",
-              isActive && "bg-gray-800 text-white shadow-inner",
+              "flex items-center gap-3 rounded-r-lg px-4 py-2.5 text-sm font-medium text-gray-300 transition-all duration-200 ease-in-out hover:bg-slate-800/60 hover:text-white",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              isActive
+                ? "bg-primary/10 text-white border-l-4 border-primary -ml-1 pl-5 font-semibold"
+                : "border-l-4 border-transparent",
             )}
           >
-            <item.icon className="h-5 w-5" />
+            <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
             <span>{item.label}</span>
           </Link>
         )
