@@ -1,164 +1,174 @@
 "use client"
 
 import type React from "react"
-
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import type { User, AuthChangeEvent, Session } from "@supabase/supabase-js"
-import type { Profile } from "@/types/database"
+import type { SupabaseClient, User as SupabaseUser, Session, AuthChangeEvent } from "@supabase/supabase-js"
+import type { Database, Tables } from "@/types/database"
 
-type AuthContextType = {
-  user: User | null
-  profile: Profile | null
+export type UserProfile = SupabaseUser & Tables<"profiles"> & { operator_details: Tables<"operator_details"> | null }
+
+interface AuthContextType {
+  user: UserProfile | null
   loading: boolean
-  login: (credentials: { email: string; password: string }) => Promise<void>
-  register: (credentials: {
-    email: string
-    password: string
-    name: string
-    role: "client" | "operator"
-  }) => Promise<void>
+  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; error?: string }>
+  register: (data: any) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
+  isAuthenticated: boolean
+  supabase: SupabaseClient<Database>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const pathname = usePathname()
-  const supabase = createClient()
 
-  const fetchUser = useCallback(
-    async (currentUser: User | null) => {
-      if (currentUser) {
-        console.log("Fetching profile for user:", currentUser.id)
-        try {
-          const { data: profileData, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", currentUser.id)
-            .single()
+  const fetchUserProfile = useCallback(
+    async (sessionUser: SupabaseUser): Promise<UserProfile | null> => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*, operator_details(*)")
+        .eq("id", sessionUser.id)
+        .single()
 
-          if (error) {
-            console.error("Error fetching profile:", error.message)
-            throw error
-          }
-
-          console.log("Profile fetched successfully:", profileData)
-          setProfile(profileData)
-          setUser(currentUser)
-        } catch (error) {
-          console.error("Caught an error in fetchUser:", error)
-          // In case of error, logout to clear state
-          await supabase.auth.signOut()
-          setUser(null)
-          setProfile(null)
-        }
-      } else {
-        setUser(null)
-        setProfile(null)
+      if (error) {
+        console.error("Error fetching profile:", error.message)
+        await supabase.auth.signOut()
+        return null
       }
-      setLoading(false)
+
+      if (profile) {
+        const operatorDetails = Array.isArray(profile.operator_details)
+          ? (profile.operator_details[0] ?? null)
+          : profile.operator_details
+
+        return {
+          ...sessionUser,
+          ...profile,
+          operator_details: operatorDetails,
+        }
+      }
+      return null
     },
     [supabase],
   )
 
   useEffect(() => {
-    const getSession = async () => {
+    setLoading(true)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      console.log(`Auth event: ${event}`)
+      if (session?.user) {
+        const fullUserProfile = await fetchUserProfile(session.user)
+        setUser(fullUserProfile)
+        if (event === "SIGNED_IN" && fullUserProfile) {
+          switch (fullUserProfile.role) {
+            case "admin":
+              router.push("/admin/dashboard")
+              break
+            case "operator":
+              router.push("/dashboard/operator")
+              break
+            case "client":
+              router.push("/dashboard/client")
+              break
+            default:
+              router.push("/")
+          }
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    // Check initial session
+    const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      await fetchUser(session?.user ?? null)
+      if (session?.user) {
+        const fullUserProfile = await fetchUserProfile(session.user)
+        setUser(fullUserProfile)
+      }
+      setLoading(false)
     }
-    getSession()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        console.log("Auth state changed:", event)
-        await fetchUser(session?.user ?? null)
-        if (event === "SIGNED_IN") {
-          const userRole = session?.user?.user_metadata?.role || profile?.role
-          if (userRole === "admin") {
-            router.push("/admin/dashboard")
-          } else if (userRole === "operator") {
-            router.push("/dashboard/operator")
-          } else {
-            router.push("/dashboard/client")
-          }
-        } else if (event === "SIGNED_OUT") {
-          if (!["/login", "/register", "/forgot-password", "/update-password"].includes(pathname)) {
-            router.push("/")
-          }
-        }
-      },
-    )
+    getInitialSession()
 
     return () => {
-      authListener?.subscription.unsubscribe()
+      subscription.unsubscribe()
     }
-  }, [fetchUser, supabase.auth, router, pathname, profile?.role])
+  }, [fetchUserProfile, router, supabase.auth])
 
-  const login = async (credentials: { email: string; password: string }) => {
+  const login = async (credentials: { email: string; password: string }): Promise<{
+    success: boolean
+    error?: string
+  }> => {
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword(credentials)
-    if (error) {
-      console.error("Login error:", error.message)
-      alert(`Errore di accesso: ${error.message}`)
-    }
-    // The onAuthStateChange listener will handle redirection
+    // onAuthStateChange will handle setting user and redirecting
     setLoading(false)
+    if (error) {
+      console.error("Login error:", error)
+      return { success: false, error: "Credenziali non valide." }
+    }
+    return { success: true }
   }
 
-  const register = async (credentials: {
-    email: string
-    password: string
-    name: string
-    role: "client" | "operator"
-  }) => {
+  const register = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
-    const { email, password, name, role } = credentials
+    const { email, password, name, role, acceptTerms } = data
+    if (!acceptTerms) {
+      setLoading(false)
+      return { success: false, error: "Devi accettare i termini e le condizioni." }
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           name,
-          role,
+          role: role || "client",
         },
       },
     })
-    if (error) {
-      console.error("Registration error:", error.message)
-      alert(`Errore di registrazione: ${error.message}`)
-    } else {
-      alert("Registrazione avvenuta con successo! Controlla la tua email per confermare l'account.")
-      router.push("/login")
-    }
     setLoading(false)
+    if (error) {
+      console.error("Register error:", error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
   }
 
   const logout = async () => {
-    setLoading(true)
     await supabase.auth.signOut()
     setUser(null)
-    setProfile(null)
-    setLoading(false)
     router.push("/")
   }
 
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, login, register, logout }}>{children}</AuthContext.Provider>
-  )
+  const value: AuthContextType = {
+    user,
+    login,
+    register,
+    logout,
+    loading,
+    isAuthenticated: !!user,
+    supabase,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth deve essere usato all'interno di AuthProvider")
   }
   return context
 }

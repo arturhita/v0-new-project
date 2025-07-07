@@ -4,28 +4,24 @@ import type React from "react"
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth, type UserProfile } from "@/contexts/auth-context"
+import { useAuth } from "@/contexts/auth-context"
 import { Loader2 } from "lucide-react"
 
-interface ProtectedRouteProps {
+export function ProtectedRoute({
+  children,
+  allowedRoles,
+}: {
   children: React.ReactNode
-  allowedRoles?: Array<UserProfile["role"]>
-}
-
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { isAuthenticated, loading, user } = useAuth()
+  allowedRoles: Array<"client" | "operator" | "admin">
+}) {
+  const { user, loading, isAuthenticated } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (loading) return // Aspetta che il caricamento dello stato di autenticazione sia finito
-
-    if (!isAuthenticated) {
+    if (!loading && !isAuthenticated) {
       router.push("/login")
-      return
-    }
-
-    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-      // Se l'utente non ha il ruolo corretto, reindirizzalo alla sua dashboard di default
+    } else if (!loading && isAuthenticated && user && !allowedRoles.includes(user.role)) {
+      // Utente loggato ma con ruolo non autorizzato, reindirizza alla sua dashboard
       switch (user.role) {
         case "admin":
           router.push("/admin/dashboard")
@@ -40,16 +36,24 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
           router.push("/")
       }
     }
-  }, [isAuthenticated, loading, user, router, allowedRoles])
+  }, [user, loading, isAuthenticated, allowedRoles, router])
 
-  if (loading || !isAuthenticated || (allowedRoles && user && !allowedRoles.includes(user.role))) {
-    // Mostra un loader mentre si verifica lo stato o si reindirizza
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      <div className="flex h-screen w-full items-center justify-center bg-gray-100">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     )
   }
 
-  return <>{children}</>
+  if (isAuthenticated && user && allowedRoles.includes(user.role)) {
+    return <>{children}</>
+  }
+
+  // Mostra il loader anche durante il reindirizzamento per evitare flash di contenuto
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-gray-100">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+    </div>
+  )
 }
