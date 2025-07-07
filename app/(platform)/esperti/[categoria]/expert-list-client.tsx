@@ -27,7 +27,7 @@ export function ExpertListClient({ initialOperators, categoryDetails }: ExpertLi
     if (searchTerm) {
       searchedOperators = initialOperators.filter(
         (op) =>
-          op.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          op.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           op.headline?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
@@ -35,7 +35,7 @@ export function ExpertListClient({ initialOperators, categoryDetails }: ExpertLi
     // 2. Filtra per stato online
     let statusFilteredOperators = searchedOperators
     if (onlineStatusFilter === "online") {
-      statusFilteredOperators = searchedOperators.filter((op) => op.isOnline)
+      statusFilteredOperators = searchedOperators.filter((op) => op.is_online)
     }
 
     // 3. Ordina per prezzo
@@ -44,7 +44,7 @@ export function ExpertListClient({ initialOperators, categoryDetails }: ExpertLi
       const getPrice = (op: OperatorCardData) => {
         const chatService = op.services.find((s) => s.type === "chat")
         const callService = op.services.find((s) => s.type === "call")
-        return chatService?.price ?? callService?.price ?? 999
+        return chatService?.price_per_minute ?? callService?.price_per_minute ?? 999
       }
 
       sortedOperators.sort((a, b) => {

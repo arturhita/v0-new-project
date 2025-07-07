@@ -4,11 +4,39 @@ import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/types/database"
 import { revalidatePath } from "next/cache"
 
-export type OperatorWithServices = Database["public"]["Tables"]["profiles"]["Row"] & {
+// DB type: The raw data structure returned by Supabase, including the nested reviews array.
+type OperatorFromDB = Database["public"]["Tables"]["profiles"]["Row"] & {
   services: Array<Database["public"]["Tables"]["services"]["Row"]>
+  reviews: Array<{ rating: number }>
 }
 
-// Definizione del tipo per i dati del form di creazione operatore
+// Component type: The data structure the component expects, with calculated values.
+export type OperatorCardData = Database["public"]["Tables"]["profiles"]["Row"] & {
+  services: Array<Database["public"]["Tables"]["services"]["Row"]>
+  averageRating: number
+  reviewsCount: number
+}
+
+// Helper function to transform raw DB data into the structure needed by components.
+function transformOperatorData(operators: OperatorFromDB[]): OperatorCardData[] {
+  if (!operators) {
+    return []
+  }
+  return operators.map((op) => {
+    const reviewsCount = op.reviews?.length ?? 0
+    const averageRating = reviewsCount > 0 ? op.reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewsCount : 0
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { reviews, ...rest } = op
+
+    return {
+      ...rest,
+      averageRating,
+      reviewsCount,
+    }
+  })
+}
+
 export type CreateOperatorData = {
   name: string
   surname: string
@@ -32,11 +60,10 @@ export type CreateOperatorData = {
 export async function createOperator(operatorData: CreateOperatorData) {
   const supabase = createClient()
 
-  // 1. Creare l'utente in auth.users usando i privilegi di admin
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email: operatorData.email,
-    password: "default-password-change-me", // Imposta una password di default sicura
-    email_confirm: true, // L'admin lo crea, quindi è confermato
+    password: "default-password-change-me",
+    email_confirm: true,
     user_metadata: {
       full_name: `${operatorData.name} ${operatorData.surname}`,
     },
@@ -49,30 +76,26 @@ export async function createOperator(operatorData: CreateOperatorData) {
 
   const userId = authData.user.id
 
-  // 2. Il trigger 'handle_new_user' ha già creato una riga base in 'profiles'.
-  //    Ora la aggiorniamo con tutti i dati specifici dell'operatore.
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
       role: "operator",
-      full_name: operatorData.stageName, // Il nome pubblico è il nome d'arte
+      full_name: operatorData.stageName,
       bio: operatorData.bio,
-      specializations: operatorData.categories, // Usiamo le categorie come specializzazioni iniziali
+      specializations: operatorData.categories,
       phone_number: operatorData.phone,
       commission_rate: Number.parseFloat(operatorData.commission),
-      application_status: "approved", // Creato da admin, quindi approvato
+      application_status: "approved",
       is_visible: true,
     })
     .eq("id", userId)
 
   if (profileError) {
     console.error("Profile Error:", profileError)
-    // Potremmo voler cancellare l'utente auth creato se l'update del profilo fallisce
     await supabase.auth.admin.deleteUser(userId)
     return { success: false, message: `Errore Profilo: ${profileError.message}` }
   }
 
-  // 3. Inserire i servizi per l'operatore
   const servicesToInsert = []
   if (operatorData.services.chatEnabled) {
     servicesToInsert.push({
@@ -104,7 +127,7 @@ export async function createOperator(operatorData: CreateOperatorData) {
 
     if (servicesError) {
       console.error("Services Error:", servicesError)
-      await supabase.auth.admin.deleteUser(userId) // Cleanup
+      await supabase.auth.admin.deleteUser(userId)
       return { success: false, message: `Errore Servizi: ${servicesError.message}` }
     }
   }
@@ -113,12 +136,11 @@ export async function createOperator(operatorData: CreateOperatorData) {
   return { success: true, message: "Operatore creato con successo." }
 }
 
-// Le altre funzioni rimangono invariate
-export async function getApprovedOperators(): Promise<OperatorWithServices[]> {
+export async function getApprovedOperators(): Promise<OperatorCardData[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, services(*)")
+    .select("*, services(*), reviews(rating)")
     .eq("role", "operator")
     .eq("application_status", "approved")
     .eq("is_visible", true)
@@ -128,14 +150,14 @@ export async function getApprovedOperators(): Promise<OperatorWithServices[]> {
     throw new Error(`Error fetching approved operators: ${error.message}`)
   }
 
-  return data as OperatorWithServices[]
+  return transformOperatorData(data as OperatorFromDB[])
 }
 
-export async function getOperatorsByCategory(category: string): Promise<OperatorWithServices[]> {
+export async function getOperatorsByCategory(category: string): Promise<OperatorCardData[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, services(*)")
+    .select("*, services(*), reviews(rating)")
     .eq("role", "operator")
     .eq("application_status", "approved")
     .eq("is_visible", true)
@@ -146,14 +168,14 @@ export async function getOperatorsByCategory(category: string): Promise<Operator
     throw new Error(`Error fetching operators by category: ${error.message}`)
   }
 
-  return data as OperatorWithServices[]
+  return transformOperatorData(data as OperatorFromDB[])
 }
 
-export async function getOperatorById(operatorId: string): Promise<OperatorWithServices | null> {
+export async function getOperatorById(operatorId: string): Promise<OperatorCardData | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, services(*)")
+    .select("*, services(*), reviews(rating)")
     .eq("id", operatorId)
     .eq("role", "operator")
     .single()
@@ -165,6 +187,8 @@ export async function getOperatorById(operatorId: string): Promise<OperatorWithS
     console.error("Error fetching operator by ID:", error.message)
     throw new Error(`Error fetching operator by ID: ${error.message}`)
   }
+  if (!data) return null
 
-  return data as OperatorWithServices
+  const transformed = transformOperatorData([data as OperatorFromDB])
+  return transformed[0]
 }
