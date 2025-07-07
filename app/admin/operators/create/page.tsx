@@ -1,10 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,7 +32,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { createOperator, type OperatorState } from "@/lib/actions/operator.actions"
+import { createOperator } from "@/lib/actions/operator.actions"
 
 const categories = [
   "Tarocchi",
@@ -59,37 +57,11 @@ const weekDays = [
   { key: "sunday", label: "Domenica" },
 ]
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button
-      size="lg"
-      type="submit"
-      disabled={pending}
-      className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
-    >
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Salvataggio...
-        </>
-      ) : (
-        <>
-          <Save className="mr-2 h-5 w-5" />
-          Crea Operatore
-        </>
-      )}
-    </Button>
-  )
-}
-
 export default function CreateOperatorPage() {
   const router = useRouter()
   const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-
-  const initialState: OperatorState = { message: null, errors: {}, success: false }
-  const [state, dispatch] = useActionState(createOperator, initialState)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [operator, setOperator] = useState({
     fullName: "",
@@ -100,7 +72,7 @@ export default function CreateOperatorPage() {
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
-    avatarUrl: "", // Questo conterrà il Data URL base64
+    avatarUrl: "", // Data URL base64
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -126,22 +98,42 @@ export default function CreateOperatorPage() {
   const [newSpecialty, setNewSpecialty] = useState("")
   const [showPreview, setShowPreview] = useState(false)
 
-  useEffect(() => {
-    if (state.success) {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setIsSubmitting(true)
+
+    // Trasforma i prezzi in numeri prima di inviare
+    const operatorData = {
+      ...operator,
+      services: {
+        chatEnabled: operator.services.chatEnabled,
+        chatPrice: Number.parseFloat(operator.services.chatPrice) || 0,
+        callEnabled: operator.services.callEnabled,
+        callPrice: Number.parseFloat(operator.services.callPrice) || 0,
+        emailEnabled: operator.services.emailEnabled,
+        emailPrice: Number.parseFloat(operator.services.emailPrice) || 0,
+      },
+      commission: Number.parseInt(operator.commission, 10) || 0,
+    }
+
+    const result = await createOperator(operatorData)
+
+    setIsSubmitting(false)
+
+    if (result.success) {
       toast({
         title: "Successo!",
-        description: state.message,
+        description: result.message,
       })
       router.push("/admin/operators")
-    } else if (state.message && !state.success && state.errors) {
-      // Mostra solo se ci sono errori, per evitare toast doppi
+    } else {
       toast({
         title: "Errore nella Creazione",
-        description: state.message,
+        description: result.message,
         variant: "destructive",
       })
     }
-  }, [state, router, toast])
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -285,8 +277,7 @@ export default function CreateOperatorPage() {
   )
 
   return (
-    <form action={dispatch} className="space-y-6 p-4 md:p-6">
-      <input type="hidden" name="avatarUrl" value={operator.avatarUrl} />
+    <form onSubmit={handleSubmit} className="space-y-6 p-4 md:p-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/admin/operators">
@@ -359,9 +350,6 @@ export default function CreateOperatorPage() {
                         onChange={handleInputChange}
                         required
                       />
-                      {state.errors?.fullName && (
-                        <p className="text-sm text-red-500 mt-1">{state.errors.fullName[0]}</p>
-                      )}
                     </div>
                     <div>
                       <Label htmlFor="stageName">Nome d'Arte *</Label>
@@ -372,9 +360,6 @@ export default function CreateOperatorPage() {
                         onChange={handleInputChange}
                         required
                       />
-                      {state.errors?.stageName && (
-                        <p className="text-sm text-red-500 mt-1">{state.errors.stageName[0]}</p>
-                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -388,7 +373,6 @@ export default function CreateOperatorPage() {
                         onChange={handleInputChange}
                         required
                       />
-                      {state.errors?.email && <p className="text-sm text-red-500 mt-1">{state.errors.email[0]}</p>}
                     </div>
                     <div>
                       <Label htmlFor="password">Password Temporanea *</Label>
@@ -400,9 +384,6 @@ export default function CreateOperatorPage() {
                         onChange={handleInputChange}
                         required
                       />
-                      {state.errors?.password && (
-                        <p className="text-sm text-red-500 mt-1">{state.errors.password[0]}</p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -442,8 +423,6 @@ export default function CreateOperatorPage() {
                     <div key={category} className="flex items-center space-x-2">
                       <Checkbox
                         id={category}
-                        name="categories"
-                        value={category}
                         checked={operator.categories.includes(category)}
                         onCheckedChange={() => handleCategoryToggle(category)}
                       />
@@ -453,7 +432,6 @@ export default function CreateOperatorPage() {
                     </div>
                   ))}
                 </div>
-                {state.errors?.categories && <p className="text-sm text-red-500 mt-1">{state.errors.categories[0]}</p>}
               </div>
               <div>
                 <Label>Tag Aggiuntivi</Label>
@@ -465,7 +443,6 @@ export default function CreateOperatorPage() {
                       className="text-sm py-1 px-3 bg-sky-100 text-sky-700 border border-sky-300"
                     >
                       {spec}
-                      <input type="hidden" name="specialties" value={spec} />
                       <button
                         type="button"
                         onClick={() => handleRemoveSpecialty(spec)}
@@ -515,7 +492,6 @@ export default function CreateOperatorPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Input
-                    name="service.chat.price"
                     type="number"
                     step="0.10"
                     min="0"
@@ -527,7 +503,6 @@ export default function CreateOperatorPage() {
                   <span className="text-sm text-slate-500">€/min</span>
                   <Switch
                     id="service.chat.enabled"
-                    name="service.chat.enabled"
                     checked={operator.services.chatEnabled}
                     onCheckedChange={(checked) => handleServiceChange("chat", "Enabled", checked)}
                   />
@@ -542,7 +517,6 @@ export default function CreateOperatorPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Input
-                    name="service.call.price"
                     type="number"
                     step="0.10"
                     min="0"
@@ -554,7 +528,6 @@ export default function CreateOperatorPage() {
                   <span className="text-sm text-slate-500">€/min</span>
                   <Switch
                     id="service.call.enabled"
-                    name="service.call.enabled"
                     checked={operator.services.callEnabled}
                     onCheckedChange={(checked) => handleServiceChange("call", "Enabled", checked)}
                   />
@@ -569,7 +542,6 @@ export default function CreateOperatorPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Input
-                    name="service.email.price"
                     type="number"
                     step="0.50"
                     min="0"
@@ -581,7 +553,6 @@ export default function CreateOperatorPage() {
                   <span className="text-sm text-slate-500">€</span>
                   <Switch
                     id="service.email.enabled"
-                    name="service.email.enabled"
                     checked={operator.services.emailEnabled}
                     onCheckedChange={(checked) => handleServiceChange("email", "Enabled", checked)}
                   />
@@ -607,8 +578,6 @@ export default function CreateOperatorPage() {
                       <div key={slot} className="flex items-center space-x-2">
                         <Checkbox
                           id={`${day.key}-${slot}`}
-                          name={`availability.${day.key}`}
-                          value={slot}
                           checked={operator.availability[day.key as keyof typeof operator.availability].includes(slot)}
                           onCheckedChange={() => handleAvailabilityToggle(day.key, slot)}
                         />
@@ -632,7 +601,6 @@ export default function CreateOperatorPage() {
               <div>
                 <Label htmlFor="status">Stato</Label>
                 <Select
-                  name="status"
                   value={operator.status}
                   onValueChange={(value: "Attivo" | "In Attesa" | "Sospeso") =>
                     setOperator((prev) => ({ ...prev, status: value }))
@@ -663,7 +631,6 @@ export default function CreateOperatorPage() {
               <div className="flex items-center space-x-2 pb-1">
                 <Switch
                   id="isOnline"
-                  name="isOnline"
                   checked={operator.isOnline}
                   onCheckedChange={(checked) => setOperator((prev) => ({ ...prev, isOnline: checked }))}
                 />
@@ -687,7 +654,24 @@ export default function CreateOperatorPage() {
         <Button type="button" variant="outline" asChild>
           <Link href="/admin/operators">Annulla</Link>
         </Button>
-        <SubmitButton />
+        <Button
+          size="lg"
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Salvataggio...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-5 w-5" />
+              Crea Operatore
+            </>
+          )}
+        </Button>
       </div>
     </form>
   )

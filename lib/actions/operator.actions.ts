@@ -6,208 +6,138 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/contexts/auth-context"
 
-// Schema di validazione per i dati del form
-const OperatorSchema = z.object({
-  email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
-  password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
-  fullName: z.string().min(3, { message: "Il nome completo è obbligatorio." }),
-  stageName: z.string().min(3, { message: "Il nome d'arte è obbligatorio." }),
+// Schema Zod per l'oggetto che ci aspettiamo dal client
+const OperatorInputSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().min(3),
+  stageName: z.string().min(3),
   phone: z.string().optional(),
   bio: z.string().optional(),
-  commission: z.coerce.number().min(0).max(100).default(15),
+  commission: z.coerce.number(),
   status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
-  isOnline: z.preprocess((val) => val === "on", z.boolean()),
-  categories: z.string().array().min(1, { message: "Seleziona almeno una categoria." }),
-  avatarUrl: z.string().optional(), // Per il data URL dell'avatar
+  isOnline: z.boolean(),
+  categories: z.string().array().min(1),
+  specialties: z.string().array(),
+  services: z.object({
+    chatEnabled: z.boolean(),
+    chatPrice: z.coerce.number(),
+    callEnabled: z.boolean(),
+    callPrice: z.coerce.number(),
+    emailEnabled: z.boolean(),
+    emailPrice: z.coerce.number(),
+  }),
+  availability: z.any(), // Per ora lo lasciamo flessibile
+  avatarUrl: z.string().optional(), // Data URL
 })
 
-export type OperatorState = {
-  errors?: {
-    email?: string[]
-    password?: string[]
-    fullName?: string[]
-    stageName?: string[]
-    categories?: string[]
-    server?: string[]
-  }
-  message?: string | null
-  success?: boolean
-}
-
-async function uploadAndLinkAvatar(dataUrl: string, userId: string, supabaseAdmin: any) {
-  console.log(`[Avatar] Starting upload for user ${userId}.`)
-  if (!dataUrl || !dataUrl.startsWith("data:image")) {
-    console.log("[Avatar] No valid data URL. Skipping.")
-    return
-  }
-
-  try {
-    const mimeType = dataUrl.match(/data:(.*);/)?.[1]
-    const extension = mimeType?.split("/")[1] || "png"
-    const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
-    const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
-    const fileBuffer = Buffer.from(base64Str, "base64")
-
-    console.log(`[Avatar] Uploading to: ${filePath}`)
-    const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
-      contentType: mimeType,
-      upsert: true,
-    })
-
-    if (uploadError) {
-      // Lancia un errore per essere catturato dal blocco catch sottostante
-      throw new Error(`Storage Upload Error: ${uploadError.message}`)
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
-    console.log(`[Avatar] Upload success. Public URL: ${publicUrl}`)
-
-    // Aggiorna il profilo con l'URL dell'avatar
-    const { error: updateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ profile_image_url: publicUrl })
-      .eq("id", userId)
-
-    if (updateError) {
-      throw new Error(`DB Update Error: ${updateError.message}`)
-    }
-    console.log(`[Avatar] Profile updated successfully for user ${userId}.`)
-  } catch (error) {
-    // Se l'upload o l'aggiornamento falliscono, registriamo l'errore ma non blocchiamo il successo della creazione.
-    console.error(`[Avatar] FAILED for user ${userId}:`, error)
-    // Non rilanciare l'errore qui per non far fallire l'intera operazione.
-  }
-}
-
-export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
-  console.log("--- [Action Start] --- createOperator action initiated.")
+// La funzione ora accetta un singolo oggetto
+export async function createOperator(operatorData: z.infer<typeof OperatorInputSchema>) {
+  console.log("--- [Action Start] createOperator con oggetto JSON ---")
   let newUserId: string | null = null
-  let stageNameForMessage = ""
 
   try {
+    // 1. Validazione dei dati ricevuti
+    const validation = OperatorInputSchema.safeParse(operatorData)
+    if (!validation.success) {
+      throw new Error(`Errore di validazione: ${validation.error.flatten().fieldErrors}`)
+    }
+    const { avatarUrl, ...data } = validation.data
+    console.log("Step 1: Dati validati con successo.")
+
     const supabaseAdmin = createSupabaseAdminClient()
 
-    const validatedFields = OperatorSchema.safeParse({
-      email: formData.get("email"),
-      password: formData.get("password"),
-      fullName: formData.get("fullName"),
-      stageName: formData.get("stageName"),
-      phone: formData.get("phone"),
-      bio: formData.get("bio"),
-      commission: formData.get("commission"),
-      status: formData.get("status"),
-      isOnline: formData.get("isOnline"),
-      categories: formData.getAll("categories"),
-      avatarUrl: formData.get("avatarUrl"),
-    })
-
-    if (!validatedFields.success) {
-      return {
-        errors: validatedFields.error.flatten().fieldErrors,
-        message: "Errore di validazione. Controlla i campi obbligatori.",
-        success: false,
-      }
-    }
-
-    const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
-    stageNameForMessage = stageName
-
-    // 1. Creazione dell'utente in Supabase Auth
+    // 2. Creazione utente in Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
+      email: data.email,
+      password: data.password,
       email_confirm: true,
-      user_metadata: { role: "operator", full_name: fullName, stage_name: stageName },
+      user_metadata: { role: "operator", full_name: data.fullName, stage_name: data.stageName },
     })
 
     if (authError) {
-      if (authError.message.includes("User already registered")) {
-        return {
-          errors: { email: ["Questo indirizzo email è già registrato."] },
-          success: false,
-          message: "Email già in uso.",
-        }
-      }
       throw new Error(`Errore Auth: ${authError.message}`)
     }
     newUserId = authData.user.id
+    console.log(`Step 2: Utente Auth creato con ID: ${newUserId}`)
 
-    // 2. Estrazione dati complessi dal FormData
-    const specialties = formData.getAll("specialties") as string[]
-    const services = {
-      chatEnabled: formData.get("service.chat.enabled") === "on",
-      chatPrice: Number(formData.get("service.chat.price") || "0"),
-      callEnabled: formData.get("service.call.enabled") === "on",
-      callPrice: Number(formData.get("service.call.price") || "0"),
-      emailEnabled: formData.get("service.email.enabled") === "on",
-      emailPrice: Number(formData.get("service.email.price") || "0"),
-    }
-    const availability = {
-      monday: formData.getAll("availability.monday") as string[],
-      tuesday: formData.getAll("availability.tuesday") as string[],
-      wednesday: formData.getAll("availability.wednesday") as string[],
-      thursday: formData.getAll("availability.thursday") as string[],
-      friday: formData.getAll("availability.friday") as string[],
-      saturday: formData.getAll("saturday") as string[],
-      sunday: formData.getAll("sunday") as string[],
-    }
-
-    // 3. Inserimento del profilo SENZA avatar
+    // 3. Inserimento profilo nel DB (senza avatar per ora)
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
-      email,
+      email: data.email,
       role: "operator",
-      full_name: fullName,
-      stage_name: stageName,
-      phone: details.phone,
-      bio: details.bio,
-      commission_rate: details.commission,
-      status: details.status,
-      is_online: details.isOnline,
-      main_discipline: details.categories[0],
-      specialties,
-      service_prices: services,
-      availability_schedule: availability,
-      profile_image_url: null, // Inizialmente nullo
+      full_name: data.fullName,
+      stage_name: data.stageName,
+      phone: data.phone,
+      bio: data.bio,
+      commission_rate: data.commission,
+      status: data.status,
+      is_online: data.isOnline,
+      main_discipline: data.categories[0],
+      specialties: data.specialties,
+      service_prices: data.services,
+      availability_schedule: data.availability,
+      profile_image_url: null,
     })
 
     if (profileError) {
-      throw new Error(`Errore DB durante la creazione del profilo: ${profileError.message}`)
+      throw new Error(`Errore DB: ${profileError.message}`)
+    }
+    console.log("Step 3: Profilo creato nel database.")
+
+    // 4. Gestione Avatar (operazione secondaria)
+    if (avatarUrl) {
+      console.log("Step 4: Inizio upload avatar...")
+      // Non blocchiamo il successo per l'avatar, ma lo proviamo
+      uploadAndLinkAvatar(avatarUrl, newUserId, supabaseAdmin).catch((err) => {
+        console.error("Upload avatar fallito in background:", err)
+      })
     }
 
-    // 4. Tenta di caricare l'avatar come operazione separata e non bloccante
-    await uploadAndLinkAvatar(avatarUrl || "", newUserId, supabaseAdmin)
-
-    // 5. Successo
     revalidatePath("/admin/operators")
     revalidatePath("/")
-    return { success: true, message: `Operatore ${stageName} creato con successo! L'avatar verrà processato.` }
+    console.log("--- [Action Success] ---")
+    return { success: true, message: `Operatore ${data.stageName} creato con successo!` }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
-    console.error("--- [Action CATCH] --- An unexpected error occurred.", error)
+    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
+    console.error("--- [Action FAILED] ---", errorMessage)
 
+    // Rollback
     if (newUserId) {
-      console.log(`Rollback: Attempting to delete auth user ${newUserId}...`)
-      try {
-        const supabaseAdminForRollback = createSupabaseAdminClient()
-        await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
-        console.log("Rollback: Success. Auth user deleted.")
-      } catch (rollbackError) {
-        console.error("Rollback: FAILED to delete auth user.", rollbackError)
-      }
+      const supabaseAdminForRollback = createSupabaseAdminClient()
+      await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
+      console.log(`Rollback: Utente Auth ${newUserId} eliminato.`)
     }
 
-    return {
-      errors: { server: [errorMessage] },
-      message: `Operazione fallita: ${errorMessage}`,
-      success: false,
-    }
+    return { success: false, message: errorMessage }
   }
 }
 
-// --- FUNZIONI ESISTENTI ---
+async function uploadAndLinkAvatar(dataUrl: string, userId: string, supabaseAdmin: any) {
+  const mimeType = dataUrl.match(/data:(.*);/)?.[1]
+  const extension = mimeType?.split("/")[1] || "png"
+  const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
+  const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
+  const fileBuffer = Buffer.from(base64Str, "base64")
+
+  const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
+    contentType: mimeType,
+    upsert: true,
+  })
+  if (uploadError) throw new Error(`Storage Upload Error: ${uploadError.message}`)
+
+  const {
+    data: { publicUrl },
+  } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
+
+  const { error: updateError } = await supabaseAdmin
+    .from("profiles")
+    .update({ profile_image_url: publicUrl })
+    .eq("id", userId)
+  if (updateError) throw new Error(`DB Update Error: ${updateError.message}`)
+}
+
+// --- FUNZIONI ESISTENTI (invariate) ---
 
 export async function getAllOperatorsForAdmin() {
   const supabase = createClient()
