@@ -45,6 +45,8 @@ import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-con
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
+import { ProtectedRoute } from "@/components/protected-route"
+import OperatorSidebar from "./_components/operator-sidebar"
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -297,10 +299,17 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
 
 export default function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <OperatorStatusProvider>
-      <ChatRequestProvider>
-        <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
-      </ChatRequestProvider>
-    </OperatorStatusProvider>
+    <ProtectedRoute allowedRoles={["operator"]}>
+      <OperatorStatusProvider>
+        <ChatRequestProvider>
+          <div className="flex min-h-screen bg-muted/40">
+            <OperatorSidebar />
+            <main className="flex-1 p-4 sm:p-6">
+              <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
+            </main>
+          </div>
+        </ChatRequestProvider>
+      </OperatorStatusProvider>
+    </ProtectedRoute>
   )
 }

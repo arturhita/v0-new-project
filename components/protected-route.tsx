@@ -2,64 +2,53 @@
 
 import type React from "react"
 
-import { useAuth } from "@/contexts/auth-context"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth, type UserProfile } from "@/contexts/auth-context"
+import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles?: ("client" | "operator" | "admin")[]
-  redirectTo?: string
+  allowedRoles?: Array<UserProfile["role"]>
 }
 
-export function ProtectedRoute({
-  children,
-  allowedRoles = ["client", "operator", "admin"],
-  redirectTo = "/login",
-}: ProtectedRouteProps) {
-  const { user, loading } = useAuth()
+export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+  const { isAuthenticated, loading, user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push(redirectTo)
-        return
-      }
+    if (loading) return // Aspetta che il caricamento dello stato di autenticazione sia finito
 
-      if (!allowedRoles.includes(user.role)) {
-        // Redirect basato sul ruolo
-        switch (user.role) {
-          case "admin":
-            router.push("/admin/dashboard")
-            break
-          case "operator":
-            router.push("/dashboard/operator")
-            break
-          case "client":
-            router.push("/dashboard/client")
-            break
-          default:
-            router.push("/")
-        }
-        return
+    if (!isAuthenticated) {
+      router.push("/login")
+      return
+    }
+
+    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+      // Se l'utente non ha il ruolo corretto, reindirizzalo alla sua dashboard di default
+      switch (user.role) {
+        case "admin":
+          router.push("/admin/dashboard")
+          break
+        case "operator":
+          router.push("/dashboard/operator")
+          break
+        case "client":
+          router.push("/dashboard/client")
+          break
+        default:
+          router.push("/")
       }
     }
-  }, [user, loading, router, allowedRoles, redirectTo])
+  }, [isAuthenticated, loading, user, router, allowedRoles])
 
-  if (loading) {
+  if (loading || !isAuthenticated || (allowedRoles && user && !allowedRoles.includes(user.role))) {
+    // Mostra un loader mentre si verifica lo stato o si reindirizza
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Caricamento...</p>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     )
-  }
-
-  if (!user || !allowedRoles.includes(user.role)) {
-    return null
   }
 
   return <>{children}</>
