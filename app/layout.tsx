@@ -11,28 +11,26 @@ import CookieBanner from "@/components/cookie-banner"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenza Mistica",
-  description: "La tua guida nel mondo della cartomanzia e astrologia. Connettiti con i migliori esperti.",
+  title: "Moonthir",
+  description: "Consulenza al minuto con i migliori esperti",
     generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="it">
       <body className={inter.className}>
         <AuthProvider>
           <OperatorStatusProvider>
-            <ChatRequestProvider>
-              {children}
-              <Toaster />
-              <CookieBanner />
-            </ChatRequestProvider>
+            <ChatRequestProvider>{children}</ChatRequestProvider>
           </OperatorStatusProvider>
         </AuthProvider>
+        <Toaster />
+        <CookieBanner />
       </body>
     </html>
   )

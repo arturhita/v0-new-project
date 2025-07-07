@@ -135,7 +135,7 @@ FROM public.profiles p
 LEFT JOIN public.operator_details od ON p.id = od.id
 WHERE p.role = 'operator' AND od.id IS NULL;
 
--- Creazione utente admin se non esiste
+-- Creazione utente admin se non esiste (VERSIONE CORRETTA)
 DO $$
 DECLARE
     admin_email TEXT := 'pagamenticonsulenza@gmail.com';
@@ -149,11 +149,11 @@ BEGIN
         VALUES (extensions.uuid_generate_v4(), admin_email, crypt(admin_pass, gen_salt('bf')), now(), '00000000-0000-0000-0000-000000000000', 'authenticated')
         RETURNING id INTO admin_user_id;
 
-        INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-        VALUES (extensions.uuid_generate_v4(), admin_user_id, format('{"sub":"%s","email":"%s"}', admin_user_id, admin_email)::jsonb, 'email', now(), now(), now());
+        -- CORREZIONE FINALE: Aggiunto provider_id (che è l'email stessa)
+        INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+        VALUES (extensions.uuid_generate_v4(), admin_user_id, admin_email, format('{"sub":"%s","email":"%s"}', admin_user_id, admin_email)::jsonb, 'email', now(), now(), now());
     END IF;
 
-    -- Ora che il trigger ha già creato un profilo 'client', lo aggiorniamo a 'admin'.
     INSERT INTO public.profiles (id, email, name, role)
     VALUES (admin_user_id, admin_email, 'Admin', 'admin')
     ON CONFLICT (id) DO UPDATE SET
