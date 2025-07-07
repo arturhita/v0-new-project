@@ -1,16 +1,14 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
+import type { Profile } from "@/types/database"
 
-export interface UserProfile extends SupabaseUser {
-  name: string
-  role: "client" | "operator" | "admin"
-  avatar_url: string | null
-}
+// Uniamo il tipo User di Supabase con il nostro profilo custom
+export type UserProfile = SupabaseUser & Profile
 
 interface AuthContextType {
   user: UserProfile | null
@@ -29,19 +27,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
 
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  const handleAuthStateChange = useCallback(
+    async (event: string, session: any) => {
       setLoading(true)
       if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
-        if (profile) {
+        if (error) {
+          console.error("Error fetching profile:", error)
+          await supabase.auth.signOut()
+          setUser(null)
+        } else if (profile) {
           const currentUser: UserProfile = { ...session.user, ...profile }
           setUser(currentUser)
-          if (_event === "SIGNED_IN") {
+          // Redirect solo al momento del login
+          if (event === "SIGNED_IN" && !pathname.startsWith("/dashboard")) {
             switch (currentUser.role) {
               case "admin":
                 router.push("/admin/dashboard")
@@ -54,36 +56,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 break
             }
           }
-        } else {
-          await supabase.auth.signOut()
-          setUser(null)
-          console.error("Profile not found for user:", session.user.id)
         }
       } else {
         setUser(null)
       }
       setLoading(false)
-    })
+    },
+    [supabase, router, pathname],
+  )
 
+  useEffect(() => {
     const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        if (profile) {
-          setUser({ ...session.user, ...profile })
-        }
+      if (session) {
+        await handleAuthStateChange("INITIAL_SESSION", session)
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     getInitialSession()
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      handleAuthStateChange(event, session)
+    })
+
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [handleAuthStateChange, supabase.auth])
 
   const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
@@ -97,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
-    const { email, password, name, role, acceptTerms } = data
+    const { email, password, name, acceptTerms } = data
     if (!acceptTerms) {
       setLoading(false)
       return { success: false, error: "Devi accettare i termini e le condizioni." }
@@ -107,8 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
       options: {
         data: {
-          name: name,
-          role: role || "client",
+          full_name: name,
         },
       },
     })
@@ -117,8 +121,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.message.includes("User already registered")) {
         return { success: false, error: "Un utente con questa email è già registrato." }
       }
+      console.error("Registration error:", error)
       return { success: false, error: "Errore durante la registrazione. Riprova." }
     }
+    // Non reindirizzare subito, ma mostra un messaggio
     router.push("/login?registration=success")
     return { success: true }
   }

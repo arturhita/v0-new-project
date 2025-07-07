@@ -49,11 +49,10 @@ export default function RegisterPage() {
       name: formData.name,
       email: formData.email,
       password: formData.password,
-      role: "client",
       acceptTerms: formData.acceptTerms,
     })
 
-    if (!result.success) {
+    if (result && !result.success) {
       setError(result.error || "Errore durante la registrazione")
     }
   }
@@ -102,6 +101,7 @@ export default function RegisterPage() {
                   className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                   placeholder="Il tuo nome completo"
                   disabled={loading}
+                  required
                 />
               </div>
             </div>
@@ -120,6 +120,7 @@ export default function RegisterPage() {
                   className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                   placeholder="la-tua-email@esempio.com"
                   disabled={loading}
+                  required
                 />
               </div>
             </div>
@@ -138,6 +139,7 @@ export default function RegisterPage() {
                   className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                   placeholder="Almeno 6 caratteri"
                   disabled={loading}
+                  required
                 />
                 <button
                   type="button"
@@ -164,6 +166,7 @@ export default function RegisterPage() {
                   className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                   placeholder="Ripeti la password"
                   disabled={loading}
+                  required
                 />
                 <button
                   type="button"
@@ -187,7 +190,7 @@ export default function RegisterPage() {
               />
               <label htmlFor="acceptTerms" className="text-sm text-slate-300 leading-relaxed">
                 Accetto i{" "}
-                <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
+                <Link href="/legal/terms-and-conditions" className="text-blue-400 hover:text-blue-300 underline">
                   Termini e Condizioni
                 </Link>
               </label>
