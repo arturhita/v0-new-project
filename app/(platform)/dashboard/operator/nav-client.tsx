@@ -2,46 +2,45 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Home, User, Calendar, DollarSign, FileText, LifeBuoy, Star, Wallet, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { LucideIcon } from "lucide-react"
+import { OperatorStatusToggle } from "@/components/operator-status-toggle"
 
-interface NavItem {
-  href: string
-  label: string
-  icon: LucideIcon
-}
+const navItems = [
+  { href: "/dashboard/operator", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/operator/profile", icon: User, label: "Gestisci Profilo" },
+  { href: "/dashboard/operator/stories", icon: ImageIcon, label: "Gestisci Storie" },
+  { href: "/dashboard/operator/availability", icon: Calendar, label: "Disponibilità" },
+  { href: "/dashboard/operator/earnings", icon: DollarSign, label: "Guadagni" },
+  { href: "/dashboard/operator/payout-settings", icon: Wallet, label: "Impostazioni Pagamento" },
+  { href: "/dashboard/operator/consultations-history", icon: FileText, label: "Storico Consulti" },
+  { href: "/dashboard/operator/reviews", icon: Star, label: "Recensioni" },
+  { href: "/dashboard/operator/support", icon: LifeBuoy, label: "Supporto" },
+]
 
-interface NavClientProps {
-  navItems: NavItem[]
-}
-
-export function NavClient({ navItems }: NavClientProps) {
+export function OperatorNavClient({ isAvailable }: { isAvailable: boolean }) {
   const pathname = usePathname()
 
   return (
-    <>
-      {navItems.map((item) => {
-        const isActive =
-          (item.href === "/dashboard/operator" && pathname === item.href) ||
-          (item.href !== "/dashboard/operator" && pathname.startsWith(item.href))
-
-        return (
+    <div className="flex h-full flex-col">
+      <div className="p-4 border-b border-gray-700">
+        <OperatorStatusToggle initialIsAvailable={isAvailable} />
+      </div>
+      <nav className="flex-1 space-y-1 p-2">
+        {navItems.map((item) => (
           <Link
-            key={item.href}
+            key={item.label}
             href={item.href}
             className={cn(
-              "flex items-center gap-3 rounded-r-lg px-4 py-2.5 text-sm font-medium text-gray-300 transition-all duration-200 ease-in-out hover:bg-slate-800/60 hover:text-white",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              isActive
-                ? "bg-primary/10 text-white border-l-4 border-primary -ml-1 pl-5 font-semibold"
-                : "border-l-4 border-transparent",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-300 transition-all hover:text-white hover:bg-gray-700",
+              pathname === item.href && "bg-gray-700 text-white",
             )}
           >
-            <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
-            <span>{item.label}</span>
+            <item.icon className="h-4 w-4" />
+            {item.label}
           </Link>
-        )
-      })}
-    </>
+        ))}
+      </nav>
+    </div>
   )
 }

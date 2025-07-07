@@ -1,7 +1,8 @@
 "use client"
 
 import { useFormState } from "react-dom"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
+import Image from "next/image"
 import { updateOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { useToast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
@@ -19,19 +20,17 @@ type ProfileData = {
 }
 
 interface OperatorProfileFormProps {
-  profile: ProfileData
+  profileData: ProfileData
   operatorId: string
 }
 
-const initialState = {
-  message: "",
-  success: false,
-}
+const initialState = { message: "", success: false }
 
-export function OperatorProfileForm({ profile, operatorId }: OperatorProfileFormProps) {
+export function OperatorProfileForm({ profileData, operatorId }: OperatorProfileFormProps) {
   const { toast } = useToast()
   const updateProfileWithId = updateOperatorPublicProfile.bind(null, operatorId)
   const [state, formAction] = useFormState(updateProfileWithId, initialState)
+  const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     if (state.message) {
@@ -44,7 +43,30 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
   }, [state, toast])
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form ref={formRef} action={formAction} className="space-y-8">
+      <div className="space-y-4 p-4 rounded-lg border border-gray-700">
+        <Label htmlFor="profile_image" className="text-gray-300">
+          Immagine del Profilo
+        </Label>
+        <div className="flex items-center gap-4">
+          <Image
+            src={profileData.profile_image_url || "/images/placeholder.svg?width=80&height=80"}
+            alt="Avatar attuale"
+            width={80}
+            height={80}
+            className="rounded-full"
+          />
+          <Input
+            id="profile_image"
+            name="profile_image"
+            type="file"
+            accept="image/*"
+            className="bg-gray-900 border-gray-600"
+          />
+          <input type="hidden" name="current_image_url" value={profileData.profile_image_url || ""} />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label htmlFor="stage_name" className="text-gray-300">
@@ -53,7 +75,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
           <Input
             id="stage_name"
             name="stage_name"
-            defaultValue={profile.stage_name || ""}
+            defaultValue={profileData.stage_name || ""}
             className="bg-gray-900 border-gray-600 text-white"
           />
         </div>
@@ -64,7 +86,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
           <Input
             id="main_discipline"
             name="main_discipline"
-            defaultValue={profile.main_discipline || ""}
+            defaultValue={profileData.main_discipline || ""}
             className="bg-gray-900 border-gray-600 text-white"
           />
         </div>
@@ -77,7 +99,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
         <Textarea
           id="bio"
           name="bio"
-          defaultValue={profile.bio || ""}
+          defaultValue={profileData.bio || ""}
           rows={5}
           className="bg-gray-900 border-gray-600 text-white"
         />
@@ -90,7 +112,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
         <Input
           id="specialties"
           name="specialties"
-          defaultValue={profile.specialties?.join(", ") || ""}
+          defaultValue={profileData.specialties?.join(", ") || ""}
           className="bg-gray-900 border-gray-600 text-white"
         />
       </div>
@@ -106,7 +128,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
             name="price_chat"
             type="number"
             step="0.01"
-            defaultValue={profile.service_prices?.chat || 0}
+            defaultValue={profileData.service_prices?.chat || 0}
             className="bg-gray-900 border-gray-600 text-white"
           />
         </div>
@@ -119,7 +141,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
             name="price_call"
             type="number"
             step="0.01"
-            defaultValue={profile.service_prices?.call || 0}
+            defaultValue={profileData.service_prices?.call || 0}
             className="bg-gray-900 border-gray-600 text-white"
           />
         </div>
@@ -132,7 +154,7 @@ export function OperatorProfileForm({ profile, operatorId }: OperatorProfileForm
             name="price_video"
             type="number"
             step="0.01"
-            defaultValue={profile.service_prices?.video || 0}
+            defaultValue={profileData.service_prices?.video || 0}
             className="bg-gray-900 border-gray-600 text-white"
           />
         </div>

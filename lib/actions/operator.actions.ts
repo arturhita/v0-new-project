@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { createSupabaseAdminClient } from "../supabase/admin"
+import { v4 as uuidv4 } from "uuid"
 import type { Profile } from "@/types/database.types"
 
 // ============================================================================
@@ -135,29 +136,50 @@ export async function getOperatorPublicProfile(operatorId: string) {
   return data
 }
 
-export async function updateOperatorPublicProfile(operatorId: string, formData: FormData) {
+export async function updateOperatorPublicProfile(operatorId: string, prevState: any, formData: FormData) {
   const supabase = createClient()
-  const stageName = formData.get("stage_name") as string
+
+  const profileImage = formData.get("profile_image") as File
+  let profileImageUrl = formData.get("current_image_url") as string
+
+  if (profileImage && profileImage.size > 0) {
+    const fileExtension = profileImage.name.split(".").pop()
+    const fileName = `${operatorId}/${uuidv4()}.${fileExtension}`
+
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, profileImage, {
+      upsert: true,
+    })
+
+    if (uploadError) {
+      console.error("Error uploading avatar:", uploadError)
+      return { success: false, message: "Errore durante il caricamento dell'immagine." }
+    }
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(fileName)
+    profileImageUrl = data.publicUrl
+  }
 
   const profileData = {
-    stage_name: stageName,
+    stage_name: formData.get("stage_name") as string,
     bio: formData.get("bio") as string,
     main_discipline: formData.get("main_discipline") as string,
     specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
     service_prices: {
-      chat: Number.parseFloat(formData.get("price_chat") as string),
-      call: Number.parseFloat(formData.get("price_call") as string),
-      video: Number.parseFloat(formData.get("price_video") as string),
+      chat: Number.parseFloat(formData.get("price_chat") as string) || 0,
+      call: Number.parseFloat(formData.get("price_call") as string) || 0,
+      video: Number.parseFloat(formData.get("price_video") as string) || 0,
     },
+    profile_image_url: profileImageUrl,
   }
 
   const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
-  if (error) return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
+
+  if (error) {
+    return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
+  }
 
   revalidatePath("/dashboard/operator/profile")
-  if (stageName) {
-    revalidatePath(`/operator/${stageName}`)
-  }
+  revalidatePath(`/operator/${profileData.stage_name}`)
   return { success: true, message: "Profilo aggiornato con successo!" }
 }
 

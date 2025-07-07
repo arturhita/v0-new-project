@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 import { RequestPayoutButton } from "@/components/request-payout-button"
-import { revalidatePath } from "next/cache"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Terminal } from "lucide-react"
 
 export default async function EarningsPage() {
   const supabase = createClient()
@@ -22,44 +23,44 @@ export default async function EarningsPage() {
   const earningsData = await getOperatorEarnings(user.id)
 
   if (!earningsData) {
-    return <div>Errore nel caricamento dei dati sui guadagni.</div>
+    return (
+      <Alert variant="destructive">
+        <Terminal className="h-4 w-4" />
+        <AlertTitle>Errore</AlertTitle>
+        <AlertDescription>Impossibile caricare i dati sui guadagni. Riprova più tardi.</AlertDescription>
+      </Alert>
+    )
   }
 
   const { balance, total_earned, total_withdrawn, transactions } = earningsData
 
-  const handleRequestPayout = async () => {
-    "use server"
-    await requestPayout(user.id)
-    revalidatePath("/dashboard/operator/earnings")
-  }
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Guadagni e Pagamenti</h1>
+      <h1 className="text-2xl font-bold text-white">Guadagni e Pagamenti</h1>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="bg-gray-800/50 border-gray-700 text-white">
           <CardHeader>
             <CardTitle>Saldo Attuale</CardTitle>
-            <CardDescription>Disponibile per il ritiro</CardDescription>
+            <CardDescription className="text-gray-400">Disponibile per il ritiro</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">€{balance.toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gray-800/50 border-gray-700 text-white">
           <CardHeader>
             <CardTitle>Guadagni Totali</CardTitle>
-            <CardDescription>Dall'inizio della tua attività</CardDescription>
+            <CardDescription className="text-gray-400">Dall'inizio della tua attività</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">€{total_earned.toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gray-800/50 border-gray-700 text-white">
           <CardHeader>
             <CardTitle>Ritirato Totale</CardTitle>
-            <CardDescription>Importo totale già pagato</CardDescription>
+            <CardDescription className="text-gray-400">Importo totale già pagato</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">€{total_withdrawn.toFixed(2)}</p>
@@ -67,34 +68,32 @@ export default async function EarningsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="bg-gray-800/50 border-gray-700 text-white">
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle>Storico Transazioni</CardTitle>
-            <CardDescription>Dettaglio dei tuoi guadagni e pagamenti.</CardDescription>
+            <CardDescription className="text-gray-400">Dettaglio dei tuoi guadagni e pagamenti.</CardDescription>
           </div>
-          <form action={handleRequestPayout} className="mt-4 md:mt-0">
+          <form action={requestPayout.bind(null, user.id)}>
             <RequestPayoutButton balance={balance} />
           </form>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Descrizione</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Importo</TableHead>
+              <TableRow className="border-gray-700">
+                <TableHead className="text-white">Data</TableHead>
+                <TableHead className="text-white">Descrizione</TableHead>
+                <TableHead className="text-white">Tipo</TableHead>
+                <TableHead className="text-right text-white">Importo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transactions && transactions.length > 0 ? (
                 transactions.map((tx: any) => (
-                  <TableRow key={tx.id}>
+                  <TableRow key={tx.id} className="border-gray-700">
                     <TableCell>
-                      {format(new Date(tx.created_at), "d MMM yyyy", {
-                        locale: it,
-                      })}
+                      {tx.created_at ? format(new Date(tx.created_at), "d MMM yyyy", { locale: it }) : "N/A"}
                     </TableCell>
                     <TableCell className="font-medium">{tx.description}</TableCell>
                     <TableCell>
@@ -104,7 +103,7 @@ export default async function EarningsPage() {
                     </TableCell>
                     <TableCell
                       className={`text-right font-semibold ${
-                        tx.type === "earning" ? "text-green-500" : "text-red-500"
+                        tx.type === "earning" ? "text-green-400" : "text-red-400"
                       }`}
                     >
                       {tx.type === "earning" ? "+" : "-"}€{tx.amount.toFixed(2)}
@@ -113,7 +112,7 @@ export default async function EarningsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell colSpan={4} className="text-center text-gray-400 py-8">
                     Nessuna transazione trovata.
                   </TableCell>
                 </TableRow>
