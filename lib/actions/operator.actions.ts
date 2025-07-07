@@ -61,8 +61,8 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
     .select(
       `
       id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
-      services!operator_id ( type, price_per_minute, price_per_consultation ),
-      reviews!operator_id ( rating )
+      services:services!operator_id ( type, price_per_minute, price_per_consultation ),
+      reviews:reviews!operator_id ( rating )
     `,
     )
     .eq("application_status", "approved")
@@ -82,8 +82,8 @@ export async function getOperatorsByCategory(categorySlug: string): Promise<Oper
     .select(
       `
       id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
-      services!operator_id ( type, price_per_minute, price_per_consultation ),
-      reviews!operator_id ( rating )
+      services:services!operator_id ( type, price_per_minute, price_per_consultation ),
+      reviews:reviews!operator_id ( rating )
     `,
     )
     .eq("application_status", "approved")
