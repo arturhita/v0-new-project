@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 
 // Interfaccia per i dati della Operator Card, usata in tutto il frontend
-export interface OperatorCardDataInterface {
+export interface OperatorCardData {
   id: string
   fullName: string | null
   avatarUrl: string | null
@@ -24,7 +24,7 @@ export interface OperatorCardDataInterface {
  * Recupera dal database tutti gli operatori approvati e visibili.
  * Calcola la valutazione media e formatta i servizi.
  */
-export async function getApprovedOperators(): Promise<OperatorCardDataInterface[]> {
+export async function getApprovedOperators(): Promise<OperatorCardData[]> {
   const supabase = createClient()
 
   const { data: operators, error } = await supabase
@@ -47,7 +47,7 @@ export async function getApprovedOperators(): Promise<OperatorCardDataInterface[
       reviews!reviews_operator_id_fkey (
         rating
       )
-    `
+    `,
     )
     .eq("role", "operator")
     .eq("application_status", "approved")
@@ -76,7 +76,7 @@ export async function getApprovedOperators(): Promise<OperatorCardDataInterface[
       headline: op.headline,
       isOnline: op.is_online,
       specializations: op.specializations || [],
-      averageRating: parseFloat(averageRating.toFixed(1)),
+      averageRating: Number.parseFloat(averageRating.toFixed(1)),
       reviewsCount: reviewsCount,
       services: operatorServices,
       joinedDate: op.created_at,

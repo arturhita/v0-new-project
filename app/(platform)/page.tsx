@@ -1,8 +1,10 @@
+"use client"
+
 import Link from "next/link"
-import { Search, ArrowRight, Sparkles } from 'lucide-react'
+import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard } from "@/components/operator-card"
-import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
+import type { Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { getApprovedOperators } from "@/lib/actions/operator.actions"
 
@@ -40,7 +42,8 @@ export const allMockReviews: ReviewCardType[] = [
     userType: "Vip",
     operatorName: "Sage Aurora",
     rating: 4,
-    comment: "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
+    comment:
+      "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
     date: generateTimeAgo(0, 1),
   },
 ]
@@ -188,7 +191,7 @@ export default async function UnveillyHomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
               {operators.slice(0, 8).map((operator, index) => (
                 <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <OperatorCard operator={operator} />
+                  <OperatorCard operator={operator} showNewBadge={newTalents.some((t) => t.id === operator.id)} />
                 </div>
               ))}
             </div>
@@ -208,7 +211,18 @@ export default async function UnveillyHomePage() {
           </div>
         </section>
 
-        {/* Altre sezioni rimangono invariate */}
+        {/* Altre sezioni rimangono invariate, ma per brevità le ometto qui */}
+        <section className="py-12 md:py-16">
+          <div className="container mx-auto px-4">
+            <div className="bg-gradient-to-r from-blue-900/50 to-slate-800/50 rounded-2xl shadow-xl p-8 md:p-12">
+              <blockquote className="text-center">
+                <p className="text-2xl md:text-3xl italic text-white font-playfair">
+                  "L'intuizione è la voce dell'anima. Impara ad ascoltarla."
+                </p>
+              </blockquote>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   )
