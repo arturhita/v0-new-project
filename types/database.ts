@@ -10,6 +10,7 @@ export interface Profile {
   id: string // UUID from auth.users
   role: UserRole
   full_name: string | null
+  email: string | null
   avatar_url: string | null
   created_at: string
   updated_at: string | null
