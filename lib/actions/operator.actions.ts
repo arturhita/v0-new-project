@@ -1,8 +1,7 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { cookies } from "next/headers"
 import type { Operator } from "@/types/database"
 import type { Review } from "@/components/review-card"
 
@@ -81,8 +80,7 @@ const transformOperatorData = (operator: any, detailed = false): OperatorCardDat
  * Recupera dal database tutti gli operatori approvati e visibili.
  */
 export async function getApprovedOperators(): Promise<OperatorCardData[]> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("operators")
     .select(
@@ -107,8 +105,7 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
  */
 export async function getOperatorById(id: string): Promise<DetailedOperatorProfile | null> {
   if (!id) return null
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("operators")
     .select(
@@ -133,8 +130,7 @@ export async function getOperatorById(id: string): Promise<DetailedOperatorProfi
  * Recupera gli operatori per una specifica categoria.
  */
 export async function getOperatorsByCategory(categorySlug: string): Promise<OperatorCardData[]> {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("operators")
     .select(
@@ -156,8 +152,7 @@ export async function getOperatorsByCategory(categorySlug: string): Promise<Oper
 }
 
 export async function createOperator(formData: any) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
 
   // NOTA: In un'applicazione reale, la creazione dell'utente (auth) andrebbe gestita separatamente.
   // Qui inseriamo i dati direttamente nel profilo operatore.
@@ -194,8 +189,7 @@ export async function createOperator(formData: any) {
 
 export async function getOperatorByUserId(userId: string) {
   if (!userId) return null
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
   const { data, error } = await supabase.from("operators").select("*").eq("user_id", userId).single()
   if (error) {
     console.error("Error fetching operator by user ID:", error)
@@ -209,8 +203,7 @@ export async function updateOperatorStatus(
   isOnline: boolean,
   status: "Online" | "Offline" | "In Pausa",
 ) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
 
   const { error } = await supabase
     .from("operators")
