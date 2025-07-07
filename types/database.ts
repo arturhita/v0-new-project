@@ -251,6 +251,156 @@ export type Database = {
           },
         ]
       }
+      operator_availability: {
+        Row: {
+          id: number
+          operator_id: string
+          day_of_week: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
+          start_time: string
+          end_time: string
+          is_available: boolean
+        }
+        Insert: {
+          id?: number
+          operator_id: string
+          day_of_week: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
+          start_time: string
+          end_time: string
+          is_available?: boolean
+        }
+        Update: {
+          id?: number
+          operator_id?: string
+          day_of_week?: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
+          start_time?: string
+          end_time?: string
+          is_available?: boolean
+        }
+      }
+      operator_services: {
+        Row: {
+          id: number
+          operator_id: string
+          service_type: "chat" | "call" | "video" | "email"
+          price_per_minute: number | null
+          price_per_session: number | null
+          is_active: boolean
+        }
+        Insert: {
+          id?: number
+          operator_id: string
+          service_type: "chat" | "call" | "video" | "email"
+          price_per_minute?: number | null
+          price_per_session?: number | null
+          is_active?: boolean
+        }
+        Update: {
+          id?: number
+          operator_id?: string
+          service_type?: "chat" | "call" | "video" | "email"
+          price_per_minute?: number | null
+          price_per_session?: number | null
+          is_active?: boolean
+        }
+      }
+      operator_specializations: {
+        Row: {
+          operator_id: string
+          specialization_id: number
+        }
+        Insert: {
+          operator_id: string
+          specialization_id: number
+        }
+        Update: {
+          operator_id?: string
+          specialization_id?: number
+        }
+      }
+      operators: {
+        Row: {
+          id: string
+          display_name: string
+          description: string | null
+          status: "pending" | "approved" | "rejected" | "suspended"
+          is_online: boolean
+          profile_image_url: string | null
+          average_rating: number | null
+          reviews_count: number | null
+          joined_at: string | null
+          last_seen: string | null
+        }
+        Insert: {
+          id: string
+          display_name: string
+          description?: string | null
+          status?: "pending" | "approved" | "rejected" | "suspended"
+          is_online?: boolean
+          profile_image_url?: string | null
+          average_rating?: number | null
+          reviews_count?: number | null
+          joined_at?: string | null
+          last_seen?: string | null
+        }
+        Update: {
+          id?: string
+          display_name?: string
+          description?: string | null
+          status?: "pending" | "approved" | "rejected" | "suspended"
+          is_online?: boolean
+          profile_image_url?: string | null
+          average_rating?: number | null
+          reviews_count?: number | null
+          joined_at?: string | null
+          last_seen?: string | null
+        }
+      }
+      specializations: {
+        Row: {
+          id: number
+          name: string
+          description: string | null
+        }
+        Insert: {
+          id?: number
+          name: string
+          description?: string | null
+        }
+        Update: {
+          id?: number
+          name?: string
+          description?: string | null
+        }
+      }
+      users: {
+        Row: {
+          id: string
+          email: string
+          full_name: string | null
+          avatar_url: string | null
+          role: "client" | "operator" | "admin"
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: "client" | "operator" | "admin"
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: "client" | "operator" | "admin"
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -258,7 +408,7 @@ export type Database = {
     Functions: {
       handle_new_user: {
         Args: Record<PropertyKey, never>
-        Returns: Record<PropertyKey, never>
+        Returns: unknown
       }
       handle_updated_at: {
         Args: Record<PropertyKey, never>
@@ -268,7 +418,9 @@ export type Database = {
     Enums: {
       application_status: "pending" | "approved" | "rejected"
       consultation_status: "pending" | "active" | "completed" | "cancelled"
-      service_type: "chat" | "call" | "written"
+      day_of_week: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
+      operator_status: "pending" | "approved" | "rejected" | "suspended"
+      service_type: "chat" | "call" | "video" | "email"
       transaction_status: "pending" | "completed" | "failed"
       transaction_type: "recharge" | "payment" | "payout" | "refund"
       user_role: "client" | "operator" | "admin"

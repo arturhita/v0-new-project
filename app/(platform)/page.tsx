@@ -1,15 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard, type Operator as OperatorCardType } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { Suspense } from "react"
 import { getApprovedOperators } from "@/lib/actions/operator.actions"
-import { Input } from "@/components/input"
+import { Input } from "@/components/ui/input"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -163,8 +162,23 @@ export const allMockReviews: ReviewCardType[] = [
   },
 ]
 
-async function OperatorList() {
-  const operators = await getApprovedOperators()
+function OperatorList() {
+  const [operators, setOperators] = useState<OperatorCardType[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadOperators() {
+      setLoading(true)
+      const fetchedOperators = await getApprovedOperators()
+      setOperators(fetchedOperators)
+      setLoading(false)
+    }
+    loadOperators()
+  }, [])
+
+  if (loading) {
+    return <p className="text-center text-slate-400 col-span-full">Caricamento esperti...</p>
+  }
 
   if (operators.length === 0) {
     return <p className="text-center text-slate-400 col-span-full">Nessun operatore disponibile al momento.</p>
@@ -172,8 +186,10 @@ async function OperatorList() {
 
   return (
     <>
-      {operators.map((operator) => (
-        <OperatorCard key={operator.id} operator={operator} />
+      {operators.map((operator, index) => (
+        <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+          <OperatorCard operator={operator} />
+        </div>
       ))}
     </>
   )
@@ -200,48 +216,137 @@ export default function UnveillyHomePage() {
     .slice(0, 3)
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] text-white relative overflow-hidden">
-      <ConstellationBackground />
+    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
+      <style jsx>{`
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
-      <main className="relative z-10 container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-300">
-            Svela il Tuo Domani
-          </h1>
-          <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-300">
-            Connettiti con i migliori esperti di tarocchi, astrologia e numerologia. La tua guida personale ti attende.
-          </p>
-        </div>
+      .font-playfair {
+        font-family: 'Playfair Display', serif;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+      @keyframes glow {
+        0%,
+        100% {
+          box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
+        }
+      }
+      .animate-fadeInUp {
+        animation: fadeInUp 1s ease-out forwards;
+      }
+      .animate-fadeInLeft {
+        animation: fadeInLeft 0.8s ease-out forwards;
+      }
+      .animate-fadeInRight {
+        animation: fadeInRight 0.8s ease-out forwards;
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.6s ease-out forwards;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+      }
+    `}</style>
 
-        <div className="max-w-4xl mx-auto mb-12">
-          <div className="relative">
-            <Input
-              type="search"
-              placeholder="Cerca un esperto o una specializzazione..."
-              className="w-full p-4 pl-12 rounded-full bg-slate-900/50 border-2 border-blue-800 text-lg text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-400" />
-          </div>
-        </div>
-
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-center mb-8">I Nostri Esperti</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            <Suspense fallback={<p className="text-center col-span-full">Caricamento esperti...</p>}>
-              <OperatorList />
-            </Suspense>
-          </div>
-        </div>
-
-        <div className="text-center">
-          <Button
-            asChild
-            size="lg"
-            className="bg-white text-[#1E3C98] font-bold hover:bg-slate-200 text-lg px-8 py-6 rounded-full"
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/images/hero-background.png')" }}
           >
-            <Link href="/esperti/tutti">Vedi tutti gli esperti</Link>
-          </Button>
-        </div>
+            <div className="absolute inset-0 bg-black/40"></div>
+          </div>
+
+          <div
+            className={`relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 ${isLoaded ? "animate-fadeInUp" : "opacity-0"}`}
+          >
+            <h1
+              className="font-playfair font-bold text-white text-6xl md:text-8xl"
+              style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
+            >
+              Il Viaggio
+            </h1>
+            <h2
+              className="font-playfair text-white text-4xl md:text-5xl"
+              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
+            >
+              Inizia da Qui
+            </h2>
+            <div className="max-w-xl w-full p-4">
+              <div className="relative">
+                <Input
+                  type="search"
+                  placeholder="Cerca un esperto o una specializzazione..."
+                  className="w-full p-4 pl-12 rounded-full bg-slate-900/50 border-2 border-blue-800 text-lg text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-400" />
+              </div>
+            </div>
+            <Link href="/esperti/cartomanzia" passHref>
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
+              >
+                <Sparkles className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                Vedi gli Esperti
+              </Button>
+            </Link>
+          </div>
+        </section>
 
         {/* Operator Boxes Section */}
         <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
@@ -254,18 +359,16 @@ export default function UnveillyHomePage() {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {mockOperators.slice(0, 8).map((operator, index) => (
-                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <OperatorCard operator={operator} />
-                </div>
-              ))}
+              <Suspense fallback={<p className="text-center col-span-full">Caricamento...</p>}>
+                <OperatorList />
+              </Suspense>
             </div>
             <div className="text-center mt-12">
               <Link href="/esperti/cartomanzia" passHref>
                 <Button
                   variant="default"
                   size="lg"
-                  className="rounded-full px-8 py-3 text-lg bg-gradient-to-r from-white to-blue-300 text-[#1E3C98] hover:from-blue-100 hover:to-blue-400 transition-all duration-300 group shadow-lg hover:shadow-blue-500/20 hover:scale-105 font-bold group"
+                  className="rounded-full px-8 py-3 text-lg bg-gradient-to-r from-white to-blue-300 text-[#1E3C98] hover:from-blue-100 hover:to-blue-400 transition-all duration-300 group shadow-lg hover:shadow-blue-500/20 hover:scale-105 font-bold"
                 >
                   <Sparkles className="mr-2 h-5 w-5 group-hover:animate-pulse" />
                   Vedi Tutti gli Esperti

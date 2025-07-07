@@ -1,83 +1,72 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import type { Database } from "@/types/database"
+import type { Operator } from "@/components/operator-card"
 
-// Tipo per i dati dell'operatore che passiamo ai componenti, con dati aggregati
-export type OperatorCardData = Database["public"]["Tables"]["profiles"]["Row"] & {
-  services: Array<Database["public"]["Tables"]["services"]["Row"]>
-  averageRating: number
-  reviewsCount: number
-}
+export async function getApprovedOperators(): Promise<Operator[]> {
+  const supabase = createServerComponentClient<Database>({ cookies })
 
-// Funzione interna per trasformare i dati dal DB a quelli per i componenti
-function transformOperatorData(operators: any[]): OperatorCardData[] {
-  if (!operators) return []
-  return operators.map((op) => {
-    const reviews = op.reviews || []
-    const reviewsCount = reviews.length
-    const averageRating =
-      reviewsCount > 0 ? reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviewsCount : 0
+  const { data, error } = await supabase
+    .from("operators")
+    .select(`
+      id,
+      display_name,
+      description,
+      is_online,
+      profile_image_url,
+      average_rating,
+      reviews_count,
+      joined_at,
+      operator_specializations (
+        specializations (
+          name
+        )
+      ),
+      operator_services (
+        service_type,
+        price_per_minute,
+        price_per_session
+      )
+    `)
+    .eq("status", "approved")
+    .order("is_online", { ascending: false })
+    .order("average_rating", { ascending: false, nulls: "last" })
+
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
+  }
+
+  const operators: Operator[] = data.map((op) => {
+    const services: { [key: string]: number } = {}
+    op.operator_services.forEach((service) => {
+      if (service.service_type === "chat" && service.price_per_minute) {
+        services.chatPrice = service.price_per_minute
+      }
+      if (service.service_type === "call" && service.price_per_minute) {
+        services.callPrice = service.price_per_minute
+      }
+      if (service.service_type === "email" && service.price_per_session) {
+        services.emailPrice = service.price_per_session
+      }
+    })
 
     return {
-      ...op,
-      averageRating: Number.parseFloat(averageRating.toFixed(1)),
-      reviewsCount,
+      id: op.id,
+      name: op.display_name,
+      avatarUrl: op.profile_image_url || "/placeholder.svg?width=96&height=96",
+      specialization: op.operator_specializations[0]?.specializations?.name || "N/A",
+      rating: op.average_rating || 0,
+      reviewsCount: op.reviews_count || 0,
+      description: op.description || "",
+      tags: op.operator_specializations.map((s) => s.specializations.name),
+      isOnline: op.is_online,
+      services: services,
+      joinedDate: op.joined_at,
     }
   })
-}
 
-// Funzione per prendere tutti gli operatori approvati e visibili
-export async function getApprovedOperators(): Promise<OperatorCardData[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*, services(*), reviews(rating)")
-    .eq("role", "operator")
-    .eq("application_status", "approved")
-    .eq("is_visible", true)
-
-  if (error) {
-    console.error("Error fetching approved operators:", error.message)
-    return []
-  }
-
-  return transformOperatorData(data)
-}
-
-// Funzione per prendere gli operatori per categoria
-export async function getOperatorsByCategory(category: string): Promise<OperatorCardData[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*, services(*), reviews(rating)")
-    .eq("role", "operator")
-    .eq("application_status", "approved")
-    .eq("is_visible", true)
-    .contains("specializations", [category])
-
-  if (error) {
-    console.error("Error fetching operators by category:", error.message)
-    return []
-  }
-
-  return transformOperatorData(data)
-}
-
-// Funzione per prendere un singolo operatore dal suo ID
-export async function getOperatorById(id: string): Promise<OperatorCardData | null> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*, services(*), reviews(rating)")
-    .eq("id", id)
-    .eq("role", "operator")
-    .single()
-
-  if (error) {
-    console.error(`Error fetching operator ${id}:`, error.message)
-    return null
-  }
-
-  return transformOperatorData([data])[0]
+  return operators
 }
