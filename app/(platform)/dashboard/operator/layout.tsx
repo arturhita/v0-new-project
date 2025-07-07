@@ -54,18 +54,18 @@ export default async function OperatorDashboardLayout({ children }: { children: 
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-gray-950 text-gray-200">
-      <aside className="sticky top-0 h-screen w-72 flex-col border-r border-gray-800 bg-gray-900 p-6 hidden md:flex">
+    <div className="flex min-h-screen w-full bg-brand-blue-950 text-gray-200">
+      <aside className="sticky top-0 h-screen w-72 flex-col border-r border-brand-blue-900 bg-brand-blue-950/50 p-6 hidden md:flex">
         <div className="mb-8 flex items-center gap-4">
-          <Avatar className="h-12 w-12">
+          <Avatar className="h-12 w-12 border-2 border-brand-blue-700">
             <AvatarImage src={profile.profile_image_url || undefined} alt={profile.full_name || "Operatore"} />
-            <AvatarFallback className="bg-indigo-600 text-white">
+            <AvatarFallback className="bg-primary text-primary-foreground">
               {profile.full_name?.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
             <p className="font-semibold text-lg text-white">{profile.full_name}</p>
-            <p className="text-sm text-indigo-400">Operatore</p>
+            <p className="text-sm text-primary">Operatore</p>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ export default async function OperatorDashboardLayout({ children }: { children: 
           <NavClient navItems={navItems} />
         </nav>
       </aside>
-      <main className="flex-1 p-6 lg:p-10">
+      <main className="flex-1 p-6 lg:p-10 bg-brand-blue-950">
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
     </div>

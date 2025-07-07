@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import type { PayoutMethod } from "@/types/database.types"
+
+// Funzioni per l'Operatore
 
 export async function getOperatorEarnings(operatorId: string) {
   const supabase = createClient()
@@ -18,10 +21,61 @@ export async function getOperatorEarnings(operatorId: string) {
   return data
 }
 
+export async function getOperatorPayoutMethods(operatorId: string): Promise<PayoutMethod[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("operator_payout_methods").select("*").eq("operator_id", operatorId)
+  if (error) {
+    console.error("Error fetching payout methods:", error)
+    return []
+  }
+  return data
+}
+
+export async function saveOperatorPayoutMethod(operatorId: string, formData: FormData) {
+  const supabase = createClient()
+  const methodType = formData.get("method_type") as string
+  const isDefault = formData.get("is_default") === "on"
+
+  let details = {}
+  if (methodType === "paypal") {
+    details = { email: formData.get("paypal_email") }
+  } else if (methodType === "iban") {
+    details = {
+      account_holder: formData.get("iban_account_holder"),
+      iban: formData.get("iban_number"),
+      bank_name: formData.get("iban_bank_name"),
+    }
+  } else {
+    return { success: false, message: "Metodo di pagamento non valido." }
+  }
+
+  if (isDefault) {
+    const { error: updateError } = await supabase
+      .from("operator_payout_methods")
+      .update({ is_default: false })
+      .eq("operator_id", operatorId)
+    if (updateError) console.error("Error unsetting default payout method:", updateError)
+  }
+
+  const { error } = await supabase.from("operator_payout_methods").insert({
+    operator_id: operatorId,
+    method_type: methodType,
+    details: details,
+    is_default: isDefault,
+  })
+
+  if (error) {
+    console.error("Error saving payout method:", error)
+    return { success: false, message: `Errore nel salvataggio: ${error.message}` }
+  }
+
+  revalidatePath("/dashboard/operator/payout-settings")
+  return { success: true, message: "Metodo di pagamento salvato." }
+}
+
 export async function requestPayout(operatorId: string) {
   const supabase = createClient()
 
-  // 1. Check if payout window is open
   const today = new Date().getDate()
   if (!((today >= 1 && today <= 5) || (today >= 16 && today <= 20))) {
     return {
@@ -29,7 +83,6 @@ export async function requestPayout(operatorId: string) {
     }
   }
 
-  // 2. Get current balance from a secure RPC call
   const { data: earningsData, error: balanceError } = await supabase
     .rpc("get_operator_earnings_details", { p_operator_id: operatorId })
     .single()
@@ -45,8 +98,7 @@ export async function requestPayout(operatorId: string) {
     return { error: "Il saldo è insufficiente per richiedere un pagamento." }
   }
 
-  // 3. Check for existing pending requests
-  const { data: existingRequest, error: existingRequestError } = await supabase
+  const { data: existingRequest } = await supabase
     .from("payout_requests")
     .select("id")
     .eq("operator_id", operatorId)
@@ -57,7 +109,6 @@ export async function requestPayout(operatorId: string) {
     return { error: "Hai già una richiesta di pagamento in sospeso." }
   }
 
-  // 4. Create new payout request
   const { error: requestError } = await supabase.from("payout_requests").insert({
     operator_id: operatorId,
     amount: balance,
@@ -75,115 +126,4 @@ export async function requestPayout(operatorId: string) {
   revalidatePath("/admin/payouts")
 
   return { success: "Richiesta di pagamento inviata con successo." }
-}
-
-export async function getPayoutRequests() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("payout_requests_view")
-    .select("*")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching payout requests:", error)
-    return []
-  }
-  return data
-}
-
-export async function updatePayoutStatus(requestId: string, status: "completed" | "rejected") {
-  const supabase = createClient()
-  const { error } = await supabase
-    .from("payout_requests")
-    .update({ status, processed_at: new Date().toISOString() })
-    .eq("id", requestId)
-
-  if (error) {
-    console.error("Error updating payout status:", error)
-    return { error: "Errore durante l'aggiornamento dello stato." }
-  }
-
-  revalidatePath("/admin/payouts")
-  return { success: "Stato aggiornato con successo." }
-}
-
-export async function getCommissionRequests() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("commission_requests_view")
-    .select("*")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching commission requests:", error)
-    return []
-  }
-  return data
-}
-
-export async function requestCommissionChange(operatorId: string, formData: FormData) {
-  const supabase = createClient()
-  const newRate = Number.parseFloat(formData.get("new_rate") as string)
-  const reason = formData.get("reason") as string
-
-  if (isNaN(newRate) || newRate < 0 || newRate > 100) {
-    return { error: "Percentuale non valida." }
-  }
-
-  const { error } = await supabase.from("commission_requests").insert({
-    operator_id: operatorId,
-    requested_rate: newRate,
-    reason: reason,
-    status: "pending",
-  })
-
-  if (error) {
-    console.error("Error creating commission request:", error)
-    return { error: "Errore durante l'invio della richiesta." }
-  }
-
-  revalidatePath("/dashboard/operator/commission-request")
-  revalidatePath("/admin/commission-requests")
-  return { success: "Richiesta inviata con successo." }
-}
-
-export async function updateCommissionRate(requestId: string, operatorId: string, newRate: number) {
-  const supabase = createClient()
-
-  const { error: profileError } = await supabase
-    .from("operator_profiles")
-    .update({ commission_rate: newRate })
-    .eq("profile_id", operatorId)
-
-  if (profileError) {
-    console.error("Error updating commission rate:", profileError)
-    return { error: "Errore durante l'aggiornamento della commissione." }
-  }
-
-  const { error: requestError } = await supabase
-    .from("commission_requests")
-    .update({ status: "approved" })
-    .eq("id", requestId)
-
-  if (requestError) {
-    // Log this, but don't fail the whole operation since the rate was updated
-    console.error("Error updating commission request status:", requestError)
-  }
-
-  revalidatePath("/admin/commission-requests")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: "Commissione aggiornata." }
-}
-
-export async function rejectCommissionRequest(requestId: string) {
-  const supabase = createClient()
-  const { error } = await supabase.from("commission_requests").update({ status: "rejected" }).eq("id", requestId)
-
-  if (error) {
-    console.error("Error rejecting commission request:", error)
-    return { error: "Errore durante il rifiuto della richiesta." }
-  }
-
-  revalidatePath("/admin/commission-requests")
-  return { success: "Richiesta rifiutata." }
 }

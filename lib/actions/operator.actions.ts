@@ -1,79 +1,41 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import type { Profile } from "@/types/database.types"
+import { revalidatePath } from "next/cache"
 
-// ============================================================================
-// FUNZIONI PER DASHBOARD OPERATORE
-// ============================================================================
-
-export async function getOperatorDashboardData(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_operator_dashboard_data", { operator_id_param: operatorId }).single()
-
-  if (error) {
-    console.error("Error fetching operator dashboard data:", error)
-    return { success: false, message: "Impossibile caricare i dati della dashboard." }
-  }
-
-  return {
-    success: true,
-    data: {
-      monthlyEarnings: data.monthly_earnings,
-      consultationsCount: data.consultations_count,
-      unreadMessagesCount: data.unread_messages_count,
-    },
-  }
-}
-
-export async function getOperatorPublicProfile(operatorId: string) {
+export async function getOperatorConsultations(operatorId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("profiles")
-    .select("stage_name, bio, main_discipline, specialties, profile_image_url, service_prices")
-    .eq("id", operatorId)
-    .single()
+    .from("consultations")
+    .select(
+      `
+      id,
+      created_at,
+      status,
+      duration_minutes,
+      total_cost,
+      client:profiles!client_id(full_name)
+    `,
+    )
+    .eq("operator_id", operatorId)
+    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching operator profile for edit:", error)
-    return null
+    console.error("Error fetching consultations:", error)
+    return []
   }
   return data
 }
 
-export async function updateOperatorPublicProfile(operatorId: string, formData: FormData) {
+export async function getOperatorTaxDetails(operatorId: string) {
   const supabase = createClient()
-  const profileData = {
-    stage_name: formData.get("stage_name") as string,
-    bio: formData.get("bio") as string,
-    main_discipline: formData.get("main_discipline") as string,
-    specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
-    service_prices: {
-      chat: Number.parseFloat(formData.get("price_chat") as string),
-      call: Number.parseFloat(formData.get("price_call") as string),
-      video: Number.parseFloat(formData.get("price_video") as string),
-    },
+  const { data, error } = await supabase.from("operator_tax_details").select("*").eq("operator_id", operatorId).single()
+
+  if (error && error.code !== "PGRST116") {
+    // PGRST116 = no rows found, which is not an error here
+    console.error("Error fetching tax details:", error)
   }
-
-  const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
-  if (error) return { success: false, message: `Errore: ${error.message}` }
-
-  revalidatePath("/dashboard/operator/profile")
-  revalidatePath(`/operator/${profileData.stage_name}`)
-  return { success: true, message: "Profilo aggiornato con successo!" }
-}
-
-export async function updateOperatorStatus(operatorId: string, isAvailable: boolean) {
-  const supabase = createClient()
-  const { error } = await supabase.from("profiles").update({ is_available: isAvailable }).eq("id", operatorId)
-  if (error) {
-    console.error("Error updating operator status:", error)
-    return { success: false, message: "Impossibile aggiornare lo stato." }
-  }
-  revalidatePath("/dashboard/operator")
-  return { success: true }
+  return data
 }
 
 export async function saveOperatorTaxDetails(operatorId: string, formData: FormData) {
@@ -81,144 +43,31 @@ export async function saveOperatorTaxDetails(operatorId: string, formData: FormD
   const taxData = {
     operator_id: operatorId,
     tax_id: formData.get("tax_id") as string,
-    vat_id: formData.get("vat_id") as string,
+    vat_number: formData.get("vat_number") as string,
     company_name: formData.get("company_name") as string,
-    full_address: formData.get("full_address") as string,
-    pec_email: formData.get("pec_email") as string,
-    sdi_code: formData.get("sdi_code") as string,
+    address: formData.get("address") as string,
+    city: formData.get("city") as string,
+    zip_code: formData.get("zip_code") as string,
+    country: formData.get("country") as string,
   }
 
   const { error } = await supabase.from("operator_tax_details").upsert(taxData, { onConflict: "operator_id" })
+
   if (error) {
     console.error("Error saving tax details:", error)
-    return { success: false, message: `Errore nel salvataggio dei dati fiscali: ${error.message}` }
+    return { success: false, message: "Errore durante il salvataggio dei dati fiscali." }
   }
+
   revalidatePath("/dashboard/operator/tax-info")
   return { success: true, message: "Dati fiscali salvati con successo." }
 }
 
-export async function getOperatorTaxDetails(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("operator_tax_details").select("*").eq("operator_id", operatorId).single()
-  if (error && error.code !== "PGRST116") {
-    console.error("Error fetching tax details:", error)
-    return null
-  }
-  return data
-}
-
-// ============================================================================
-// FUNZIONI PUBBLICHE E PER ADMIN (RIPRISTINATE)
-// ============================================================================
-
-export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
-  const supabase = createClient()
-  let query = supabase
-    .from("profiles")
-    .select(
-      "id, full_name, stage_name, bio, is_available, is_online, profile_image_url, service_prices, average_rating, review_count, main_discipline, specialties, categories ( name, slug )",
-    )
-    .eq("role", "operator")
-    .eq("status", "Attivo")
-
-  if (options?.category) {
-    query = query.filter("categories.slug", "eq", options.category)
-  }
-  if (options?.limit) {
-    query = query.limit(options.limit)
-  }
-  query = query
-    .order("is_online", { ascending: false })
-    .order("average_rating", { ascending: false, nullsFirst: false })
-
-  const { data, error: queryError } = await query
-  if (queryError) throw new Error(`Error fetching operators: ${queryError.message}`)
-  if (!data) return []
-
-  return data as Profile[]
-}
-
-export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "id, full_name, stage_name, bio, is_available, is_online, profile_image_url, service_prices, average_rating, review_count, status, main_discipline, specialties, categories ( name, slug )",
-    )
-    .eq("stage_name", stageName)
-    .eq("role", "operator")
-    .single()
-
-  if (error) {
-    console.error("Error fetching operator by stage name:", error)
-    return null
-  }
-  return data as Profile
-}
-
-export async function getAllOperatorsForAdmin() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("admin_operators_view")
-    .select("*")
-    .order("joined_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching operators for admin:", error)
-    throw new Error("Impossibile caricare gli operatori.")
-  }
-  return data
-}
-
-export async function getCategoriesForAdmin() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("categories").select("name").order("name", { ascending: true })
-  if (error) {
-    console.error("Error fetching categories:", error)
-    return []
-  }
-  return data.map((c) => c.name)
-}
-
-export async function getOperatorForEdit(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("admin_operators_view").select("*").eq("id", operatorId).single()
-  if (error) throw new Error("Operatore non trovato o errore nel caricamento.")
-  return data
-}
-
-export async function updateOperatorProfile(operatorId: string, profileData: any) {
-  const supabaseAdmin = await createSupabaseAdminClient()
-  const { error } = await supabaseAdmin.from("profiles").update(profileData).eq("id", operatorId)
-  if (error) {
-    return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
-  }
-  revalidatePath("/admin/operators")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  revalidatePath("/")
-  return { success: true, message: "Profilo operatore aggiornato con successo." }
-}
-
-export async function updateOperatorCommission(operatorId: string, commission: number) {
-  if (commission < 0 || commission > 100) {
-    return { success: false, message: "La commissione deve essere tra 0 e 100." }
-  }
-  const supabaseAdmin = await createSupabaseAdminClient()
-  const { error } = await supabaseAdmin.from("profiles").update({ commission_rate: commission }).eq("id", operatorId)
-  if (error) return { success: false, message: "Errore durante l'aggiornamento della commissione." }
-  revalidatePath("/admin/operators")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: true, message: "Commissione aggiornata con successo." }
-}
-
-export async function suspendOperator(operatorId: string) {
-  const supabaseAdmin = await createSupabaseAdminClient()
-  const { error } = await supabaseAdmin
-    .from("profiles")
-    .update({ status: "suspended", is_available: false, is_online: false })
-    .eq("id", operatorId)
-  if (error) return { success: false, message: "Errore durante la sospensione." }
-  revalidatePath("/admin/operators")
-  revalidatePath("/")
-  return { success: true, message: "Operatore sospeso." }
+export async function getOperatorInvoices(operatorId: string) {
+  // This is a mock function for now, as invoice generation is complex.
+  // In a real scenario, this would query an 'invoices' table.
+  return [
+    { id: "INV-001", date: "2023-10-01", amount: 150.0, status: "paid" },
+    { id: "INV-002", date: "2023-11-01", amount: 250.5, status: "paid" },
+    { id: "INV-003", date: "2023-12-01", amount: 180.75, status: "pending" },
+  ]
 }
