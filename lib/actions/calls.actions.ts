@@ -9,9 +9,7 @@ const mockData = {
     user123: {
       id: "user123",
       name: "Mario Rossi",
-      // ! IMPORTANTE PER IL TEST: Assicurati che questo numero sia VERIFICATO
-      // ! nella tua console Twilio.
-      phone: "+393331122333",
+      phone: "+393331122333", // Assicurati che questo numero sia verificato su Twilio
       wallet: 50.0,
     },
   },
@@ -19,10 +17,9 @@ const mockData = {
     op123: {
       id: "op123",
       name: "Dott.ssa Elara",
-      // ! Assicurati che anche questo numero (dalle env) sia VERIFICATO su Twilio.
-      phone: process.env.NEXT_PUBLIC_OPERATOR_PHONE_NUMBER!,
+      phone: process.env.NEXT_PUBLIC_OPERATOR_PHONE_NUMBER!, // E anche questo
       ratePerMinute: 1.5,
-      commissionRate: 0.7, // 70%
+      commissionRate: 0.7,
       earnings: 150.0,
     },
   },
@@ -40,9 +37,6 @@ export async function initiateCallAction(
     const baseURL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"
     const client = mockData.users[clientId as keyof typeof mockData.users]
     if (!client) throw new Error("Cliente non trovato")
-
-    console.log(`[Call Action] Tentativo di chiamata per il cliente: ${client.name} (${client.phone})`)
-    console.log(`[Call Action] Numero operatore da connettere: ${operatorPhone}`)
 
     if (client.wallet < ratePerMinute) {
       return { success: false, error: "Credito insufficiente. Ricarica per continuare." }
@@ -64,16 +58,13 @@ export async function initiateCallAction(
     const twimlUrl = `${baseURL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${encodeURIComponent(operatorPhone)}`
     const statusCallbackUrl = `${baseURL}/api/calls/status`
 
-    console.log(`[Call Action] Invio richiesta a Twilio per chiamare: ${client.phone}`)
-    console.log(`[Call Action] TwiML URL per Twilio: ${twimlUrl}`)
-
     const call = await createTwilioCall(client.phone, twimlUrl, statusCallbackUrl)
 
     callSession.twilioCallSid = call.sid
     callSession.status = "ringing"
     mockData.callSessions.set(sessionId, callSession)
 
-    console.log(`✅ Chiamata avviata con successo tramite API: ${call.sid} per la sessione ${sessionId}`)
+    console.log(`✅ Chiamata avviata via API: ${call.sid} per la sessione ${sessionId}`)
     return { success: true, sessionId }
   } catch (error: any) {
     console.error("❌ Errore durante l'avvio della chiamata:", error)
@@ -81,24 +72,30 @@ export async function initiateCallAction(
   }
 }
 
-export async function endCallAction(sessionId: string): Promise<{ success: boolean }> {
+export async function updateCallStatusAction(
+  twilioCallSid: string,
+  status: "ringing" | "in-progress" | "canceled" | "failed" | "no-answer",
+): Promise<{ success: boolean }> {
   try {
-    const session = mockData.callSessions.get(sessionId)
-    if (!session || !session.twilioCallSid) {
-      console.error(`Impossibile terminare la chiamata, sessione ${sessionId} non trovata o senza SID Twilio.`)
+    const sessionEntry = Array.from(mockData.callSessions.entries()).find(([_, s]) => s.twilioCallSid === twilioCallSid)
+    if (!sessionEntry) {
+      console.error(`[Update Status] Sessione non trovata per il SID Twilio ${twilioCallSid}`)
       return { success: false }
     }
+    const [sessionId, session] = sessionEntry
 
-    if (session.status === "completed") {
-      return { success: true }
+    session.status = status
+
+    if (status === "in-progress" && !session.startTime) {
+      session.startTime = new Date()
+      console.log(`[Update Status] Chiamata ${sessionId} ora in corso. Orario di inizio registrato.`)
     }
 
-    await endTwilioCall(session.twilioCallSid)
-
-    console.log(`✅ Chiamata terminata manualmente: ${sessionId}`)
+    mockData.callSessions.set(sessionId, session)
+    revalidatePath(`/dashboard/client/calls`)
     return { success: true }
   } catch (error) {
-    console.error(`❌ Errore durante la terminazione della chiamata ${sessionId}:`, error)
+    console.error(`❌ Errore durante l'aggiornamento dello stato per ${twilioCallSid}:`, error)
     return { success: false }
   }
 }
@@ -153,6 +150,22 @@ export async function processCallBillingAction(
     return { success: true }
   } catch (error) {
     console.error("❌ Errore durante il processamento del billing:", error)
+    return { success: false }
+  }
+}
+
+export async function endCallAction(sessionId: string): Promise<{ success: boolean }> {
+  try {
+    const session = mockData.callSessions.get(sessionId)
+    if (!session || !session.twilioCallSid) {
+      return { success: false }
+    }
+    if (session.status === "completed") return { success: true }
+    await endTwilioCall(session.twilioCallSid)
+    console.log(`✅ Chiamata terminata manualmente: ${sessionId}`)
+    return { success: true }
+  } catch (error) {
+    console.error(`❌ Errore terminando la chiamata ${sessionId}:`, error)
     return { success: false }
   }
 }

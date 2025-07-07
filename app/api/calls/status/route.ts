@@ -1,29 +1,43 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { validateTwilioSignature } from "@/lib/twilio"
-import { processCallBillingAction } from "@/lib/actions/calls.actions"
+import { processCallBillingAction, updateCallStatusAction } from "@/lib/actions/calls.actions"
 
 export async function POST(request: NextRequest) {
-  const body = await request.text()
-  const params = new URLSearchParams(body)
+  try {
+    // Twilio invia i dati in formato 'x-www-form-urlencoded'
+    const formData = await request.formData()
+    const body = Object.fromEntries(formData)
 
-  const twilioSignature = request.headers.get("x-twilio-signature") || ""
-  const url = process.env.NEXT_PUBLIC_BASE_URL + request.nextUrl.pathname
+    const callSid = body.CallSid as string
+    const callStatus = body.CallStatus as "ringing" | "in-progress" | "completed" | "canceled" | "failed" | "no-answer"
+    const callDuration = body.CallDuration ? Number.parseInt(body.CallDuration as string, 10) : 0
 
-  const paramsObject = Object.fromEntries(params.entries())
+    console.log(`[Status Webhook] Ricevuto stato: ${callStatus} per CallSid: ${callSid}`)
 
-  if (!validateTwilioSignature(twilioSignature, url, paramsObject)) {
-    console.error("❌ Signature Twilio non valida")
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (callStatus === "completed") {
+      // La chiamata è terminata, processiamo la fatturazione finale.
+      await processCallBillingAction(callSid, callDuration)
+    } else {
+      // Per altri stati come 'in-progress', aggiorniamo solo la sessione.
+      await updateCallStatusAction(callSid, callStatus)
+    }
+
+    // IMPORTANTE: Rispondiamo a Twilio con una risposta TwiML vuota per confermare la ricezione.
+    // Questo previene l'errore "TwiML response body too large".
+    return new NextResponse('<?xml version="1.0" encoding="UTF-8"?><Response/>', {
+      status: 200,
+      headers: {
+        "Content-Type": "text/xml",
+      },
+    })
+  } catch (error: any) {
+    console.error("❌ Errore nel webhook /api/calls/status:", error)
+    // Se si verifica un errore, inviamo comunque una risposta vuota valida a Twilio
+    // per evitare di causare ulteriori errori da parte loro.
+    return new NextResponse('<?xml version="1.0" encoding="UTF-8"?><Response/>', {
+      status: 500, // Internal Server Error
+      headers: {
+        "Content-Type": "text/xml",
+      },
+    })
   }
-
-  const { CallSid, CallStatus, CallDuration } = paramsObject
-
-  console.log(`📞 Stato Chiamata: ${CallStatus}`, { CallSid, CallDuration })
-
-  if (CallStatus === "completed" && CallDuration) {
-    const duration = Number.parseInt(CallDuration, 10)
-    await processCallBillingAction(CallSid, duration)
-  }
-
-  return new NextResponse(null, { status: 204 })
 }
