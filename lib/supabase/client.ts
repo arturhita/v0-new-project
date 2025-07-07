@@ -6,7 +6,16 @@ export function createClient() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      "Client: Supabase URL and Anon Key are required. Make sure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.",
+      "Client: Missing Supabase environment variables. Make sure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your environment.",
+    )
+  }
+
+  // Add URL validation to provide a clearer error message
+  try {
+    new URL(supabaseUrl)
+  } catch (error) {
+    throw new Error(
+      `Client: Invalid Supabase URL provided: "${supabaseUrl}". Please check the NEXT_PUBLIC_SUPABASE_URL environment variable.`,
     )
   }
 
