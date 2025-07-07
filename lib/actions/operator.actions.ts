@@ -35,7 +35,9 @@ export type OperatorState = {
 }
 
 async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
+  console.log(`[Avatar Upload] Initiated for user ${userId}.`)
   if (!dataUrl || !dataUrl.startsWith("data:image")) {
+    console.log("[Avatar Upload] No valid data URL provided. Skipping.")
     return null
   }
   const supabaseAdmin = createSupabaseAdminClient()
@@ -45,29 +47,35 @@ async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
   const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
   const fileBuffer = Buffer.from(base64Str, "base64")
 
+  console.log(`[Avatar Upload] Uploading to path: ${filePath}`)
   const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
     contentType: mimeType,
     upsert: true,
   })
 
   if (uploadError) {
-    // Lancia un errore per attivare il rollback
+    console.error("[Avatar Upload] FAILED:", uploadError)
+    // Lancia un errore per attivare il rollback completo
     throw new Error(`Upload avatar fallito: ${uploadError.message}`)
   }
 
   const {
     data: { publicUrl },
   } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
+  console.log(`[Avatar Upload] SUCCESS. Public URL: ${publicUrl}`)
   return publicUrl
 }
 
 export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
+  console.log("--- [Action Start] --- createOperator action initiated.")
   let newUserId: string | null = null
 
   try {
-    // Tutta la logica è ora dentro il try...catch per garantire che nessun errore sfugga.
+    console.log("Step 1: Creating Supabase admin client...")
     const supabaseAdmin = createSupabaseAdminClient()
+    console.log("Step 1: Success. Admin client created.")
 
+    console.log("Step 2: Validating form data...")
     const validatedFields = OperatorSchema.safeParse({
       email: formData.get("email"),
       password: formData.get("password"),
@@ -83,16 +91,17 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (!validatedFields.success) {
+      console.error("Step 2: Fail. Validation failed.", validatedFields.error.flatten())
       return {
         errors: validatedFields.error.flatten().fieldErrors,
         message: "Errore di validazione. Controlla i campi obbligatori.",
         success: false,
       }
     }
-
+    console.log("Step 2: Success. Form data validated.")
     const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
 
-    // 1. Creazione dell'utente in Supabase Auth
+    console.log(`Step 3: Creating user in Auth for email: ${email}`)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -101,6 +110,7 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (authError) {
+      console.error("Step 3: Fail. Auth user creation failed.", authError)
       if (authError.message.includes("User already registered")) {
         return {
           errors: { email: ["Questo indirizzo email è già registrato."] },
@@ -111,11 +121,13 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       throw new Error(`Errore Auth: ${authError.message}`)
     }
     newUserId = authData.user.id
+    console.log(`Step 3: Success. Auth user created with ID: ${newUserId}`)
 
-    // 2. Upload dell'avatar (se presente)
+    console.log("Step 4: Processing avatar...")
     const publicAvatarUrl = await uploadAvatarFromDataUrl(avatarUrl || "", newUserId)
+    console.log("Step 4: Success. Avatar processed.")
 
-    // 3. Estrazione dati complessi dal FormData
+    console.log("Step 5: Preparing data for profile insertion...")
     const specialties = formData.getAll("specialties") as string[]
     const services = {
       chatEnabled: formData.get("service.chat.enabled") === "on",
@@ -131,11 +143,12 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       wednesday: formData.getAll("availability.wednesday") as string[],
       thursday: formData.getAll("availability.thursday") as string[],
       friday: formData.getAll("availability.friday") as string[],
-      saturday: formData.getAll("availability.saturday") as string[],
+      saturday: formData.getAll("saturday") as string[],
       sunday: formData.getAll("sunday") as string[],
     }
+    console.log("Step 5: Success. Data prepared.")
 
-    // 4. Inserimento del profilo completo nella tabella 'profiles'
+    console.log("Step 6: Inserting data into 'profiles' table...")
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
       email,
@@ -155,32 +168,33 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (profileError) {
-      throw new Error(`Errore durante la creazione del profilo: ${profileError.message}`)
+      console.error("Step 6: Fail. Profile insertion failed.", profileError)
+      throw new Error(`Errore DB: ${profileError.message}`)
     }
+    console.log("Step 6: Success. Profile inserted for user ID: " + newUserId)
 
-    // 5. Successo
+    console.log("Step 7: Revalidating paths and returning success...")
     revalidatePath("/admin/operators")
     revalidatePath("/")
     return { success: true, message: `Operatore ${stageName} creato con successo!` }
   } catch (error) {
-    // Blocco di cattura "totale"
+    console.error("--- [Action CATCH] --- An unexpected error occurred.", error)
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
 
-    // Rollback: se l'utente auth è stato creato, lo eliminiamo.
     if (newUserId) {
+      console.log(`Rollback: Attempting to delete auth user ${newUserId}...`)
       try {
         const supabaseAdminForRollback = createSupabaseAdminClient()
         await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
+        console.log("Rollback: Success. Auth user deleted.")
       } catch (rollbackError) {
-        // Logghiamo l'errore di rollback ma restituiamo l'errore originale
-        console.error("Rollback fallito:", rollbackError)
+        console.error("Rollback: FAILED to delete auth user.", rollbackError)
       }
     }
 
-    // Restituisce un messaggio di errore chiaro al client, sbloccando il caricamento.
     return {
       errors: { server: [errorMessage] },
-      message: errorMessage,
+      message: `Operazione fallita: ${errorMessage}`,
       success: false,
     }
   }
