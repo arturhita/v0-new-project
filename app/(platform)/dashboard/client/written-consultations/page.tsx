@@ -14,24 +14,24 @@ const StatusBadge = ({ status }: { status: WrittenConsultation["status"] }) => {
     answered: {
       label: "Risposto",
       icon: CheckCircle2,
-      className: "bg-green-100 text-green-800 border-green-200",
+      className: "bg-green-100 text-green-800 border-green-200 hover:bg-green-100",
     },
     pending: {
       label: "In attesa",
       icon: Clock,
-      className: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      className: "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100",
     },
     rejected: {
       label: "Rifiutato",
       icon: AlertTriangle,
-      className: "bg-red-100 text-red-800 border-red-200",
+      className: "bg-red-100 text-red-800 border-red-200 hover:bg-red-100",
     },
   }
 
   const config = statusConfig[status] || statusConfig.pending
 
   return (
-    <Badge className={cn("gap-1.5", config.className)}>
+    <Badge variant="outline" className={cn("gap-1.5 font-medium", config.className)}>
       <config.icon className="h-4 w-4" />
       {config.label}
     </Badge>
@@ -115,7 +115,7 @@ export default function ClientWrittenConsultationsPage() {
       </CardHeader>
       <CardContent>
         {consultations.length === 0 ? (
-          <div className="text-center py-16 text-gray-500 bg-gray-50 rounded-lg">
+          <div className="text-center py-16 text-gray-500 bg-gray-50 rounded-lg border">
             <MessageSquare className="mx-auto h-12 w-12" />
             <p className="mt-4 text-lg font-medium">Nessuna consulenza trovata</p>
             <p className="mt-1 text-sm">Non hai ancora inviato nessuna domanda scritta.</p>
@@ -123,8 +123,8 @@ export default function ClientWrittenConsultationsPage() {
         ) : (
           <Accordion type="single" collapsible className="w-full space-y-2">
             {consultations.map((item) => (
-              <AccordionItem key={item.id} value={item.id} className="border rounded-lg bg-white">
-                <AccordionTrigger className="hover:no-underline p-4">
+              <AccordionItem key={item.id} value={item.id} className="border rounded-lg bg-white shadow-sm">
+                <AccordionTrigger className="hover:no-underline p-4 data-[state=open]:border-b">
                   <div className="flex justify-between items-center w-full">
                     <div className="text-left">
                       <p className="font-semibold text-gray-800">Domanda a {item.operatorName}</p>
@@ -140,17 +140,19 @@ export default function ClientWrittenConsultationsPage() {
                     <StatusBadge status={item.status} />
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="space-y-4 p-4 border-t bg-gray-50/50">
+                <AccordionContent className="space-y-6 p-6 bg-gray-50/70">
                   <div>
                     <h4 className="font-semibold mb-2 text-gray-800">La tua domanda:</h4>
-                    <p className="text-gray-700 bg-white p-4 rounded-md border whitespace-pre-wrap">{item.question}</p>
+                    <div className="text-gray-700 bg-white p-4 rounded-md border prose max-w-none whitespace-pre-wrap">
+                      {item.question}
+                    </div>
                   </div>
                   {item.answer ? (
                     <div>
                       <h4 className="font-semibold mb-2 text-gray-800">Risposta di {item.operatorName}:</h4>
-                      <p className="text-gray-800 bg-blue-50 p-4 rounded-md border border-blue-200 whitespace-pre-wrap">
+                      <div className="text-gray-800 bg-blue-50 p-4 rounded-md border border-blue-200 prose max-w-none whitespace-pre-wrap">
                         {item.answer}
-                      </p>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-gray-500 italic p-4 bg-white rounded-md border">

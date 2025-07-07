@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import type { Review } from "@/components/review-card" // Importiamo il tipo Review
+import type { Review } from "@/components/review-card"
 
 // Interfaccia per i dati della Operator Card, usata nelle liste
 export interface OperatorCardData {
@@ -57,7 +57,7 @@ const transformOperatorData = (operator: any, detailed = false): OperatorCardDat
     const reviews: Review[] = reviewsRaw.map((r: any) => ({
       id: r.id,
       userName: r.client_profile?.full_name ?? "Utente",
-      userType: "Utente", // Da rendere dinamico in futuro
+      userType: "Utente",
       operatorName: operator.full_name,
       rating: r.rating,
       comment: r.comment,
@@ -102,7 +102,7 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
 /**
  * Recupera i dati dettagliati di un singolo operatore per la sua pagina profilo.
  */
-export async function getDetailedOperatorProfileById(id: string): Promise<DetailedOperatorProfile | null> {
+export async function getOperatorById(id: string): Promise<DetailedOperatorProfile | null> {
   const supabase = createClient()
   const { data: operator, error } = await supabase
     .from("profiles")
@@ -149,4 +149,18 @@ export async function getOperatorsByCategory(categorySlug: string): Promise<Oper
     return []
   }
   return data.map((op) => transformOperatorData(op) as OperatorCardData)
+}
+
+export async function updateOperatorStatus(operatorId: string, isOnline: boolean) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_online: isOnline, last_seen: new Date().toISOString() })
+    .eq("id", operatorId)
+
+  if (error) {
+    console.error("Error updating operator status:", error)
+    return { success: false, message: "Impossibile aggiornare lo stato." }
+  }
+  return { success: true }
 }

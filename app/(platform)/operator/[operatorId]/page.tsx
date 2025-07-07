@@ -6,20 +6,21 @@ import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "@/components/written-consultation-modal"
-import { getDetailedOperatorProfileById } from "@/lib/actions/operator.actions"
-import { OperatorProfileClient } from "./operator-profile-client"
+import { getOperatorById } from "@/lib/actions/operator.actions"
+import OperatorProfileClient from "./operator-profile-client"
+import { notFound } from "next/navigation"
 
-interface OperatorProfilePageProps {
+type OperatorProfilePageProps = {
   params: {
     operatorId: string
   }
 }
 
 export default async function OperatorProfilePage({ params }: OperatorProfilePageProps) {
-  const operator = await getDetailedOperatorProfileById(params.operatorId)
+  const operator = await getOperatorById(params.operatorId)
 
   if (!operator) {
-    throw new Error("Operator not found")
+    notFound()
   }
 
   const router = useRouter()
