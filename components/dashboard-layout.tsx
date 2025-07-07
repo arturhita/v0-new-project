@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-
 import type React from "react"
 import {
   BarChart3,
@@ -84,7 +83,6 @@ function SidebarNav({ items }: { items: NavItem[] }) {
 interface DashboardLayoutProps {
   children: React.ReactNode
   userType: "admin" | "user" | "operator"
-  title?: string
 }
 
 export function DashboardLayout({ children, userType }: DashboardLayoutProps) {
@@ -116,8 +114,7 @@ export function DashboardLayout({ children, userType }: DashboardLayoutProps) {
       </div>
       <div className="flex flex-col">
         <header className="flex h-14 lg:h-[60px] items-center gap-4 border-b bg-white px-6">
-          {/* Mobile nav can be added here */}
-          <div className="flex-1">{/* Maybe a search bar or title */}</div>
+          <div className="flex-1">{/* Mobile nav trigger can go here */}</div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="h-5 w-5" />
@@ -126,7 +123,7 @@ export function DashboardLayout({ children, userType }: DashboardLayoutProps) {
             {/* User dropdown can be added here */}
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6 bg-gray-50/50">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50/50">{children}</main>
       </div>
     </div>
   )
