@@ -24,17 +24,17 @@ export default async function OperatorDashboardLayout({
     return redirect("/login")
   }
 
-  const { data: operatorProfile, error: profileError } = await supabase
-    .from("operator_profiles")
-    .select("is_available, user_id")
-    .eq("user_id", user.id)
+  // CORREZIONE: Query sulla tabella corretta 'profiles' e verifica del ruolo 'operator'
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("is_available, role")
+    .eq("id", user.id)
     .single()
 
-  if (profileError || !operatorProfile) {
-    console.error("Operator profile not found or error:", profileError)
-    // Redirect to a page that explains the user is not an operator
-    // or back to the main dashboard.
-    return redirect("/")
+  if (profileError || !profile || profile.role !== "operator") {
+    console.error("User is not an operator or profile not found:", profileError?.message)
+    // Se l'utente non è un operatore, reindirizzalo alla dashboard del cliente o alla home.
+    return redirect("/dashboard/client")
   }
 
   return (
@@ -54,7 +54,7 @@ export default async function OperatorDashboardLayout({
             </Link>
           </div>
           <div className="flex-1 overflow-auto py-2">
-            <OperatorNavClient isAvailable={operatorProfile.is_available ?? false} />
+            <OperatorNavClient isAvailable={profile.is_available ?? false} />
           </div>
         </div>
       </aside>
@@ -81,7 +81,7 @@ export default async function OperatorDashboardLayout({
                 </Link>
               </div>
               <div className="flex-1 overflow-auto py-2">
-                <OperatorNavClient isAvailable={operatorProfile.is_available ?? false} />
+                <OperatorNavClient isAvailable={profile.is_available ?? false} />
               </div>
             </SheetContent>
           </Sheet>
