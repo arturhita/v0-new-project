@@ -1,8 +1,10 @@
-// Tipi che rispecchiano il nuovo schema del database (003-master-schema.sql)
+// Tipi che rispecchiano il nuovo schema del database (001-master-schema.sql)
 
 export type UserRole = "client" | "operator" | "admin"
 export type ApplicationStatus = "pending" | "approved" | "rejected"
 export type ServiceType = "chat" | "call" | "written"
+export type ConsultationStatus = "requested" | "accepted" | "in_progress" | "completed" | "canceled" | "refunded"
+export type TransactionType = "recharge" | "consultation_payment" | "payout" | "refund"
 
 export interface Profile {
   id: string // UUID from auth.users
@@ -11,8 +13,10 @@ export interface Profile {
   avatar_url: string | null
   created_at: string
   updated_at: string | null
+
   // Client-specific
   wallet_balance: number
+
   // Operator-specific
   headline: string | null
   bio: string | null
