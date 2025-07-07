@@ -9,7 +9,8 @@ const mockData = {
     user123: {
       id: "user123",
       name: "Mario Rossi",
-      // ! IMPORTANTE PER IL TEST: Sostituisci con il TUO numero reale
+      // ! IMPORTANTE PER IL TEST: Assicurati che questo numero sia VERIFICATO
+      // ! nella tua console Twilio.
       phone: "+393331122333",
       wallet: 50.0,
     },
@@ -18,6 +19,7 @@ const mockData = {
     op123: {
       id: "op123",
       name: "Dott.ssa Elara",
+      // ! Assicurati che anche questo numero (dalle env) sia VERIFICATO su Twilio.
       phone: process.env.NEXT_PUBLIC_OPERATOR_PHONE_NUMBER!,
       ratePerMinute: 1.5,
       commissionRate: 0.7, // 70%
@@ -35,16 +37,12 @@ export async function initiateCallAction(
   ratePerMinute: number,
 ): Promise<{ success: boolean; sessionId?: string; error?: string }> {
   try {
-    // --- SOLUZIONE: Rileva l'URL pubblico automaticamente ---
-    // Vercel (e l'ambiente v0) fornisce la variabile VERCEL_URL.
-    // La usiamo per costruire l'indirizzo corretto.
-    const baseURL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000" // Fallback per sviluppo locale futuro
-
-    console.log(`Using base URL: ${baseURL}`)
-    // --- FINE SOLUZIONE ---
-
+    const baseURL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"
     const client = mockData.users[clientId as keyof typeof mockData.users]
     if (!client) throw new Error("Cliente non trovato")
+
+    console.log(`[Call Action] Tentativo di chiamata per il cliente: ${client.name} (${client.phone})`)
+    console.log(`[Call Action] Numero operatore da connettere: ${operatorPhone}`)
 
     if (client.wallet < ratePerMinute) {
       return { success: false, error: "Credito insufficiente. Ricarica per continuare." }
@@ -63,22 +61,22 @@ export async function initiateCallAction(
     }
     mockData.callSessions.set(sessionId, callSession)
 
-    // URL che Twilio chiamerà per ottenere le istruzioni TwiML
     const twimlUrl = `${baseURL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${encodeURIComponent(operatorPhone)}`
-    // URL che Twilio chiamerà per gli aggiornamenti di stato
     const statusCallbackUrl = `${baseURL}/api/calls/status`
 
-    // Usa la funzione basata su fetch con gli URL corretti
+    console.log(`[Call Action] Invio richiesta a Twilio per chiamare: ${client.phone}`)
+    console.log(`[Call Action] TwiML URL per Twilio: ${twimlUrl}`)
+
     const call = await createTwilioCall(client.phone, twimlUrl, statusCallbackUrl)
 
     callSession.twilioCallSid = call.sid
     callSession.status = "ringing"
     mockData.callSessions.set(sessionId, callSession)
 
-    console.log(`✅ Call initiated via API: ${call.sid} for session ${sessionId}`)
+    console.log(`✅ Chiamata avviata con successo tramite API: ${call.sid} per la sessione ${sessionId}`)
     return { success: true, sessionId }
   } catch (error: any) {
-    console.error("❌ Error initiating call:", error)
+    console.error("❌ Errore durante l'avvio della chiamata:", error)
     return { success: false, error: error.message || "Errore del sistema di chiamata." }
   }
 }
@@ -87,7 +85,7 @@ export async function endCallAction(sessionId: string): Promise<{ success: boole
   try {
     const session = mockData.callSessions.get(sessionId)
     if (!session || !session.twilioCallSid) {
-      console.error(`Cannot end call, session ${sessionId} not found or has no Twilio SID.`)
+      console.error(`Impossibile terminare la chiamata, sessione ${sessionId} non trovata o senza SID Twilio.`)
       return { success: false }
     }
 
@@ -95,13 +93,12 @@ export async function endCallAction(sessionId: string): Promise<{ success: boole
       return { success: true }
     }
 
-    // Usa la funzione basata su fetch
     await endTwilioCall(session.twilioCallSid)
 
-    console.log(`✅ Call ended manually: ${sessionId}`)
+    console.log(`✅ Chiamata terminata manualmente: ${sessionId}`)
     return { success: true }
   } catch (error) {
-    console.error(`❌ Error ending call ${sessionId}:`, error)
+    console.error(`❌ Errore durante la terminazione della chiamata ${sessionId}:`, error)
     return { success: false }
   }
 }
@@ -113,13 +110,13 @@ export async function processCallBillingAction(
   try {
     const sessionEntry = Array.from(mockData.callSessions.entries()).find(([_, s]) => s.twilioCallSid === twilioCallSid)
     if (!sessionEntry) {
-      console.error(`❌ Billing: Session not found for Twilio SID ${twilioCallSid}`)
+      console.error(`❌ Billing: Sessione non trovata per il SID Twilio ${twilioCallSid}`)
       return { success: false }
     }
     const [sessionId, session] = sessionEntry
 
     if (session.status === "completed") {
-      console.log(`💰 Billing already processed for session ${sessionId}`)
+      console.log(`💰 Billing già processato per la sessione ${sessionId}`)
       return { success: true }
     }
 
@@ -142,9 +139,9 @@ export async function processCallBillingAction(
     session.endTime = new Date()
     mockData.callSessions.set(sessionId, session)
 
-    console.log("💰 Billing processed:", {
+    console.log("💰 Billing processato:", {
       sessionId,
-      duration: `${durationSeconds}s (${durationMinutes}min billed)`,
+      duration: `${durationSeconds}s (${durationMinutes}min fatturati)`,
       totalCost,
       operatorEarning,
       platformFee,
@@ -155,7 +152,7 @@ export async function processCallBillingAction(
 
     return { success: true }
   } catch (error) {
-    console.error("❌ Error processing billing:", error)
+    console.error("❌ Errore durante il processamento del billing:", error)
     return { success: false }
   }
 }
