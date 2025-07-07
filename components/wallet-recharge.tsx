@@ -41,7 +41,7 @@ function PaymentForm({ onSuccess }: PaymentFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number.parseFloat(amount) * 100, // Converti in centesimi
-          userId: "user123", // Sostituisci con ID utente reale (es. user.id)
+          userId: "user123", // Sostituisci con ID utente reale
         }),
       })
 
@@ -58,7 +58,7 @@ function PaymentForm({ onSuccess }: PaymentFormProps) {
         payment_method: {
           card: cardElement,
           billing_details: {
-            name: "Cliente Test", // Sostituire con dati reali (es. user.name)
+            name: "Cliente Test", // Sostituire con dati reali
           },
         },
       })

@@ -94,7 +94,8 @@ export default function ManageSupportTicketsPage() {
     setTickets(tickets.map((t) => (t.id === selectedTicket.id ? updatedTicket : t)))
     alert(`Risposta inviata per il ticket ${selectedTicket.id} (simulazione).`)
     setReplyMessage("")
-    setSelectedTicket(updatedTicket)
+    // Potresti voler chiudere la modale o aggiornarla
+    setSelectedTicket(updatedTicket) // Aggiorna la modale con la nuova history
   }
 
   const handleCloseTicket = () => {
@@ -115,19 +116,19 @@ export default function ManageSupportTicketsPage() {
         return <Badge variant="destructive">Aperto</Badge>
       case "In Lavorazione":
         return (
-          <Badge variant="outline" className="border-yellow-500 text-yellow-500 bg-yellow-500/10">
+          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
             In Lavorazione
           </Badge>
         )
       case "Risposto":
         return (
-          <Badge variant="outline" className="border-blue-500 text-blue-400 bg-blue-500/10">
+          <Badge variant="outline" className="border-blue-500 text-blue-600">
             Risposto
           </Badge>
         )
       case "Chiuso":
         return (
-          <Badge variant="default" className="bg-slate-600 text-slate-200 border-slate-500">
+          <Badge variant="default" className="bg-slate-500 text-white">
             Chiuso
           </Badge>
         )
@@ -137,16 +138,14 @@ export default function ManageSupportTicketsPage() {
   }
 
   return (
-    <div className="space-y-6 text-slate-200">
-      <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
-        Gestione Ticket di Supporto
-      </h1>
-      <CardDescription className="text-slate-400 -mt-4">
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Ticket di Supporto</h1>
+      <CardDescription className="text-slate-500 -mt-4">
         Visualizza, rispondi e gestisci i ticket di supporto inviati da utenti e operatori.
       </CardDescription>
-      <Card className="shadow-xl rounded-2xl bg-slate-900/50 border border-indigo-500/20">
+      <Card className="shadow-xl rounded-2xl">
         <CardHeader>
-          <CardTitle className="text-slate-200">Ticket Aperti e Recenti</CardTitle>
+          <CardTitle>Ticket Aperti e Recenti</CardTitle>
         </CardHeader>
         <CardContent>
           {tickets.length === 0 ? (
@@ -154,30 +153,25 @@ export default function ManageSupportTicketsPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-b-indigo-500/20">
-                  <TableHead className="text-slate-400">Oggetto</TableHead>
-                  <TableHead className="text-slate-400">Utente</TableHead>
-                  <TableHead className="text-slate-400">Tipo Utente</TableHead>
-                  <TableHead className="text-slate-400">Ultimo Aggiornamento</TableHead>
-                  <TableHead className="text-slate-400">Stato</TableHead>
-                  <TableHead className="text-right text-slate-400">Azioni</TableHead>
+                <TableRow>
+                  <TableHead>Oggetto</TableHead>
+                  <TableHead>Utente</TableHead>
+                  <TableHead>Tipo Utente</TableHead>
+                  <TableHead>Ultimo Aggiornamento</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tickets.map((ticket) => (
-                  <TableRow key={ticket.id} className="border-b-indigo-500/20">
-                    <TableCell className="font-medium truncate max-w-xs text-slate-200">{ticket.subject}</TableCell>
-                    <TableCell className="text-slate-300">{ticket.userName}</TableCell>
-                    <TableCell className="text-slate-300">{ticket.userType}</TableCell>
-                    <TableCell className="text-slate-300">{ticket.lastUpdate}</TableCell>
+                  <TableRow key={ticket.id}>
+                    <TableCell className="font-medium truncate max-w-xs">{ticket.subject}</TableCell>
+                    <TableCell>{ticket.userName}</TableCell>
+                    <TableCell>{ticket.userType}</TableCell>
+                    <TableCell>{ticket.lastUpdate}</TableCell>
                     <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openTicketModal(ticket)}
-                        className="bg-transparent border-indigo-400 text-indigo-300 hover:bg-indigo-500/20 hover:text-white"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => openTicketModal(ticket)}>
                         <Eye className="mr-1.5 h-4 w-4" /> Vedi / Rispondi
                       </Button>
                     </TableCell>
@@ -191,30 +185,26 @@ export default function ManageSupportTicketsPage() {
 
       {selectedTicket && (
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-lg bg-slate-900 border-indigo-500/30 text-slate-200">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Dettaglio Ticket: {selectedTicket.subject}</DialogTitle>
-              <DialogDesc className="text-slate-400">
+              <DialogDesc>
                 Inviato da: {selectedTicket.userName} ({selectedTicket.userType}) - Stato: {selectedTicket.status}
               </DialogDesc>
             </DialogHeader>
             <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="space-y-2">
-                <p className="font-semibold text-slate-300">Descrizione Iniziale:</p>
-                <p className="text-sm p-3 bg-slate-800/70 rounded-md">{selectedTicket.description}</p>
+                <p className="font-semibold">Descrizione Iniziale:</p>
+                <p className="text-sm p-2 bg-slate-50 rounded-md">{selectedTicket.description}</p>
               </div>
               {selectedTicket.history && selectedTicket.history.length > 0 && (
                 <div>
-                  <p className="font-semibold mb-2 text-slate-300">Storico Conversazione:</p>
+                  <p className="font-semibold mb-1">Storico Conversazione:</p>
                   <div className="space-y-2">
                     {selectedTicket.history.map((entry, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-md text-sm ${
-                          entry.user === "Admin Support"
-                            ? "bg-indigo-900/50 text-indigo-200"
-                            : "bg-slate-800/70 text-slate-300"
-                        }`}
+                        className={`p-2 rounded-md text-sm ${entry.user === "Admin Support" ? "bg-blue-50 text-blue-800" : "bg-slate-100"}`}
                       >
                         <p className="font-medium">
                           {entry.user} <span className="text-xs text-slate-500">({entry.date})</span>:
@@ -227,7 +217,7 @@ export default function ManageSupportTicketsPage() {
               )}
               {selectedTicket.status !== "Chiuso" && (
                 <div>
-                  <Label htmlFor="replyMessage" className="font-semibold text-slate-300">
+                  <Label htmlFor="replyMessage" className="font-semibold">
                     Rispondi al Ticket:
                   </Label>
                   <Textarea
@@ -235,17 +225,13 @@ export default function ManageSupportTicketsPage() {
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
                     placeholder="Scrivi qui la tua risposta..."
-                    className="mt-1 min-h-[100px] bg-slate-800 border-slate-700 focus:border-indigo-500"
+                    className="mt-1 min-h-[100px]"
                   />
                 </div>
               )}
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsModalOpen(false)}
-                className="bg-transparent border-slate-600 hover:bg-slate-800"
-              >
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Chiudi
               </Button>
               {selectedTicket.status !== "Chiuso" && (
@@ -253,7 +239,7 @@ export default function ManageSupportTicketsPage() {
                   <Button
                     onClick={handleReply}
                     disabled={!replyMessage}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <MessageSquare className="mr-2 h-4 w-4" /> Invia Risposta
                   </Button>

@@ -2,20 +2,13 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "@/hooks/use-toast"
 import { sendInternalMessage } from "@/lib/actions/settings.actions"
 
 interface SendMessageModalProps {
@@ -24,64 +17,97 @@ interface SendMessageModalProps {
 }
 
 export default function SendMessageModal({ isOpen, onClose }: SendMessageModalProps) {
-  const { toast } = useToast()
   const [formData, setFormData] = useState({
     recipientId: "",
     recipientName: "",
     subject: "",
     message: "",
   })
+
   const [isSending, setIsSending] = useState(false)
 
   const recipients = [
     { id: "op1", name: "Stella Divina", type: "Operatore" },
     { id: "op2", name: "Marco Astrologo", type: "Operatore" },
-    { id: "all_operators", name: "Tutti gli Operatori", type: "Gruppo" },
-    { id: "all_users", name: "Tutti gli Utenti", type: "Gruppo" },
+    { id: "op3", name: "Luna Stellare", type: "Operatore" },
+    { id: "admin1", name: "Admin Principale", type: "Amministratore" },
+    { id: "support1", name: "Team Supporto", type: "Supporto" },
   ]
 
   const handleSendMessage = async () => {
     setIsSending(true)
-    if (!formData.recipientId || !formData.subject || !formData.message) {
-      toast({ title: "Errore", description: "Compila tutti i campi.", variant: "destructive" })
-      setIsSending(false)
-      return
-    }
-    const result = await sendInternalMessage("admin", formData.recipientId, formData.subject, formData.message)
-    if (result.success) {
-      toast({ title: "Messaggio inviato", description: result.message })
-      onClose()
-    } else {
-      toast({ title: "Errore", description: result.message, variant: "destructive" })
+    try {
+      // Validazione
+      if (!formData.recipientId || !formData.subject || !formData.message) {
+        toast({
+          title: "Errore",
+          description: "Compila tutti i campi obbligatori.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const result = await sendInternalMessage("admin", formData.recipientId, formData.subject, formData.message)
+
+      if (result.success) {
+        toast({
+          title: "Messaggio inviato",
+          description: result.message,
+        })
+
+        // Reset form
+        setFormData({
+          recipientId: "",
+          recipientName: "",
+          subject: "",
+          message: "",
+        })
+
+        onClose()
+      } else {
+        toast({
+          title: "Errore",
+          description: result.message,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Errore",
+        description: "Errore nell'invio del messaggio.",
+        variant: "destructive",
+      })
     }
     setIsSending(false)
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-slate-900 border-indigo-500/30 text-slate-200">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-indigo-300">Invia Messaggio Interno</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Invia un messaggio a operatori, utenti o gruppi specifici.
-          </DialogDescription>
+          <DialogTitle>Invia Messaggio Interno</DialogTitle>
+          <DialogDescription>Invia un messaggio a operatori o altri amministratori.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+
+        <div className="space-y-4">
+          {/* Destinatario */}
           <div className="space-y-2">
-            <Label htmlFor="recipient" className="text-slate-400">
-              Destinatario *
-            </Label>
+            <Label htmlFor="recipient">Destinatario *</Label>
             <Select
               value={formData.recipientId}
               onValueChange={(value) => {
                 const recipient = recipients.find((r) => r.id === value)
-                setFormData((prev) => ({ ...prev, recipientId: value, recipientName: recipient?.name || "" }))
+                setFormData((prev) => ({
+                  ...prev,
+                  recipientId: value,
+                  recipientName: recipient?.name || "",
+                }))
               }}
             >
-              <SelectTrigger className="bg-slate-800 border-slate-700">
+              <SelectTrigger>
                 <SelectValue placeholder="Seleziona destinatario" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+              <SelectContent>
                 {recipients.map((recipient) => (
                   <SelectItem key={recipient.id} value={recipient.id}>
                     {recipient.name} ({recipient.type})
@@ -90,41 +116,60 @@ export default function SendMessageModal({ isOpen, onClose }: SendMessageModalPr
               </SelectContent>
             </Select>
           </div>
+
+          {/* Oggetto */}
           <div className="space-y-2">
-            <Label htmlFor="subject" className="text-slate-400">
-              Oggetto *
-            </Label>
+            <Label htmlFor="subject">Oggetto *</Label>
             <Input
               id="subject"
               placeholder="Oggetto del messaggio..."
               value={formData.subject}
               onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
-              className="bg-slate-800 border-slate-700"
             />
           </div>
+
+          {/* Messaggio */}
           <div className="space-y-2">
-            <Label htmlFor="message" className="text-slate-400">
-              Messaggio *
-            </Label>
+            <Label htmlFor="message">Messaggio *</Label>
             <Textarea
               id="message"
               placeholder="Scrivi il tuo messaggio qui..."
               value={formData.message}
               onChange={(e) => setFormData((prev) => ({ ...prev, message: e.target.value }))}
               rows={8}
-              className="min-h-[200px] bg-slate-800 border-slate-700"
+              className="min-h-[200px]"
             />
           </div>
+
+          {/* Anteprima */}
+          {formData.subject && formData.message && (
+            <div className="p-4 bg-slate-50 rounded-lg border">
+              <h4 className="font-medium text-slate-800 mb-2">Anteprima Messaggio</h4>
+              <div className="space-y-2 text-sm">
+                <p>
+                  <strong>A:</strong> {formData.recipientName}
+                </p>
+                <p>
+                  <strong>Oggetto:</strong> {formData.subject}
+                </p>
+                <div className="mt-2 p-2 bg-white rounded border">
+                  <p className="whitespace-pre-wrap">{formData.message}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Azioni */}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button onClick={handleSendMessage} disabled={isSending} className="bg-sky-600 hover:bg-sky-700">
+              <Send className="h-4 w-4 mr-2" />
+              {isSending ? "Invio..." : "Invia Messaggio"}
+            </Button>
+          </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="bg-transparent border-slate-600 hover:bg-slate-800">
-            Annulla
-          </Button>
-          <Button onClick={handleSendMessage} disabled={isSending} className="bg-indigo-600 hover:bg-indigo-700">
-            <Send className="h-4 w-4 mr-2" />
-            {isSending ? "Invio..." : "Invia Messaggio"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

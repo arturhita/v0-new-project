@@ -1,94 +1,200 @@
 "use client"
 
-import { useFormState, useFormStatus } from "react-dom"
-import { sendMessage } from "@/lib/actions/chat.actions"
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, AlertTriangle } from "lucide-react"
-import { useEffect, useRef } from "react"
-import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" size="icon" disabled={pending} className="bg-indigo-600 hover:bg-indigo-700">
-      {pending ? (
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-t-transparent" />
-      ) : (
-        <Send className="h-4 w-4" />
-      )}
-    </Button>
-  )
-}
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+import { Send, Timer, Coins } from "lucide-react"
+import { wsManager } from "@/lib/websocket"
+import { useTimer } from "@/hooks/use-timer"
+import type { ChatSessionDetails, Message } from "@/types/chat.types"
 
 interface RealTimeChatProps {
-  receiverId: string
-  operatorUsername: string // Usiamo un username univoco per il link
-  // messages: any[] // I messaggi verrebbero passati qui
+  session: ChatSessionDetails
+  currentUserId: string
+  currentUserName: string
+  initialBalance: number
+  onBalanceUpdate: (newBalance: number) => void
+  onSessionEnd: () => void
 }
 
-const initialState = {
-  message: "",
-  success: false,
-  limitReached: false,
-}
+export function RealTimeChat({
+  session,
+  currentUserId,
+  currentUserName,
+  initialBalance,
+  onBalanceUpdate,
+  onSessionEnd,
+}: RealTimeChatProps) {
+  const [messages, setMessages] = useState<Message[]>(session.messages || [])
+  const [newMessage, setNewMessage] = useState("")
+  const [balance, setBalance] = useState(initialBalance)
+  const [isConnected, setIsConnected] = useState(false)
+  const [isCallActive, setIsCallActive] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const { time, isRunning, startTimer, stopTimer } = useTimer()
 
-export function RealTimeChat({ receiverId, operatorUsername }: RealTimeChatProps) {
-  const [state, formAction] = useFormState(sendMessage, initialState)
-  const formRef = useRef<HTMLFormElement>(null)
-  const { toast } = useToast()
+  const ratePerMinute = session.operator.ratePerMinute
 
   useEffect(() => {
-    // Mostra un toast solo per errori generici, non per il limite raggiunto
-    if (state?.message && !state.success && !state.limitReached) {
-      toast({
-        title: "Errore",
-        description: state.message,
-        variant: "destructive",
-      })
+    const socket = wsManager.connect(currentUserId)
+    socket.on("connect", () => setIsConnected(true))
+    socket.on("disconnect", () => setIsConnected(false))
+    socket.emit("join_session", { sessionId: session.id })
+    socket.on("new_message", (message: Message) => {
+      setMessages((prev) => [...prev, message])
+    })
+    socket.on("balance_update", (newBalance: number) => {
+      setBalance(newBalance)
+      onBalanceUpdate(newBalance)
+    })
+    socket.on("session_ended", () => {
+      stopTimer()
+      onSessionEnd()
+    })
+
+    startTimer()
+
+    return () => {
+      socket.off("new_message")
+      socket.off("balance_update")
+      socket.off("session_ended")
+      wsManager.disconnect()
     }
-    // Resetta il form solo se l'invio ha avuto successo
-    if (state?.success) {
-      formRef.current?.reset()
+  }, [session.id, currentUserId, onBalanceUpdate, onSessionEnd, startTimer, stopTimer])
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [state, toast])
+  }, [messages])
+
+  useEffect(() => {
+    if (!isRunning || balance <= 0) return
+
+    const interval = setInterval(() => {
+      const costPerSecond = ratePerMinute / 60
+      const newBalance = Math.max(0, balance - costPerSecond)
+
+      if (newBalance <= 0) {
+        wsManager.emit("end_session", {
+          sessionId: session.id,
+          reason: "insufficient_balance",
+        })
+        stopTimer()
+      } else {
+        setBalance(newBalance)
+        onBalanceUpdate(newBalance)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [isRunning, balance, ratePerMinute, session.id, stopTimer, onBalanceUpdate])
+
+  const sendMessage = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newMessage.trim() || balance <= 0) return
+
+    const message: Message = {
+      id: `msg_${Date.now()}`,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      text: newMessage.trim(),
+      timestamp: new Date(),
+      type: "text",
+    }
+
+    wsManager.emit("send_message", { sessionId: session.id, message })
+    setMessages((prev) => [...prev, message])
+    setNewMessage("")
+  }
+
+  const endSession = () => {
+    wsManager.emit("end_session", { sessionId: session.id })
+    stopTimer()
+    onSessionEnd()
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 rounded-lg border border-gray-800">
-      <div className="flex-grow p-4 overflow-y-auto">
-        {/* Qui andrebbe la lista dei messaggi */}
-        <p className="text-center text-gray-500 text-sm">I messaggi sono crittografati end-to-end.</p>
+    <div className="h-full flex flex-col bg-white dark:bg-slate-950">
+      <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <Timer className="h-5 w-5 text-blue-500" />
+            <span className="font-mono font-semibold text-lg">{formatTime(time)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <Coins className="h-5 w-5 text-yellow-500" />
+            <span className="font-semibold text-lg">€{balance.toFixed(2)}</span>
+          </div>
+        </div>
+        <Badge variant={isConnected ? "default" : "destructive"}>{isConnected ? "Connesso" : "Disconnesso"}</Badge>
       </div>
 
-      <div className="p-4 border-t border-gray-800 bg-gray-950">
-        {state?.limitReached ? (
-          <div className="text-center p-4 rounded-lg bg-yellow-900/50 border border-yellow-700">
-            <AlertTriangle className="mx-auto h-8 w-8 text-yellow-400 mb-2" />
-            <h3 className="font-bold text-yellow-300">Limite Messaggi Raggiunto</h3>
-            <p className="text-sm text-yellow-200 mb-4">
-              Per proteggere la privacy e la professionalità, le chat iniziali sono limitate.
-            </p>
-            <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
-              <Link href={`/operator/${operatorUsername}?action=start_consultation`}>
-                Avvia un Consulto a Pagamento
-              </Link>
-            </Button>
-          </div>
-        ) : (
-          <form ref={formRef} action={formAction} className="flex items-center gap-3">
-            <Input
-              name="content"
-              placeholder="Scrivi un messaggio..."
-              required
-              autoComplete="off"
-              className="flex-grow bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            <input type="hidden" name="receiverId" value={receiverId} />
-            <SubmitButton />
-          </form>
-        )}
-      </div>
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <div className="space-y-4">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex items-end gap-2 ${message.senderId === currentUserId ? "justify-end" : "justify-start"}`}
+            >
+              {message.senderId !== currentUserId && (
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={session.operator.avatar || "/placeholder.svg"} />
+                  <AvatarFallback>{session.operator.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={`max-w-[70%] p-3 rounded-2xl ${
+                  message.senderId === currentUserId
+                    ? "bg-blue-600 text-white rounded-br-none"
+                    : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 rounded-bl-none"
+                } ${
+                  message.type === "system"
+                    ? "w-full max-w-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 text-center text-xs italic rounded-2xl"
+                    : ""
+                }`}
+              >
+                <p className="text-sm">{message.text}</p>
+                {message.type !== "system" && (
+                  <p className="text-xs opacity-70 mt-1 text-right">
+                    {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+
+      <form onSubmit={sendMessage} className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+        <div className="flex gap-2">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder={balance > 0 ? "Scrivi un messaggio..." : "Credito insufficiente"}
+            disabled={balance <= 0 || !isConnected}
+            className="flex-1 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 rounded-full px-4"
+          />
+          <Button
+            type="submit"
+            disabled={!newMessage.trim() || balance <= 0 || !isConnected}
+            className="bg-blue-600 hover:bg-blue-700 rounded-full w-12 h-12 flex-shrink-0"
+            size="icon"
+          >
+            <Send className="h-5 w-5" />
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }

@@ -1,10 +1,10 @@
 "use server"
 
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
 
 const applicationSchema = z.object({
+  name: z.string().min(3, { message: "Il nome deve contenere almeno 3 caratteri." }),
+  email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
   phone: z.string().min(9, { message: "Inserisci un numero di telefono valido." }),
   specializations: z.array(z.string()).min(1, { message: "Seleziona almeno una specializzazione." }),
   bio: z.string().min(50, { message: "La biografia deve contenere almeno 50 caratteri." }),
@@ -14,30 +14,19 @@ type ApplicationState = {
   message: string
   success: boolean
   errors?: {
+    name?: string[]
+    email?: string[]
     phone?: string[]
     specializations?: string[]
     bio?: string[]
-    server?: string[]
   } | null
 }
 
 export async function applyAsExpert(prevState: ApplicationState, formData: FormData): Promise<ApplicationState> {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return {
-      message: "Autenticazione richiesta.",
-      success: false,
-      errors: { server: ["Devi essere loggato per inviare una candidatura."] },
-    }
-  }
-
   const specializations = formData.getAll("specializations")
   const validatedFields = applicationSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
     phone: formData.get("phone"),
     specializations: specializations,
     bio: formData.get("bio"),
@@ -51,49 +40,19 @@ export async function applyAsExpert(prevState: ApplicationState, formData: FormD
     }
   }
 
-  const { data: profile } = await supabase.from("profiles").select("name, email").eq("id", user.id).single()
+  // In una vera applicazione, qui gestiresti il caricamento del file CV
+  // e invieresti un'email formattata usando un servizio come Resend o SendGrid.
 
-  if (!profile) {
-    return {
-      message: "Profilo non trovato.",
-      success: false,
-      errors: { server: ["Impossibile trovare il tuo profilo utente."] },
-    }
-  }
+  console.log("--- NUOVA CANDIDATURA ESPERTO ---")
+  console.log("Dati ricevuti:", validatedFields.data)
+  console.log("Email di destinazione: infomoonthir@gmail.com")
+  console.log("---------------------------------")
 
-  // Inserisci la candidatura nel database
-  const { error } = await supabase.from("operator_applications").insert({
-    user_id: user.id,
-    name: profile.name,
-    email: profile.email,
-    phone: validatedFields.data.phone,
-    specialties: validatedFields.data.specializations,
-    bio: validatedFields.data.bio,
-    status: "pending",
-  })
-
-  if (error) {
-    // Gestisce il caso in cui l'utente ha già una candidatura pendente
-    if (error.code === "23505") {
-      // unique_violation
-      return {
-        message: "Hai già una candidatura in attesa di revisione.",
-        success: false,
-        errors: { server: ["Non puoi inviare una nuova candidatura finché la precedente non è stata valutata."] },
-      }
-    }
-    console.error("Supabase error:", error)
-    return {
-      message: "Errore del server. Riprova più tardi.",
-      success: false,
-      errors: { server: [error.message] },
-    }
-  }
-
-  revalidatePath("/diventa-esperto")
+  // Simula il tempo di invio di un'email
+  await new Promise((resolve) => setTimeout(resolve, 1000))
 
   return {
-    message: "Candidatura inviata con successo! Il nostro team la valuterà al più presto.",
+    message: "Candidatura inviata con successo! Il nostro team ti contatterà al più presto.",
     success: true,
     errors: null,
   }

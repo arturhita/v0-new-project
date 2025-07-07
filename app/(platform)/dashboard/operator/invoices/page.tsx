@@ -1,80 +1,88 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Download } from "lucide-react"
-import { formatCurrency, formatDate } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Download, Scroll } from "lucide-react"
 
-export default async function OperatorInvoicesPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface Invoice {
+  id: string
+  date: string
+  description: string
+  amount: number
+  fileUrl?: string // URL fittizio per il download
+}
 
-  if (!user) {
-    return redirect("/login")
+export default function InvoicesPage() {
+  const invoices: Invoice[] = [
+    {
+      id: "inv001",
+      date: "2025-06-01",
+      description: "Commissioni Piattaforma - Maggio 2025",
+      amount: 187.5,
+      fileUrl: "/placeholder-invoice.pdf",
+    },
+    {
+      id: "inv002",
+      date: "2025-05-01",
+      description: "Commissioni Piattaforma - Aprile 2025",
+      amount: 152.2,
+      fileUrl: "/placeholder-invoice.pdf",
+    },
+  ]
+
+  const handleDownload = (fileUrl: string | undefined) => {
+    if (fileUrl) {
+      // In un'app reale, questo aprirebbe l'URL del file o avvierebbe un download
+      alert(`Simulazione download fattura da: ${fileUrl}`)
+      // window.open(fileUrl, '_blank'); // Opzione per aprire in nuova scheda
+    } else {
+      alert("File fattura non disponibile per il download.")
+    }
   }
 
-  const { data: invoices, error } = await supabase
-    .from("invoices")
-    .select("*")
-    .eq("operator_id", user.id)
-    .order("issue_date", { ascending: false })
-
-  if (error) console.error("Error fetching invoices:", error)
-
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Le Tue Fatture</h1>
-        <p className="text-muted-foreground">Archivio di tutte le fatture emesse per i tuoi pagamenti.</p>
-      </div>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Fatture Cosmiche Ricevute</h1>
+      <CardDescription className="text-slate-500 -mt-4">
+        Visualizza le fatture emesse dalla piattaforma per le commissioni.
+      </CardDescription>
 
-      <Card>
+      <Card className="shadow-xl rounded-2xl">
         <CardHeader>
-          <CardTitle>Cronologia Fatture</CardTitle>
-          <CardDescription>Scarica le tue fatture in formato PDF.</CardDescription>
+          <CardTitle className="text-xl text-slate-700 flex items-center">
+            <Scroll className="mr-2 h-5 w-5 text-slate-500" /> Archivio Fatture
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Numero Fattura</TableHead>
-                <TableHead>Data Emissione</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Descrizione</TableHead>
                 <TableHead className="text-right">Importo</TableHead>
-                <TableHead className="text-center">Stato</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
+                <TableHead className="text-right">Azione</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices && invoices.length > 0 ? (
-                invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                    <TableCell>{formatDate(invoice.issue_date)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant={invoice.status === "paid" ? "default" : "destructive"}
-                        className={invoice.status === "paid" ? "bg-green-100 text-green-800" : ""}
-                      >
-                        {invoice.status === "paid" ? "Pagata" : "Da Pagare"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" disabled={!invoice.pdf_url}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Scarica
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+              {invoices.map((invoice) => (
+                <TableRow key={invoice.id}>
+                  <TableCell className="font-medium">{invoice.id.toUpperCase()}</TableCell>
+                  <TableCell>{invoice.date}</TableCell>
+                  <TableCell>{invoice.description}</TableCell>
+                  <TableCell className="text-right">€{invoice.amount.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => handleDownload(invoice.fileUrl)}>
+                      <Download className="mr-1.5 h-4 w-4" /> Scarica
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {invoices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    Nessuna fattura trovata.
+                  <TableCell colSpan={5} className="text-center text-slate-500">
+                    Nessuna fattura ricevuta.
                   </TableCell>
                 </TableRow>
               )}

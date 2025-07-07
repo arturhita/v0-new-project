@@ -2,21 +2,13 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/hooks/use-toast"
 import {
   Send,
   Users,
@@ -33,6 +25,7 @@ import {
   Eye,
   Smile,
 } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 import { sendNewsletter } from "@/lib/actions/settings.actions"
 
 interface SendNewsletterModalProps {
@@ -103,7 +96,6 @@ const templates = [
 const emojis = ["✨", "🔥", "💫", "⭐", "🎯", "💎", "🌟", "🎁", "💝", "🎉", "🚀", "💖", "🌙", "☀️", "🦋"]
 
 export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterModalProps) {
-  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("compose")
   const [selectedTemplate, setSelectedTemplate] = useState("")
   const [formData, setFormData] = useState({
@@ -253,47 +245,39 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto bg-slate-900 border-purple-500/30 text-slate-200">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-purple-300">
-            <Sparkles className="h-6 w-6 text-yellow-400" />
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-yellow-500" />
             Newsletter Creator Pro
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Crea newsletter professionali con template, editor avanzato e anteprima live.
+          <DialogDescription>
+            Crea newsletter professionali con template, editor avanzato e anteprima live
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 border border-indigo-500/20 text-slate-400">
-            <TabsTrigger
-              value="templates"
-              className="data-[state=active]:bg-indigo-500/20 data-[state=active]:text-white"
-            >
-              <Palette className="h-4 w-4 mr-2" /> Template
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="templates" className="flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Template
             </TabsTrigger>
-            <TabsTrigger
-              value="compose"
-              className="data-[state=active]:bg-indigo-500/20 data-[state=active]:text-white"
-            >
-              <Mail className="h-4 w-4 mr-2" /> Componi
+            <TabsTrigger value="compose" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Componi
             </TabsTrigger>
-            <TabsTrigger
-              value="preview"
-              className="data-[state=active]:bg-indigo-500/20 data-[state=active]:text-white"
-            >
-              <Eye className="h-4 w-4 mr-2" /> Anteprima
+            <TabsTrigger value="preview" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Anteprima
             </TabsTrigger>
-            <TabsTrigger
-              value="analytics"
-              className="data-[state=active]:bg-indigo-500/20 data-[state=active]:text-white"
-            >
-              <BarChart3 className="h-4 w-4 mr-2" /> Analytics
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
             </TabsTrigger>
           </TabsList>
 
           {/* Template Tab */}
-          <TabsContent value="templates" className="space-y-4 pt-4">
+          <TabsContent value="templates" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {templates.map((template) => (
                 <div
@@ -322,19 +306,17 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
           </TabsContent>
 
           {/* Compose Tab */}
-          <TabsContent value="compose" className="space-y-6 pt-4">
+          <TabsContent value="compose" className="space-y-6">
             {/* Oggetto con emoji picker */}
             <div className="space-y-2">
-              <Label htmlFor="subject" className="text-slate-400">
-                Oggetto Newsletter *
-              </Label>
+              <Label htmlFor="subject">Oggetto Newsletter *</Label>
               <div className="flex gap-2">
                 <Input
                   id="subject"
                   placeholder="Oggetto accattivante..."
                   value={formData.subject}
                   onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
-                  className="flex-1 bg-slate-800 border-slate-700"
+                  className="flex-1"
                 />
                 <div className="relative">
                   <Button
@@ -342,7 +324,6 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
                     variant="outline"
                     size="icon"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="bg-slate-800 border-slate-700"
                   >
                     <Smile className="h-4 w-4" />
                   </Button>
@@ -365,45 +346,21 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
 
             {/* Toolbar editor */}
             <div className="space-y-2">
-              <Label className="text-slate-400">Editor Avanzato</Label>
-              <div className="flex gap-2 p-2 bg-slate-800 rounded-lg border border-slate-700">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => insertFormatting("bold")}
-                  className="bg-slate-800 border-slate-700"
-                >
+              <Label>Editor Avanzato</Label>
+              <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
+                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("bold")}>
                   <Bold className="h-4 w-4" />
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => insertFormatting("italic")}
-                  className="bg-slate-800 border-slate-700"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("italic")}>
                   <Italic className="h-4 w-4" />
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => insertFormatting("link")}
-                  className="bg-slate-800 border-slate-700"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("link")}>
                   <Link className="h-4 w-4" />
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => insertFormatting("list")}
-                  className="bg-slate-800 border-slate-700"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => insertFormatting("list")}>
                   <List className="h-4 w-4" />
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="bg-slate-800 border-slate-700">
+                <Button type="button" variant="outline" size="sm">
                   <ImageIcon className="h-4 w-4" />
                 </Button>
               </div>
@@ -411,31 +368,34 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
 
             {/* Contenuto */}
             <div className="space-y-2">
-              <Label htmlFor="content" className="text-slate-400">
-                Contenuto Newsletter *
-              </Label>
+              <Label htmlFor="content">Contenuto Newsletter *</Label>
               <Textarea
                 id="content"
-                placeholder="Scrivi il contenuto della newsletter qui..."
+                placeholder="Scrivi il contenuto della newsletter qui...
+
+Puoi usare HTML per formattare:
+- <strong>Grassetto</strong>
+- <em>Corsivo</em>
+- <a href='#'>Link</a>
+- <ul><li>Liste</li></ul>"
                 value={formData.content}
                 onChange={(e) => setFormData((prev) => ({ ...prev, content: e.target.value }))}
                 rows={15}
-                className="min-h-[400px] font-mono text-sm bg-slate-800 border-slate-700"
+                className="min-h-[400px] font-mono text-sm"
               />
             </div>
 
             {/* Destinatari */}
             <div className="space-y-4">
-              <Label className="text-slate-400">Destinatari</Label>
+              <Label>Destinatari</Label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="sendToUsers"
                     checked={formData.sendToUsers}
                     onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, sendToUsers: checked as boolean }))}
-                    className="bg-slate-800 border-slate-700"
                   />
-                  <Label htmlFor="sendToUsers" className="flex items-center gap-2 text-slate-400">
+                  <Label htmlFor="sendToUsers" className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
                     Utenti
                     <Badge variant="secondary">{recipientStats.users.toLocaleString()}</Badge>
@@ -449,9 +409,8 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
                     onCheckedChange={(checked) =>
                       setFormData((prev) => ({ ...prev, sendToOperators: checked as boolean }))
                     }
-                    className="bg-slate-800 border-slate-700"
                   />
-                  <Label htmlFor="sendToOperators" className="flex items-center gap-2 text-slate-400">
+                  <Label htmlFor="sendToOperators" className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     Operatori
                     <Badge variant="secondary">{recipientStats.operators}</Badge>
@@ -465,9 +424,8 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
                     onCheckedChange={(checked) =>
                       setFormData((prev) => ({ ...prev, sendToAdmins: checked as boolean }))
                     }
-                    className="bg-slate-800 border-slate-700"
                   />
-                  <Label htmlFor="sendToAdmins" className="flex items-center gap-2 text-slate-400">
+                  <Label htmlFor="sendToAdmins" className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
                     Admin
                     <Badge variant="secondary">{recipientStats.admins}</Badge>
@@ -485,22 +443,19 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
           </TabsContent>
 
           {/* Preview Tab */}
-          <TabsContent value="preview" className="space-y-4 pt-4">
-            <div className="border rounded-lg overflow-hidden border-slate-700">
-              <div className="bg-slate-800 p-4 border-b border-slate-700">
-                <h3 className="font-semibold text-slate-200">📧 {formData.subject || "Oggetto newsletter"}</h3>
-                <p className="text-sm text-slate-400">Da: Moonthir &lt;noreply@moonthir.com&gt;</p>
+          <TabsContent value="preview" className="space-y-4">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-100 p-4 border-b">
+                <h3 className="font-semibold">📧 {formData.subject || "Oggetto newsletter"}</h3>
+                <p className="text-sm text-gray-600">Da: Unveilly &lt;noreply@unveilly.com&gt;</p>
               </div>
-              <div className="p-6 bg-slate-950 min-h-[400px]">
+              <div className="p-6 bg-white min-h-[400px]">
                 {formData.content ? (
-                  <div
-                    className="prose prose-sm prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formData.content }}
-                  />
+                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formData.content }} />
                 ) : (
-                  <div className="text-center text-slate-600 py-20">
+                  <div className="text-center text-gray-400 py-20">
                     <Mail className="h-12 w-12 mx-auto mb-4" />
-                    <p>L'anteprima della newsletter apparirà qui</p>
+                    <p>Anteprima newsletter apparirà qui</p>
                   </div>
                 )}
               </div>
@@ -508,7 +463,7 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6 pt-4">
+          <TabsContent value="analytics" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
@@ -552,11 +507,11 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
             </div>
 
             <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border">
-              <h3 className="font-semibold mb-4 flex items-center gap-2 text-slate-400">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
                 Suggerimenti per Migliorare
               </h3>
-              <ul className="space-y-2 text-sm text-slate-400">
+              <ul className="space-y-2 text-sm">
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   Oggetto accattivante con emoji ✅
@@ -579,19 +534,25 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
         </Tabs>
 
         {/* Azioni finali */}
-        <DialogFooter className="pt-6 border-t border-slate-800">
-          <Button variant="outline" onClick={onClose} className="bg-transparent border-slate-600 hover:bg-slate-800">
-            Annulla
-          </Button>
-          <Button
-            onClick={handleSendNewsletter}
-            disabled={isSending}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {isSending ? "Invio..." : `🚀 Invia Newsletter`}
-          </Button>
-        </DialogFooter>
+        <div className="flex justify-between items-center pt-6 border-t">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Users className="h-4 w-4" />
+            <span>{getTotalRecipients().toLocaleString()} destinatari selezionati</span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button
+              onClick={handleSendNewsletter}
+              disabled={isSending}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {isSending ? "Invio..." : `🚀 Invia Newsletter`}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

@@ -3,14 +3,7 @@ import { stripe } from "@/lib/stripe"
 
 export async function POST(request: NextRequest) {
   try {
-    // In un'applicazione reale, l'ID utente non verrebbe passato nel body della richiesta,
-    // ma ottenuto da una sessione di autenticazione sicura sul server.
-    // Questo previene che un utente possa creare pagamenti per conto di un altro.
-    const {
-      amount,
-      currency = "eur",
-      userId /* Esempio: const { userId } = await getAuthSession() */,
-    } = await request.json()
+    const { amount, currency = "eur", userId } = await request.json()
 
     if (!amount || amount < 50) {
       // Minimo 0.50€

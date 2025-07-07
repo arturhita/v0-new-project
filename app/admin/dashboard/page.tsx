@@ -1,14 +1,12 @@
+// Dashboard Admin con sezione promozioni
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, Briefcase, DollarSign, Activity, Target, Zap, TrendingUp, Plus } from "lucide-react"
 import Link from "next/link"
-import { getAdminDashboardStats } from "@/lib/actions/admin.actions"
 
-export default async function AdminDashboardPage() {
-  const stats = await getAdminDashboardStats()
-
+export default function AdminDashboardPage() {
   return (
     <DashboardLayout userType="admin" title="Dashboard Amministratore">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -18,8 +16,8 @@ export default async function AdminDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.usersCount}</div>
-            <p className="text-xs text-muted-foreground">Totale clienti</p>
+            <div className="text-2xl font-bold">1,482</div>
+            <p className="text-xs text-muted-foreground">+150 questo mese</p>
           </CardContent>
         </Card>
         <Card>
@@ -28,28 +26,28 @@ export default async function AdminDashboardPage() {
             <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.operatorsCount}</div>
-            <p className="text-xs text-muted-foreground">Operatori approvati e attivi</p>
+            <div className="text-2xl font-bold">73</div>
+            <p className="text-xs text-muted-foreground">+5 questa settimana</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Entrate Totali (Mese)</CardTitle>
+            <CardTitle className="text-sm font-medium">Entrate Totali</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€ {stats.totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">(Dato di esempio)</p>
+            <div className="text-2xl font-bold">€ 12,350.00</div>
+            <p className="text-xs text-muted-foreground">Mese corrente</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Consulenze (Oggi)</CardTitle>
+            <CardTitle className="text-sm font-medium">Consulenze Effettuate</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.consultationsToday}</div>
-            <p className="text-xs text-muted-foreground">(Dato di esempio)</p>
+            <div className="text-2xl font-bold">312</div>
+            <p className="text-xs text-muted-foreground">Ultime 24 ore</p>
           </CardContent>
         </Card>
       </div>
@@ -124,12 +122,12 @@ export default async function AdminDashboardPage() {
                 <h4 className="font-semibold mb-3">Azioni Rapide</h4>
                 <div className="space-y-2">
                   <Link href="/admin/promotions">
-                    <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
                       <Target className="h-4 w-4 mr-2" />
                       Gestisci Promozioni
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                  <Button variant="outline" size="sm" className="w-full justify-start">
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Statistiche Dettagliate
                   </Button>

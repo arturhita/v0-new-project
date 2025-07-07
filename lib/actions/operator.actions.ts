@@ -1,153 +1,131 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
-import type { Profile } from "@/types/database"
 
-// ============================================================================
-// PUBLIC-FACING ACTIONS (for homepage, category pages, etc.)
-// ============================================================================
+// Mock data per operatori
+const mockOperators = [
+  {
+    id: "op_luna_stellare",
+    name: "Elara",
+    surname: "Luna",
+    stageName: "Luna Stellare",
+    email: "stella@unveilly.com",
+    phone: "+39 123 456 7890",
+    bio: "Esperta in tarocchi e astrologia con oltre 10 anni di esperienza.",
+    specialties: ["Tarocchi", "Amore", "Lavoro"],
+    categories: ["Tarocchi"],
+    avatarUrl: "/placeholder.svg?height=100&width=100",
+    services: {
+      chatEnabled: true,
+      chatPrice: 2.5,
+      callEnabled: true,
+      callPrice: 3.0,
+      emailEnabled: true,
+      emailPrice: 30.0,
+    },
+    availability: {
+      monday: ["09:00-12:00", "15:00-18:00"],
+      tuesday: ["09:00-12:00", "15:00-18:00"],
+      wednesday: ["09:00-12:00"],
+      thursday: ["15:00-18:00"],
+      friday: ["09:00-12:00", "15:00-18:00"],
+      saturday: ["10:00-16:00"],
+      sunday: [],
+    },
+    status: "Attivo" as const,
+    isOnline: true,
+    commission: "15",
+    createdAt: "2025-05-20",
+  },
+  {
+    id: "op_sol_divino",
+    name: "Orion",
+    surname: "Astro",
+    stageName: "Sol Divino",
+    email: "orion@unveilly.com",
+    phone: "+39 123 456 7891",
+    bio: "Specialista in astrologia e lettura delle stelle.",
+    specialties: ["Astrologia", "Futuro", "Destino"],
+    categories: ["Astrologia"],
+    avatarUrl: "/placeholder.svg?height=100&width=100",
+    services: {
+      chatEnabled: true,
+      chatPrice: 3.0,
+      callEnabled: true,
+      callPrice: 3.5,
+      emailEnabled: true,
+      emailPrice: 40.0,
+    },
+    availability: {
+      monday: ["09:00-12:00", "15:00-18:00"],
+      tuesday: ["09:00-12:00", "15:00-18:00"],
+      wednesday: ["09:00-12:00", "15:00-18:00"],
+      thursday: ["09:00-12:00", "15:00-18:00"],
+      friday: ["09:00-12:00", "15:00-18:00"],
+      saturday: ["10:00-16:00"],
+      sunday: ["10:00-16:00"],
+    },
+    status: "Attivo" as const,
+    isOnline: true,
+    commission: "15",
+    createdAt: "2025-04-10",
+  },
+]
 
-export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
-  const supabase = createClient()
-  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "active")
+export async function createOperator(operatorData: any) {
+  try {
+    // Simula creazione operatore
+    const newOperator = {
+      ...operatorData,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString().split("T")[0],
+    }
 
-  if (options?.category) {
-    query = query.eq("main_discipline", options.category)
-  }
-  if (options?.limit) {
-    query = query.limit(options.limit)
-  }
-  query = query
-    .order("is_online", { ascending: false })
-    .order("is_available", { ascending: false })
-    .order("average_rating", { ascending: false, nullsFirst: false })
+    // In un'app reale, salveresti nel database
+    console.log("Operatore creato:", newOperator)
 
-  const { data, error } = await query
-  if (error) {
-    console.error("Error fetching operators:", error.message)
-    return []
-  }
-  return data || []
-}
+    revalidatePath("/admin/operators")
 
-export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`*, reviews ( * )`)
-    .eq("stage_name", stageName)
-    .eq("role", "operator")
-    .single()
-
-  if (error) {
-    console.error("Error fetching operator by stage name:", error)
-    return null
-  }
-  return data
-}
-
-// ============================================================================
-// OPERATOR DASHBOARD ACTIONS
-// ============================================================================
-
-const ProfileSchema = z.object({
-  stage_name: z.string().min(2, "Il nome d'arte è obbligatorio."),
-  headline: z.string().min(10, "La headline deve avere almeno 10 caratteri.").max(100, "Massimo 100 caratteri."),
-  bio: z.string().min(50, "La biografia deve avere almeno 50 caratteri."),
-  main_discipline: z.string().min(1, "Seleziona una disciplina principale."),
-  specialties: z.array(z.string()).min(1, "Seleziona almeno una specialità."),
-  chat_price_per_minute: z.coerce.number().min(0.5, "Il prezzo minimo è 0.50€."),
-  call_price_per_minute: z.coerce.number().min(0.5, "Il prezzo minimo è 0.50€."),
-  video_price_per_minute: z.coerce.number().min(0.5, "Il prezzo minimo è 0.50€."),
-})
-
-export async function getOperatorPublicProfile(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "stage_name, headline, bio, main_discipline, specialties, profile_image_url, chat_price_per_minute, call_price_per_minute, video_price_per_minute",
-    )
-    .eq("id", operatorId)
-    .single()
-
-  if (error) {
-    console.error("Error fetching operator public profile:", error)
-    return null
-  }
-  return data
-}
-
-export async function updateOperatorProfile(prevState: any, formData: FormData) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
-  }
-
-  const validatedFields = ProfileSchema.safeParse({
-    stage_name: formData.get("stage_name"),
-    headline: formData.get("headline"),
-    bio: formData.get("bio"),
-    main_discipline: formData.get("main_discipline"),
-    specialties: formData.getAll("specialties"),
-    chat_price_per_minute: formData.get("chat_price_per_minute"),
-    call_price_per_minute: formData.get("call_price_per_minute"),
-    video_price_per_minute: formData.get("video_price_per_minute"),
-  })
-
-  if (!validatedFields.success) {
+    return {
+      success: true,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      operator: newOperator,
+    }
+  } catch (error) {
+    console.error("Errore creazione operatore:", error)
     return {
       success: false,
-      message: "Dati non validi.",
-      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Errore nella creazione dell'operatore",
     }
   }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      ...validatedFields.data,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id)
-
-  if (error) {
-    console.error("Error updating profile:", error)
-    return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
-  }
-
-  revalidatePath("/(platform)/dashboard/operator/profile")
-  revalidatePath(`/operator/${validatedFields.data.stage_name}`) // Revalidate public profile page
-  return { success: true, message: "Profilo aggiornato con successo!" }
 }
 
-export async function toggleAvailability(is_available: boolean) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export async function updateOperatorCommission(operatorId: string, commission: string) {
+  try {
+    // Simula aggiornamento commissione
+    console.log(`Aggiornamento commissione operatore ${operatorId}: ${commission}%`)
 
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+
+    return {
+      success: true,
+      message: "Commissione aggiornata con successo!",
+    }
+  } catch (error) {
+    console.error("Errore aggiornamento commissione:", error)
+    return {
+      success: false,
+      message: "Errore nell'aggiornamento della commissione",
+    }
   }
+}
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ is_available: is_available, updated_at: new Date().toISOString() })
-    .eq("id", user.id)
+export async function getAllOperators() {
+  // Simula fetch operatori
+  return mockOperators
+}
 
-  if (error) {
-    console.error("Error toggling availability:", error)
-    return { success: false, message: "Errore durante l'aggiornamento della disponibilità." }
-  }
-
-  revalidatePath("/(platform)/dashboard/operator")
-  revalidatePath("/")
-  return { success: true, message: `Disponibilità aggiornata a: ${is_available ? "Disponibile" : "Non Disponibile"}` }
+export async function getOperatorById(id: string) {
+  return mockOperators.find((op) => op.id === id) || null
 }

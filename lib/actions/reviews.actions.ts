@@ -1,158 +1,164 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import type { Review } from "@/types/review.types"
 import { revalidatePath } from "next/cache"
 
-/**
- * Recupera le recensioni per un dato operatore dal database.
- * @param operatorId L'ID dell'operatore.
- * @returns Una promessa che si risolve in un array di recensioni.
- */
-export async function getReviewsForOperator(operatorId: string): Promise<Review[]> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:client_id (
-        full_name,
-        profile_image_url
-      )
-    `,
-    )
-    .eq("operator_id", operatorId)
-    .eq("status", "approved") // Mostra solo recensioni approvate sulla pagina pubblica
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching reviews:", error)
-    return []
-  }
-
-  const reviews = data.map((review) => ({
-    id: review.id,
-    rating: review.rating,
-    comment: review.comment || "",
-    created_at: review.created_at,
-    // @ts-ignore: Supabase types can be tricky with nested selects
-    user_full_name: review.client?.full_name || "Utente Anonimo",
-    // @ts-ignore
-    user_avatar: review.client?.profile_image_url,
-    user_id: "placeholder_user_id",
-    operator_id: operatorId,
-  }))
-
-  return reviews as Review[]
-}
-
-/**
- * Crea una nuova recensione nel database.
- * Imposta lo stato su 'pending' per recensioni con 3 stelle o meno,
- * e 'approved' per quelle con 4 o 5 stelle.
- * @param reviewData I dati della recensione da creare.
- * @returns Un oggetto che indica il successo o il fallimento dell'operazione.
- */
-export async function createReview(reviewData: {
-  clientId: string
+export interface Review {
+  id: string
+  userId: string
   operatorId: string
+  operatorName: string
+  userName: string
+  userAvatar?: string
   rating: number
   comment: string
-}) {
-  const supabase = createClient()
-
-  const status = reviewData.rating <= 3 ? "pending" : "approved"
-
-  const { data, error } = await supabase.from("reviews").insert({
-    client_id: reviewData.clientId,
-    operator_id: reviewData.operatorId,
-    rating: reviewData.rating,
-    comment: reviewData.comment,
-    status: status,
-  })
-
-  if (error) {
-    console.error("Error creating review:", error)
-    return { success: false, message: "Impossibile creare la recensione." }
-  }
-
-  revalidatePath(`/operator/${reviewData.operatorId}`)
-  revalidatePath("/admin/reviews")
-  return { success: true, data }
+  serviceType: "chat" | "call" | "email"
+  consultationId: string
+  date: string
+  isVerified: boolean
+  isModerated: boolean
+  helpfulVotes: number
+  reportCount: number
 }
 
-// --- NUOVE FUNZIONI PER LA MODERAZIONE ---
+// Simulazione database recensioni
+const reviewsDB: Review[] = [
+  {
+    id: "r1",
+    userId: "u1",
+    operatorId: "op1",
+    operatorName: "Stella Divina",
+    userName: "Maria R.",
+    userAvatar: "/placeholder.svg?height=40&width=40",
+    rating: 5,
+    comment:
+      "Consulenza eccellente! Stella ha una sensibilità incredibile e mi ha aiutato a vedere chiaramente la mia situazione. Consigliatissima!",
+    serviceType: "chat",
+    consultationId: "c1",
+    date: "2024-01-15T10:30:00Z",
+    isVerified: true,
+    isModerated: true,
+    helpfulVotes: 12,
+    reportCount: 0,
+  },
+  {
+    id: "r2",
+    userId: "u2",
+    operatorId: "op1",
+    operatorName: "Stella Divina",
+    userName: "Giuseppe M.",
+    userAvatar: "/placeholder.svg?height=40&width=40",
+    rating: 4,
+    comment: "Molto professionale e precisa nelle sue letture. Mi ha dato consigli utili per il mio futuro lavorativo.",
+    serviceType: "call",
+    consultationId: "c2",
+    date: "2024-01-12T15:45:00Z",
+    isVerified: true,
+    isModerated: true,
+    helpfulVotes: 8,
+    reportCount: 0,
+  },
+  {
+    id: "r3",
+    userId: "u3",
+    operatorId: "op1",
+    operatorName: "Stella Divina",
+    userName: "Anna L.",
+    userAvatar: "/placeholder.svg?height=40&width=40",
+    rating: 2,
+    comment: "Non sono rimasta soddisfatta della consulenza.",
+    serviceType: "chat",
+    consultationId: "c3",
+    date: "2024-01-10T09:15:00Z",
+    isVerified: true,
+    isModerated: true,
+    helpfulVotes: 1,
+    reportCount: 0,
+  },
+]
 
-export interface PendingReview {
-  id: string
-  rating: number
-  comment: string | null
-  createdAt: string
-  clientName: string | null
-  operatorName: string | null
-}
-
-/**
- * Recupera tutte le recensioni in stato 'pending' per la moderazione.
- */
-export async function getPendingReviews(): Promise<PendingReview[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("admin_reviews_view")
-    .select("*")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-
-  if (error) {
-    console.error("Error fetching pending reviews:", error.message)
-    return []
+export async function createReview(
+  reviewData: Omit<Review, "id" | "date" | "isModerated" | "helpfulVotes" | "reportCount">,
+) {
+  const newReview: Review = {
+    ...reviewData,
+    id: `r${Date.now()}`,
+    date: new Date().toISOString(),
+    isModerated: false, // Richiede moderazione
+    helpfulVotes: 0,
+    reportCount: 0,
   }
 
-  return data.map((review) => ({
-    id: review.id,
-    rating: review.rating,
-    comment: review.comment,
-    createdAt: review.created_at,
-    clientName: review.client_name,
-    operatorName: review.operator_name,
-  }))
+  reviewsDB.push(newReview)
+  revalidatePath("/")
+  revalidatePath(`/operator/${reviewData.operatorName}`)
+
+  return { success: true, review: newReview }
 }
 
-/**
- * Approva una recensione, cambiando il suo stato in 'approved'.
- * @param reviewId L'ID della recensione da approvare.
- */
-export async function approveReview(reviewId: string) {
-  const supabase = createClient()
-  const { error } = await supabase.from("reviews").update({ status: "approved" }).eq("id", reviewId)
-
-  if (error) {
-    console.error("Error approving review:", error.message)
-    return { success: false, message: "Errore durante l'approvazione della recensione." }
-  }
-
-  revalidatePath("/admin/reviews")
-  return { success: true, message: "Recensione approvata con successo." }
+export async function getOperatorReviews(operatorId: string) {
+  const reviews = reviewsDB.filter((r) => r.operatorId === operatorId && r.isModerated)
+  return reviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
 
-/**
- * Rifiuta una recensione, cambiando il suo stato in 'rejected'.
- * @param reviewId L'ID della recensione da rifiutare.
- */
-export async function rejectReview(reviewId: string) {
-  const supabase = createClient()
-  const { error } = await supabase.from("reviews").update({ status: "rejected" }).eq("id", reviewId)
+export async function getAllReviews() {
+  return reviewsDB.filter((r) => r.isModerated).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
 
-  if (error) {
-    console.error("Error rejecting review:", error.message)
-    return { success: false, message: "Errore durante il rifiuto della recensione." }
+// ✅ NUOVA FUNZIONE: Calcola media escludendo recensioni negative (rating < 3)
+export async function getOperatorAverageRating(operatorId: string) {
+  const reviews = reviewsDB.filter((r) => r.operatorId === operatorId && r.isModerated)
+
+  // Esclude recensioni negative (rating < 3) dalla media
+  const positiveReviews = reviews.filter((r) => r.rating >= 3)
+
+  if (positiveReviews.length === 0) return 0
+
+  const totalRating = positiveReviews.reduce((sum, review) => sum + review.rating, 0)
+  const average = totalRating / positiveReviews.length
+
+  return Math.round(average * 10) / 10 // Arrotonda a 1 decimale
+}
+
+export async function getOperatorReviewStats(operatorId: string) {
+  const allReviews = reviewsDB.filter((r) => r.operatorId === operatorId && r.isModerated)
+  const positiveReviews = allReviews.filter((r) => r.rating >= 3)
+  const negativeReviews = allReviews.filter((r) => r.rating < 3)
+
+  return {
+    totalReviews: allReviews.length,
+    positiveReviews: positiveReviews.length,
+    negativeReviews: negativeReviews.length,
+    averageRating: await getOperatorAverageRating(operatorId),
+    reviewsUsedInAverage: positiveReviews.length,
   }
+}
 
-  revalidatePath("/admin/reviews")
-  return { success: true, message: "Recensione rifiutata." }
+export async function voteHelpful(reviewId: string) {
+  const review = reviewsDB.find((r) => r.id === reviewId)
+  if (review) {
+    review.helpfulVotes += 1
+    revalidatePath("/")
+  }
+  return { success: true }
+}
+
+export async function reportReview(reviewId: string, reason: string) {
+  const review = reviewsDB.find((r) => r.id === reviewId)
+  if (review) {
+    review.reportCount += 1
+    // Se troppi report, nasconde la recensione
+    if (review.reportCount >= 3) {
+      review.isModerated = false
+    }
+  }
+  return { success: true }
+}
+
+export async function moderateReview(reviewId: string, approved: boolean) {
+  const review = reviewsDB.find((r) => r.id === reviewId)
+  if (review) {
+    review.isModerated = approved
+    revalidatePath("/admin/reviews")
+  }
+  return { success: true }
 }
