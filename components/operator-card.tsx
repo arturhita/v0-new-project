@@ -1,85 +1,79 @@
-import Image from "next/image"
 import Link from "next/link"
-import { Phone, MessageSquare, Star, Circle } from "lucide-react"
-import type { OperatorCardData } from "@/lib/actions/operator.actions"
+import { Star, Phone, MessageSquare, Mail, BadgeCheck } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import type { OperatorCardData } from "@/lib/actions/operator.actions"
 
 interface OperatorCardProps {
   operator: OperatorCardData
+  showNewBadge?: boolean
 }
 
-export function OperatorCard({ operator }: OperatorCardProps) {
-  const getService = (type: "chat" | "call" | "email") => operator.services.find((s) => s.type === type)
+export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
+  const getServicePrice = (type: "chat" | "call" | "email") => {
+    const service = operator.services.find((s) => s.type === type)
+    return service ? service.price : null
+  }
 
-  const chatService = getService("chat")
-  const callService = getService("call")
+  const chatPrice = getServicePrice("chat")
+  const callPrice = getServicePrice("call")
+  const emailPrice = getServicePrice("email")
 
   return (
-    <div className="relative bg-gradient-to-br from-[#1a1a3d] to-[#10102a] rounded-lg overflow-hidden border border-purple-800/50 shadow-lg transition-all duration-300 hover:shadow-purple-500/20 hover:-translate-y-1">
-      {operator.isOnline && (
-        <div className="absolute top-3 right-3 flex items-center gap-2 bg-green-500/20 text-green-300 px-2 py-1 rounded-full text-xs font-bold border border-green-400/50">
-          <Circle fill="currentColor" className="w-2 h-2" />
-          <span>Online</span>
-        </div>
-      )}
-      <Link href={`/operator/${operator.id}`} className="block">
-        <div className="relative h-48">
-          <Image
-            src={operator.avatarUrl || "/placeholder.svg?width=400&height=400"}
-            alt={operator.fullName || "Operatore"}
-            layout="fill"
-            objectFit="cover"
-            className="opacity-50"
+    <div className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-blue-800/50 bg-gradient-to-br from-slate-900/80 to-blue-950/70 p-5 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/50 hover:shadow-yellow-400/10 hover:-translate-y-1">
+      {showNewBadge && <Badge className="absolute top-3 right-3 bg-yellow-400 text-slate-900 font-bold">NUOVO</Badge>}
+      <div className="flex items-center space-x-4">
+        <div className="relative">
+          <img
+            src={operator.avatarUrl || "/placeholder.svg?width=80&height=80"}
+            alt={`Profilo di ${operator.fullName || "Operatore"}`}
+            width={80}
+            height={80}
+            className="rounded-full border-2 border-blue-600 object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#10102a] to-transparent"></div>
-          <div className="absolute bottom-0 left-0 p-4">
-            <h3 className="text-2xl font-bold text-white text-shadow-gold">{operator.fullName || "Nome Operatore"}</h3>
-            <p className="text-purple-300 font-medium">{operator.headline || "Specializzazione principale"}</p>
-          </div>
-        </div>
-      </Link>
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1 text-yellow-400">
-            <Star className="w-5 h-5" fill="currentColor" />
-            <span className="font-bold text-white">{operator.averageRating.toFixed(1)}</span>
-            <span className="text-gray-400 text-sm">({operator.reviewsCount} rec.)</span>
-          </div>
-          <div className="flex gap-2">
-            {chatService && <MessageSquare className="w-5 h-5 text-gray-300" />}
-            {callService && <Phone className="w-5 h-5 text-gray-300" />}
-          </div>
-        </div>
-        <p className="text-gray-300 text-sm h-10 mb-3 overflow-hidden">
-          {operator.bio || "Nessuna biografia disponibile."}
-        </p>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {(operator.specializations || []).slice(0, 3).map((spec) => (
-            <Badge key={spec} variant="secondary" className="bg-purple-500/10 text-purple-300 border-purple-500/20">
-              {spec}
-            </Badge>
-          ))}
-        </div>
-        <div className="flex justify-between items-center text-sm">
-          {chatService?.price != null && (
-            <div className="text-center">
-              <p className="text-gray-400">Chat</p>
-              <p className="font-bold text-white">{chatService.price}€/min</p>
-            </div>
+          {operator.isOnline && (
+            <span className="absolute bottom-0 right-0 block h-4 w-4 rounded-full border-2 border-slate-900 bg-green-500 shadow-md" />
           )}
-          {callService?.price != null && (
-            <div className="text-center">
-              <p className="text-gray-400">Telefono</p>
-              <p className="font-bold text-white">{callService.price}€/min</p>
-            </div>
-          )}
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xl font-bold text-white">{operator.fullName || "Nome Operatore"}</h3>
+          <p className="text-sm text-blue-300">{operator.headline || "Specializzazione"}</p>
+          <div className="mt-1 flex items-center space-x-1">
+            <Star className="h-4 w-4 text-yellow-400" fill="currentColor" />
+            <span className="text-sm font-semibold text-white">{operator.averageRating.toFixed(1)}</span>
+            <span className="text-xs text-slate-400">({operator.reviewsCount} recensioni)</span>
+          </div>
         </div>
       </div>
-      <Link
-        href={`/chat/${operator.id}`}
-        className="block w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-center p-3 font-bold text-white hover:from-purple-600 hover:to-indigo-700 transition-colors duration-300"
-      >
-        Inizia a Chattare
+
+      <p className="mt-4 flex-1 text-sm text-slate-300">{operator.bio || "Nessuna biografia disponibile."}</p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {operator.specializations.slice(0, 3).map((tag) => (
+          <Badge key={tag} variant="secondary" className="bg-blue-800/50 text-blue-200">
+            {tag}
+          </Badge>
+        ))}
+      </div>
+
+      <div className="my-4 h-px bg-blue-800/50" />
+
+      <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="flex items-center gap-2">
+          {chatPrice !== null && <MessageSquare className="h-4 w-4 text-green-400" />}
+          {callPrice !== null && <Phone className="h-4 w-4 text-sky-400" />}
+          {emailPrice !== null && <Mail className="h-4 w-4 text-purple-400" />}
+        </div>
+        <div className="flex items-center gap-1">
+          <BadgeCheck className="h-4 w-4 text-green-500" />
+          <span>Verificato</span>
+        </div>
+      </div>
+
+      <Link href={`/operator/${operator.id}`} passHref>
+        <Button className="mt-4 w-full rounded-full bg-gradient-to-r from-blue-600 to-purple-600 font-semibold text-white transition-all duration-300 group-hover:from-yellow-500 group-hover:to-orange-500 group-hover:text-slate-900">
+          Vedi Profilo
+        </Button>
       </Link>
     </div>
   )
