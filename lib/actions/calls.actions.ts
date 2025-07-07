@@ -36,7 +36,7 @@ export async function initiateCallAction(
       id: sessionId,
       clientId,
       operatorId,
-      clientPhone: "+393331234567", // Mock: numero del cliente, da prendere dal suo profilo
+      clientPhone: "+393471234567", // SOSTITUIRE: Inserire il proprio numero per il test
       operatorPhone,
       ratePerMinute,
       status: "initiated",
