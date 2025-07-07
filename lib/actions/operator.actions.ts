@@ -120,6 +120,47 @@ export async function updateOperatorStatus(operatorId: string, isAvailable: bool
   return { success: true }
 }
 
+export async function getOperatorPublicProfile(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("stage_name, bio, main_discipline, specialties, profile_image_url, service_prices")
+    .eq("id", operatorId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching operator profile for edit:", error)
+    return null
+  }
+  return data
+}
+
+export async function updateOperatorPublicProfile(operatorId: string, formData: FormData) {
+  const supabase = createClient()
+  const stageName = formData.get("stage_name") as string
+
+  const profileData = {
+    stage_name: stageName,
+    bio: formData.get("bio") as string,
+    main_discipline: formData.get("main_discipline") as string,
+    specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
+    service_prices: {
+      chat: Number.parseFloat(formData.get("price_chat") as string),
+      call: Number.parseFloat(formData.get("price_call") as string),
+      video: Number.parseFloat(formData.get("price_video") as string),
+    },
+  }
+
+  const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
+  if (error) return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
+
+  revalidatePath("/dashboard/operator/profile")
+  if (stageName) {
+    revalidatePath(`/operator/${stageName}`)
+  }
+  return { success: true, message: "Profilo aggiornato con successo!" }
+}
+
 export async function getOperatorConsultations(operatorId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
