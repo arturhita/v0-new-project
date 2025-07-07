@@ -6,69 +6,105 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/contexts/auth-context"
 
-// Schema di validazione semplificato per il test
+// Schema di validazione completo
 const OperatorInputSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(3),
   stageName: z.string().min(3),
-  // Tutti gli altri campi sono ignorati per questo test
-  phone: z.any().optional(),
-  bio: z.any().optional(),
-  commission: z.any().optional(),
-  status: z.any().optional(),
-  isOnline: z.any().optional(),
-  categories: z.any().optional(),
-  specialties: z.any().optional(),
-  services: z.any().optional(),
-  availability: z.any().optional(),
-  avatarUrl: z.any().optional(),
+  phone: z.string().optional(),
+  bio: z.string().optional(),
+  commission: z.coerce.number(),
+  status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
+  isOnline: z.boolean(),
+  categories: z.string().array().min(1),
+  specialties: z.string().array(),
+  services: z.object({
+    chatEnabled: z.boolean(),
+    chatPrice: z.coerce.number(),
+    callEnabled: z.boolean(),
+    callPrice: z.coerce.number(),
+    emailEnabled: z.boolean(),
+    emailPrice: z.coerce.number(),
+  }),
+  availability: z.any(),
+  avatarUrl: z.string().optional(),
 })
 
 /**
- * VERSIONE DI DEBUG #1: Crea solo l'utente in Auth.
- * L'obiettivo è verificare che il client riceva una risposta e il caricamento si sblocchi.
+ * VERSIONE DI DEBUG #2: Crea l'utente in Auth E inserisce il record in 'profiles'.
+ * L'obiettivo è verificare che anche l'inserimento nel database funzioni.
  */
 export async function createOperator(operatorData: z.infer<typeof OperatorInputSchema>) {
-  console.log("--- [DEBUG TEST #1] --- Inizio azione di creazione MINIMA.")
+  console.log("--- [DEBUG TEST #2] --- Inizio azione: Auth + Profilo DB.")
+  let newUserId: string | null = null
 
   try {
-    // 1. Validazione dei dati essenziali
+    // 1. Validazione
     const validation = OperatorInputSchema.safeParse(operatorData)
     if (!validation.success) {
-      const errorMsg = `Errore di validazione: ${JSON.stringify(validation.error.flatten().fieldErrors)}`
-      console.error(errorMsg)
-      return { success: false, message: errorMsg }
+      throw new Error(`Errore di validazione: ${JSON.stringify(validation.error.flatten().fieldErrors)}`)
     }
-    const { email, password, fullName, stageName } = validation.data
-    console.log(`[DEBUG] Dati validati per: ${email}`)
+    const { avatarUrl, ...data } = validation.data
+    console.log(`[DEBUG] Step 1: Dati validati per ${data.email}.`)
 
     const supabaseAdmin = createSupabaseAdminClient()
-    console.log("[DEBUG] Client Admin Supabase creato.")
 
-    // 2. Creazione utente in Auth (UNICA OPERAZIONE REALE)
+    // 2. Creazione utente in Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Auto-conferma l'utente
-      user_metadata: { full_name: fullName, stage_name: stageName, role: "operator" },
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { role: "operator", full_name: data.fullName, stage_name: data.stageName },
+    })
+    if (authError) throw new Error(`Errore Auth: ${authError.message}`)
+    newUserId = authData.user.id
+    console.log(`[DEBUG] Step 2: Utente Auth creato con successo: ${newUserId}`)
+
+    // 3. Inserimento del profilo nel database
+    console.log(`[DEBUG] Step 3: Tentativo di inserimento in 'profiles' per l'utente ${newUserId}...`)
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      id: newUserId,
+      email: data.email,
+      role: "operator",
+      full_name: data.fullName,
+      stage_name: data.stageName,
+      phone: data.phone,
+      bio: data.bio,
+      commission_rate: data.commission,
+      status: data.status,
+      is_online: data.isOnline,
+      main_discipline: data.categories[0],
+      specialties: data.specialties,
+      service_prices: data.services,
+      availability_schedule: data.availability,
+      profile_image_url: null, // L'avatar verrà gestito dopo
     })
 
-    if (authError) {
-      console.error("[DEBUG] Errore durante la creazione utente Auth:", authError)
-      throw new Error(`Errore Auth: ${authError.message}`)
+    if (profileError) {
+      // Se questo fallisce, l'errore verrà lanciato e catturato dal blocco catch
+      console.error("[DEBUG] Step 3 FALLITO: Errore durante l'inserimento nel DB.", profileError)
+      throw new Error(`Errore Database: ${profileError.message}`)
     }
+    console.log("[DEBUG] Step 3: Profilo inserito nel DB con successo.")
 
-    console.log(`[DEBUG] Utente Auth creato con successo con ID: ${authData.user.id}`)
-    console.log("--- [DEBUG TEST #1] --- Azione completata con SUCCESSO.")
-
+    // Se arriviamo qui, tutto è andato bene
+    console.log("--- [DEBUG TEST #2] --- Azione completata con SUCCESSO.")
     revalidatePath("/admin/operators")
-    // Messaggio di successo specifico per il test
-    return { success: true, message: `TEST #1 SUPERATO: L'utente Auth è stato creato. Il caricamento si è sbloccato.` }
+    return { success: true, message: "TEST #2 SUPERATO: Utente Auth e Profilo DB creati correttamente." }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
-    console.error("--- [DEBUG TEST #1] --- CATTURATO ERRORE GRAVE:", errorMessage)
-    return { success: false, message: `TEST #1 FALLITO: ${errorMessage}` }
+    console.error("--- [DEBUG TEST #2] --- CATTURATO ERRORE GRAVE:", errorMessage)
+
+    // Rollback: se l'utente Auth è stato creato ma il profilo no, eliminiamo l'utente Auth.
+    if (newUserId) {
+      console.log(`[ROLLBACK] L'operazione è fallita. Tento di eliminare l'utente Auth orfano: ${newUserId}`)
+      const supabaseAdminForRollback = createSupabaseAdminClient()
+      await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
+      console.log("[ROLLBACK] Utente Auth orfano eliminato con successo.")
+    }
+
+    return { success: false, message: `TEST #2 FALLITO: ${errorMessage}` }
   }
 }
 
