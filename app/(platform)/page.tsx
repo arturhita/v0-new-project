@@ -1,6 +1,7 @@
 "use client"
 
-import { getApprovedOperators } from "@/lib/actions/operator.actions"
+import { useEffect, useState } from "react"
+import { getApprovedOperators, type OperatorWithServices } from "@/lib/actions/operator.actions"
 import { OperatorCard } from "@/components/operator-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { Button } from "@/components/ui/button"
@@ -40,14 +41,39 @@ const allMockReviews: ReviewCardType[] = [
   },
 ]
 
-export default async function UnveillyHomePage() {
-  // Carichiamo i dati live dal server
-  const operators = await getApprovedOperators()
+export default function UnveillyHomePage() {
+  const [operators, setOperators] = useState<OperatorWithServices[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchOperators = async () => {
+      try {
+        const ops = await getApprovedOperators()
+        setOperators(ops)
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchOperators()
+  }, [])
 
   const newTalents = operators
-    .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
-    .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
+    .filter((op) => new Date(op.created_at) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 3)
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
+        <div className="text-center">
+          <Sparkles className="h-12 w-12 mx-auto animate-pulse text-yellow-400" />
+          <p className="mt-4 text-lg">Caricamento degli astri...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-slate-900 text-white overflow-x-hidden">
@@ -182,7 +208,7 @@ export default async function UnveillyHomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {operators.slice(0, 8).map((operator, index) => (
               <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                <OperatorCard operator={operator} showNewBadge={newTalents.some((t) => t.id === operator.id)} />
+                <OperatorCard operator={operator} />
               </div>
             ))}
           </div>
@@ -311,7 +337,7 @@ export default async function UnveillyHomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               {newTalents.map((operator, index) => (
                 <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <OperatorCard operator={operator} showNewBadge={true} />
+                  <OperatorCard operator={operator} />
                 </div>
               ))}
             </div>

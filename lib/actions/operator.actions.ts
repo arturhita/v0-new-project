@@ -3,15 +3,26 @@
 import { createClient } from "@/lib/supabase/server"
 import type { Database } from "@/types/database"
 
+// Define a more specific type for the operator card, including services
 export type OperatorWithServices = Database["public"]["Tables"]["profiles"]["Row"] & {
   services: Array<Database["public"]["Tables"]["services"]["Row"]>
+  reviews: Array<{ rating: number }>
+}
+
+// A helper function to calculate average rating
+const calculateAverageRating = (reviews: Array<{ rating: number }>) => {
+  if (!reviews || reviews.length === 0) {
+    return 0
+  }
+  const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0)
+  return Number.parseFloat((totalRating / reviews.length).toFixed(1))
 }
 
 export async function getApprovedOperators(): Promise<OperatorWithServices[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, services(*)")
+    .select("*, services(*), reviews(rating)")
     .eq("role", "operator")
     .eq("application_status", "approved")
     .eq("is_visible", true)
@@ -28,7 +39,7 @@ export async function getOperatorsByCategory(category: string): Promise<Operator
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, services(*)")
+    .select("*, services(*), reviews(rating)")
     .eq("role", "operator")
     .eq("application_status", "approved")
     .eq("is_visible", true)
@@ -46,7 +57,7 @@ export async function getOperatorById(operatorId: string): Promise<OperatorWithS
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, services(*)")
+    .select("*, services(*), reviews(rating)")
     .eq("id", operatorId)
     .eq("role", "operator")
     .single()
