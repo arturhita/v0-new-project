@@ -1,6 +1,5 @@
--- 🌑 MOONTHIR - MASTER SCHEMA V1.0 🌑
--- Questo script crea l'intera struttura del database da zero.
--- È progettato per essere eseguito su un database pulito.
+-- 🌑 MOONTHIR - MASTER SCHEMA V1.1 🌑
+-- Corretta la sintassi di TIMESTAMPTZ.
 
 -- 1. CREAZIONE TIPI ENUMERATIVI (per scelte predefinite)
 CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
@@ -17,8 +16,8 @@ CREATE TABLE public.profiles (
     role user_role NOT NULL DEFAULT 'client',
     full_name TEXT,
     avatar_url TEXT,
-    created_at TIMESTAMPTZ WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMPTZ WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
     
     -- Campi specifici per i clienti
     wallet_balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
@@ -46,7 +45,7 @@ CREATE TABLE public.services (
     price_per_minute NUMERIC(10, 2),
     price_per_consultation NUMERIC(10, 2),
     is_active BOOLEAN DEFAULT true NOT NULL,
-    created_at TIMESTAMPTZ WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(operator_id, type)
 );
 COMMENT ON TABLE public.services IS 'Definisce i servizi e i prezzi per ogni operatore.';
@@ -60,7 +59,7 @@ CREATE TABLE public.reviews (
     rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
     is_approved BOOLEAN DEFAULT false NOT NULL,
-    created_at TIMESTAMPTZ WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 COMMENT ON TABLE public.reviews IS 'Recensioni dei clienti per i consulti effettuati.';
 
@@ -71,12 +70,12 @@ CREATE TABLE public.consultations (
     operator_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     service_id BIGINT NOT NULL REFERENCES public.services(id),
     status consultation_status NOT NULL DEFAULT 'requested',
-    started_at TIMESTAMPTZ WITH TIME ZONE,
-    ended_at TIMESTAMPTZ WITH TIME ZONE,
+    started_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
     duration_minutes INT,
     final_cost NUMERIC(10, 2),
     recording_url TEXT,
-    created_at TIMESTAMPTZ WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 COMMENT ON TABLE public.consultations IS 'Registra ogni sessione di consulto tra cliente e operatore.';
 
@@ -89,7 +88,7 @@ CREATE TABLE public.transactions (
     description TEXT,
     consultation_id BIGINT REFERENCES public.consultations(id),
     stripe_payment_intent_id TEXT,
-    created_at TIMESTAMPTZ WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 COMMENT ON TABLE public.transactions IS 'Log di tutte le transazioni monetarie (ricariche, pagamenti, payout).';
 
