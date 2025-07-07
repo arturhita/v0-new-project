@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 
-// Interfaccia per i dati della Operator Card, usata in tutto il frontend
+// Interfaccia per i dati della Operator Card, usata nelle liste
 export interface OperatorCardData {
   id: string
   fullName: string | null
@@ -20,9 +20,35 @@ export interface OperatorCardData {
   bio: string | null
 }
 
+// Funzione per trasformare i dati grezzi di Supabase nel formato atteso dal frontend
+const transformOperatorData = (operator: any): OperatorCardData => {
+  const reviews = operator.reviews || []
+  const reviewsCount = reviews.length
+  const averageRating =
+    reviewsCount > 0 ? reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviewsCount : 0
+
+  const operatorServices = (operator.services || []).map((service: any) => ({
+    type: service.type as "chat" | "call" | "email",
+    price: service.price_per_minute ?? service.price_per_consultation,
+  }))
+
+  return {
+    id: operator.id,
+    fullName: operator.full_name,
+    avatarUrl: operator.avatar_url,
+    headline: operator.headline,
+    isOnline: operator.is_online,
+    specializations: operator.specializations || [],
+    averageRating: Number.parseFloat(averageRating.toFixed(1)),
+    reviewsCount: reviewsCount,
+    services: operatorServices,
+    joinedDate: operator.created_at,
+    bio: operator.bio,
+  }
+}
+
 /**
  * Recupera dal database tutti gli operatori approvati e visibili.
- * Calcola la valutazione media e formatta i servizi.
  */
 export async function getApprovedOperators(): Promise<OperatorCardData[]> {
   const supabase = createClient()
@@ -31,22 +57,9 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
     .from("profiles")
     .select(
       `
-      id,
-      full_name,
-      avatar_url,
-      headline,
-      bio,
-      is_online,
-      specializations,
-      created_at,
-      services (
-        type,
-        price_per_minute,
-        price_per_consultation
-      ),
-      reviews!reviews_operator_id_fkey (
-        rating
-      )
+      id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
+      services ( type, price_per_minute, price_per_consultation ),
+      reviews!reviews_operator_id_fkey ( rating )
     `,
     )
     .eq("role", "operator")
@@ -58,29 +71,32 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
     return []
   }
 
-  // Trasformiamo i dati grezzi nel formato atteso dal frontend
-  return operators.map((op) => {
-    const reviews = op.reviews || []
-    const reviewsCount = reviews.length
-    const averageRating = reviewsCount > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviewsCount : 0
+  return operators.map(transformOperatorData)
+}
 
-    const operatorServices = (op.services || []).map((service) => ({
-      type: service.type as "chat" | "call" | "email",
-      price: service.price_per_minute ?? service.price_per_consultation,
-    }))
+/**
+ * Recupera un singolo operatore dal database tramite il suo ID.
+ */
+export async function getOperatorById(id: string): Promise<OperatorCardData | null> {
+  const supabase = createClient()
 
-    return {
-      id: op.id,
-      fullName: op.full_name,
-      avatarUrl: op.avatar_url,
-      headline: op.headline,
-      isOnline: op.is_online,
-      specializations: op.specializations || [],
-      averageRating: Number.parseFloat(averageRating.toFixed(1)),
-      reviewsCount: reviewsCount,
-      services: operatorServices,
-      joinedDate: op.created_at,
-      bio: op.bio,
-    }
-  })
+  const { data: operator, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
+      services ( type, price_per_minute, price_per_consultation ),
+      reviews!reviews_operator_id_fkey ( rating )
+    `,
+    )
+    .eq("id", id)
+    .eq("role", "operator")
+    .single()
+
+  if (error || !operator) {
+    console.error(`Error fetching operator by ID ${id}:`, error)
+    return null
+  }
+
+  return transformOperatorData(operator)
 }
