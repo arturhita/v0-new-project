@@ -1,6 +1,9 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
+import type { Operator } from "@/types/database"
 import type { Review } from "@/components/review-card"
 
 // Interfaccia per i dati della Operator Card, usata nelle liste
@@ -78,9 +81,10 @@ const transformOperatorData = (operator: any, detailed = false): OperatorCardDat
  * Recupera dal database tutti gli operatori approvati e visibili.
  */
 export async function getApprovedOperators(): Promise<OperatorCardData[]> {
-  const supabase = createClient()
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
   const { data, error } = await supabase
-    .from("profiles")
+    .from("operators")
     .select(
       `
       id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
@@ -88,7 +92,6 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
       reviews!reviews_operator_id_fkey ( rating )
     `,
     )
-    .eq("role", "operator")
     .eq("application_status", "approved")
     .eq("is_visible", true)
 
@@ -103,9 +106,11 @@ export async function getApprovedOperators(): Promise<OperatorCardData[]> {
  * Recupera i dati dettagliati di un singolo operatore per la sua pagina profilo.
  */
 export async function getOperatorById(id: string): Promise<DetailedOperatorProfile | null> {
-  const supabase = createClient()
-  const { data: operator, error } = await supabase
-    .from("profiles")
+  if (!id) return null
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
+  const { data, error } = await supabase
+    .from("operators")
     .select(
       `
       *,
@@ -114,24 +119,24 @@ export async function getOperatorById(id: string): Promise<DetailedOperatorProfi
     `,
     )
     .eq("id", id)
-    .eq("role", "operator")
     .single()
 
-  if (error || !operator) {
-    console.error(`Error fetching detailed operator profile for ID ${id}:`, error)
+  if (error) {
+    console.error(`Error fetching operator ${id}:`, error)
     return null
   }
 
-  return transformOperatorData(operator, true) as DetailedOperatorProfile
+  return transformOperatorData(data, true) as DetailedOperatorProfile
 }
 
 /**
  * Recupera gli operatori per una specifica categoria.
  */
 export async function getOperatorsByCategory(categorySlug: string): Promise<OperatorCardData[]> {
-  const supabase = createClient()
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
   const { data, error } = await supabase
-    .from("profiles")
+    .from("operators")
     .select(
       `
       id, full_name, avatar_url, headline, bio, is_online, specializations, created_at,
@@ -139,7 +144,6 @@ export async function getOperatorsByCategory(categorySlug: string): Promise<Oper
       reviews!reviews_operator_id_fkey ( rating )
     `,
     )
-    .eq("role", "operator")
     .eq("application_status", "approved")
     .eq("is_visible", true)
     .cs("specializations", `{${categorySlug}}`)
@@ -151,16 +155,73 @@ export async function getOperatorsByCategory(categorySlug: string): Promise<Oper
   return data.map((op) => transformOperatorData(op) as OperatorCardData)
 }
 
-export async function updateOperatorStatus(operatorId: string, isOnline: boolean) {
-  const supabase = createClient()
+export async function createOperator(formData: any) {
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
+
+  // NOTA: In un'applicazione reale, la creazione dell'utente (auth) andrebbe gestita separatamente.
+  // Qui inseriamo i dati direttamente nel profilo operatore.
+  const { services, availability, ...profileData } = formData
+
+  const { data, error } = await supabase
+    .from("operators")
+    .insert({
+      stage_name: profileData.stageName,
+      full_name: `${profileData.name} ${profileData.surname}`,
+      email: profileData.email,
+      phone: profileData.phone,
+      bio: profileData.bio,
+      categories: profileData.categories,
+      specialties: profileData.specialties,
+      avatar_url: profileData.avatarUrl,
+      status: profileData.status,
+      commission_rate: Number.parseFloat(profileData.commission),
+      is_online: profileData.isOnline,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error creating operator:", error)
+    return { success: false, message: `Errore del database: ${error.message}` }
+  }
+
+  // TODO: Inserire i dati per i servizi e la disponibilità nelle tabelle correlate usando `data.id`
+
+  revalidatePath("/admin/operators")
+  return { success: true, message: "Operatore creato con successo." }
+}
+
+export async function getOperatorByUserId(userId: string) {
+  if (!userId) return null
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
+  const { data, error } = await supabase.from("operators").select("*").eq("user_id", userId).single()
+  if (error) {
+    console.error("Error fetching operator by user ID:", error)
+    return null
+  }
+  return data as Operator
+}
+
+export async function updateOperatorStatus(
+  operatorId: string,
+  isOnline: boolean,
+  status: "Online" | "Offline" | "In Pausa",
+) {
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
+
   const { error } = await supabase
-    .from("profiles")
-    .update({ is_online: isOnline, last_seen: new Date().toISOString() })
+    .from("operators")
+    .update({ is_online: isOnline, online_status: status })
     .eq("id", operatorId)
 
   if (error) {
     console.error("Error updating operator status:", error)
-    return { success: false, message: "Impossibile aggiornare lo stato." }
+    return { success: false, message: error.message }
   }
-  return { success: true }
+
+  revalidatePath(`/(platform)/dashboard/operator`)
+  return { success: true, message: "Stato aggiornato." }
 }
