@@ -1,38 +1,38 @@
-import { getOperatorProfile } from "@/lib/actions/operator.actions"
-import OperatorProfileForm from "@/components/operator-profile-form"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Terminal } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { OperatorProfileForm } from "@/components/operator-profile-form"
+import { getOperatorPublicProfile } from "@/lib/actions/operator.actions"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function OperatorProfilePage() {
-  const { data: profile, error } = await getOperatorProfile()
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <Terminal className="h-4 w-4" />
-        <AlertTitle>Errore</AlertTitle>
-        <AlertDescription>Impossibile caricare il profilo dell'operatore: {error.message}</AlertDescription>
-      </Alert>
-    )
+  if (!user) {
+    redirect("/login")
   }
 
-  if (!profile) {
-    return (
-      <Alert>
-        <Terminal className="h-4 w-4" />
-        <AlertTitle>Profilo non trovato</AlertTitle>
-        <AlertDescription>Nessun profilo operatore trovato per questo utente.</AlertDescription>
-      </Alert>
-    )
+  const profileData = await getOperatorPublicProfile(user.id)
+
+  if (!profileData) {
+    return <div>Impossibile caricare i dati del profilo.</div>
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Gestisci il tuo Profilo e Servizi</h1>
-      <p className="text-gray-600 mb-6">
-        Aggiorna le tue informazioni personali, la tua presentazione e le tariffe per i tuoi servizi di consulenza.
-      </p>
-      <OperatorProfileForm profile={profile} />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Gestisci il tuo Profilo Pubblico</CardTitle>
+          <CardDescription>
+            Queste informazioni saranno visibili ai clienti. Assicurati che siano accurate e professionali.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OperatorProfileForm profileData={profileData} operatorId={user.id} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

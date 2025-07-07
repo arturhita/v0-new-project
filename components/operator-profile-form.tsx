@@ -4,159 +4,122 @@ import type React from "react"
 
 import { useFormState } from "react-dom"
 import { useEffect, useRef, useState } from "react"
-import { updateOperatorProfile, updateProfileImage } from "@/lib/actions/operator.actions"
-import { Input } from "@/components/ui/input"
+import Image from "next/image"
+import { updateOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import Image from "next/image"
 import { SubmitButton } from "./submit-button"
 
-type Profile = {
-  id: string
-  display_name: string
-  description: string
-  profile_image_url: string | null
-  headline: string
-  chat_price_per_minute: number
-  call_price_per_minute: number
-  video_price_per_minute: number
+const initialState = {
+  success: false,
+  message: "",
 }
 
-export default function OperatorProfileForm({ profile }: { profile: Profile }) {
+export function OperatorProfileForm({ profileData, operatorId }: { profileData: any; operatorId: string }) {
+  const [state, formAction] = useFormState(updateOperatorPublicProfile.bind(null, operatorId), initialState)
   const { toast } = useToast()
-  const [formState, formAction] = useFormState(updateOperatorProfile, undefined)
-  const [imageFormState, imageFormAction] = useFormState(updateProfileImage, undefined)
-  const [preview, setPreview] = useState<string | null>(profile.profile_image_url)
-  const imageFormRef = useRef<HTMLFormElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(profileData.profile_image_url)
 
   useEffect(() => {
-    if (formState?.success) {
-      toast({ title: "Successo", description: formState.message })
-    } else if (formState?.error) {
-      toast({ title: "Errore", description: formState.error.message, variant: "destructive" })
-    }
-  }, [formState, toast])
-
-  useEffect(() => {
-    if (imageFormState?.success) {
-      toast({ title: "Successo", description: imageFormState.message })
-      if (imageFormState.publicUrl) {
-        setPreview(imageFormState.publicUrl)
+    if (state.message) {
+      toast({
+        title: state.success ? "Successo" : "Errore",
+        description: state.message,
+        variant: state.success ? "default" : "destructive",
+      })
+      if (state.success) {
+        formRef.current?.reset()
       }
-    } else if (imageFormState?.error) {
-      toast({ title: "Errore", description: imageFormState.error.message, variant: "destructive" })
     }
-  }, [imageFormState, toast])
+  }, [state, toast])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPreview(reader.result as string)
-        // Submit the form automatically on file selection
-        setTimeout(() => imageFormRef.current?.requestSubmit(), 0)
-      }
-      reader.readAsDataURL(file)
+      setPreviewUrl(URL.createObjectURL(file))
     }
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Immagine del Profilo</h2>
-        <form ref={imageFormRef} action={imageFormAction} className="flex items-center gap-6">
-          <div className="relative w-24 h-24">
+    <form ref={formRef} action={formAction} className="space-y-8">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label>Immagine Profilo</Label>
+          {previewUrl && (
             <Image
-              src={preview || "/images/placeholder.svg?width=96&height=96&query=avatar"}
-              alt="Avatar"
-              width={96}
-              height={96}
-              className="rounded-full object-cover"
+              src={previewUrl || "/placeholder.svg"}
+              alt="Anteprima immagine profilo"
+              width={128}
+              height={128}
+              className="h-32 w-32 rounded-full object-cover"
             />
+          )}
+          <Input id="profile_image" name="profile_image" type="file" accept="image/*" onChange={handleImageChange} />
+          <input type="hidden" name="current_image_url" value={profileData.profile_image_url || ""} />
+        </div>
+
+        <div className="space-y-6 md:col-span-2">
+          <div className="space-y-2">
+            <Label htmlFor="stage_name">Nome Scena</Label>
+            <Input id="stage_name" name="stage_name" defaultValue={profileData.stage_name || ""} required />
           </div>
-          <div>
-            <Label
-              htmlFor="profile_image"
-              className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md"
-            >
-              Cambia Immagine
-            </Label>
-            <Input
-              id="profile_image"
-              name="profile_image"
-              type="file"
-              className="hidden"
-              onChange={handleFileChange}
-              accept="image/*"
-            />
+
+          <div className="space-y-2">
+            <Label htmlFor="bio">Bio / Descrizione</Label>
+            <Textarea id="bio" name="bio" defaultValue={profileData.bio || ""} rows={5} required />
           </div>
-        </form>
+
+          <div className="space-y-2">
+            <Label htmlFor="main_discipline">Disciplina Principale</Label>
+            <Input id="main_discipline" name="main_discipline" defaultValue={profileData.main_discipline || ""} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="specialties">Specialità (separate da virgola)</Label>
+            <Input id="specialties" name="specialties" defaultValue={profileData.specialties?.join(", ") || ""} />
+          </div>
+
+          <fieldset className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3">
+            <legend className="-ml-1 px-1 text-sm font-medium">Prezzi per Minuto (€)</legend>
+            <div className="space-y-2">
+              <Label htmlFor="price_chat">Chat</Label>
+              <Input
+                id="price_chat"
+                name="price_chat"
+                type="number"
+                step="0.01"
+                defaultValue={profileData.service_prices?.chat || 0}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price_call">Chiamata Vocale</Label>
+              <Input
+                id="price_call"
+                name="price_call"
+                type="number"
+                step="0.01"
+                defaultValue={profileData.service_prices?.call || 0}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price_video">Videochiamata</Label>
+              <Input
+                id="price_video"
+                name="price_video"
+                type="number"
+                step="0.01"
+                defaultValue={profileData.service_prices?.video || 0}
+              />
+            </div>
+          </fieldset>
+        </div>
       </div>
-
-      <form action={formAction} className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Informazioni Pubbliche</h2>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="display_name">Nome Pubblico</Label>
-              <Input id="display_name" name="display_name" defaultValue={profile.display_name} required />
-            </div>
-            <div>
-              <Label htmlFor="headline">Titolo (es. Cartomante Esperta)</Label>
-              <Input id="headline" name="headline" defaultValue={profile.headline} required />
-            </div>
-            <div>
-              <Label htmlFor="description">Descrizione del Profilo</Label>
-              <Textarea id="description" name="description" defaultValue={profile.description} rows={5} required />
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Tariffe dei Servizi (€/min)</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="chat_price_per_minute">Chat</Label>
-              <Input
-                id="chat_price_per_minute"
-                name="chat_price_per_minute"
-                type="number"
-                step="0.01"
-                defaultValue={profile.chat_price_per_minute}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="call_price_per_minute">Chiamata</Label>
-              <Input
-                id="call_price_per_minute"
-                name="call_price_per_minute"
-                type="number"
-                step="0.01"
-                defaultValue={profile.call_price_per_minute}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="video_price_per_minute">Video</Label>
-              <Input
-                id="video_price_per_minute"
-                name="video_price_per_minute"
-                type="number"
-                step="0.01"
-                defaultValue={profile.video_price_per_minute}
-                required
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end">
-          <SubmitButton>Salva Modifiche</SubmitButton>
-        </div>
-      </form>
-    </div>
+      <div className="flex justify-end">
+        <SubmitButton>Salva Modifiche</SubmitButton>
+      </div>
+    </form>
   )
 }

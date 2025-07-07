@@ -1,26 +1,36 @@
-import type { ReactNode } from "react"
-import OperatorNavClient from "./nav-client"
-import { Card } from "@/components/ui/card"
+import type React from "react"
+import { NavClient } from "./nav-client"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
 
-export default function OperatorDashboardLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
+export default async function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role, is_available").eq("id", user.id).single()
+
+  if (!profile || profile.role !== "operator") {
+    redirect("/")
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-          <aside className="md:col-span-1">
-            <Card className="p-4 bg-white shadow-sm rounded-lg">
-              <OperatorNavClient />
-            </Card>
-          </aside>
-          <main className="md:col-span-3">
-            <Card className="p-6 bg-white shadow-sm rounded-lg">{children}</Card>
-          </main>
-        </div>
+    <OperatorStatusProvider initialAvailability={profile.is_available ?? false}>
+      <div className="flex min-h-screen w-full bg-gray-50">
+        <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
+          <div className="flex h-16 items-center justify-center border-b border-gray-200">
+            <h1 className="text-xl font-bold text-gray-800">Dashboard Operatore</h1>
+          </div>
+          <NavClient operatorId={user.id} />
+        </aside>
+        <main className="flex-1 p-6">{children}</main>
       </div>
-    </div>
+    </OperatorStatusProvider>
   )
 }

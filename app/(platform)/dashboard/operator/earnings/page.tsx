@@ -1,82 +1,72 @@
-import { getOperatorEarningsSummary } from "@/lib/actions/payouts.actions"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, TrendingUp, Clock } from "lucide-react"
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
+
+async function getEarningsData(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: operatorId }).single()
+  if (error) {
+    console.error("Error fetching earnings summary:", error)
+    return { total_earnings: 0, pending_payout: 0, last_payout_amount: 0, last_payout_date: null }
+  }
+  return data
+}
 
 export default async function OperatorEarningsPage() {
-  const { data: summary, error } = await getOperatorEarningsSummary()
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>Errore</AlertTitle>
-        <AlertDescription>{error.message}</AlertDescription>
-      </Alert>
-    )
+  if (!user) {
+    redirect("/login")
   }
 
-  const formatCurrency = (amount: number | null | undefined) => {
-    if (amount === null || amount === undefined) return "N/A"
-    return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount)
-  }
+  const earnings = await getEarningsData(user.id)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">I tuoi Guadagni</h1>
-        <p className="text-gray-600">
-          Tieni traccia dei tuoi guadagni totali, dei pagamenti in sospeso e dello storico dei pagamenti.
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guadagni Totali</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary?.total_earnings)}</div>
-            <p className="text-xs text-muted-foreground">Guadagni netti totali sulla piattaforma</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In attesa di Pagamento</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary?.pending_payout)}</div>
-            <p className="text-xs text-muted-foreground">Importo disponibile per il prossimo pagamento</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ultimo Pagamento</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary?.last_payout_amount)}</div>
-            <p className="text-xs text-muted-foreground">
-              {summary?.last_payout_date
-                ? `Ricevuto il ${format(new Date(summary.last_payout_date), "dd MMMM yyyy", { locale: it })}`
-                : "Nessun pagamento ricevuto"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Qui andrebbe lo storico dettagliato delle transazioni/guadagni */}
       <Card>
         <CardHeader>
-          <CardTitle>Storico Guadagni</CardTitle>
+          <CardTitle>Riepilogo Guadagni</CardTitle>
+          <CardDescription>Una panoramica delle tue performance finanziarie sulla piattaforma.</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-500">
-            Lo storico dettagliato dei guadagni per ogni consulto sarà disponibile qui a breve.
-          </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Guadagni Totali</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">€{earnings.total_earnings.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">In Attesa di Pagamento</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">€{earnings.pending_payout.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ultimo Pagamento</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">€{earnings.last_payout_amount?.toFixed(2) || "0.00"}</div>
+                <p className="text-xs text-muted-foreground">
+                  {earnings.last_payout_date
+                    ? `in data ${new Date(earnings.last_payout_date).toLocaleDateString()}`
+                    : "Nessun pagamento ricevuto"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </CardContent>
       </Card>
     </div>

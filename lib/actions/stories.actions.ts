@@ -1,92 +1,82 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { v4 as uuidv4 } from "uuid"
 
-export async function getOperatorStories() {
-  const supabase = createServerActionClient({ cookies })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: { message: "Not authenticated" } }
+export async function uploadStory(operatorId: string, formData: FormData) {
+  const supabase = createClient()
+  const file = formData.get("story_media") as File
 
+  if (!file || file.size === 0) {
+    return { success: false, message: "Nessun file selezionato." }
+  }
+
+  const fileExtension = file.name.split(".").pop()
+  const mediaType = file.type.startsWith("video") ? "video" : "image"
+  const fileName = `${operatorId}/${uuidv4()}.${fileExtension}`
+
+  const { error: uploadError } = await supabase.storage.from("stories").upload(fileName, file)
+
+  if (uploadError) {
+    console.error("Error uploading story media:", uploadError)
+    return { success: false, message: "Errore durante il caricamento del media." }
+  }
+
+  const { data: urlData } = supabase.storage.from("stories").getPublicUrl(fileName)
+
+  const storyData = {
+    operator_id: operatorId,
+    media_url: urlData.publicUrl,
+    media_type: mediaType,
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }
+
+  const { error: dbError } = await supabase.from("stories").insert(storyData)
+
+  if (dbError) {
+    console.error("Error saving story to database:", dbError)
+    return { success: false, message: "Errore durante il salvataggio della storia." }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/stories")
+  revalidatePath("/") // Revalidate home to show story indicator
+  return { success: true, message: "Storia caricata con successo!" }
+}
+
+export async function getActiveStories(operatorId: string) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("stories")
     .select("*")
-    .eq("operator_id", user.id)
+    .eq("operator_id", operatorId)
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching stories:", error)
-    return { error }
+    console.error("Error fetching active stories:", error)
+    return []
   }
-  return { data }
+  return data
 }
 
-export async function addStory(formData: FormData) {
-  const supabase = createServerActionClient({ cookies })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: { message: "Not authenticated" } }
+export async function deleteStory(storyId: string) {
+  const supabase = createClient()
 
-  const file = formData.get("story_media") as File
-  if (!file) return { error: { message: "Nessun file fornito." } }
-
-  const filePath = `${user.id}/${Date.now()}-${file.name}`
-
-  const { error: uploadError } = await supabase.storage.from("stories").upload(filePath, file)
-
-  if (uploadError) {
-    console.error("Error uploading story media:", uploadError)
-    return { error: uploadError }
+  // Optional: delete file from storage first
+  const { data: story } = await supabase.from("stories").select("media_url").eq("id", storyId).single()
+  if (story) {
+    const fileName = story.media_url.split("/").pop()
+    if (fileName) {
+      // This assumes the operatorId is in the path, which it should be
+      const operatorId = story.media_url.split("/")[story.media_url.split("/").length - 2]
+      await supabase.storage.from("stories").remove([`${operatorId}/${fileName}`])
+    }
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("stories").getPublicUrl(filePath)
-
-  const { error: dbError } = await supabase.from("stories").insert({
-    operator_id: user.id,
-    media_url: publicUrl,
-    media_type: file.type.startsWith("video") ? "video" : "image",
-  })
-
-  if (dbError) {
-    console.error("Error saving story to database:", dbError)
-    return { error: dbError }
-  }
-
-  revalidatePath("/(platform)/dashboard/operator/stories")
-  return { success: true, message: "Storia aggiunta con successo." }
-}
-
-export async function deleteStory(storyId: string, mediaUrl: string) {
-  const supabase = createServerActionClient({ cookies })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: { message: "Not authenticated" } }
-
-  // Extract file path from URL
-  const filePath = mediaUrl.split("/stories/")[1]
-
-  // Delete from storage
-  const { error: storageError } = await supabase.storage.from("stories").remove([filePath])
-
-  if (storageError) {
-    console.error("Error deleting story from storage:", storageError)
-    // Non bloccare l'eliminazione dal DB se il file non esiste più
-  }
-
-  // Delete from database
-  const { error: dbError } = await supabase.from("stories").delete().eq("id", storyId).eq("operator_id", user.id)
-
-  if (dbError) {
-    console.error("Error deleting story from database:", dbError)
-    return { error: dbError }
+  const { error } = await supabase.from("stories").delete().eq("id", storyId)
+  if (error) {
+    return { success: false, message: "Errore durante l'eliminazione della storia." }
   }
 
   revalidatePath("/(platform)/dashboard/operator/stories")
