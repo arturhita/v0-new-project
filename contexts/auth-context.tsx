@@ -3,7 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
+import type { User, SupabaseClient } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 
 // Definiamo un tipo per il profilo che corrisponde alla tabella DB
@@ -12,14 +12,17 @@ interface Profile {
   role: "client" | "operator" | "admin"
   full_name: string
   avatar_url?: string
-  // Aggiungi altri campi del profilo se necessario
 }
 
 interface AuthContextType {
   user: User | null
   profile: Profile | null
-  loading: boolean
+  login: (data: any) => Promise<{ success: boolean; error?: string }>
+  register: (data: any) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
+  loading: boolean
+  isAuthenticated: boolean
+  supabase: SupabaseClient
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -52,12 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
+    setLoading(true)
     const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      await fetchProfile(session?.user ?? null)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      await fetchProfile(currentUser)
       setLoading(false)
     }
 
@@ -66,31 +71,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
-      await fetchProfile(session?.user ?? null)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      const currentProfile = await fetchProfile(currentUser)
+
+      if (_event === "SIGNED_IN" && currentProfile) {
+        switch (currentProfile.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          case "client":
+            router.push("/dashboard/client")
+            break
+          default:
+            router.push("/")
+        }
+      }
       setLoading(false)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [fetchProfile, supabase.auth])
+  }, [fetchProfile, supabase, router])
 
-  const logout = async () => {
-    await supabase.auth.signOut()
-    setProfile(null)
-    router.push("/")
+  const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithPassword(data)
+    setLoading(false)
+    if (error) {
+      return { success: false, error: error.message }
+    }
+    return { success: true }
   }
 
-  const value = { user, profile, loading, logout }
+  const register = async (data: any): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true)
+    const { email, password, name, role, acceptTerms } = data
+    if (!acceptTerms) {
+      setLoading(false)
+      return { success: false, error: "Devi accettare i termini e le condizioni." }
+    }
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name, // Il trigger DB si aspetta `full_name`
+          role: role || "client",
+        },
+      },
+    })
+    setLoading(false)
+    if (error) {
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  }
+
+  const logout = async () => {
+    setLoading(true)
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    router.push("/")
+    setLoading(false)
+  }
+
+  const value: AuthContextType = {
+    user,
+    profile,
+    login,
+    register,
+    logout,
+    loading,
+    isAuthenticated: !!user,
+    supabase,
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth deve essere usato all'interno di AuthProvider")
   }
   return context
 }

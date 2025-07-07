@@ -22,11 +22,13 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const { register, loading } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setSuccessMessage("")
 
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
       setError("Tutti i campi sono obbligatori")
@@ -55,6 +57,8 @@ export default function RegisterPage() {
 
     if (!result.success) {
       setError(result.error || "Errore durante la registrazione")
+    } else {
+      setSuccessMessage("Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account.")
     }
   }
 
@@ -81,141 +85,161 @@ export default function RegisterPage() {
             <h1 className="text-3xl font-bold text-white">Crea il tuo Account</h1>
             <p className="text-balance text-slate-300">Inizia il tuo viaggio con noi.</p>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">{error}</div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="text-slate-200">
-                Nome completo
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Il tuo nome completo"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="email" className="text-slate-200">
-                Email
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="la-tua-email@esempio.com"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="password" className="text-slate-200">
-                Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
-                  className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Almeno 6 caratteri"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="confirmPassword" className="text-slate-200">
-                Conferma Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                  className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Ripeti la password"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                  disabled={loading}
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3 pt-2">
-              <input
-                type="checkbox"
-                id="acceptTerms"
-                checked={formData.acceptTerms}
-                onChange={(e) => handleInputChange("acceptTerms", e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-blue-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30"
-                disabled={loading}
-              />
-              <label htmlFor="acceptTerms" className="text-sm text-slate-300 leading-relaxed">
-                Accetto i{" "}
-                <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
-                  Termini e Condizioni
-                </Link>
-              </label>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-blue-200/30 border-t-blue-400 rounded-full animate-spin mr-2"></div>
-                  Registrazione...
-                </div>
-              ) : (
-                <div className="flex items-center justify-center">
-                  Crea Account
+          {successMessage ? (
+            <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 text-green-200 text-center">
+              <p className="font-semibold">Registrazione completata!</p>
+              <p className="mt-2 text-sm">{successMessage}</p>
+              <Button
+                asChild
+                className="mt-6 w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+              >
+                <Link href="/login">
+                  Vai al Login
                   <ArrowRight className="ml-2 w-5 h-5" />
-                </div>
-              )}
-            </Button>
-          </form>
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">
+                    {error}
+                  </div>
+                )}
 
-          <div className="mt-6 text-center text-sm text-slate-300">
-            Hai già un account?{" "}
-            <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
-              Accedi ora
-            </Link>
-          </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="name" className="text-slate-200">
+                    Nome completo
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <Input
+                      id="name"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                      placeholder="Il tuo nome completo"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="email" className="text-slate-200">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                      placeholder="la-tua-email@esempio.com"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="password" className="text-slate-200">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => handleInputChange("password", e.target.value)}
+                      className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                      placeholder="Almeno 6 caratteri"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      disabled={loading}
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="confirmPassword" className="text-slate-200">
+                    Conferma Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                      className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                      placeholder="Ripeti la password"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      disabled={loading}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 pt-2">
+                  <input
+                    type="checkbox"
+                    id="acceptTerms"
+                    checked={formData.acceptTerms}
+                    onChange={(e) => handleInputChange("acceptTerms", e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-blue-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30"
+                    disabled={loading}
+                  />
+                  <label htmlFor="acceptTerms" className="text-sm text-slate-300 leading-relaxed">
+                    Accetto i{" "}
+                    <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
+                      Termini e Condizioni
+                    </Link>
+                  </label>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-blue-200/30 border-t-blue-400 rounded-full animate-spin mr-2"></div>
+                      Registrazione...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      Crea Account
+                      <ArrowRight className="ml-2 w-5 h-5" />
+                    </div>
+                  )}
+                </Button>
+              </form>
+
+              <div className="mt-6 text-center text-sm text-slate-300">
+                Hai già un account?{" "}
+                <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
+                  Accedi ora
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
