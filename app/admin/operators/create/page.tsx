@@ -32,7 +32,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { createOperator } from "@/lib/actions/operator.actions"
 
 const categories = [
   "Tarocchi",
@@ -102,36 +101,37 @@ export default function CreateOperatorPage() {
     event.preventDefault()
     setIsSubmitting(true)
 
-    // Trasforma i prezzi in numeri prima di inviare
-    const operatorData = {
-      ...operator,
-      services: {
-        chatEnabled: operator.services.chatEnabled,
-        chatPrice: Number.parseFloat(operator.services.chatPrice) || 0,
-        callEnabled: operator.services.callEnabled,
-        callPrice: Number.parseFloat(operator.services.callPrice) || 0,
-        emailEnabled: operator.services.emailEnabled,
-        emailPrice: Number.parseFloat(operator.services.emailPrice) || 0,
-      },
-      commission: Number.parseInt(operator.commission, 10) || 0,
-    }
+    // Rimuoviamo l'avatar per ora, ci concentriamo sul salvataggio dei dati
+    const { avatarUrl, ...operatorData } = operator
 
-    const result = await createOperator(operatorData)
+    try {
+      const response = await fetch("/api/operators/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(operatorData),
+      })
 
-    setIsSubmitting(false)
+      const result = await response.json()
 
-    if (result.success) {
+      if (!response.ok) {
+        throw new Error(result.message || "Qualcosa è andato storto.")
+      }
+
       toast({
         title: "Successo!",
         description: result.message,
       })
       router.push("/admin/operators")
-    } else {
+      router.refresh() // Forziamo l'aggiornamento della pagina di destinazione
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
       toast({
         title: "Errore nella Creazione",
-        description: result.message,
+        description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
