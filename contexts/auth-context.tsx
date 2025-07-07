@@ -29,85 +29,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const handleSuccessfulLogin = (profile: Profile, sessionUser: SupabaseUser, event: string) => {
-    const currentUser: UserProfile = { ...sessionUser, ...profile }
-    setUser(currentUser)
-    // Redirect solo al momento del login per evitare reindirizzamenti indesiderati
-    if (event === "SIGNED_IN" && !pathname.startsWith("/dashboard") && !pathname.startsWith("/admin")) {
-      switch (currentUser.role) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/dashboard/operator")
-          break
-        default:
-          router.push("/dashboard/client")
-          break
-      }
-    }
-  }
-
   const handleAuthStateChange = useCallback(
     async (event: string, session: any) => {
-      if (!session?.user) {
-        setUser(null)
-        setLoading(false)
-        return
-      }
+      setLoading(true)
+      if (session?.user) {
+        const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).single() // Ora possiamo usare single() perché il DB è garantito essere consistente
 
-      const sessionUser = session.user
-
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", sessionUser.id)
-        .maybeSingle()
-
-      if (error) {
-        console.error("AuthContext: Error fetching profile:", error)
-        await supabase.auth.signOut()
-        setUser(null)
-      } else if (profile) {
-        // Profilo trovato, procedi normalmente
-        handleSuccessfulLogin(profile, sessionUser, event)
-      } else {
-        // *** SOLUZIONE AUTO-RIPARATIVA ***
-        // Profilo non trovato, tentativo di crearlo al volo.
-        console.warn(`AuthContext: Profile not found for user ${sessionUser.id}. Attempting to create one.`)
-        const { error: insertError } = await supabase.from("profiles").insert({
-          id: sessionUser.id,
-          email: sessionUser.email,
-          full_name: sessionUser.user_metadata?.full_name,
-        })
-
-        if (insertError) {
-          console.error(
-            `AuthContext: CRITICAL - Failed to create missing profile for user ${sessionUser.id}:`,
-            insertError,
-          )
+        if (error || !profile) {
+          // Questo caso non dovrebbe più accadere, ma lo teniamo come salvaguardia.
+          console.error("AuthContext: CRITICAL - Profile not found for authenticated user. Signing out.", error)
           await supabase.auth.signOut()
           setUser(null)
         } else {
-          // Profilo creato, riprova a leggerlo per continuare
-          console.log(`AuthContext: Profile created for ${sessionUser.id}. Re-fetching.`)
-          const { data: newProfile, error: refetchError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", sessionUser.id)
-            .single() // Ora deve esistere, quindi usiamo single()
-
-          if (refetchError || !newProfile) {
-            console.error(
-              `AuthContext: CRITICAL - Failed to refetch newly created profile for ${sessionUser.id}:`,
-              refetchError,
-            )
-            await supabase.auth.signOut()
-            setUser(null)
-          } else {
-            handleSuccessfulLogin(newProfile, sessionUser, event)
+          const currentUser: UserProfile = { ...session.user, ...profile }
+          setUser(currentUser)
+          // Redirect solo al momento del login esplicito per evitare navigazioni indesiderate
+          if (event === "SIGNED_IN" && !pathname.startsWith("/dashboard") && !pathname.startsWith("/admin")) {
+            switch (currentUser.role) {
+              case "admin":
+                router.push("/admin/dashboard")
+                break
+              case "operator":
+                router.push("/dashboard/operator")
+                break
+              default:
+                router.push("/dashboard/client")
+                break
+            }
           }
         }
+      } else {
+        setUser(null)
       }
       setLoading(false)
     },
@@ -115,19 +67,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
-    // Esegui solo al primo caricamento
     const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       await handleAuthStateChange("INITIAL_SESSION", session)
     }
+
     getInitialSession()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "USER_UPDATED" && event !== "INITIAL_SESSION") {
+      if (event !== "USER_UPDATED") {
         handleAuthStateChange(event, session)
       }
     })
@@ -135,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [handleAuthStateChange, supabase.auth])
 
   const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
