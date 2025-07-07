@@ -34,48 +34,61 @@ export type OperatorState = {
   success?: boolean
 }
 
-async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
-  console.log(`[Avatar Upload] Initiated for user ${userId}.`)
+async function uploadAndLinkAvatar(dataUrl: string, userId: string, supabaseAdmin: any) {
+  console.log(`[Avatar] Starting upload for user ${userId}.`)
   if (!dataUrl || !dataUrl.startsWith("data:image")) {
-    console.log("[Avatar Upload] No valid data URL provided. Skipping.")
-    return null
-  }
-  const supabaseAdmin = createSupabaseAdminClient()
-  const mimeType = dataUrl.match(/data:(.*);/)?.[1]
-  const extension = mimeType?.split("/")[1] || "png"
-  const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
-  const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
-  const fileBuffer = Buffer.from(base64Str, "base64")
-
-  console.log(`[Avatar Upload] Uploading to path: ${filePath}`)
-  const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
-    contentType: mimeType,
-    upsert: true,
-  })
-
-  if (uploadError) {
-    console.error("[Avatar Upload] FAILED:", uploadError)
-    // Lancia un errore per attivare il rollback completo
-    throw new Error(`Upload avatar fallito: ${uploadError.message}`)
+    console.log("[Avatar] No valid data URL. Skipping.")
+    return
   }
 
-  const {
-    data: { publicUrl },
-  } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
-  console.log(`[Avatar Upload] SUCCESS. Public URL: ${publicUrl}`)
-  return publicUrl
+  try {
+    const mimeType = dataUrl.match(/data:(.*);/)?.[1]
+    const extension = mimeType?.split("/")[1] || "png"
+    const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
+    const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
+    const fileBuffer = Buffer.from(base64Str, "base64")
+
+    console.log(`[Avatar] Uploading to: ${filePath}`)
+    const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
+      contentType: mimeType,
+      upsert: true,
+    })
+
+    if (uploadError) {
+      // Lancia un errore per essere catturato dal blocco catch sottostante
+      throw new Error(`Storage Upload Error: ${uploadError.message}`)
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
+    console.log(`[Avatar] Upload success. Public URL: ${publicUrl}`)
+
+    // Aggiorna il profilo con l'URL dell'avatar
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({ profile_image_url: publicUrl })
+      .eq("id", userId)
+
+    if (updateError) {
+      throw new Error(`DB Update Error: ${updateError.message}`)
+    }
+    console.log(`[Avatar] Profile updated successfully for user ${userId}.`)
+  } catch (error) {
+    // Se l'upload o l'aggiornamento falliscono, registriamo l'errore ma non blocchiamo il successo della creazione.
+    console.error(`[Avatar] FAILED for user ${userId}:`, error)
+    // Non rilanciare l'errore qui per non far fallire l'intera operazione.
+  }
 }
 
 export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
   console.log("--- [Action Start] --- createOperator action initiated.")
   let newUserId: string | null = null
+  let stageNameForMessage = ""
 
   try {
-    console.log("Step 1: Creating Supabase admin client...")
     const supabaseAdmin = createSupabaseAdminClient()
-    console.log("Step 1: Success. Admin client created.")
 
-    console.log("Step 2: Validating form data...")
     const validatedFields = OperatorSchema.safeParse({
       email: formData.get("email"),
       password: formData.get("password"),
@@ -91,17 +104,17 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (!validatedFields.success) {
-      console.error("Step 2: Fail. Validation failed.", validatedFields.error.flatten())
       return {
         errors: validatedFields.error.flatten().fieldErrors,
         message: "Errore di validazione. Controlla i campi obbligatori.",
         success: false,
       }
     }
-    console.log("Step 2: Success. Form data validated.")
-    const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
 
-    console.log(`Step 3: Creating user in Auth for email: ${email}`)
+    const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
+    stageNameForMessage = stageName
+
+    // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -110,7 +123,6 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (authError) {
-      console.error("Step 3: Fail. Auth user creation failed.", authError)
       if (authError.message.includes("User already registered")) {
         return {
           errors: { email: ["Questo indirizzo email è già registrato."] },
@@ -121,13 +133,8 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       throw new Error(`Errore Auth: ${authError.message}`)
     }
     newUserId = authData.user.id
-    console.log(`Step 3: Success. Auth user created with ID: ${newUserId}`)
 
-    console.log("Step 4: Processing avatar...")
-    const publicAvatarUrl = await uploadAvatarFromDataUrl(avatarUrl || "", newUserId)
-    console.log("Step 4: Success. Avatar processed.")
-
-    console.log("Step 5: Preparing data for profile insertion...")
+    // 2. Estrazione dati complessi dal FormData
     const specialties = formData.getAll("specialties") as string[]
     const services = {
       chatEnabled: formData.get("service.chat.enabled") === "on",
@@ -146,9 +153,8 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       saturday: formData.getAll("saturday") as string[],
       sunday: formData.getAll("sunday") as string[],
     }
-    console.log("Step 5: Success. Data prepared.")
 
-    console.log("Step 6: Inserting data into 'profiles' table...")
+    // 3. Inserimento del profilo SENZA avatar
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
       email,
@@ -164,22 +170,23 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       specialties,
       service_prices: services,
       availability_schedule: availability,
-      profile_image_url: publicAvatarUrl,
+      profile_image_url: null, // Inizialmente nullo
     })
 
     if (profileError) {
-      console.error("Step 6: Fail. Profile insertion failed.", profileError)
-      throw new Error(`Errore DB: ${profileError.message}`)
+      throw new Error(`Errore DB durante la creazione del profilo: ${profileError.message}`)
     }
-    console.log("Step 6: Success. Profile inserted for user ID: " + newUserId)
 
-    console.log("Step 7: Revalidating paths and returning success...")
+    // 4. Tenta di caricare l'avatar come operazione separata e non bloccante
+    await uploadAndLinkAvatar(avatarUrl || "", newUserId, supabaseAdmin)
+
+    // 5. Successo
     revalidatePath("/admin/operators")
     revalidatePath("/")
-    return { success: true, message: `Operatore ${stageName} creato con successo!` }
+    return { success: true, message: `Operatore ${stageName} creato con successo! L'avatar verrà processato.` }
   } catch (error) {
-    console.error("--- [Action CATCH] --- An unexpected error occurred.", error)
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
+    console.error("--- [Action CATCH] --- An unexpected error occurred.", error)
 
     if (newUserId) {
       console.log(`Rollback: Attempting to delete auth user ${newUserId}...`)
