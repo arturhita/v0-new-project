@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    const fetchUser = async (sessionUser: SupabaseUser) => {
+    const fetchUser = async (sessionUser: SupabaseUser): Promise<UserProfile | null> => {
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*, operator_details(*)")
@@ -37,13 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
-        console.error("Error fetching profile:", error)
+        console.error("Error fetching profile:", error.message, "Details:", error)
+        // Se non troviamo il profilo, è meglio fare il logout per evitare stati inconsistenti
         await supabase.auth.signOut()
         return null
       }
 
       if (profile) {
-        // Supabase v2 with foreign table returns an array, even for one-to-one.
         const operatorDetails = Array.isArray(profile.operator_details)
           ? (profile.operator_details[0] ?? null)
           : profile.operator_details
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ...sessionUser,
           ...profile,
           operator_details: operatorDetails,
-        }
+        } as UserProfile
       }
       return null
     }
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
       if (session?.user) {
         const fullUser = await fetchUser(session.user)
-        setUser(fullUser as UserProfile)
+        setUser(fullUser)
         if (_event === "SIGNED_IN" && fullUser) {
           switch (fullUser.role) {
             case "admin":
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await supabase.auth.getSession()
       if (session?.user) {
         const fullUser = await fetchUser(session.user)
-        setUser(fullUser as UserProfile)
+        setUser(fullUser)
       }
       setLoading(false)
     }
@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword(data)
     setLoading(false)
     if (error) {
+      console.error("Login error:", error)
       return { success: false, error: "Credenziali non valide." }
     }
     return { success: true }
@@ -128,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     setLoading(false)
     if (error) {
+      console.error("Register error:", error)
       return { success: false, error: error.message }
     }
     // Il redirect avverrà automaticamente grazie a onAuthStateChange
