@@ -32,55 +32,10 @@ const OperatorInputSchema = z.object({
 })
 
 /**
- * Funzione di helper non bloccante per caricare l'avatar.
- * Se fallisce, registra l'errore ma non interrompe il flusso principale.
- */
-async function uploadAndLinkAvatar(dataUrl: string, userId: string, supabaseAdmin: any) {
-  console.log(`[Avatar] Inizio processo di upload per l'utente ${userId}.`)
-  if (!dataUrl || !dataUrl.startsWith("data:image")) {
-    console.log("[Avatar] Nessun Data URL valido fornito. Salto l'upload.")
-    return
-  }
-
-  try {
-    const mimeType = dataUrl.match(/data:(.*);/)?.[1]
-    const extension = mimeType?.split("/")[1] || "png"
-    const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
-    const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
-    const fileBuffer = Buffer.from(base64Str, "base64")
-
-    console.log(`[Avatar] Caricamento su Supabase Storage: ${filePath}`)
-    const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
-      contentType: mimeType,
-      upsert: true,
-    })
-    if (uploadError) throw new Error(`Errore Storage: ${uploadError.message}`)
-
-    const {
-      data: { publicUrl },
-    } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
-    console.log(`[Avatar] Upload completato. URL pubblico: ${publicUrl}`)
-
-    const { error: updateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ profile_image_url: publicUrl })
-      .eq("id", userId)
-    if (updateError) throw new Error(`Errore DB Update: ${updateError.message}`)
-
-    console.log(`[Avatar] Profilo aggiornato con successo con l'URL dell'avatar per l'utente ${userId}.`)
-  } catch (error) {
-    console.error(
-      `[Avatar] PROCESSO AVATAR FALLITO per l'utente ${userId}. L'operatore è stato creato comunque. Errore:`,
-      error,
-    )
-  }
-}
-
-/**
- * VERSIONE DI PRODUZIONE: Robusta e non bloccante.
+ * VERSIONE DI PRODUZIONE FINALE: Robusta, sequenziale e non bloccante.
  */
 export async function createOperator(operatorData: z.infer<typeof OperatorInputSchema>) {
-  console.log("--- [PROD] Inizio azione di creazione operatore.")
+  console.log("--- [PROD v2] Inizio azione di creazione operatore.")
   let newUserId: string | null = null
 
   try {
@@ -90,7 +45,7 @@ export async function createOperator(operatorData: z.infer<typeof OperatorInputS
       throw new Error(`Errore di validazione: ${JSON.stringify(validation.error.flatten().fieldErrors)}`)
     }
     const { avatarUrl, ...data } = validation.data
-    console.log(`[PROD] Step 1: Dati validati per ${data.email}.`)
+    console.log(`[PROD v2] Step 1: Dati validati per ${data.email}.`)
 
     const supabaseAdmin = createSupabaseAdminClient()
 
@@ -103,7 +58,7 @@ export async function createOperator(operatorData: z.infer<typeof OperatorInputS
     })
     if (authError) throw new Error(`Errore Auth: ${authError.message}`)
     newUserId = authData.user.id
-    console.log(`[PROD] Step 2: Utente Auth creato: ${newUserId}`)
+    console.log(`[PROD v2] Step 2: Utente Auth creato: ${newUserId}`)
 
     // 3. Inserimento del profilo nel database (Operazione Critica #2)
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
@@ -124,23 +79,51 @@ export async function createOperator(operatorData: z.infer<typeof OperatorInputS
       profile_image_url: null,
     })
     if (profileError) throw new Error(`Errore Database: ${profileError.message}`)
-    console.log(`[PROD] Step 3: Profilo DB creato per ${newUserId}.`)
+    console.log(`[PROD v2] Step 3: Profilo DB creato per ${newUserId}.`)
 
-    // 4. Tentativo di upload avatar (Operazione NON Critica)
-    // Usiamo .then() per non attendere e non bloccare la risposta al client.
-    // L'upload avverrà in background.
+    // 4. Gestione Avatar (Operazione attesa ma non critica)
     if (avatarUrl) {
-      uploadAndLinkAvatar(avatarUrl, newUserId, supabaseAdmin)
+      console.log(`[PROD v2] Step 4: Inizio processo avatar per ${newUserId}.`)
+      try {
+        const mimeType = avatarUrl.match(/data:(.*);/)?.[1]
+        const extension = mimeType?.split("/")[1] || "png"
+        const filePath = `public/${newUserId}/avatar.${new Date().getTime()}.${extension}`
+        const base64Str = avatarUrl.replace(/^data:image\/\w+;base64,/, "")
+        const fileBuffer = Buffer.from(base64Str, "base64")
+
+        const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
+          contentType: mimeType,
+          upsert: true,
+        })
+        if (uploadError) throw new Error(`Errore Storage: ${uploadError.message}`)
+
+        const {
+          data: { publicUrl },
+        } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
+
+        const { error: updateError } = await supabaseAdmin
+          .from("profiles")
+          .update({ profile_image_url: publicUrl })
+          .eq("id", newUserId)
+        if (updateError) throw new Error(`Errore DB Update: ${updateError.message}`)
+
+        console.log(`[PROD v2] Step 4: Avatar caricato e collegato con successo.`)
+      } catch (avatarError) {
+        console.error(
+          `[PROD v2] Step 4 FALLITO: Il processo avatar ha avuto un errore, ma l'operatore è stato creato. Errore:`,
+          avatarError,
+        )
+      }
     }
 
     // 5. Successo
-    console.log("--- [PROD] Azione completata con SUCCESSO. Ritorno risposta al client.")
+    console.log("--- [PROD v2] Azione completata. Ritorno risposta di successo.")
     revalidatePath("/admin/operators")
     revalidatePath("/")
     return { success: true, message: `Operatore ${data.stageName} creato con successo!` }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
-    console.error("--- [PROD] CATTURATO ERRORE CRITICO:", errorMessage)
+    console.error("--- [PROD v2] CATTURATO ERRORE CRITICO:", errorMessage)
 
     if (newUserId) {
       console.log(`[ROLLBACK] Avvio eliminazione utente Auth orfano: ${newUserId}`)
