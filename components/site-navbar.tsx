@@ -2,130 +2,199 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
-import { LayoutGrid, LogOut, Wallet } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
+import { NavigationMenuDemo } from "@/components/navigation-menu"
+import { useAuth } from "@/contexts/auth-context"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { cn } from "@/lib/utils"
-
-const navLinks = [
-  { name: "Home", href: "/" },
-  { name: "Esperti", href: "/esperti" },
-  { name: "Oroscopo", href: "/oroscopo" },
-  { name: "Affinità di Coppia", href: "/affinita-di-coppia" },
-  { name: "Tarocchi Online", href: "/tarocchi-online" },
-  { name: "AstroMag", href: "/astromag" },
-]
+import { User, Settings, LogOut, Menu, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 
 export function SiteNavbar() {
+  const { user, logout, isAuthenticated } = useAuth()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
-  const { user, profile, signOut } = useAuth()
 
-  const getInitials = (name: string) => {
-    if (!name) return "U"
-    const names = name.split(" ")
-    if (names.length > 1) {
-      return names[0].charAt(0) + names[names.length - 1].charAt(0)
+  // Chiude il menu mobile quando la rotta cambia
+  useEffect(() => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false)
     }
-    return name.charAt(0)
+  }, [pathname])
+
+  const getDashboardLink = () => {
+    if (!user) return "/login"
+    switch (user.role) {
+      case "admin":
+        return "/admin"
+      case "operator":
+        return "/dashboard/operator"
+      case "client":
+        return "/dashboard/client"
+      default:
+        return "/dashboard/client"
+    }
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={120} height={30} />
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center space-x-2 group">
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={140}
+              height={40}
+              className="object-contain"
+              priority
+            />
           </Link>
-          <nav className="hidden items-center gap-6 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className={cn(
-                  "text-sm font-medium transition-colors hover:text-purple-400",
-                  pathname === link.href ? "text-purple-400" : "text-slate-300",
-                )}
-              >
-                {link.name}
-              </Link>
-            ))}
-          </nav>
-        </div>
 
-        <div className="flex items-center gap-4">
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10 border-2 border-purple-500">
-                    <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "User"} />
-                    <AvatarFallback className="bg-slate-700 text-white">
-                      {getInitials(profile?.full_name || "")}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-slate-800 border-slate-700 text-white" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
-                    <p className="text-xs leading-none text-slate-400">{user.email}</p>
+          {/* Desktop Navigation Menu */}
+          <div className="hidden md:flex items-center">
+            <NavigationMenuDemo />
+          </div>
+
+          {/* Desktop Auth Section */}
+          <div className="hidden md:flex items-center space-x-4">
+            {isAuthenticated && user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
+                    <Avatar className="h-10 w-10 border-2 border-white/20">
+                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                      <AvatarFallback className="bg-blue-700 text-white">
+                        {user.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-56 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg"
+                  align="end"
+                  forceMount
+                >
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium text-slate-900">{user.name}</p>
+                      <p className="w-[200px] truncate text-sm text-slate-500">{user.email}</p>
+                    </div>
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-slate-700" />
-                {profile?.role === "client" && (
-                  <>
-                    <DropdownMenuItem asChild className="cursor-pointer focus:bg-slate-700">
-                      <Link href="/dashboard/client">
-                        <LayoutGrid className="mr-2 h-4 w-4" />
-                        <span>Dashboard</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="cursor-pointer focus:bg-slate-700">
-                      <Link href="/dashboard/client/wallet">
-                        <Wallet className="mr-2 h-4 w-4" />
-                        <span>Il Mio Wallet</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {profile?.role === "operator" && (
-                  <DropdownMenuItem asChild className="cursor-pointer focus:bg-slate-700">
-                    <Link href="/dashboard/operator">
-                      <LayoutGrid className="mr-2 h-4 w-4" />
-                      <span>Dashboard Operatore</span>
+                  <DropdownMenuSeparator className="bg-slate-200" />
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={getDashboardLink()}
+                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Dashboard
                     </Link>
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator className="bg-slate-700" />
-                <DropdownMenuItem onClick={signOut} className="cursor-pointer focus:bg-slate-700 focus:text-red-400">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <div className="hidden items-center gap-2 sm:flex">
-              <Button variant="ghost" asChild className="text-white hover:bg-slate-800 hover:text-purple-400">
-                <Link href="/login">Accedi</Link>
-              </Button>
-              <Button asChild className="bg-purple-600 text-white hover:bg-purple-500">
-                <Link href="/register">Registrati</Link>
-              </Button>
-            </div>
-          )}
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/profile"
+                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Profilo
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-slate-200" />
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Esci
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] font-semibold transition-colors duration-300 bg-transparent"
+                >
+                  <Link href="/login">Accedi</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+                >
+                  <Link href="/register">Inizia Ora</Link>
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-white hover:bg-white/10"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
+            <NavigationMenuDemo />
+            <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">
+              {isAuthenticated && user ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center text-white border-blue-600 bg-blue-700"
+                    asChild
+                  >
+                    <Link href={getDashboardLink()}>
+                      <User className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                  <Button onClick={logout} variant="ghost" className="w-full justify-center text-slate-300">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] w-full justify-center font-semibold bg-transparent"
+                    asChild
+                  >
+                    <Link href="/login">Accedi</Link>
+                  </Button>
+                  <Button
+                    className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md w-full justify-center"
+                    asChild
+                  >
+                    <Link href="/register">Inizia Ora</Link>
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

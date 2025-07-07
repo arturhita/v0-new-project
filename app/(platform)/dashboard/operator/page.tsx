@@ -78,7 +78,7 @@ const StatCard = ({
 )
 
 export default function OperatorDashboardPage() {
-  const { profile } = useAuth()
+  const { user } = useAuth()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -93,11 +93,9 @@ export default function OperatorDashboardPage() {
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <SparklesIcon className="w-8 h-8 mr-3 text-yellow-400" />
-              Bentornato, {profile?.full_name}!
+              Benvenuto nel tuo Santuario, {user?.name || "Operatore"}!
             </h1>
-            <p className="text-white/70 text-lg">
-              Questa è la tua dashboard operatore. Da qui puoi gestire la tua attività.
-            </p>
+            <p className="text-white/70 text-lg">Ecco una panoramica della tua attività mistica.</p>
           </div>
           <Button className="bg-gradient-to-r from-sky-500 via-teal-500 to-indigo-600 hover:from-sky-400 hover:via-teal-400 hover:to-indigo-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-3 rounded-xl">
             <Link href="/profile/operator" className="flex items-center">
@@ -108,32 +106,6 @@ export default function OperatorDashboardPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <StatCard
-            title="Guadagni Totali"
-            value="4,231.89"
-            unit="€"
-            icon={DollarSign}
-            description="+20.1% from last month"
-            trend="up"
-            gradient="bg-gradient-to-br from-green-500/20 to-green-600/20"
-          />
-          <StatCard
-            title="Clienti Attivi"
-            value="+23"
-            icon={Users}
-            description="+180.1% from last month"
-            trend="up"
-            gradient="bg-gradient-to-br from-teal-500/20 to-teal-600/20"
-          />
-          <StatCard
-            title="Valutazione Media"
-            value="4.9"
-            unit="/ 5"
-            icon={Star}
-            description="Basata su 245 recensioni"
-            trend="neutral"
-            gradient="bg-gradient-to-br from-yellow-500/20 to-yellow-600/20"
-          />
           <StatCard
             title="Guadagni del Mese"
             value={operatorStats.totalEarningsMonth.toFixed(2)}

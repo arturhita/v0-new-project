@@ -1,3 +1,5 @@
+"use client"
+
 import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -5,9 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Clock, Star, MessageSquare, ArrowRight, Search, Sparkles, Wallet, History } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
-import { createClient } from "@/lib/supabase/server"
-import { getWalletBalance } from "@/lib/actions/wallet.actions"
-import { redirect } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
 const InfoCard = ({
   title,
@@ -42,24 +42,31 @@ const InfoCard = ({
   </Card>
 )
 
-export default async function ClientDashboardPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single()
-  const walletData = await getWalletBalance()
-
-  const walletBalance = walletData.error ? "N/D" : `€ ${Number(walletData.balance).toFixed(2)}`
-  const userName = profile?.full_name || "Cercatore"
-
-  // Dati mock per ora, li renderemo dinamici nei prossimi step
-  const favoriteExperts = []
+export default function ClientDashboardPage() {
+  const { user } = useAuth()
+  const favoriteExperts = [
+    {
+      id: "exp1",
+      name: "Dott.ssa Elena Bianchi",
+      specialty: "Psicologia Clinica",
+      avatar: "/placeholder.svg?height=40&width=40",
+      status: "online",
+    },
+    {
+      id: "exp2",
+      name: "Avv. Marco Rossetti",
+      specialty: "Diritto Civile",
+      avatar: "/placeholder.svg?height=40&width=40",
+      status: "busy",
+    },
+    {
+      id: "exp3",
+      name: "Ing. Sofia Moretti",
+      specialty: "Consulenza Energetica",
+      avatar: "/placeholder.svg?height=40&width=40",
+      status: "offline",
+    },
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -73,7 +80,7 @@ export default async function ClientDashboardPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center">
             <Sparkles className="w-8 h-8 mr-3 text-yellow-400" />
-            Benvenuto nella tua Area Personale, {userName}!
+            Benvenuto nella tua Area Personale, {user?.name || "Cercatore"}!
           </h1>
           <p className="text-white/70 text-lg">Gestisci le tue consulenze e scopri nuovi esperti</p>
         </div>
@@ -81,7 +88,7 @@ export default async function ClientDashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <InfoCard
             title="Consulenze Recenti"
-            value="0" // Dati dinamici futuri
+            value="2"
             icon={Clock}
             link="/dashboard/client/consultations"
             linkText="Vedi storico completo"
@@ -89,7 +96,7 @@ export default async function ClientDashboardPage() {
           />
           <InfoCard
             title="Messaggi Non Letti"
-            value="0" // Dati dinamici futuri
+            value="3"
             icon={MessageSquare}
             link="/dashboard/client/messages"
             linkText="Vai ai messaggi"
@@ -97,7 +104,7 @@ export default async function ClientDashboardPage() {
           />
           <InfoCard
             title="Saldo Wallet"
-            value={walletBalance}
+            value="€ 55.00"
             icon={Wallet}
             link="/dashboard/client/wallet"
             linkText="Gestisci wallet"
@@ -105,7 +112,8 @@ export default async function ClientDashboardPage() {
           />
         </div>
 
-        <GamificationWidget userId={user.id} />
+        {/* Gamification Widget */}
+        <GamificationWidget userId="current_user" />
 
         <Card className="backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl rounded-2xl">
           <CardHeader>
@@ -117,7 +125,7 @@ export default async function ClientDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {favoriteExperts.map((expert: any) => (
+            {favoriteExperts.map((expert) => (
               <div
                 key={expert.id}
                 className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-300 border border-white/10"
@@ -185,6 +193,7 @@ export default async function ClientDashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Quick Actions */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Link href="/dashboard/client/consultations">
             <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer">

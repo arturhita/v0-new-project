@@ -1,37 +1,13 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Terminal } from "lucide-react"
 
 export default function LoginPage() {
-  const { login } = useAuth()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const result = await login({ email, password })
-    if (result.error) {
-      setError(result.error)
-    }
-    // On success, the AuthProvider will handle the redirect
-    setLoading(false)
-  }
-
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground goldVisible={true} />
@@ -51,14 +27,7 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold text-white">Bentornato</h1>
             <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
           </div>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            {error && (
-              <Alert variant="destructive" className="bg-red-900/50 border-red-500/50 text-white">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Errore di Accesso</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+          <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email" className="text-slate-200">
                 Email
@@ -68,8 +37,6 @@ export default function LoginPage() {
                 type="email"
                 placeholder="mario@esempio.com"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
@@ -86,19 +53,16 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
             >
-              {loading ? "Accesso in corso..." : "Accedi"}
+              Accedi
             </Button>
-          </form>
+          </div>
           <div className="mt-6 text-center text-sm text-slate-300">
             Non hai un account?{" "}
             <Link href="/register" className="underline text-blue-400 hover:text-blue-300 font-semibold">

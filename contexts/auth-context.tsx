@@ -1,22 +1,20 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
-import type { User, SupabaseClient } from "@supabase/supabase-js"
+import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
 
-// Definiamo un tipo per il profilo che corrisponde alla tabella DB
-interface Profile {
-  id: string
+// Combine Supabase user with our custom profile data
+interface UserProfile extends SupabaseUser {
+  name: string
   role: "client" | "operator" | "admin"
-  full_name: string
-  avatar_url?: string
+  avatar_url: string | null
 }
 
 interface AuthContextType {
-  user: User | null
-  profile: Profile | null
+  user: UserProfile | null
   login: (data: any) => Promise<{ success: boolean; error?: string }>
   register: (data: any) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
@@ -29,74 +27,63 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
-  const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-
-  const fetchProfile = useCallback(
-    async (userToFetch: User | null) => {
-      if (!userToFetch) {
-        setProfile(null)
-        return null
-      }
-      try {
-        const { data, error } = await supabase.from("profiles").select("*").eq("id", userToFetch.id).single()
-        if (error) throw error
-        setProfile(data as Profile)
-        return data as Profile
-      } catch (error) {
-        console.error("Error fetching profile:", error)
-        setProfile(null)
-        return null
-      }
-    },
-    [supabase],
-  )
+  const router = useRouter()
 
   useEffect(() => {
-    setLoading(true)
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      await fetchProfile(currentUser)
-      setLoading(false)
-    }
-
-    getInitialSession()
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      const currentProfile = await fetchProfile(currentUser)
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
-      if (_event === "SIGNED_IN" && currentProfile) {
-        switch (currentProfile.role) {
-          case "admin":
-            router.push("/admin/dashboard")
-            break
-          case "operator":
-            router.push("/dashboard/operator")
-            break
-          case "client":
-            router.push("/dashboard/client")
-            break
-          default:
-            router.push("/")
+        if (profile) {
+          const currentUser = { ...session.user, ...profile }
+          setUser(currentUser)
+          if (_event === "SIGNED_IN") {
+            switch (currentUser.role) {
+              case "admin":
+                router.push("/admin/dashboard")
+                break
+              case "operator":
+                router.push("/dashboard/operator")
+                break
+              case "client":
+                router.push("/dashboard/client")
+                break
+              default:
+                router.push("/")
+            }
+          }
+        } else {
+          setUser(null)
+          console.error("Profile not found for user:", session.user.id)
         }
+      } else {
+        setUser(null)
       }
       setLoading(false)
     })
 
+    const getInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        if (profile) {
+          setUser({ ...session.user, ...profile })
+        }
+      }
+      setLoading(false)
+    }
+    getInitialSession()
+
     return () => {
       subscription.unsubscribe()
     }
-  }, [fetchProfile, supabase, router])
+  }, [supabase, router])
 
   const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
@@ -120,8 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
       options: {
         data: {
-          full_name: name, // Il trigger DB si aspetta `full_name`
-          role: role || "client",
+          name,
+          role: role || "client", // Default to client if role is not provided
         },
       },
     })
@@ -133,17 +120,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = async () => {
-    setLoading(true)
     await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
     router.push("/")
-    setLoading(false)
   }
 
   const value: AuthContextType = {
     user,
-    profile,
     login,
     register,
     logout,
