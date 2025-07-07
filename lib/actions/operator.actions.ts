@@ -110,9 +110,9 @@ export async function createOperator(operatorData: unknown) {
     console.log("[5/6] Profilo inserito nel DB con successo.")
 
     // 6. Revalidation dei percorsi per aggiornare la UI
-    revalidatePath("/admin/operators")
-    revalidatePath("/")
-    console.log("[6/6] Percorsi revalidati.")
+    // revalidatePath("/admin/operators")
+    // revalidatePath("/")
+    console.log("[6/6] Revalidation saltata per debug. Il salvataggio si completerà.")
 
     console.log("--- Azione completata con SUCCESSO ---")
     return {
