@@ -12,7 +12,7 @@ export type UserProfile = SupabaseUser & Tables<"profiles"> & { operator_details
 
 interface AuthContextType {
   user: UserProfile | null
-  login: (data: any) => Promise<{ success: boolean; error?: string }>
+  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; error?: string }>
   register: (data: any) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   loading: boolean
@@ -37,8 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
-        console.error("Error fetching profile:", error.message, "Details:", error)
-        // Se non troviamo il profilo, è meglio fare il logout per evitare stati inconsistenti
+        console.error("Error fetching profile:", error.message)
         await supabase.auth.signOut()
         return null
       }
@@ -82,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    // Controlla la sessione iniziale
     const getInitialSession = async () => {
       setLoading(true)
       const {
@@ -99,9 +97,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [supabase, router])
 
-  const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
+  const login = async (credentials: { email: string; password: string }): Promise<{
+    success: boolean
+    error?: string
+  }> => {
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword(data)
+    const { error } = await supabase.auth.signInWithPassword(credentials)
     setLoading(false)
     if (error) {
       console.error("Login error:", error)
@@ -132,7 +133,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Register error:", error)
       return { success: false, error: error.message }
     }
-    // Il redirect avverrà automaticamente grazie a onAuthStateChange
     return { success: true }
   }
 
