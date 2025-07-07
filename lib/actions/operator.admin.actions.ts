@@ -12,7 +12,7 @@ export interface CreateOperatorActionState {
   errors?: Record<string, string[]>
 }
 
-// Schema di validazione Zod per i dati del form
+// Schema di validazione Zod AGGIORNATO per leggere correttamente i dati del form
 const OperatorFormSchema = z.object({
   fullName: z.string().min(3, "Il nome completo è obbligatorio."),
   stageName: z.string().min(3, "Il nome d'arte è obbligatorio."),
@@ -28,26 +28,22 @@ const OperatorFormSchema = z.object({
       (file) => ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type),
       "Formato file non supportato.",
     ),
-  categories: z.preprocess(
-    (val) => (typeof val === "string" ? [val] : val),
-    z.string().array().min(1, "Selezionare almeno una categoria."),
-  ),
+  // Corretto per accettare un array direttamente da formData.getAll
+  categories: z.string().array().min(1, "Selezionare almeno una categoria."),
   specialties: z.preprocess(
     (val) => (typeof val === "string" ? val.split(",").filter(Boolean) : []),
     z.string().array(),
   ),
-  chatEnabled: z.preprocess((val) => val === "on", z.boolean()),
+  chatEnabled: z.preprocess((val) => val === "on", z.boolean()).default(false),
   chatPrice: z.coerce.number().min(0),
-  callEnabled: z.preprocess((val) => val === "on", z.boolean()),
+  callEnabled: z.preprocess((val) => val === "on", z.boolean()).default(false),
   callPrice: z.coerce.number().min(0),
-  emailEnabled: z.preprocess((val) => val === "on", z.boolean()),
+  emailEnabled: z.preprocess((val) => val === "on", z.boolean()).default(false),
   emailPrice: z.coerce.number().min(0),
-  availability: z.preprocess(
-    (val) => (typeof val === "string" ? val.split(",").filter(Boolean) : []),
-    z.string().array(),
-  ),
+  // Corretto per accettare un array direttamente da formData.getAll
+  availability: z.string().array(),
   status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
-  isOnline: z.preprocess((val) => val === "on", z.boolean()),
+  isOnline: z.preprocess((val) => val === "on", z.boolean()).default(false),
   commission: z.coerce.number().min(0).max(100),
 })
 
@@ -55,13 +51,35 @@ export async function createOperator(
   prevState: CreateOperatorActionState,
   formData: FormData,
 ): Promise<CreateOperatorActionState> {
-  console.log("--- Server Action: Inizio creazione operatore ---")
+  console.log("--- [INIZIO] Server Action: Creazione Operatore ---")
   const supabaseAdmin = createSupabaseAdminClient()
   let newUserId: string | null = null
 
   try {
-    // 1. Validazione dei dati del form
-    const rawData = Object.fromEntries(formData.entries())
+    // 1. Lettura CORRETTA e validazione dei dati
+    const rawData = {
+      fullName: formData.get("fullName"),
+      stageName: formData.get("stageName"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+      phone: formData.get("phone"),
+      bio: formData.get("bio"),
+      avatar: formData.get("avatar"),
+      categories: formData.getAll("categories"), // <-- FIX CRITICO: usa getAll
+      specialties: formData.get("specialties"),
+      chatEnabled: formData.get("chatEnabled"),
+      chatPrice: formData.get("chatPrice"),
+      callEnabled: formData.get("callEnabled"),
+      callPrice: formData.get("callPrice"),
+      emailEnabled: formData.get("emailEnabled"),
+      emailPrice: formData.get("emailPrice"),
+      availability: formData.getAll("availability"), // <-- FIX CRITICO: usa getAll
+      status: formData.get("status"),
+      isOnline: formData.get("isOnline"),
+      commission: formData.get("commission"),
+    }
+    console.log("[LOG] Dati grezzi dal form:", rawData)
+
     const validation = OperatorFormSchema.safeParse(rawData)
 
     if (!validation.success) {
@@ -124,7 +142,7 @@ export async function createOperator(
       (acc, day) => {
         acc[day.key] = data.availability
           .filter((slot) => slot.startsWith(day.key))
-          .map((slot) => slot.split("-")[1] + "-" + slot.split("-")[2])
+          .map((slot) => slot.split("-").slice(1).join("-"))
         return acc
       },
       {} as Record<string, string[]>,
@@ -156,20 +174,20 @@ export async function createOperator(
       },
       availability_schedule: availabilitySchedule,
     })
-    if (profileError) throw new Error(`Errore DB: ${profileError.message}`)
+    if (profileError) throw new Error(`Errore DB durante inserimento profilo: ${profileError.message}`)
     console.log("[6/7] Profilo DB creato.")
 
     // 7. Revalidazione e Successo
     revalidatePath("/admin/operators")
-    console.log("[7/7] --- Server Action: SUCCESSO ---")
+    console.log("[7/7] --- [SUCCESSO] Server Action Completata ---")
     return { success: true, message: `Operatore "${data.stageName}" creato con successo.` }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante la creazione."
-    console.error("--- Server Action: ERRORE CRITICO ---", errorMessage)
+    console.error("--- [ERRORE CRITICO] Server Action Fallita ---", errorMessage)
     if (newUserId) {
-      console.log(`[ROLLBACK] Tentativo di eliminazione utente orfano: ${newUserId}`)
+      console.warn(`[ROLLBACK] Tentativo di eliminazione utente orfano: ${newUserId}`)
       await supabaseAdmin.auth.admin.deleteUser(newUserId)
-      console.log(`[ROLLBACK] Utente orfano eliminato.`)
+      console.warn(`[ROLLBACK] Utente orfano eliminato.`)
     }
     return { success: false, message: `Creazione fallita: ${errorMessage}` }
   }

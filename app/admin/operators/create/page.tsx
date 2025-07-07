@@ -34,7 +34,7 @@ import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { getCategoriesForAdmin } from "@/lib/actions/operator.actions"
 import { createOperator, type CreateOperatorActionState } from "@/lib/actions/operator.admin.actions"
-import { SubmitButton } from "@/components/submit-button" // Creeremo questo componente riutilizzabile
+import { SubmitButton } from "@/components/submit-button"
 
 const availabilitySlots = ["09:00-12:00", "12:00-15:00", "15:00-18:00", "18:00-21:00", "21:00-24:00"]
 const weekDays = [
@@ -69,6 +69,7 @@ export default function CreateOperatorPage() {
       toast({ title: "Successo!", description: state.message })
       router.push("/admin/operators")
     } else if (state.message && !state.errors) {
+      // Mostra solo errori generali, non quelli di validazione che sono già inline
       toast({ title: "Errore", description: state.message, variant: "destructive" })
     }
   }, [state, router, toast])
@@ -134,7 +135,7 @@ export default function CreateOperatorPage() {
               <div className="flex items-start gap-6">
                 <div className="relative">
                   <Avatar className="w-24 h-24 border-4 border-sky-200 shadow-lg">
-                    <AvatarImage src={avatarPreview || "/placeholder.svg"} alt="Avatar Preview" />
+                    <AvatarImage src={avatarPreview || "/placeholder.svg?query=avatar"} alt="Avatar Preview" />
                     <AvatarFallback className="text-3xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white">
                       <User />
                     </AvatarFallback>
@@ -243,6 +244,12 @@ export default function CreateOperatorPage() {
                     value={newSpecialty}
                     onChange={(e) => setNewSpecialty(e.target.value)}
                     placeholder="Aggiungi tag..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddSpecialty()
+                      }
+                    }}
                   />
                   <Button type="button" onClick={handleAddSpecialty} variant="outline">
                     <Tags className="h-4 w-4 mr-1" /> Aggiungi
@@ -361,10 +368,7 @@ export default function CreateOperatorPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-24">
               <h3 className="text-lg font-semibold text-slate-700 mb-4">Anteprima Profilo</h3>
-              {/* La preview qui sarà statica, basata sui valori di default,
-                  perché lo stato è gestito dal form stesso.
-                  Una preview dinamica richiederebbe di duplicare lo stato,
-                  ma per ora la priorità è la funzionalità. */}
+              <p className="text-sm text-slate-500">La preview dinamica sarà disponibile dopo la creazione.</p>
             </div>
           </div>
         )}
