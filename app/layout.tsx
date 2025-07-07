@@ -23,12 +23,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Leggiamo le variabili d'ambiente qui, sul server, in modo sicuro.
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // Leggiamo le variabili d'ambiente qui, sul server, in modo sicuro e flessibile.
+  // Cerchiamo sia il nome con prefisso NEXT_PUBLIC_ che quello senza.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
-  // Se le variabili non sono impostate, l'app si fermerà qui con un errore chiaro
-  // invece di fallire in modo silenzioso nel browser.
+  // Se le variabili non sono impostate, l'app si fermerà qui con un errore chiaro.
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Supabase environment variables are not set. Please check your Vercel project settings.")
   }
