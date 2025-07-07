@@ -1,11 +1,8 @@
--- Abilita l'estensione per la crittografia se non già fatto
-CREATE EXTENSION IF NOT EXISTS "pgsodium" WITH SCHEMA "pgsodium";
-
 -- Tabella per i dati fiscali degli operatori (visibile solo agli admin)
 CREATE TABLE
   public.operator_tax_details (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-    operator_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+    operator_id UUID NOT NULL UNIQUE REFERENCES public.profiles (id) ON DELETE CASCADE,
     tax_id TEXT, -- Codice Fiscale
     vat_id TEXT, -- Partita IVA
     company_name TEXT, -- Ragione Sociale (se azienda)
@@ -19,18 +16,14 @@ CREATE TABLE
 -- Policy di sicurezza per i dati fiscali
 ALTER TABLE public.operator_tax_details ENABLE ROW LEVEL SECURITY;
 
--- L'operatore può inserire i propri dati
-CREATE POLICY "Operators can insert their own tax details" ON public.operator_tax_details FOR INSERT
-WITH
-  CHECK (auth.uid () = operator_id);
+-- L'operatore può inserire e aggiornare i propri dati
+CREATE POLICY "Operators can manage their own tax details" ON public.operator_tax_details FOR ALL
+USING (auth.uid () = operator_id)
+WITH CHECK (auth.uid () = operator_id);
 
--- L'operatore può aggiornare i propri dati
-CREATE POLICY "Operators can update their own tax details" ON public.operator_tax_details FOR UPDATE
-USING
-  (auth.uid () = operator_id);
-
--- NESSUNO può leggere i dati, tranne tramite accessi con service_role (dal backend/admin)
-CREATE POLICY "Tax details are private" ON public.operator_tax_details FOR
+-- Per sicurezza, neghiamo esplicitamente l'accesso in lettura a tutti gli altri.
+-- L'admin, usando la service_role_key, bypasserà questa policy.
+CREATE POLICY "Tax details are private and not readable by others" ON public.operator_tax_details FOR
 SELECT
   USING (FALSE);
 
@@ -59,8 +52,6 @@ CREATE POLICY "Operators can view their own invoices" ON public.platform_invoice
 SELECT
   USING (auth.uid () = operator_id);
 
--- Solo gli admin (tramite service_role) possono creare/gestire le fatture
-
--- Aggiungiamo una colonna per la motivazione del rifiuto nella richiesta di commissione
+-- Aggiungiamo una colonna per la motivazione del rifiuto nella richiesta di commissione, se non esiste già
 ALTER TABLE public.commission_requests
-ADD COLUMN rejection_reason TEXT;
+ADD COLUMN IF NOT EXISTS rejection_reason TEXT;

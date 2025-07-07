@@ -1,59 +1,13 @@
-import { getAdminCommissionRequests } from "@/lib/actions/commission.actions"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import ProcessCommissionRequestForm from "./ProcessCommissionRequestForm"
-
-export default async function AdminCommissionRequestsPage() {
-  const requests = await getAdminCommissionRequests()
-
+// Richieste Modifica Commissione (commission-requests/page.tsx) - UI Placeholder
+export default function CommissionRequestsPage() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Richieste di Commissione Operatori</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Operatore</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead>Commissione Attuale</TableHead>
-              <TableHead>Commissione Richiesta</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead>Azioni</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.map((req) => (
-              <TableRow key={req.id}>
-                <TableCell>{req.operator.stage_name}</TableCell>
-                <TableCell>{new Date(req.requested_at).toLocaleDateString()}</TableCell>
-                <TableCell>{req.current_rate}%</TableCell>
-                <TableCell>{req.requested_rate}%</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      req.status === "approved" ? "default" : req.status === "rejected" ? "destructive" : "secondary"
-                    }
-                  >
-                    {req.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {req.status === "pending" && (
-                    <ProcessCommissionRequestForm
-                      requestId={req.id}
-                      operatorId={req.operator_id}
-                      newRate={req.requested_rate}
-                    />
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Richieste Modifica Commissione</h1>
+      <p className="text-slate-600">Gestione richieste dagli operatori per modificare le loro commissioni.</p>
+      <div className="p-4 bg-white rounded-lg shadow">
+        <h3 className="font-semibold mb-2">Anteprima Richieste:</h3>
+        <div className="p-2 border rounded-md">Elenco richieste (UI Placeholder).</div>
+      </div>
+    </div>
   )
 }

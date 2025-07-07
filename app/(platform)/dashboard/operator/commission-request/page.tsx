@@ -1,109 +1,95 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+"use client"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { createCommissionRequest, getOperatorCommissionRequests } from "@/lib/actions/commission.actions"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Percent, Send } from "lucide-react"
 
-export default async function CommissionRequestPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function CommissionRequestPage() {
+  const currentCommission = "15%" // Esempio, da caricare
+  const [requestedCommission, setRequestedCommission] = useState("")
+  const [justification, setJustification] = useState("")
 
-  if (!user) {
-    redirect("/login")
+  const handleSubmitRequest = () => {
+    // Qui, in un'app reale, invieresti i dati a un Server Action o API
+    console.log("Richiesta modifica commissione inviata all'admin:", {
+      currentCommission,
+      requestedCommission: `${requestedCommission}%`,
+      justification,
+    })
+    alert(
+      "Richiesta di modifica commissione inviata all'amministrazione (simulazione). L'admin la visualizzerà nella sua dashboard.",
+    )
+    setRequestedCommission("")
+    setJustification("")
   }
-
-  const { data: profile } = await supabase.from("profiles").select("commission_rate").eq("id", user.id).single()
-  const requests = await getOperatorCommissionRequests(user.id)
-
-  const currentRate = profile?.commission_rate || 0
-  const hasPendingRequest = requests.some((r) => r.status === "pending")
 
   return (
     <div className="space-y-6">
-      <Card>
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Richiesta Modifica Decima</h1>
+      <CardDescription className="text-slate-500 -mt-4">
+        Invia una richiesta all'amministrazione per rinegoziare la tua percentuale di commissione.
+      </CardDescription>
+
+      <Card className="shadow-xl rounded-2xl">
         <CardHeader>
-          <CardTitle>Richiesta Modifica Commissione</CardTitle>
-          <CardDescription>
-            La tua commissione attuale è del {currentRate}%. Puoi richiedere una modifica qui. La richiesta verrà
-            valutata dall'amministrazione.
+          <CardTitle className="text-xl text-slate-700 flex items-center">
+            <Percent className="mr-2 h-5 w-5 text-[hsl(var(--primary-medium))]" /> Modifica la Tua Decima
+          </CardTitle>
+          <CardDescription className="text-slate-500">
+            La tua commissione attuale è del:{" "}
+            <span className="font-semibold text-[hsl(var(--primary-dark))]">{currentCommission}</span>
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {hasPendingRequest ? (
-            <p className="text-yellow-600">Hai già una richiesta in sospeso. Attendi che venga processata.</p>
-          ) : (
-            <form action={createCommissionRequest.bind(null, user.id)} className="space-y-4">
-              <div>
-                <label htmlFor="requested_rate" className="block text-sm font-medium text-gray-700">
-                  Nuova Commissione Richiesta (%)
-                </label>
-                <Input
-                  id="requested_rate"
-                  name="requested_rate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  required
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label htmlFor="reason" className="block text-sm font-medium text-gray-700">
-                  Motivazione (opzionale)
-                </label>
-                <Textarea
-                  id="reason"
-                  name="reason"
-                  placeholder="Spiega perché richiedi questa modifica..."
-                  className="mt-1"
-                />
-              </div>
-              <Button type="submit">Invia Richiesta</Button>
-            </form>
-          )}
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="requestedCommission">Nuova Commissione Richiesta (%)</Label>
+            <Input
+              id="requestedCommission"
+              type="number"
+              value={requestedCommission}
+              onChange={(e) => setRequestedCommission(e.target.value)}
+              placeholder="Es. 12"
+              className="mt-1"
+              min="0"
+              max="100"
+            />
+            <p className="text-xs text-slate-400 mt-1">Inserisci solo il numero (es. 10 per 10%).</p>
+          </div>
+          <div>
+            <Label htmlFor="justification">Motivazione della Richiesta</Label>
+            <Textarea
+              id="justification"
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              placeholder="Spiega brevemente perché richiedi questa modifica (es. anzianità, volume di consulti, etc.)..."
+              className="mt-1 min-h-[100px]"
+            />
+          </div>
+          <Button
+            onClick={handleSubmitRequest}
+            disabled={
+              !requestedCommission ||
+              !justification ||
+              Number.parseFloat(requestedCommission) < 0 ||
+              Number.parseFloat(requestedCommission) > 100
+            }
+            className="w-full sm:w-auto bg-gradient-to-r from-[hsl(var(--primary-light))] to-[hsl(var(--primary-medium))] text-white shadow-md hover:opacity-90"
+          >
+            <Send className="mr-2 h-4 w-4" /> Invia Richiesta di Modifica
+          </Button>
         </CardContent>
       </Card>
-
-      <Card>
+      <Card className="shadow-lg rounded-xl mt-6">
         <CardHeader>
-          <CardTitle>Storico Richieste</CardTitle>
+          <CardTitle className="text-lg text-slate-700">Storico Richieste</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Richiesta</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead>Note Admin</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {requests.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell>{new Date(req.requested_at).toLocaleDateString()}</TableCell>
-                  <TableCell>{req.requested_rate}%</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        req.status === "approved" ? "default" : req.status === "rejected" ? "destructive" : "secondary"
-                      }
-                    >
-                      {req.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{req.rejection_reason}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <p className="text-sm text-slate-500">
+            Lo storico delle tue richieste di modifica commissione apparirà qui (UI Placeholder).
+          </p>
         </CardContent>
       </Card>
     </div>
