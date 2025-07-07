@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Download, Eye, Plus, Search } from "lucide-react"
+import { FileText, Download, Eye, Search } from "lucide-react"
 import CreateInvoiceModal from "@/components/create-invoice-modal"
 
 interface Invoice {
@@ -32,7 +32,7 @@ interface InvoiceItem {
   total: number
 }
 
-export default function ManageInvoicesPage() {
+export default function AdminInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([
     {
       id: "inv1",
@@ -241,16 +241,27 @@ export default function ManageInvoicesPage() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Fatture</h1>
-            <p className="text-slate-600">Visualizza e gestisci le fatture degli operatori con commissioni e spese.</p>
-          </div>
-          <Button onClick={() => setShowCreateModal(true)} className="bg-sky-600 hover:bg-sky-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Nuova Fattura
-          </Button>
-        </div>
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Gestione Fatture</CardTitle>
+                <CardDescription>
+                  Crea e gestisci le fatture per le commissioni della piattaforma agli operatori.
+                </CardDescription>
+              </div>
+              <Button onClick={() => setShowCreateModal(true)}>Genera Fatture del Mese</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-12">
+              <p>Lo storico delle fatture generate apparirà qui.</p>
+              <p className="text-sm text-gray-500 mt-2">
+                La funzionalità di generazione automatica è in fase di sviluppo.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filtri e Ricerca */}
         <Card>

@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { getOperatorById } from "./operator.actions"
 
+const FREE_MESSAGE_LIMIT = 5
+
 export async function startChatSession(operatorId: string) {
   const supabase = createClient()
 
@@ -46,6 +48,7 @@ export async function startChatSession(operatorId: string) {
       status: "in_progress",
       type: "chat",
       cost: 0, // Il costo verrà aggiornato alla fine
+      start_time: new Date().toISOString(), // Add start time for duration calculation
     })
     .select()
     .single()
@@ -106,32 +109,61 @@ export async function getChatMessages(sessionId: string) {
   return data
 }
 
-export async function postMessage(sessionId: string, content: string) {
+export async function sendMessage(conversationId: string, senderId: string, content: string) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
+  // 1. Get conversation and current message count
+  const { data: conversation, error: convError } = await supabase
+    .from("conversations")
+    .select("id, free_message_count, client_id, operator_id")
+    .eq("id", conversationId)
+    .single()
+
+  if (convError || !conversation) {
+    return { success: false, message: "Conversazione non trovata." }
   }
 
-  const { data, error } = await supabase
+  // 2. Check if the sender is the client and if the limit is reached
+  const isClient = senderId === conversation.client_id
+  if (isClient && conversation.free_message_count >= FREE_MESSAGE_LIMIT) {
+    return {
+      success: false,
+      message: "Hai esaurito i messaggi gratuiti. Per continuare, avvia un consulto a pagamento.",
+      limitReached: true,
+    }
+  }
+
+  // 3. Insert the new message
+  const { data: message, error: messageError } = await supabase
     .from("messages")
     .insert({
-      consultation_id: sessionId,
-      sender_id: user.id,
+      conversation_id: conversationId,
+      sender_id: senderId,
       content: content,
     })
     .select()
     .single()
 
-  if (error) {
-    console.error("Error posting message:", error)
-    return { success: false, message: "Errore durante l'invio del messaggio." }
+  if (messageError) {
+    console.error("Error sending message:", messageError)
+    return { success: false, message: "Impossibile inviare il messaggio." }
   }
 
-  return { success: true, message: data }
+  // 4. If the sender was the client, increment the free message count
+  if (isClient) {
+    const { error: updateError } = await supabase
+      .from("conversations")
+      .update({ free_message_count: conversation.free_message_count + 1 })
+      .eq("id", conversationId)
+
+    if (updateError) {
+      // Log the error but don't block the user, the message is already sent
+      console.error("Error updating free message count:", updateError)
+    }
+  }
+
+  revalidatePath(`/chat/${conversationId}`) // Or use a more real-time method
+  return { success: true, message }
 }
 
 export async function chargeForMinute(sessionId: string) {
