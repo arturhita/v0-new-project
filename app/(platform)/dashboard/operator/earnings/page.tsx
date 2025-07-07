@@ -1,190 +1,127 @@
-"use client"
-
-import Link from "next/link"
-
-import { Label } from "@/components/ui/label"
-
-import { useEffect, useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { getOperatorEarningsData, createPayoutRequest } from "@/lib/actions/payouts.actions"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { getOperatorEarnings, requestPayout } from "@/lib/actions/payouts.actions"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Info } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
+import { RequestPayoutButton } from "@/components/request-payout-button"
+import { revalidatePath } from "next/cache"
 
-type EarningsData = Awaited<ReturnType<typeof getOperatorEarningsData>>
+export default async function EarningsPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-const StatCard = ({ title, value, isLoading }: { title: string; value: string; isLoading: boolean }) => (
-  <Card className="bg-gray-800/50 border-gray-700/50">
-    <CardHeader>
-      <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
-    </CardHeader>
-    <CardContent>
-      {isLoading ? (
-        <div className="h-8 w-24 bg-gray-700 rounded-md animate-pulse" />
-      ) : (
-        <div className="text-3xl font-bold">€{value}</div>
-      )}
-    </CardContent>
-  </Card>
-)
-
-export default function EarningsPage() {
-  const { profile } = useAuth()
-  const { toast } = useToast()
-  const [data, setData] = useState<EarningsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [payoutAmount, setPayoutAmount] = useState("")
-  const [isRequesting, setIsRequesting] = useState(false)
-
-  const fetchEarnings = () => {
-    if (profile?.id) {
-      setLoading(true)
-      getOperatorEarningsData(profile.id)
-        .then(setData)
-        .finally(() => setLoading(false))
-    }
+  if (!user) {
+    return redirect("/login")
   }
 
-  useEffect(fetchEarnings, [profile])
+  const earningsData = await getOperatorEarnings(user.id)
+
+  if (!earningsData) {
+    return <div>Errore nel caricamento dei dati sui guadagni.</div>
+  }
+
+  const { balance, total_earned, total_withdrawn, transactions } = earningsData
 
   const handleRequestPayout = async () => {
-    const amount = Number.parseFloat(payoutAmount)
-    if (!profile || isNaN(amount) || amount <= 0) {
-      toast({ title: "Errore", description: "Inserisci un importo valido.", variant: "destructive" })
-      return
-    }
-
-    setIsRequesting(true)
-    const result = await createPayoutRequest(profile.id, amount)
-    if (result.success) {
-      toast({ title: "Successo", description: result.message })
-      setPayoutAmount("")
-      fetchEarnings() // Refresh data
-    } else {
-      toast({ title: "Errore", description: result.message, variant: "destructive" })
-    }
-    setIsRequesting(false)
+    "use server"
+    await requestPayout(user.id)
+    revalidatePath("/dashboard/operator/earnings")
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">I Tuoi Guadagni</h1>
-        <p className="text-gray-400">Visualizza il riepilogo dei tuoi guadagni e richiedi un pagamento.</p>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Guadagni e Pagamenti</h1>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Saldo Attuale</CardTitle>
+            <CardDescription>Disponibile per il ritiro</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">€{balance.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Guadagni Totali</CardTitle>
+            <CardDescription>Dall'inizio della tua attività</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">€{total_earned.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Ritirato Totale</CardTitle>
+            <CardDescription>Importo totale già pagato</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">€{total_withdrawn.toFixed(2)}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Disponibile per Pagamento"
-          value={data?.availableForPayout.toFixed(2) ?? "0.00"}
-          isLoading={loading}
-        />
-        <StatCard title="In Attesa di Pagamento" value={data?.pendingPayout.toFixed(2) ?? "0.00"} isLoading={loading} />
-        <StatCard title="Totale Ritirato" value={data?.withdrawn.toFixed(2) ?? "0.00"} isLoading={loading} />
-        <StatCard title="Guadagni Totali" value={data?.totalEarned.toFixed(2) ?? "0.00"} isLoading={loading} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <Card className="bg-gray-800/50 border-gray-700/50">
-            <CardHeader>
-              <CardTitle>Storico Guadagni Recenti</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-gray-700 hover:bg-transparent">
-                    <TableHead className="text-white">Data</TableHead>
-                    <TableHead className="text-white">Cliente</TableHead>
-                    <TableHead className="text-right text-white">Guadagno Netto</TableHead>
+      <Card>
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle>Storico Transazioni</CardTitle>
+            <CardDescription>Dettaglio dei tuoi guadagni e pagamenti.</CardDescription>
+          </div>
+          <form action={handleRequestPayout} className="mt-4 md:mt-0">
+            <RequestPayoutButton balance={balance} />
+          </form>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Descrizione</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Importo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transactions && transactions.length > 0 ? (
+                transactions.map((tx: any) => (
+                  <TableRow key={tx.id}>
+                    <TableCell>
+                      {format(new Date(tx.created_at), "d MMM yyyy", {
+                        locale: it,
+                      })}
+                    </TableCell>
+                    <TableCell className="font-medium">{tx.description}</TableCell>
+                    <TableCell>
+                      <Badge variant={tx.type === "earning" ? "default" : "secondary"}>
+                        {tx.type === "earning" ? "Guadagno" : "Pagamento"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-semibold ${
+                        tx.type === "earning" ? "text-green-500" : "text-red-500"
+                      }`}
+                    >
+                      {tx.type === "earning" ? "+" : "-"}€{tx.amount.toFixed(2)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i} className="border-gray-800">
-                        <TableCell>
-                          <div className="h-5 w-24 bg-gray-700 rounded animate-pulse" />
-                        </TableCell>
-                        <TableCell>
-                          <div className="h-5 w-32 bg-gray-700 rounded animate-pulse" />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="h-5 w-16 bg-gray-700 rounded animate-pulse ml-auto" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : data?.earningsHistory && data.earningsHistory.length > 0 ? (
-                    data.earningsHistory.map((earning) => (
-                      <TableRow key={earning.consultations.id} className="border-gray-800 hover:bg-gray-800/50">
-                        <TableCell>{format(new Date(earning.created_at), "d MMM yyyy", { locale: it })}</TableCell>
-                        <TableCell>{earning.consultations.profiles.stage_name}</TableCell>
-                        <TableCell className="text-right font-medium text-green-400">
-                          €{earning.net_earning.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500">
-                        Nessun guadagno registrato.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <Card className="bg-gray-800/50 border-gray-700/50">
-            <CardHeader>
-              <CardTitle>Richiedi Pagamento</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="payout-amount">Importo da ritirare</Label>
-                <div className="relative mt-1">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">€</span>
-                  <Input
-                    id="payout-amount"
-                    type="number"
-                    placeholder="0.00"
-                    className="pl-7"
-                    value={payoutAmount}
-                    onChange={(e) => setPayoutAmount(e.target.value)}
-                    disabled={loading || isRequesting}
-                  />
-                </div>
-              </div>
-              <Button
-                onClick={handleRequestPayout}
-                disabled={loading || isRequesting || (data?.availableForPayout ?? 0) <= 0}
-                className="w-full bg-indigo-600 hover:bg-indigo-700"
-              >
-                {isRequesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Invia Richiesta
-              </Button>
-              <div className="flex items-start gap-2 text-xs text-gray-500">
-                <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                <span>
-                  Il pagamento sarà inviato al tuo metodo di default. Puoi impostarlo nelle{" "}
-                  <Link href="/dashboard/operator/payout-settings" className="underline hover:text-indigo-400">
-                    impostazioni di pagamento
-                  </Link>
-                  .
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center">
+                    Nessuna transazione trovata.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

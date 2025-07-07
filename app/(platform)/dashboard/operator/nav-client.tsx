@@ -20,24 +20,28 @@ export function NavClient({ navItems }: NavClientProps) {
 
   return (
     <>
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:bg-gray-800 hover:text-white",
-            pathname ===
-              `/dashboard/operator${item.href === "/dashboard/operator" ? "" : item.replace("/dashboard/operator", "")}` &&
-              "bg-gray-800 text-white shadow-inner",
-            pathname.startsWith(item.href) &&
-              item.href !== "/dashboard/operator" &&
-              "bg-gray-800 text-white shadow-inner",
-          )}
-        >
-          <item.icon className="h-5 w-5" />
-          <span>{item.label}</span>
-        </Link>
-      ))}
+      {navItems.map((item) => {
+        // This logic is much cleaner and correct.
+        // The main dashboard link is active only on exact match.
+        // Other links are active if the current path starts with their href.
+        const isActive =
+          (item.href === "/dashboard/operator" && pathname === item.href) ||
+          (item.href !== "/dashboard/operator" && pathname.startsWith(item.href))
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:bg-gray-800 hover:text-white",
+              isActive && "bg-gray-800 text-white shadow-inner",
+            )}
+          >
+            <item.icon className="h-5 w-5" />
+            <span>{item.label}</span>
+          </Link>
+        )
+      })}
     </>
   )
 }
