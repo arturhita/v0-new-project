@@ -5,6 +5,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/database"
+import type { Database } from "@/types/database" // Declare the Database variable
 
 type AuthContextType = {
   user: User | null
@@ -18,52 +19,60 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const supabase = createClientComponentClient()
+  const supabase = createClientComponentClient<Database>()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
+    if (error) {
+      console.error("Error fetching profile:", error.message)
+      return null
+    }
+    return data
+  }
+
   useEffect(() => {
-    const getSession = async () => {
-      setIsLoading(true)
+    const getSessionAndProfile = async () => {
       const {
         data: { session },
-        error,
       } = await supabase.auth.getSession()
-
-      if (error) {
-        console.error("Error getting session:", error.message)
-        setIsLoading(false)
-        return
-      }
-
       if (session) {
         setUser(session.user)
-        const { data: userProfile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-
-        if (profileError) {
-          console.error("Error fetching profile:", profileError.message)
-        } else {
-          setProfile(userProfile)
-        }
+        const userProfile = await fetchProfile(session.user.id)
+        setProfile(userProfile)
       }
       setIsLoading(false)
     }
 
-    getSession()
+    getSessionAndProfile()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        const userProfile = await fetchProfile(session.user.id)
         setProfile(userProfile)
+        // Redirect after login/register based on role
+        if (event === "SIGNED_IN") {
+          switch (userProfile?.role) {
+            case "admin":
+              router.push("/admin/dashboard")
+              break
+            case "operator":
+              router.push("/dashboard/operator")
+              break
+            default:
+              router.push("/dashboard/client")
+              break
+          }
+        }
       } else {
         setProfile(null)
+        if (event === "SIGNED_OUT") {
+          router.push("/login")
+        }
       }
       setIsLoading(false)
     })
@@ -74,12 +83,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase, router])
 
   const login = async (email: string, pass: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: pass,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass })
     if (error) throw error
-    router.push("/")
+    // Redirect is handled by onAuthStateChange
   }
 
   const register = async (email: string, pass: string, fullName: string) => {
@@ -93,24 +99,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       },
     })
     if (error) throw error
-    router.push("/")
+    // Redirect is handled by onAuthStateChange
   }
 
   const logout = async () => {
     await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push("/login")
+    // Redirect is handled by onAuthStateChange
   }
 
-  const value = {
-    user,
-    profile,
-    isLoading,
-    login,
-    register,
-    logout,
-  }
+  const value = { user, profile, isLoading, login, register, logout }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -1,13 +1,12 @@
 "use client"
 
 import type React from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Clock, Star, MessageSquare, ArrowRight, Search, Sparkles, Wallet, History } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Clock, Star, MessageSquare, Sparkles, Wallet, History } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
 import { useAuth } from "@/contexts/auth-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const InfoCard = ({
   title,
@@ -16,6 +15,7 @@ const InfoCard = ({
   link,
   linkText,
   gradient,
+  isLoading,
 }: {
   title: string
   value: string
@@ -23,6 +23,7 @@ const InfoCard = ({
   link?: string
   linkText?: string
   gradient?: string
+  isLoading: boolean
 }) => (
   <Card
     className={`backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl ${gradient || ""}`}
@@ -32,8 +33,12 @@ const InfoCard = ({
       <Icon className="h-5 w-5 text-white/80" />
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      {link && linkText && (
+      {isLoading ? (
+        <Skeleton className="h-8 w-24 mt-1" />
+      ) : (
+        <div className="text-2xl font-bold text-white">{value}</div>
+      )}
+      {link && linkText && !isLoading && (
         <Link href={link} className="text-xs text-white/70 hover:text-white transition-colors mt-1 inline-block">
           {linkText}
         </Link>
@@ -43,191 +48,101 @@ const InfoCard = ({
 )
 
 export default function ClientDashboardPage() {
-  const { user } = useAuth()
-  const favoriteExperts = [
-    {
-      id: "exp1",
-      name: "Dott.ssa Elena Bianchi",
-      specialty: "Psicologia Clinica",
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "online",
-    },
-    {
-      id: "exp2",
-      name: "Avv. Marco Rossetti",
-      specialty: "Diritto Civile",
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "busy",
-    },
-    {
-      id: "exp3",
-      name: "Ing. Sofia Moretti",
-      specialty: "Consulenza Energetica",
-      avatar: "/placeholder.svg?height=40&width=40",
-      status: "offline",
-    },
-  ]
+  const { profile, isLoading } = useAuth()
+
+  // Dati mock per ora, da sostituire con chiamate API
+  const favoriteExperts = []
+  const recentConsultationsCount = 0
+  const unreadMessagesCount = 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Background Effects */}
       <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] opacity-5"></div>
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-sky-500/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
-
       <div className="relative z-10 p-6 space-y-6">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 flex items-center justify-center">
             <Sparkles className="w-8 h-8 mr-3 text-yellow-400" />
-            Benvenuto nella tua Area Personale, {user?.name || "Cercatore"}!
+            {isLoading ? <Skeleton className="h-10 w-72" /> : `Benvenuto, ${profile?.full_name || "Cercatore"}!`}
           </h1>
-          <p className="text-white/70 text-lg">Gestisci le tue consulenze e scopri nuovi esperti</p>
+          <p className="text-white/70 text-lg">Gestisci le tue consulenze e scopri nuovi esperti.</p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <InfoCard
             title="Consulenze Recenti"
-            value="2"
+            value={String(recentConsultationsCount)}
             icon={Clock}
             link="/dashboard/client/consultations"
             linkText="Vedi storico completo"
             gradient="bg-gradient-to-br from-sky-500/20 to-sky-600/20"
+            isLoading={isLoading}
           />
           <InfoCard
             title="Messaggi Non Letti"
-            value="3"
+            value={String(unreadMessagesCount)}
             icon={MessageSquare}
             link="/dashboard/client/messages"
             linkText="Vai ai messaggi"
             gradient="bg-gradient-to-br from-teal-500/20 to-teal-600/20"
+            isLoading={isLoading}
           />
           <InfoCard
             title="Saldo Wallet"
-            value="€ 55.00"
+            value={`€ ${profile?.wallet_balance?.toFixed(2) || "0.00"}`}
             icon={Wallet}
             link="/dashboard/client/wallet"
             linkText="Gestisci wallet"
             gradient="bg-gradient-to-br from-indigo-500/20 to-indigo-600/20"
+            isLoading={isLoading}
           />
         </div>
 
-        {/* Gamification Widget */}
-        <GamificationWidget userId="current_user" />
+        <GamificationWidget userId={profile?.id || ""} />
 
         <Card className="backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl rounded-2xl">
           <CardHeader>
             <CardTitle className="text-2xl text-white flex items-center">
               <Star className="w-6 h-6 mr-3 text-yellow-400" />I Tuoi Consulenti Preferiti
             </CardTitle>
-            <CardDescription className="text-white/70 text-base">
-              Accedi rapidamente ai profili dei tuoi esperti di fiducia.
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {favoriteExperts.map((expert) => (
-              <div
-                key={expert.id}
-                className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-300 border border-white/10"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <Avatar className="h-12 w-12 border-2 border-white/20">
-                      <AvatarImage src={expert.avatar || "/placeholder.svg"} alt={expert.name} />
-                      <AvatarFallback className="bg-gradient-to-r from-sky-500 to-teal-500 text-white">
-                        {expert.name.substring(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div
-                      className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                        expert.status === "online"
-                          ? "bg-green-500"
-                          : expert.status === "busy"
-                            ? "bg-yellow-500"
-                            : "bg-gray-500"
-                      }`}
-                    ></div>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-white">{expert.name}</p>
-                    <p className="text-sm text-white/70">{expert.specialty}</p>
-                    <p className="text-xs text-white/50 capitalize">{expert.status}</p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-400 hover:to-teal-400 text-white border-0 shadow-lg"
-                >
-                  Contatta <ArrowRight className="ml-1.5 h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+          <CardContent>
             {favoriteExperts.length === 0 && (
               <p className="text-white/60 text-center py-8">Non hai ancora aggiunto consulenti preferiti.</p>
             )}
+            {/* Logica per mappare gli esperti preferiti qui */}
           </CardContent>
         </Card>
 
-        <Card className="backdrop-blur-xl bg-gradient-to-r from-sky-500/20 via-teal-500/20 to-indigo-500/20 border border-white/20 shadow-2xl rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-2xl text-white flex items-center">
-              <Search className="w-6 h-6 mr-3" />
-              Trova un Nuovo Esperto
-            </CardTitle>
-            <CardDescription className="text-white/80 text-base">
-              Esplora la nostra rete di professionisti qualificati.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="relative flex-grow w-full sm:w-auto">
-              <input
-                type="text"
-                placeholder="Cerca per nome o specializzazione..."
-                className="w-full rounded-xl py-3 px-4 pl-12 text-slate-800 bg-white/90 backdrop-blur-sm border-0 focus:ring-2 focus:ring-white/50 shadow-lg"
-              />
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-            </div>
-            <Button className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm w-full sm:w-auto px-6 py-3 rounded-xl shadow-lg">
-              Cerca Consulenti
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Link href="/dashboard/client/consultations">
-            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
+            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer h-full">
+              <CardContent className="p-4 text-center flex flex-col justify-center items-center h-full">
                 <History className="w-8 h-8 mx-auto mb-2 text-sky-400" />
-                <p className="text-white font-medium">Storico</p>
-                <p className="text-white/60 text-sm">Consulenze</p>
+                <p className="text-white font-medium">Storico Consulenze</p>
               </CardContent>
             </Card>
           </Link>
           <Link href="/dashboard/client/reviews">
-            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
+            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer h-full">
+              <CardContent className="p-4 text-center flex flex-col justify-center items-center h-full">
                 <Star className="w-8 h-8 mx-auto mb-2 text-yellow-400" />
-                <p className="text-white font-medium">Recensioni</p>
-                <p className="text-white/60 text-sm">Le tue valutazioni</p>
+                <p className="text-white font-medium">Le Tue Recensioni</p>
               </CardContent>
             </Card>
           </Link>
           <Link href="/dashboard/client/support">
-            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
+            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer h-full">
+              <CardContent className="p-4 text-center flex flex-col justify-center items-center h-full">
                 <MessageSquare className="w-8 h-8 mx-auto mb-2 text-teal-400" />
-                <p className="text-white font-medium">Supporto</p>
-                <p className="text-white/60 text-sm">Assistenza</p>
+                <p className="text-white font-medium">Supporto e Ticket</p>
               </CardContent>
             </Card>
           </Link>
           <Link href="/dashboard/client/wallet">
-            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
+            <Card className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/20 shadow-xl rounded-xl transition-all duration-300 cursor-pointer h-full">
+              <CardContent className="p-4 text-center flex flex-col justify-center items-center h-full">
                 <Wallet className="w-8 h-8 mx-auto mb-2 text-indigo-400" />
-                <p className="text-white font-medium">Wallet</p>
-                <p className="text-white/60 text-sm">Gestisci crediti</p>
+                <p className="text-white font-medium">Ricarica Wallet</p>
               </CardContent>
             </Card>
           </Link>
