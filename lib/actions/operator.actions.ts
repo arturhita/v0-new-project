@@ -11,24 +11,7 @@ import type { Profile } from "@/types/database"
 
 export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
   const supabase = createClient()
-  let query = supabase
-    .from("profiles")
-    .select(
-      `
-      id,
-      full_name,
-      stage_name,
-      headline,
-      is_available,
-      is_online,
-      profile_image_url,
-      chat_price_per_minute,
-      average_rating,
-      main_discipline
-    `,
-    )
-    .eq("role", "operator")
-    .eq("status", "active")
+  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "active")
 
   if (options?.category) {
     query = query.eq("main_discipline", options.category)
@@ -46,14 +29,14 @@ export async function getOperators(options?: { limit?: number; category?: string
     console.error("Error fetching operators:", error.message)
     return []
   }
-  return (data as Profile[]) || []
+  return data || []
 }
 
-export async function getOperatorByStageName(stageName: string) {
+export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select(`*, reviews(*, client:client_id(full_name, avatar_url))`)
+    .select(`*, reviews ( * )`)
     .eq("stage_name", stageName)
     .eq("role", "operator")
     .single()

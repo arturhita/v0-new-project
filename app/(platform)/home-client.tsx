@@ -9,6 +9,10 @@ import { ReviewCard } from "@/components/review-card" // CORRECT: Named import
 import { ConstellationBackground } from "@/components/constellation-background"
 import type { Profile, Review } from "@/types/database" // CORRECT: Using main types
 
+interface HomeClientProps {
+  initialOperators: Profile[]
+}
+
 const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
   const date = new Date()
   if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
@@ -46,7 +50,7 @@ const allMockReviews: Review[] = [
   },
 ]
 
-export function HomeClient({ initialOperators }: { initialOperators: Profile[] }) {
+export function HomeClient({ initialOperators }: HomeClientProps) {
   const [displayedReviews, setDisplayedReviews] = useState<Review[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -65,6 +69,10 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
     .filter((op) => op.created_at && new Date(op.created_at) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
     .slice(0, 3)
+
+  if (initialOperators.length === 0) {
+    return <p className="text-center text-gray-400">Nessun operatore disponibile al momento. Riprova più tardi.</p>
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
@@ -212,7 +220,7 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
                 <Button
                   variant="default"
                   size="lg"
-                  className="rounded-full px-8 py-3 text-lg bg-gradient-to-r from-white to-blue-300 text-[#1E3C98] hover:from-blue-100 hover:to-blue-400 transition-all duration-300 group shadow-lg hover:shadow-blue-500/20 hover:scale-105 font-semibold group"
+                  className="rounded-full px-8 py-3 text-lg bg-gradient-to-r from-white to-blue-300 text-[#1E3C98] hover:from-blue-100 hover:to-blue-400 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
                 >
                   <Sparkles className="mr-2 h-5 w-5 group-hover:animate-pulse" />
                   Vedi Tutti gli Esperti
@@ -367,7 +375,7 @@ export function HomeClient({ initialOperators }: { initialOperators: Profile[] }
                 <div className="relative bg-gradient-to-br from-blue-900/50 to-slate-800/50 backdrop-blur-md rounded-2xl p-8 border border-blue-700/50 shadow-2xl">
                   <div className="text-center space-y-8">
                     <div>
-                      <div className="text-7xl font-black text-white">98%</div>
+                      <div className="text-7xl font-black text-white mb-2">98%</div>
                       <p className="text-xl text-slate-300">Clienti Soddisfatti</p>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
