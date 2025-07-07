@@ -1,10 +1,9 @@
-import twilio from "twilio"
+import twilio, { twiml } from "twilio"
 
-// Configurazione Twilio - da inserire nelle variabili d'ambiente
+// Configurazione Twilio - dalle variabili d'ambiente
 export const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID!
 export const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN!
 export const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER!
-export const TWILIO_WEBHOOK_SECRET = process.env.TWILIO_WEBHOOK_SECRET!
 
 // Client Twilio
 export const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
@@ -30,7 +29,8 @@ export interface CallSession {
 
 // Utility per generare TwiML (istruzioni per Twilio)
 export function generateTwiML(action: string, params?: any): string {
-  const VoiceResponse = twilio.twiml.VoiceResponse
+  // MODIFICA: Importazione più specifica per TwiML per risolvere l'errore
+  const { VoiceResponse } = twiml
   const response = new VoiceResponse()
 
   switch (action) {

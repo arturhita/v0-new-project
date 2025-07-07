@@ -36,7 +36,9 @@ export async function initiateCallAction(
       id: sessionId,
       clientId,
       operatorId,
-      clientPhone: "+393471234567", // SOSTITUIRE: Inserire il proprio numero per il test
+      // IMPORTANTE PER TEST: Inserisci qui il tuo numero di telefono per ricevere la chiamata come "cliente"
+      // In produzione, questo numero verrà recuperato dal profilo dell'utente loggato.
+      clientPhone: "+393471234567", // <-- SOSTITUIRE CON IL TUO NUMERO REALE IN FORMATO E.164
       operatorPhone,
       ratePerMinute,
       status: "initiated",
@@ -83,7 +85,6 @@ export async function endCallAction(sessionId: string): Promise<{ success: boole
 
 async function getOperatorCommissionRate(operatorId: string): Promise<number> {
   // Mock: in produzione, questa funzione interroga il DB
-  // per ottenere la % di commissione dell'operatore.
   return 70 // Esempio: 70% per l'operatore
 }
 
