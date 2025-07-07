@@ -47,13 +47,12 @@ async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
 
   const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
     contentType: mimeType,
-    upsert: true, // Usiamo upsert per sovrascrivere eventuali vecchi tentativi
+    upsert: true,
   })
 
   if (uploadError) {
-    console.error("Avatar upload failed:", uploadError.message)
-    // Non blocchiamo la creazione per un avatar fallito, ma logghiamo l'errore
-    return null
+    // Lancia un errore per attivare il rollback
+    throw new Error(`Upload avatar fallito: ${uploadError.message}`)
   }
 
   const {
@@ -63,34 +62,36 @@ async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
 }
 
 export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
-  const validatedFields = OperatorSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    fullName: formData.get("fullName"),
-    stageName: formData.get("stageName"),
-    phone: formData.get("phone"),
-    bio: formData.get("bio"),
-    commission: formData.get("commission"),
-    status: formData.get("status"),
-    isOnline: formData.get("isOnline"),
-    categories: formData.getAll("categories"),
-    avatarUrl: formData.get("avatarUrl"),
-  })
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Errore di validazione. Controlla i campi obbligatori.",
-      success: false,
-    }
-  }
-
-  const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
-  const supabaseAdmin = createSupabaseAdminClient()
-
   let newUserId: string | null = null
 
   try {
+    // Tutta la logica è ora dentro il try...catch per garantire che nessun errore sfugga.
+    const supabaseAdmin = createSupabaseAdminClient()
+
+    const validatedFields = OperatorSchema.safeParse({
+      email: formData.get("email"),
+      password: formData.get("password"),
+      fullName: formData.get("fullName"),
+      stageName: formData.get("stageName"),
+      phone: formData.get("phone"),
+      bio: formData.get("bio"),
+      commission: formData.get("commission"),
+      status: formData.get("status"),
+      isOnline: formData.get("isOnline"),
+      categories: formData.getAll("categories"),
+      avatarUrl: formData.get("avatarUrl"),
+    })
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: "Errore di validazione. Controlla i campi obbligatori.",
+        success: false,
+      }
+    }
+
+    const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
+
     // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -131,7 +132,7 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       thursday: formData.getAll("availability.thursday") as string[],
       friday: formData.getAll("availability.friday") as string[],
       saturday: formData.getAll("availability.saturday") as string[],
-      sunday: formData.getAll("availability.sunday") as string[],
+      sunday: formData.getAll("sunday") as string[],
     }
 
     // 4. Inserimento del profilo completo nella tabella 'profiles'
@@ -154,22 +155,35 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     })
 
     if (profileError) {
-      // Se l'inserimento del profilo fallisce, scatena il blocco catch per il rollback
       throw new Error(`Errore durante la creazione del profilo: ${profileError.message}`)
     }
-  } catch (error) {
-    // Rollback: se siamo arrivati qui e newUserId esiste, qualcosa è andato storto dopo la creazione auth.
-    if (newUserId) {
-      await supabaseAdmin.auth.admin.deleteUser(newUserId)
-    }
-    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
-    return { errors: { server: [errorMessage] }, message: errorMessage, success: false }
-  }
 
-  // 5. Successo
-  revalidatePath("/admin/operators")
-  revalidatePath("/") // Revalida anche la home page
-  return { success: true, message: `Operatore ${stageName} creato con successo!` }
+    // 5. Successo
+    revalidatePath("/admin/operators")
+    revalidatePath("/")
+    return { success: true, message: `Operatore ${stageName} creato con successo!` }
+  } catch (error) {
+    // Blocco di cattura "totale"
+    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
+
+    // Rollback: se l'utente auth è stato creato, lo eliminiamo.
+    if (newUserId) {
+      try {
+        const supabaseAdminForRollback = createSupabaseAdminClient()
+        await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
+      } catch (rollbackError) {
+        // Logghiamo l'errore di rollback ma restituiamo l'errore originale
+        console.error("Rollback fallito:", rollbackError)
+      }
+    }
+
+    // Restituisce un messaggio di errore chiaro al client, sbloccando il caricamento.
+    return {
+      errors: { server: [errorMessage] },
+      message: errorMessage,
+      success: false,
+    }
+  }
 }
 
 // --- FUNZIONI ESISTENTI ---
@@ -193,7 +207,7 @@ export async function getOperators(options?: { limit?: number; category?: string
   let query = supabase
     .from("profiles")
     .select(
-      `id, full_name, stage_name, bio, is_available, profile_image_url, service_prices, average_rating, review_count, categories ( name, slug )`,
+      `id, full_name, stage_name, bio, is_available, is_online, profile_image_url, service_prices, average_rating, review_count, categories ( name, slug )`,
     )
     .eq("role", "operator")
     .eq("status", "Attivo")
@@ -223,7 +237,7 @@ export async function getOperatorByStageName(stageName: string): Promise<Profile
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      `id, full_name, stage_name, bio, is_available, profile_image_url, service_prices, average_rating, review_count, status, categories ( name, slug )`,
+      `id, full_name, stage_name, bio, is_available, is_online, profile_image_url, service_prices, average_rating, review_count, status, categories ( name, slug )`,
     )
     .eq("stage_name", stageName)
     .eq("role", "operator")
@@ -250,11 +264,7 @@ export async function getOperatorForEdit(operatorId: string) {
 
 export async function updateOperatorProfile(operatorId: string, profileData: any) {
   const supabaseAdmin = createSupabaseAdminClient()
-  // Qui dovresti anche gestire l'upload di un nuovo avatar se fornito
-  const { error } = await supabaseAdmin
-    .from("profiles")
-    .update(profileData) // Assumendo che profileData contenga solo campi validi
-    .eq("id", operatorId)
+  const { error } = await supabaseAdmin.from("profiles").update(profileData).eq("id", operatorId)
 
   if (error) {
     return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
@@ -262,6 +272,7 @@ export async function updateOperatorProfile(operatorId: string, profileData: any
 
   revalidatePath("/admin/operators")
   revalidatePath(`/admin/operators/${operatorId}/edit`)
+  revalidatePath("/")
   return { success: true, message: "Profilo operatore aggiornato con successo." }
 }
 
@@ -283,11 +294,12 @@ export async function suspendOperator(operatorId: string) {
   const supabaseAdmin = createSupabaseAdminClient()
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({ status: "suspended", is_available: false })
+    .update({ status: "suspended", is_available: false, is_online: false })
     .eq("id", operatorId)
 
   if (error) return { success: false, message: "Errore durante la sospensione." }
 
   revalidatePath("/admin/operators")
+  revalidatePath("/")
   return { success: true, message: "Operatore sospeso." }
 }
