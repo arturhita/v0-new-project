@@ -4,25 +4,7 @@ import { cookies } from "next/headers"
 export function createClient() {
   const cookieStore = cookies()
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Server: Missing Supabase environment variables. Make sure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your environment.",
-    )
-  }
-
-  // Add URL validation to provide a clearer error message
-  try {
-    new URL(supabaseUrl)
-  } catch (error) {
-    throw new Error(
-      `Server: Invalid Supabase URL provided: "${supabaseUrl}". Please check the NEXT_PUBLIC_SUPABASE_URL environment variable.`,
-    )
-  }
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value

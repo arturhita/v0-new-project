@@ -1,22 +1,18 @@
 "use server"
 
-import { twilioClient, type CallSession, type CallBilling } from "@/lib/twilio"
+import { twilioClient, type CallSession } from "@/lib/twilio"
 import { revalidatePath } from "next/cache"
 
-// Mock database functions - sostituire con vero database
+// Mock database - Sostituire con query a Supabase
 const mockCallSessions = new Map<string, CallSession>()
-const mockCallBilling = new Map<string, CallBilling>()
 const mockUserWallets = new Map<string, number>()
-
-// Inizializza wallet mock
-mockUserWallets.set("user123", 50.0) // €50 di credito
-mockUserWallets.set("user456", 25.5) // €25.50 di credito
+mockUserWallets.set("user123", 50.0) // Cliente con 50€ di credito
+mockUserWallets.set("op123", 150.0) // Wallet operatore
 
 export interface InitiateCallResult {
   success: boolean
   sessionId?: string
   error?: string
-  estimatedCost?: number
 }
 
 export async function initiateCallAction(
@@ -26,184 +22,135 @@ export async function initiateCallAction(
   ratePerMinute: number,
 ): Promise<InitiateCallResult> {
   try {
-    console.log("🔥 Initiating call:", { clientId, operatorId, ratePerMinute })
+    console.log("🔥 Avvio chiamata:", { clientId, operatorId, ratePerMinute })
 
-    // 1. Verifica credito utente
     const clientWallet = mockUserWallets.get(clientId) || 0
-    const minimumCredit = ratePerMinute * 2 // Minimo 2 minuti di credito
+    const minimumCredit = ratePerMinute * 1 // Richiede credito per almeno 1 minuto
 
     if (clientWallet < minimumCredit) {
-      return {
-        success: false,
-        error: `Credito insufficiente. Necessari almeno €${minimumCredit.toFixed(2)} per questa chiamata.`,
-      }
+      return { success: false, error: `Credito insufficiente. Necessari almeno €${minimumCredit.toFixed(2)}.` }
     }
 
-    // 2. Verifica disponibilità operatore (mock)
-    const isOperatorAvailable = Math.random() > 0.2 // 80% disponibilità
-    if (!isOperatorAvailable) {
-      return {
-        success: false,
-        error: "L'operatore non è al momento disponibile. Riprova più tardi.",
-      }
-    }
-
-    // 3. Crea sessione chiamata
-    const sessionId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const sessionId = `call_${Date.now()}`
     const callSession: CallSession = {
       id: sessionId,
       clientId,
       operatorId,
-      clientPhone: "+393331234567", // Mock - da prendere dal profilo utente
+      clientPhone: "+393331234567", // Mock: numero del cliente, da prendere dal suo profilo
       operatorPhone,
       ratePerMinute,
       status: "initiated",
       createdAt: new Date(),
     }
-
     mockCallSessions.set(sessionId, callSession)
 
-    // 4. Inizia chiamata Twilio
+    // Twilio chiama prima il cliente
     const call = await twilioClient.calls.create({
       to: callSession.clientPhone,
       from: process.env.TWILIO_PHONE_NUMBER!,
-      url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}`,
+      // Twilio userà questo URL per sapere cosa fare dopo che il cliente risponde
+      url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${operatorPhone}`,
       statusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/status`,
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
       statusCallbackMethod: "POST",
-      record: true,
-      recordingStatusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/recording-status`,
     })
 
-    // 5. Aggiorna sessione con Twilio SID
     callSession.twilioCallSid = call.sid
     callSession.status = "ringing"
     mockCallSessions.set(sessionId, callSession)
 
-    console.log("✅ Call initiated successfully:", call.sid)
-
-    return {
-      success: true,
-      sessionId,
-      estimatedCost: ratePerMinute * 5, // Stima 5 minuti
-    }
+    console.log("✅ Chiamata avviata con successo:", call.sid)
+    return { success: true, sessionId }
   } catch (error) {
-    console.error("❌ Error initiating call:", error)
-    return {
-      success: false,
-      error: "Errore nel sistema. Riprova più tardi.",
-    }
+    console.error("❌ Errore avvio chiamata:", error)
+    return { success: false, error: "Errore del sistema di chiamata." }
   }
 }
 
 export async function endCallAction(sessionId: string): Promise<{ success: boolean }> {
   try {
     const session = mockCallSessions.get(sessionId)
-    if (!session || !session.twilioCallSid) {
-      return { success: false }
-    }
+    if (!session || !session.twilioCallSid) return { success: false }
 
-    // Termina chiamata Twilio
     await twilioClient.calls(session.twilioCallSid).update({ status: "completed" })
-
-    // Aggiorna sessione
-    session.status = "completed"
-    session.endTime = new Date()
-    mockCallSessions.set(sessionId, session)
-
-    console.log("✅ Call ended successfully:", sessionId)
+    console.log("✅ Chiamata terminata manualmente:", sessionId)
     return { success: true }
   } catch (error) {
-    console.error("❌ Error ending call:", error)
+    console.error("❌ Errore terminazione chiamata:", error)
     return { success: false }
   }
 }
 
-export async function getCallSessionAction(sessionId: string): Promise<CallSession | null> {
-  return mockCallSessions.get(sessionId) || null
-}
-
-export async function getUserWalletAction(userId: string): Promise<number> {
-  return mockUserWallets.get(userId) || 0
-}
-
-// Funzione per recuperare la commissione dell'operatore dal sistema esistente
 async function getOperatorCommissionRate(operatorId: string): Promise<number> {
-  // Mock - sostituire con query al database reale
-  const mockOperatorCommissions = new Map<string, number>([
-    ["operator1", 40], // Operatore prende 40%, piattaforma 60%
-    ["operator2", 35], // Operatore prende 35%, piattaforma 65%
-    ["operator3", 45], // Operatore prende 45%, piattaforma 55%
-  ])
-
-  return mockOperatorCommissions.get(operatorId) || 30 // Default 30% se non trovato
+  // Mock: in produzione, questa funzione interroga il DB
+  // per ottenere la % di commissione dell'operatore.
+  return 70 // Esempio: 70% per l'operatore
 }
 
 export async function processCallBillingAction(
-  sessionId: string,
+  twilioCallSid: string,
   durationSeconds: number,
-): Promise<{ success: boolean; finalCost?: number; operatorEarning?: number; platformFee?: number }> {
+): Promise<{ success: boolean }> {
   try {
-    const session = mockCallSessions.get(sessionId)
-    if (!session) return { success: false }
+    // Trova la sessione corrispondente al CallSid di Twilio
+    const sessionEntry = Array.from(mockCallSessions.entries()).find(([_, s]) => s.twilioCallSid === twilioCallSid)
+    if (!sessionEntry) {
+      console.error(`❌ Billing: Sessione non trovata per Twilio SID ${twilioCallSid}`)
+      return { success: false }
+    }
+    const [sessionId, session] = sessionEntry
 
-    // Calcola costo totale
-    const durationMinutes = Math.ceil(durationSeconds / 60) // Arrotonda per eccesso
+    if (session.status === "completed") {
+      console.log(`💰 Billing già processato per la sessione ${sessionId}`)
+      return { success: true }
+    }
+
+    const durationMinutes = Math.ceil(durationSeconds / 60)
     const totalCost = durationMinutes * session.ratePerMinute
 
-    // RECUPERA COMMISSIONE OPERATORE DAL DATABASE (mock per ora)
-    const operatorCommissionRate = await getOperatorCommissionRate(session.operatorId)
+    const commissionRate = await getOperatorCommissionRate(session.operatorId)
+    const operatorEarning = totalCost * (commissionRate / 100)
+    const platformFee = totalCost - operatorEarning
 
-    // Calcola guadagni basati sulla commissione esistente
-    const operatorEarning = totalCost * (operatorCommissionRate / 100)
-    const platformFee = totalCost * ((100 - operatorCommissionRate) / 100)
-
-    // Aggiorna wallet cliente
     const clientWallet = mockUserWallets.get(session.clientId) || 0
-    const newClientWallet = Math.max(0, clientWallet - totalCost)
-    mockUserWallets.set(session.clientId, newClientWallet)
+    mockUserWallets.set(session.clientId, clientWallet - totalCost)
 
-    // Accredita operatore con la sua commissione
     const operatorWallet = mockUserWallets.get(session.operatorId) || 0
     mockUserWallets.set(session.operatorId, operatorWallet + operatorEarning)
 
-    // Aggiorna sessione
     session.duration = durationSeconds
     session.cost = totalCost
     session.operatorEarning = operatorEarning
     session.platformFee = platformFee
     session.status = "completed"
+    session.endTime = new Date()
     mockCallSessions.set(sessionId, session)
 
-    console.log("💰 Call billing processed with existing commission system:", {
+    console.log("💰 Billing processato:", {
       sessionId,
-      duration: durationMinutes,
+      duration: `${durationSeconds}s (${durationMinutes}min fatturati)`,
       totalCost,
-      operatorCommissionRate: `${operatorCommissionRate}%`,
       operatorEarning,
       platformFee,
     })
 
-    revalidatePath("/dashboard/client/wallet")
-    revalidatePath("/dashboard/operator/earnings")
+    revalidatePath(`/dashboard/client/calls`)
+    revalidatePath(`/dashboard/operator/calls`)
 
-    return {
-      success: true,
-      finalCost: totalCost,
-      operatorEarning,
-      platformFee,
-    }
+    return { success: true }
   } catch (error) {
-    console.error("❌ Error processing billing:", error)
+    console.error("❌ Errore elaborazione billing:", error)
     return { success: false }
   }
 }
 
-// Funzione per ottenere storico chiamate
 export async function getCallHistoryAction(userId: string, userType: "client" | "operator") {
   const sessions = Array.from(mockCallSessions.values())
-
   return sessions
-    .filter((session) => (userType === "client" ? session.clientId === userId : session.operatorId === userId))
+    .filter((s) => (userType === "client" ? s.clientId === userId : s.operatorId === userId))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+}
+
+export async function getUserWalletAction(userId: string): Promise<number> {
+  return mockUserWallets.get(userId) || 0
 }

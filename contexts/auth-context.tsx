@@ -1,143 +1,151 @@
 "use client"
 
-import type { ReactNode } from "react"
+import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
-import { toast } from "sonner"
+import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
 
-type AuthContextType = {
-  user: User | null
-  loading: boolean
-  login: (credentials: any) => Promise<{ success: boolean; error?: string }>
-  register: (credentials: any) => Promise<{ success: boolean; error?: string }>
+export interface UserProfile extends SupabaseUser {
+  name: string
+  role: "client" | "operator" | "admin"
+  avatar_url: string | null
+}
+
+interface AuthContextType {
+  user: UserProfile | null
+  login: (data: any) => Promise<{ success: boolean; error?: string }>
+  register: (data: any) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
-  requestPasswordReset: (email: string) => Promise<{ error: { message: string } | null }>
-  resetPassword: (password: string) => Promise<{ error: { message: string } | null }>
+  loading: boolean
+  isAuthenticated: boolean
+  supabase: SupabaseClient
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+  const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
-    const getSession = async () => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setLoading(true)
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+
+        if (profile) {
+          const currentUser: UserProfile = { ...session.user, ...profile }
+          setUser(currentUser)
+          if (_event === "SIGNED_IN") {
+            switch (currentUser.role) {
+              case "admin":
+                router.push("/admin/dashboard")
+                break
+              case "operator":
+                router.push("/dashboard/operator")
+                break
+              default:
+                router.push("/dashboard/client")
+                break
+            }
+          }
+        } else {
+          await supabase.auth.signOut()
+          setUser(null)
+          console.error("Profile not found for user:", session.user.id)
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        if (profile) {
+          setUser({ ...session.user, ...profile })
+        }
+      }
       setLoading(false)
     }
 
-    getSession()
+    getInitialSession()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (_event === "PASSWORD_RECOVERY") {
-        router.push("/reset-password")
-      }
-    })
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase, router])
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth, router])
-
-  const login = async (credentials: any) => {
+  const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword(credentials)
+    const { error } = await supabase.auth.signInWithPassword(data)
     setLoading(false)
     if (error) {
-      toast.error("Credenziali non valide", { description: "Controlla email e password e riprova." })
-      return { success: false, error: error.message }
+      return { success: false, error: "Credenziali non valide. Riprova." }
     }
-    toast.success("Accesso effettuato con successo!")
-    router.push("/") // Redirect to homepage or dashboard
     return { success: true }
   }
 
-  const register = async (credentials: any) => {
+  const register = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
-    const { email, password, ...rest } = credentials
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.signUp({
+    const { email, password, name, role, acceptTerms } = data
+    if (!acceptTerms) {
+      setLoading(false)
+      return { success: false, error: "Devi accettare i termini e le condizioni." }
+    }
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          ...rest,
-          role: "client", // Default role
+          name: name,
+          role: role || "client",
         },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
     })
     setLoading(false)
     if (error) {
-      toast.error("Errore di registrazione", { description: error.message })
-      return { success: false, error: error.message }
+      if (error.message.includes("User already registered")) {
+        return { success: false, error: "Un utente con questa email è già registrato." }
+      }
+      return { success: false, error: "Errore durante la registrazione. Riprova." }
     }
-    if (user) {
-      toast.success("Registrazione quasi completata!", {
-        description: "Ti abbiamo inviato un'email di conferma. Clicca sul link per attivare il tuo account.",
-      })
-    }
+    router.push("/login?registration=success")
     return { success: true }
   }
 
   const logout = async () => {
     await supabase.auth.signOut()
     setUser(null)
-    toast.info("Sei stato disconnesso.")
-    router.push("/login")
+    router.push("/")
   }
 
-  const requestPasswordReset = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
-    })
-    if (error) {
-      toast.error("Errore", { description: error.message })
-    } else {
-      toast.success("Email inviata", { description: "Controlla la tua casella di posta per il link di reset." })
-    }
-    return { error }
-  }
-
-  const resetPassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password })
-    if (error) {
-      toast.error("Errore", { description: error.message })
-    } else {
-      toast.success("Password aggiornata!", { description: "Ora puoi accedere con la tua nuova password." })
-      router.push("/login")
-    }
-    return { error }
-  }
-
-  const value = {
+  const value: AuthContextType = {
     user,
-    loading,
     login,
     register,
     logout,
-    requestPasswordReset,
-    resetPassword,
+    loading,
+    isAuthenticated: !!user,
+    supabase,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth deve essere usato all'interno di un AuthProvider")
   }
   return context
 }

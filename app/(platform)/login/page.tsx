@@ -10,27 +10,22 @@ import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
 import { ArrowRight } from "lucide-react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { useSearchParams } from "next/navigation"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
   const { login, loading } = useAuth()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const registrationSuccess = searchParams.get("registration") === "success"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
     const result = await login({ email, password })
     if (!result.success) {
-      toast.error("Errore di accesso", {
-        description: result.error || "Le credenziali non sono corrette. Riprova.",
-      })
-    } else {
-      toast.success("Accesso effettuato!")
-      router.push("/")
+      setError(result.error || "Si è verificato un errore.")
     }
   }
 
@@ -61,6 +56,11 @@ export default function LoginPage() {
               Registrazione completata! Ora puoi accedere.
             </div>
           )}
+          {error && (
+            <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm mb-4">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="grid gap-4">
             <div className="grid gap-2">
@@ -83,10 +83,7 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="text-slate-200">
                   Password
                 </Label>
-                <Link
-                  href="/forgot-password"
-                  className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline"
-                >
+                <Link href="#" className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline">
                   Password dimenticata?
                 </Link>
               </div>

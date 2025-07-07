@@ -1,70 +1,90 @@
-import { Card, CardContent } from "@/components/ui/card"
-import { Building, Euro, TrendingUp } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Building, Euro, TrendingUp, Phone, Clock } from "lucide-react"
+import { getCallHistoryAction } from "@/lib/actions/calls.actions"
+import type { CallSession } from "@/lib/twilio"
 
-interface Props {
-  searchParams: {
-    operatorCommission?: string
-  }
+const formatDuration = (seconds = 0) => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}m ${secs}s`
 }
 
-const OperatorCallsPage = async ({ searchParams }: Props) => {
-  const operatorCommission = searchParams?.operatorCommission ? Number.parseFloat(searchParams.operatorCommission) : 70
-  const totalEarnings = 1250 // Replace with actual data fetching
-  const platformFees = (totalEarnings / operatorCommission) * (100 - operatorCommission)
+export default async function OperatorCallsPage() {
+  const callHistory: CallSession[] = await getCallHistoryAction("op123", "operator")
+
+  const totalEarnings = callHistory.reduce((acc, call) => acc + (call.operatorEarning || 0), 0)
+  const totalPlatformFees = callHistory.reduce((acc, call) => acc + (call.platformFee || 0), 0)
+  const totalRevenue = totalEarnings + totalPlatformFees
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Dashboard Operatore - Chiamate</h1>
-
-      {/* Earnings Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="space-y-8">
+      <h1 className="text-3xl font-bold">Dashboard Chiamate</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Guadagni Totali</p>
-                <p className="text-2xl font-bold text-green-600">€{totalEarnings.toFixed(2)}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Commissione: {operatorCommission}%</p>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Guadagni Totali</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">€{totalEarnings.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Dalle chiamate completate</p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Commissione Piattaforma</p>
-                <p className="text-2xl font-bold text-blue-600">€{platformFees.toFixed(2)}</p>
-              </div>
-              <Building className="h-8 w-8 text-blue-600" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{100 - operatorCommission}% del fatturato</p>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Commissioni Piattaforma</CardTitle>
+            <Building className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">€{totalPlatformFees.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Trattenute dalla piattaforma</p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Fatturato Totale</p>
-                <p className="text-2xl font-bold">€{(totalEarnings + platformFees).toFixed(2)}</p>
-              </div>
-              <Euro className="h-8 w-8 text-gray-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Fatturato Generato</CardTitle>
+            <Euro className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">€{totalRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Valore totale delle chiamate</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Rest of the dashboard content (e.g., call logs, statistics) would go here */}
-      <div>
-        {/* Example: Call Logs */}
-        <h2 className="text-xl font-semibold mb-4">Call Logs</h2>
-        <p>No call logs available at the moment.</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Phone className="h-5 w-5" /> Storico Chiamate Ricevute
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {callHistory.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">Nessuna chiamata ricevuta.</p>
+          ) : (
+            <div className="space-y-4">
+              {callHistory.map((call) => (
+                <div key={call.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">
+                      Chiamata da Cliente <span className="font-mono text-xs">{call.clientId}</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground">{new Date(call.createdAt).toLocaleString("it-IT")}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 font-semibold text-green-600">
+                      + €{call.operatorEarning?.toFixed(2) || "0.00"}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" /> {formatDuration(call.duration)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
-
-export default OperatorCallsPage
