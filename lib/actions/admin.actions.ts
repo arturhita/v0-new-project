@@ -81,3 +81,33 @@ export async function rejectApplication(applicationId: string) {
   revalidatePath("/admin/operator-approvals")
   return { success: true, message: "Candidatura rifiutata." }
 }
+
+export async function getAdminDashboardStats() {
+  const supabase = createClient()
+
+  const { count: usersCount, error: usersError } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .eq("role", "client")
+
+  const { count: operatorsCount, error: operatorsError } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+
+  // Placeholder for revenue and consultations
+  const totalRevenue = 12350.0
+  const consultationsToday = 312
+
+  if (usersError || operatorsError) {
+    console.error("Error fetching admin stats:", usersError, operatorsError)
+  }
+
+  return {
+    usersCount: usersCount ?? 0,
+    operatorsCount: operatorsCount ?? 0,
+    totalRevenue: totalRevenue,
+    consultationsToday: consultationsToday,
+  }
+}

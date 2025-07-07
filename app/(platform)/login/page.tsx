@@ -11,7 +11,7 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -19,11 +19,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const toastId = toast.loading("Accesso in corso...")
 
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -49,7 +49,10 @@ export default function LoginPage() {
           )
         }
 
-        toast.success("Login effettuato con successo!", { id: toastId })
+        toast({
+          title: "Login effettuato!",
+          description: "Accesso avvenuto con successo.",
+        })
 
         switch (profile.role) {
           case "admin":
@@ -67,9 +70,10 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Login error:", error)
-      toast.error("Errore di login", {
-        id: toastId,
+      toast({
+        title: "Errore di login",
         description: error.message || "Si è verificato un errore imprevisto.",
+        variant: "destructive",
       })
       setLoading(false)
     }
@@ -118,7 +122,10 @@ export default function LoginPage() {
                   <Label htmlFor="password" className="text-slate-200">
                     Password
                   </Label>
-                  <Link href="#" className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline">
+                  <Link
+                    href="/forgot-password"
+                    className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline"
+                  >
                     Password dimenticata?
                   </Link>
                 </div>
