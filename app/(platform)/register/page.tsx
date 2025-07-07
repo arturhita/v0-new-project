@@ -1,76 +1,54 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react"
+import Image from "next/image"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useAuth } from "@/contexts/auth-context"
-import Image from "next/image"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Terminal, CheckCircle2 } from "lucide-react"
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    acceptTerms: false,
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
-  const { register, loading } = useAuth()
+  const { register } = useAuth()
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setError("")
-    setSuccessMessage("")
+    setError(null)
+    setSuccess(null)
 
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError("Tutti i campi sono obbligatori")
-      return
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError("Le password non coincidono")
-      return
-    }
-    if (formData.password.length < 6) {
-      setError("La password deve essere di almeno 6 caratteri")
-      return
-    }
-    if (!formData.acceptTerms) {
-      setError("Devi accettare i termini e condizioni")
+    if (!acceptTerms) {
+      setError("Devi accettare i termini e le condizioni per registrarti.")
       return
     }
 
-    const result = await register({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      role: "client",
-      acceptTerms: formData.acceptTerms,
-    })
-
-    if (!result.success) {
-      setError(result.error || "Errore durante la registrazione")
+    setLoading(true)
+    const result = await register({ name, email, password, acceptTerms })
+    if (result.error) {
+      setError(result.error)
     } else {
-      setSuccessMessage("Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account.")
+      setSuccess("Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account.")
     }
-  }
-
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setLoading(false)
   }
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground goldVisible={true} />
       <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8 mt-8">
+        <div className="text-center mb-8">
           <Image
             src="/images/moonthir-logo-white.png"
             alt="Moonthir Logo"
@@ -82,164 +60,96 @@ export default function RegisterPage() {
 
         <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
           <div className="grid gap-2 text-center mb-6">
-            <h1 className="text-3xl font-bold text-white">Crea il tuo Account</h1>
-            <p className="text-balance text-slate-300">Inizia il tuo viaggio con noi.</p>
+            <h1 className="text-3xl font-bold text-white">Crea un Account</h1>
+            <p className="text-balance text-slate-300">Inizia il tuo viaggio con noi oggi stesso.</p>
           </div>
-          {successMessage ? (
-            <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 text-green-200 text-center">
-              <p className="font-semibold">Registrazione completata!</p>
-              <p className="mt-2 text-sm">{successMessage}</p>
-              <Button
-                asChild
-                className="mt-6 w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
-              >
-                <Link href="/login">
-                  Vai al Login
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Link>
-              </Button>
-            </div>
+          {success ? (
+            <Alert className="bg-green-900/50 border-green-500/50 text-white">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Successo!</AlertTitle>
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
           ) : (
-            <>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {error && (
-                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">
-                    {error}
-                  </div>
-                )}
-
-                <div className="grid gap-2">
-                  <Label htmlFor="name" className="text-slate-200">
-                    Nome completo
-                  </Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <Input
-                      id="name"
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                      placeholder="Il tuo nome completo"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="email" className="text-slate-200">
-                    Email
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                      className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                      placeholder="la-tua-email@esempio.com"
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="password" className="text-slate-200">
-                    Password
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={formData.password}
-                      onChange={(e) => handleInputChange("password", e.target.value)}
-                      className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                      placeholder="Almeno 6 caratteri"
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                      disabled={loading}
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="confirmPassword" className="text-slate-200">
-                    Conferma Password
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={formData.confirmPassword}
-                      onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                      className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                      placeholder="Ripeti la password"
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                      disabled={loading}
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3 pt-2">
-                  <input
-                    type="checkbox"
-                    id="acceptTerms"
-                    checked={formData.acceptTerms}
-                    onChange={(e) => handleInputChange("acceptTerms", e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-blue-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30"
-                    disabled={loading}
-                  />
-                  <label htmlFor="acceptTerms" className="text-sm text-slate-300 leading-relaxed">
-                    Accetto i{" "}
-                    <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
-                      Termini e Condizioni
-                    </Link>
-                  </label>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-blue-200/30 border-t-blue-400 rounded-full animate-spin mr-2"></div>
-                      Registrazione...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      Crea Account
-                      <ArrowRight className="ml-2 w-5 h-5" />
-                    </div>
-                  )}
-                </Button>
-              </form>
-
-              <div className="mt-6 text-center text-sm text-slate-300">
-                Hai già un account?{" "}
-                <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
-                  Accedi ora
-                </Link>
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              {error && (
+                <Alert variant="destructive" className="bg-red-900/50 border-red-500/50 text-white">
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>Errore di Registrazione</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <div className="grid gap-2">
+                <Label htmlFor="name" className="text-slate-200">
+                  Nome Completo
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="Mario Rossi"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
               </div>
-            </>
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-slate-200">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="mario@esempio.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password" className="text-slate-200">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="terms"
+                  checked={acceptTerms}
+                  onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                  className="border-blue-800 data-[state=checked]:bg-blue-500 data-[state=checked]:text-white"
+                />
+                <label
+                  htmlFor="terms"
+                  className="text-sm text-slate-300 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Accetto i{" "}
+                  <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
+                    termini e le condizioni
+                  </Link>
+                </label>
+              </div>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
+              >
+                {loading ? "Registrazione in corso..." : "Registrati"}
+              </Button>
+            </form>
           )}
+          <div className="mt-6 text-center text-sm text-slate-300">
+            Hai già un account?{" "}
+            <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
+              Accedi
+            </Link>
+          </div>
         </div>
       </div>
     </div>
