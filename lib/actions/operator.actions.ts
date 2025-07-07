@@ -18,6 +18,7 @@ const OperatorSchema = z.object({
   status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
   isOnline: z.preprocess((val) => val === "on", z.boolean()),
   categories: z.string().array().min(1, { message: "Seleziona almeno una categoria." }),
+  avatarUrl: z.string().optional(), // Per il data URL dell'avatar
 })
 
 export type OperatorState = {
@@ -33,8 +34,35 @@ export type OperatorState = {
   success?: boolean
 }
 
+async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
+  if (!dataUrl || !dataUrl.startsWith("data:image")) {
+    return null
+  }
+  const supabaseAdmin = createSupabaseAdminClient()
+  const mimeType = dataUrl.match(/data:(.*);/)?.[1]
+  const extension = mimeType?.split("/")[1] || "png"
+  const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
+  const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
+  const fileBuffer = Buffer.from(base64Str, "base64")
+
+  const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
+    contentType: mimeType,
+    upsert: true, // Usiamo upsert per sovrascrivere eventuali vecchi tentativi
+  })
+
+  if (uploadError) {
+    console.error("Avatar upload failed:", uploadError.message)
+    // Non blocchiamo la creazione per un avatar fallito, ma logghiamo l'errore
+    return null
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
+  return publicUrl
+}
+
 export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
-  // 1. Validazione dei dati del form
   const validatedFields = OperatorSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -46,6 +74,7 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     status: formData.get("status"),
     isOnline: formData.get("isOnline"),
     categories: formData.getAll("categories"),
+    avatarUrl: formData.get("avatarUrl"),
   })
 
   if (!validatedFields.success) {
@@ -56,31 +85,13 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
     }
   }
 
-  const { email, password, fullName, stageName, ...details } = validatedFields.data
+  const { email, password, fullName, stageName, avatarUrl, ...details } = validatedFields.data
   const supabaseAdmin = createSupabaseAdminClient()
 
-  // Estrazione dati complessi
-  const specialties = formData.getAll("specialties") as string[]
-  const services = {
-    chatEnabled: formData.get("service.chat.enabled") === "on",
-    chatPrice: Number(formData.get("service.chat.price") || "0"),
-    callEnabled: formData.get("service.call.enabled") === "on",
-    callPrice: Number(formData.get("service.call.price") || "0"),
-    emailEnabled: formData.get("service.email.enabled") === "on",
-    emailPrice: Number(formData.get("service.email.price") || "0"),
-  }
-  const availability = {
-    monday: formData.getAll("availability.monday") as string[],
-    tuesday: formData.getAll("availability.tuesday") as string[],
-    wednesday: formData.getAll("availability.wednesday") as string[],
-    thursday: formData.getAll("availability.thursday") as string[],
-    friday: formData.getAll("availability.friday") as string[],
-    saturday: formData.getAll("availability.saturday") as string[],
-    sunday: formData.getAll("availability.sunday") as string[],
-  }
+  let newUserId: string | null = null
 
   try {
-    // 2. Creazione dell'utente in Supabase Auth
+    // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -90,14 +101,40 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
 
     if (authError) {
       if (authError.message.includes("User already registered")) {
-        return { errors: { email: ["Questo indirizzo email è già registrato."] }, success: false }
+        return {
+          errors: { email: ["Questo indirizzo email è già registrato."] },
+          success: false,
+          message: "Email già in uso.",
+        }
       }
       throw new Error(`Errore Auth: ${authError.message}`)
     }
+    newUserId = authData.user.id
 
-    const newUserId = authData.user.id
+    // 2. Upload dell'avatar (se presente)
+    const publicAvatarUrl = await uploadAvatarFromDataUrl(avatarUrl || "", newUserId)
 
-    // 3. Inserimento del profilo completo nella tabella 'profiles'
+    // 3. Estrazione dati complessi dal FormData
+    const specialties = formData.getAll("specialties") as string[]
+    const services = {
+      chatEnabled: formData.get("service.chat.enabled") === "on",
+      chatPrice: Number(formData.get("service.chat.price") || "0"),
+      callEnabled: formData.get("service.call.enabled") === "on",
+      callPrice: Number(formData.get("service.call.price") || "0"),
+      emailEnabled: formData.get("service.email.enabled") === "on",
+      emailPrice: Number(formData.get("service.email.price") || "0"),
+    }
+    const availability = {
+      monday: formData.getAll("availability.monday") as string[],
+      tuesday: formData.getAll("availability.tuesday") as string[],
+      wednesday: formData.getAll("availability.wednesday") as string[],
+      thursday: formData.getAll("availability.thursday") as string[],
+      friday: formData.getAll("availability.friday") as string[],
+      saturday: formData.getAll("availability.saturday") as string[],
+      sunday: formData.getAll("availability.sunday") as string[],
+    }
+
+    // 4. Inserimento del profilo completo nella tabella 'profiles'
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
       email,
@@ -113,23 +150,29 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
       specialties,
       service_prices: services,
       availability_schedule: availability,
+      profile_image_url: publicAvatarUrl,
     })
 
     if (profileError) {
-      await supabaseAdmin.auth.admin.deleteUser(newUserId) // Rollback
-      throw new Error(`Errore Profilo: ${profileError.message}`)
+      // Se l'inserimento del profilo fallisce, scatena il blocco catch per il rollback
+      throw new Error(`Errore durante la creazione del profilo: ${profileError.message}`)
     }
   } catch (error) {
+    // Rollback: se siamo arrivati qui e newUserId esiste, qualcosa è andato storto dopo la creazione auth.
+    if (newUserId) {
+      await supabaseAdmin.auth.admin.deleteUser(newUserId)
+    }
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
     return { errors: { server: [errorMessage] }, message: errorMessage, success: false }
   }
 
-  // 4. Successo
+  // 5. Successo
   revalidatePath("/admin/operators")
+  revalidatePath("/") // Revalida anche la home page
   return { success: true, message: `Operatore ${stageName} creato con successo!` }
 }
 
-// --- FUNZIONI RIPRISTINATE ---
+// --- FUNZIONI ESISTENTI ---
 
 export async function getAllOperatorsForAdmin() {
   const supabase = createClient()
@@ -161,7 +204,9 @@ export async function getOperators(options?: { limit?: number; category?: string
   if (options?.limit) {
     query = query.limit(options.limit)
   }
-  query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
+  query = query
+    .order("is_online", { ascending: false })
+    .order("average_rating", { ascending: false, nullsFirst: false })
 
   const { data, error } = await query
   if (error) throw new Error(`Error fetching operators: ${error.message}`)
@@ -205,20 +250,15 @@ export async function getOperatorForEdit(operatorId: string) {
 
 export async function updateOperatorProfile(operatorId: string, profileData: any) {
   const supabaseAdmin = createSupabaseAdminClient()
+  // Qui dovresti anche gestire l'upload di un nuovo avatar se fornito
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({
-      full_name: profileData.full_name,
-      stage_name: profileData.stage_name,
-      phone: profileData.phone,
-      main_discipline: profileData.main_discipline,
-      bio: profileData.bio,
-      is_available: profileData.is_available,
-      status: profileData.status,
-    })
+    .update(profileData) // Assumendo che profileData contenga solo campi validi
     .eq("id", operatorId)
 
-  if (error) return { success: false, message: "Errore durante l'aggiornamento del profilo." }
+  if (error) {
+    return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
+  }
 
   revalidatePath("/admin/operators")
   revalidatePath(`/admin/operators/${operatorId}/edit`)

@@ -30,6 +30,7 @@ import {
   Euro,
   Tags,
   Loader2,
+  Camera,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
@@ -99,7 +100,7 @@ export default function CreateOperatorPage() {
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
-    avatarUrl: "",
+    avatarUrl: "", // Questo conterrà il Data URL base64
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -132,7 +133,8 @@ export default function CreateOperatorPage() {
         description: state.message,
       })
       router.push("/admin/operators")
-    } else if (state.message) {
+    } else if (state.message && !state.success && state.errors) {
+      // Mostra solo se ci sono errori, per evitare toast doppi
       toast({
         title: "Errore nella Creazione",
         description: state.message,
@@ -284,6 +286,7 @@ export default function CreateOperatorPage() {
 
   return (
     <form action={dispatch} className="space-y-6 p-4 md:p-6">
+      <input type="hidden" name="avatarUrl" value={operator.avatarUrl} />
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/admin/operators">
@@ -317,54 +320,91 @@ export default function CreateOperatorPage() {
               <CardDescription>Informazioni di base e credenziali di accesso.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="fullName">Nome e Cognome Reale *</Label>
+              <div className="flex items-start gap-6">
+                <div className="relative">
+                  <Avatar className="w-24 h-24 border-4 border-sky-200 shadow-lg">
+                    <AvatarImage
+                      src={operator.avatarUrl || "/placeholder.svg?width=96&height=96&query=avatar"}
+                      alt="Avatar"
+                    />
+                    <AvatarFallback className="text-3xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white">
+                      {operator.stageName.substring(0, 1).toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white border-2 border-sky-300 text-sky-600 hover:bg-sky-100"
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    <Camera className="h-4 w-4" />
+                  </Button>
                   <Input
-                    id="fullName"
-                    name="fullName"
-                    value={operator.fullName}
-                    onChange={handleInputChange}
-                    required
+                    type="file"
+                    ref={avatarInputRef}
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={handleAvatarChange}
                   />
-                  {state.errors?.fullName && <p className="text-sm text-red-500 mt-1">{state.errors.fullName[0]}</p>}
                 </div>
-                <div>
-                  <Label htmlFor="stageName">Nome d'Arte *</Label>
-                  <Input
-                    id="stageName"
-                    name="stageName"
-                    value={operator.stageName}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {state.errors?.stageName && <p className="text-sm text-red-500 mt-1">{state.errors.stageName[0]}</p>}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={operator.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {state.errors?.email && <p className="text-sm text-red-500 mt-1">{state.errors.email[0]}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="password">Password Temporanea *</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    value={operator.password}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {state.errors?.password && <p className="text-sm text-red-500 mt-1">{state.errors.password[0]}</p>}
+                <div className="flex-1 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="fullName">Nome e Cognome Reale *</Label>
+                      <Input
+                        id="fullName"
+                        name="fullName"
+                        value={operator.fullName}
+                        onChange={handleInputChange}
+                        required
+                      />
+                      {state.errors?.fullName && (
+                        <p className="text-sm text-red-500 mt-1">{state.errors.fullName[0]}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="stageName">Nome d'Arte *</Label>
+                      <Input
+                        id="stageName"
+                        name="stageName"
+                        value={operator.stageName}
+                        onChange={handleInputChange}
+                        required
+                      />
+                      {state.errors?.stageName && (
+                        <p className="text-sm text-red-500 mt-1">{state.errors.stageName[0]}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={operator.email}
+                        onChange={handleInputChange}
+                        required
+                      />
+                      {state.errors?.email && <p className="text-sm text-red-500 mt-1">{state.errors.email[0]}</p>}
+                    </div>
+                    <div>
+                      <Label htmlFor="password">Password Temporanea *</Label>
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        value={operator.password}
+                        onChange={handleInputChange}
+                        required
+                      />
+                      {state.errors?.password && (
+                        <p className="text-sm text-red-500 mt-1">{state.errors.password[0]}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div>
