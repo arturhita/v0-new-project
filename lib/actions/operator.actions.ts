@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import type { Profile } from "@/contexts/auth-context"
 
 // Schema di validazione per i dati del form
 const OperatorSchema = z.object({
@@ -95,5 +97,181 @@ export async function createOperator(prevState: OperatorState, formData: FormDat
 
   // 4. Successo
   revalidatePath("/admin/operators")
-  redirect("/admin/operators?success=true") // Reindirizza con un parametro di successo
+  redirect("/admin/operators?success=true")
+}
+
+// FUNZIONI RIPRISTINATE
+
+export async function getAllOperatorsForAdmin() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("admin_operators_view")
+    .select("*")
+    .order("joined_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching operators for admin:", error)
+    throw new Error("Impossibile caricare gli operatori.")
+  }
+  return data
+}
+
+export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
+  const supabase = createClient()
+
+  let query = supabase
+    .from("profiles")
+    .select(
+      `
+    id,
+    full_name,
+    stage_name,
+    bio,
+    is_available,
+    profile_image_url, 
+    service_prices,
+    average_rating,
+    review_count,
+    categories ( name, slug )
+  `,
+    )
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+
+  if (options?.category) {
+    query = query.filter("categories.slug", "eq", options.category)
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit)
+  }
+
+  query = query.order("is_available", { ascending: false }).order("created_at", { ascending: false })
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("Error fetching operators:", error.message)
+    throw new Error(`Error fetching operators: ${error.message}`)
+  }
+
+  if (!data) {
+    return []
+  }
+
+  const profiles = data.map((profile: any) => ({
+    ...profile,
+    specializations: profile.categories ? profile.categories.map((cat: any) => cat.name) : [],
+  }))
+
+  return profiles as Profile[]
+}
+
+export async function getOperatorByStageName(stageName: string): Promise<Profile | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      id,
+      full_name,
+      stage_name,
+      bio,
+      is_available,
+      profile_image_url,
+      service_prices,
+      average_rating,
+      review_count,
+      status,
+      categories ( name, slug )
+    `,
+    )
+    .eq("stage_name", stageName)
+    .eq("role", "operator")
+    .single()
+
+  if (error) {
+    console.error("Error fetching operator by stage name:", error)
+    return null
+  }
+
+  if (!data) {
+    return null
+  }
+
+  const profile = {
+    ...data,
+    specializations: (data as any).categories ? (data as any).categories.map((cat: any) => cat.name) : [],
+  }
+
+  return profile as Profile
+}
+
+export async function getOperatorForEdit(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("admin_operators_view").select("*").eq("id", operatorId).single()
+
+  if (error) {
+    console.error(`Error fetching operator ${operatorId} for edit:`, error)
+    throw new Error("Operatore non trovato o errore nel caricamento.")
+  }
+  return data
+}
+
+export async function updateOperatorProfile(operatorId: string, profileData: any) {
+  const supabaseAdmin = createSupabaseAdminClient()
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      full_name: profileData.full_name,
+      stage_name: profileData.stage_name,
+      phone: profileData.phone,
+      main_discipline: profileData.main_discipline,
+      bio: profileData.bio,
+      is_available: profileData.is_available,
+      status: profileData.status,
+    })
+    .eq("id", operatorId)
+
+  if (error) {
+    console.error(`Error updating profile for operator ${operatorId}:`, error)
+    return { success: false, message: "Errore durante l'aggiornamento del profilo." }
+  }
+
+  revalidatePath("/admin/operators")
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  return { success: true, message: "Profilo operatore aggiornato con successo." }
+}
+
+export async function updateOperatorCommission(operatorId: string, commission: number) {
+  if (commission < 0 || commission > 100) {
+    return { success: false, message: "La commissione deve essere tra 0 e 100." }
+  }
+  const supabaseAdmin = createSupabaseAdminClient()
+  const { error } = await supabaseAdmin.from("profiles").update({ commission_rate: commission }).eq("id", operatorId)
+
+  if (error) {
+    console.error(`Error updating commission for operator ${operatorId}:`, error)
+    return { success: false, message: "Errore durante l'aggiornamento della commissione." }
+  }
+
+  revalidatePath("/admin/operators")
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  return { success: true, message: "Commissione aggiornata con successo." }
+}
+
+export async function suspendOperator(operatorId: string) {
+  const supabaseAdmin = createSupabaseAdminClient()
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update({ status: "suspended", is_available: false })
+    .eq("id", operatorId)
+
+  if (error) {
+    console.error(`Error suspending operator ${operatorId}:`, error)
+    return { success: false, message: "Errore durante la sospensione." }
+  }
+
+  revalidatePath("/admin/operators")
+  return { success: true, message: "Operatore sospeso." }
 }
