@@ -1,49 +1,56 @@
+// Tipi che rispecchiano il nuovo schema del database (002-final-schema.sql)
+
+export type UserRole = "client" | "operator" | "admin"
+export type ApplicationStatus = "pending" | "approved" | "rejected"
+export type ServiceType = "chat" | "call" | "written"
+
+export interface Profile {
+  id: string // UUID from auth.users
+  role: UserRole
+  full_name: string | null
+  avatar_url: string | null
+  created_at: string
+  updated_at: string | null
+  // Client-specific
+  wallet_balance: number
+  // Operator-specific
+  headline: string | null
+  bio: string | null
+  specializations: string[] | null
+  is_online: boolean
+  online_status: string | null
+  application_status: ApplicationStatus
+  is_visible: boolean
+  commission_rate: number
+  fiscal_code: string | null
+  vat_number: string | null
+  billing_address: string | null
+}
+
 export interface Service {
-  id: string
+  id: number
   operator_id: string
-  type: "chat" | "call" | "email"
-  price_per_minute?: number
-  price_per_consultation?: number
+  type: ServiceType
+  price_per_minute: number | null
+  price_per_consultation: number | null
   is_active: boolean
+  created_at: string
 }
 
 export interface Review {
-  id: string
-  userName: string
-  userType: string
-  operatorName: string
+  id: number
+  client_id: string
+  operator_id: string
+  consultation_id: number | null
   rating: number
-  comment: string
-  date: string
-}
-
-export interface Operator {
-  id: string
-  user_id?: string
+  comment: string | null
+  is_approved: boolean
   created_at: string
-  stage_name: string
-  full_name: string
-  email: string
-  phone?: string
-  bio?: string
-  avatar_url?: string
-  specializations?: string[]
-  categories?: string[]
-  is_online: boolean
-  online_status: "Online" | "Offline" | "In Pausa"
-  last_seen?: string
-  application_status: "pending" | "approved" | "rejected"
-  is_visible: boolean
-  commission_rate: number
-  // Dati fiscali
-  fiscal_code?: string
-  vat_number?: string
-  billing_address?: string
-  billing_city?: string
-  billing_zip?: string
-  billing_country?: string
+  // Joined data
+  client_profile?: { full_name: string | null }
 }
 
+// Questo tipo è per le card degli operatori mostrate nelle liste
 export interface OperatorCardData {
   id: string
   fullName: string | null
@@ -54,17 +61,15 @@ export interface OperatorCardData {
   averageRating: number
   reviewsCount: number
   services: {
-    type: "chat" | "call" | "email"
+    type: ServiceType
     price: number | null
   }[]
-  joinedDate: string
-  bio: string | null
 }
 
-export interface DetailedOperatorProfile extends Operator {
-  availability: Record<string, string[]>
-  reviews: Review[]
+// Questo tipo è per la pagina di dettaglio del profilo operatore
+export interface DetailedOperatorProfile extends Profile {
   services: Service[]
-  reviewsCount: number
+  reviews: Review[]
   averageRating: number
+  reviewsCount: number
 }
