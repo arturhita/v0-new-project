@@ -1,164 +1,190 @@
 "use client"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 
+import Link from "next/link"
+
+import { Label } from "@/components/ui/label"
+
+import { useEffect, useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { getOperatorEarningsData, createPayoutRequest } from "@/lib/actions/payouts.actions"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DollarSign, CalendarDays, BarChart3, AlertTriangle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { useToast } from "@/components/ui/use-toast"
+import { Loader2, Info } from "lucide-react"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
 
-// Dati Mock per i guadagni
-const dailyEarnings = 45.5
-const weeklyEarnings = 280.75
-const monthlyEarnings = 1250.0
-const totalEarnings = 15250.6
-const pendingEarnings = 150.0 // Guadagni da consulti recenti non ancora finalizzati/pagabili
+type EarningsData = Awaited<ReturnType<typeof getOperatorEarningsData>>
 
-const recentTransactions = [
-  { id: "txn1", date: "2025-06-20", type: "Consulto Chat", client: "Alice B.", amount: 22.5, status: "Completato" },
-  { id: "txn2", date: "2025-06-19", type: "Consulto Chiamata", client: "Marco V.", amount: 40.0, status: "Completato" },
-  { id: "txn3", date: "2025-06-19", type: "Consulto Email", client: "Sofia N.", amount: 30.0, status: "Completato" },
-  { id: "txn4", date: "2025-06-18", type: "Consulto Chat", client: "Luca R.", amount: 15.0, status: "Completato" },
-  {
-    id: "txn5",
-    date: "2025-06-21",
-    type: "Consulto Chiamata",
-    client: "Giulia F.",
-    amount: 50.0,
-    status: "In Attesa Approvazione Cliente",
-  },
-]
+const StatCard = ({ title, value, isLoading }: { title: string; value: string; isLoading: boolean }) => (
+  <Card className="bg-gray-800/50 border-gray-700/50">
+    <CardHeader>
+      <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {isLoading ? (
+        <div className="h-8 w-24 bg-gray-700 rounded-md animate-pulse" />
+      ) : (
+        <div className="text-3xl font-bold">€{value}</div>
+      )}
+    </CardContent>
+  </Card>
+)
 
-export default function OperatorEarningsPage() {
+export default function EarningsPage() {
+  const { profile } = useAuth()
+  const { toast } = useToast()
+  const [data, setData] = useState<EarningsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [payoutAmount, setPayoutAmount] = useState("")
+  const [isRequesting, setIsRequesting] = useState(false)
+
+  const fetchEarnings = () => {
+    if (profile?.id) {
+      setLoading(true)
+      getOperatorEarningsData(profile.id)
+        .then(setData)
+        .finally(() => setLoading(false))
+    }
+  }
+
+  useEffect(fetchEarnings, [profile])
+
+  const handleRequestPayout = async () => {
+    const amount = Number.parseFloat(payoutAmount)
+    if (!profile || isNaN(amount) || amount <= 0) {
+      toast({ title: "Errore", description: "Inserisci un importo valido.", variant: "destructive" })
+      return
+    }
+
+    setIsRequesting(true)
+    const result = await createPayoutRequest(profile.id, amount)
+    if (result.success) {
+      toast({ title: "Successo", description: result.message })
+      setPayoutAmount("")
+      fetchEarnings() // Refresh data
+    } else {
+      toast({ title: "Errore", description: result.message, variant: "destructive" })
+    }
+    setIsRequesting(false)
+  }
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Tesoro Astrale</h1>
-      <CardDescription className="text-slate-500 -mt-4">
-        Monitora i tuoi guadagni e l'andamento delle tue consulenze.
-      </CardDescription>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <Card className="shadow-lg rounded-xl bg-gradient-to-br from-sky-400 to-sky-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guadagni Odierni</CardTitle>
-            <CalendarDays className="h-5 w-5 text-sky-100" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">€{dailyEarnings.toFixed(2)}</div>
-            <p className="text-xs text-sky-50 pt-1">+5% rispetto a ieri (simulato)</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guadagni Settimanali</CardTitle>
-            <CalendarDays className="h-5 w-5 text-emerald-100" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">€{weeklyEarnings.toFixed(2)}</div>
-            <p className="text-xs text-emerald-50 pt-1">-2% rispetto alla scorsa settimana (simulato)</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guadagni Mensili</CardTitle>
-            <CalendarDays className="h-5 w-5 text-amber-100" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">€{monthlyEarnings.toFixed(2)}</div>
-            <p className="text-xs text-amber-50 pt-1">Mese corrente</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guadagni Totali</CardTitle>
-            <DollarSign className="h-5 w-5 text-purple-100" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">€{totalEarnings.toFixed(2)}</div>
-            <p className="text-xs text-purple-50 pt-1">Dall'inizio della tua attività</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo in Attesa</CardTitle>
-            <AlertTriangle className="h-5 w-5 text-rose-100" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">€{pendingEarnings.toFixed(2)}</div>
-            <p className="text-xs text-rose-50 pt-1">Da consulti recenti</p>
-          </CardContent>
-        </Card>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold">I Tuoi Guadagni</h1>
+        <p className="text-gray-400">Visualizza il riepilogo dei tuoi guadagni e richiedi un pagamento.</p>
       </div>
 
-      <Card className="shadow-xl rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl text-slate-700 flex items-center">
-            <BarChart3 className="mr-2 h-5 w-5 text-[hsl(var(--primary-medium))]" />
-            Dettaglio Transazioni Recenti
-          </CardTitle>
-          <CardDescription className="text-slate-500">Ultime consulenze registrate e loro stato.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo Consulto</TableHead>
-                <TableHead>Cercatore</TableHead>
-                <TableHead className="text-right">Importo</TableHead>
-                <TableHead className="text-center">Stato</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentTransactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{transaction.date}</TableCell>
-                  <TableCell>{transaction.type}</TableCell>
-                  <TableCell>{transaction.client}</TableCell>
-                  <TableCell className="text-right">€{transaction.amount.toFixed(2)}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge
-                      variant={
-                        transaction.status === "Completato"
-                          ? "default"
-                          : transaction.status === "In Attesa Approvazione Cliente"
-                            ? "outline"
-                            : "secondary"
-                      }
-                      className={
-                        transaction.status === "Completato"
-                          ? "bg-green-500/15 text-green-700 border-green-500/30"
-                          : transaction.status === "In Attesa Approvazione Cliente"
-                            ? "bg-amber-500/15 text-amber-700 border-amber-500/30"
-                            : ""
-                      }
-                    >
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {recentTransactions.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-slate-500 py-8">
-                    Nessuna transazione recente da mostrare.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      {/* Placeholder per Grafici Avanzati */}
-      <Card className="shadow-xl rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl text-slate-700">Andamento Guadagni (Placeholder)</CardTitle>
-          <CardDescription className="text-slate-500">
-            Visualizzazione grafica dei tuoi guadagni nel tempo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center bg-slate-50 rounded-b-2xl">
-          <p className="text-slate-400">Grafico andamento guadagni (es. ultimi 30 giorni) apparirà qui.</p>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Disponibile per Pagamento"
+          value={data?.availableForPayout.toFixed(2) ?? "0.00"}
+          isLoading={loading}
+        />
+        <StatCard title="In Attesa di Pagamento" value={data?.pendingPayout.toFixed(2) ?? "0.00"} isLoading={loading} />
+        <StatCard title="Totale Ritirato" value={data?.withdrawn.toFixed(2) ?? "0.00"} isLoading={loading} />
+        <StatCard title="Guadagni Totali" value={data?.totalEarned.toFixed(2) ?? "0.00"} isLoading={loading} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card className="bg-gray-800/50 border-gray-700/50">
+            <CardHeader>
+              <CardTitle>Storico Guadagni Recenti</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-700 hover:bg-transparent">
+                    <TableHead className="text-white">Data</TableHead>
+                    <TableHead className="text-white">Cliente</TableHead>
+                    <TableHead className="text-right text-white">Guadagno Netto</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i} className="border-gray-800">
+                        <TableCell>
+                          <div className="h-5 w-24 bg-gray-700 rounded animate-pulse" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-5 w-32 bg-gray-700 rounded animate-pulse" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="h-5 w-16 bg-gray-700 rounded animate-pulse ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : data?.earningsHistory && data.earningsHistory.length > 0 ? (
+                    data.earningsHistory.map((earning) => (
+                      <TableRow key={earning.consultations.id} className="border-gray-800 hover:bg-gray-800/50">
+                        <TableCell>{format(new Date(earning.created_at), "d MMM yyyy", { locale: it })}</TableCell>
+                        <TableCell>{earning.consultations.profiles.stage_name}</TableCell>
+                        <TableCell className="text-right font-medium text-green-400">
+                          €{earning.net_earning.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-gray-500">
+                        Nessun guadagno registrato.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <Card className="bg-gray-800/50 border-gray-700/50">
+            <CardHeader>
+              <CardTitle>Richiedi Pagamento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="payout-amount">Importo da ritirare</Label>
+                <div className="relative mt-1">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">€</span>
+                  <Input
+                    id="payout-amount"
+                    type="number"
+                    placeholder="0.00"
+                    className="pl-7"
+                    value={payoutAmount}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
+                    disabled={loading || isRequesting}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleRequestPayout}
+                disabled={loading || isRequesting || (data?.availableForPayout ?? 0) <= 0}
+                className="w-full bg-indigo-600 hover:bg-indigo-700"
+              >
+                {isRequesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Invia Richiesta
+              </Button>
+              <div className="flex items-start gap-2 text-xs text-gray-500">
+                <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Il pagamento sarà inviato al tuo metodo di default. Puoi impostarlo nelle{" "}
+                  <Link href="/dashboard/operator/payout-settings" className="underline hover:text-indigo-400">
+                    impostazioni di pagamento
+                  </Link>
+                  .
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

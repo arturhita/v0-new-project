@@ -1,76 +1,83 @@
-import type React from "react"
+"use client"
+
+import type { ReactNode } from "react"
 import Link from "next/link"
-import { Home, MessageSquare, Calendar, Briefcase, BarChart2, Settings, User, Wallet, FileText } from "lucide-react"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { OperatorStatusToggle } from "@/components/operator-status-toggle"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { usePathname } from "next/navigation"
+import {
+  LayoutDashboard,
+  User,
+  Calendar,
+  MessageSquare,
+  Briefcase,
+  BarChart2,
+  LifeBuoy,
+  Euro,
+  CreditCard,
+} from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { cn } from "@/lib/utils"
+import OperatorStatusToggle from "@/components/operator-status-toggle"
 
 const navItems = [
-  { href: "/dashboard/operator", icon: Home, label: "Dashboard" },
-  { href: "/dashboard/operator/internal-messages", icon: MessageSquare, label: "Messaggi" },
-  { href: "/dashboard/operator/availability", icon: Calendar, label: "Disponibilità" },
-  { href: "/dashboard/operator/consultations-history", icon: Briefcase, label: "Consulti" },
-  { href: "/dashboard/operator/earnings", icon: BarChart2, label: "Guadagni" },
-  { href: "/dashboard/operator/profile", icon: User, label: "Profilo Pubblico" },
-  { href: "/dashboard/operator/payouts", icon: Wallet, label: "Pagamenti" },
-  { href: "/dashboard/operator/invoices", icon: FileText, label: "Fatture" },
-  { href: "/dashboard/operator/services", icon: Settings, label: "Servizi" },
+  { href: "/dashboard/operator", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/operator/profile", label: "Profilo Pubblico", icon: User },
+  { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
+  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Euro },
+  { href: "/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: CreditCard },
+  { href: "/dashboard/operator/consultations-history", label: "Storico Consulti", icon: Briefcase },
+  { href: "/dashboard/operator/internal-messages", label: "Messaggi", icon: MessageSquare },
+  { href: "/dashboard/operator/reviews", label: "Recensioni", icon: BarChart2 },
+  { href: "/dashboard/operator/support", label: "Supporto", icon: LifeBuoy },
 ]
 
-export default async function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function OperatorDashboardLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+  const { profile, loading } = useAuth()
 
-  if (!user) {
-    redirect("/login")
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-900">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-white border-t-transparent" />
+      </div>
+    )
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, is_available, full_name, profile_image_url")
-    .eq("id", user.id)
-    .single()
-
   if (!profile || profile.role !== "operator") {
-    redirect("/login")
+    // Potresti voler reindirizzare o mostrare un messaggio di errore
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-900 text-white">Accesso non autorizzato.</div>
+    )
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-900 text-white">
-      <aside className="w-64 flex-shrink-0 bg-gray-950 p-4 flex flex-col">
-        <div className="flex items-center gap-3 mb-8">
-          <Avatar>
-            <AvatarImage src={profile.profile_image_url || undefined} alt={profile.full_name || "Operatore"} />
-            <AvatarFallback>{profile.full_name?.charAt(0).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold">{profile.full_name}</p>
-            <p className="text-xs text-gray-400">Operatore</p>
-          </div>
+    <div className="flex min-h-screen w-full bg-slate-900 text-white">
+      <aside className="sticky top-0 h-screen w-64 flex-col border-r border-gray-800 bg-gray-900 p-4 hidden md:flex">
+        <div className="mb-6 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-indigo-600" />
+          <h1 className="text-xl font-bold">Operatore</h1>
         </div>
 
-        <OperatorStatusToggle operatorId={user.id} initialIsAvailable={profile.is_available || false} />
+        {profile && <OperatorStatusToggle operatorId={profile.id} initialIsAvailable={profile.is_available} />}
 
-        <nav className="mt-8 flex-grow">
-          <ul>
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav className="mt-6 flex flex-col gap-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-white",
+                pathname === item.href && "bg-gray-800 text-white",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          ))}
         </nav>
       </aside>
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto">{children}</main>
+      <main className="flex-1 p-6 lg:p-8">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
     </div>
   )
 }

@@ -1,150 +1,90 @@
 "use client"
 
-import type React from "react"
+import type { ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Home,
+  LayoutDashboard,
   Users,
-  Briefcase,
-  BarChart3,
-  Settings,
-  Star,
-  FileText,
   UserCheck,
-  PenLine,
-  DollarSign,
-  Zap,
-  Shield,
-  Menu,
+  FileText,
+  BarChart2,
+  Settings,
+  Gift,
   MessageSquare,
-  Trophy,
+  LifeBuoy,
+  BookOpen,
+  CreditCard,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
+import { cn } from "@/lib/utils"
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: Home },
-  { href: "/admin/users", label: "Utenti", icon: Users },
-  { href: "/admin/operators", label: "Operatori", icon: Briefcase },
-  { href: "/admin/operator-approvals", label: "Approvazioni", icon: UserCheck, badge: 3 },
-  { href: "/admin/reviews", label: "Recensioni", icon: Star },
-  { href: "/admin/tickets", label: "Ticket Supporto", icon: MessageSquare },
-  { href: "/admin/blog-management", label: "Blog", icon: PenLine },
-  { href: "/admin/promotions", label: "Promozioni", icon: Zap },
-  { href: "/admin/payouts", label: "Pagamenti", icon: DollarSign },
-  { href: "/admin/gamification", label: "Gamification", icon: Trophy },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/users", label: "Gestione Utenti", icon: Users },
+  { href: "/admin/operators", label: "Gestione Operatori", icon: UserCheck },
+  { href: "/admin/operator-approvals", label: "Approvazioni", icon: FileText },
+  { href: "/admin/reviews", label: "Moderazione Recensioni", icon: BookOpen },
+  { href: "/admin/payouts", label: "Gestione Pagamenti", icon: CreditCard },
+  { href: "/admin/promotions", label: "Promozioni", icon: Gift },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
+  { href: "/admin/tickets", label: "Ticket Supporto", icon: LifeBuoy },
+  { href: "/admin/blog-management", label: "Blog", icon: MessageSquare },
+  { href: "/admin/settings", label: "Impostazioni", icon: Settings },
 ]
 
-const settingsItems = [
-  { href: "/admin/settings", label: "Generali", icon: Settings },
-  { href: "/admin/settings/advanced", label: "Avanzate", icon: Shield },
-  { href: "/admin/settings/legal", label: "Testi Legali", icon: FileText },
-]
-
-function AdminSidebarNav() {
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  return (
-    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-      <h3 className="px-2 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Generale</h3>
-      {navItems.map((item) => (
-        <Link
-          key={item.label}
-          href={item.href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-slate-300 transition-all hover:text-white hover:bg-indigo-500/10",
-            pathname === item.href && "bg-indigo-500/20 text-white",
-          )}
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-          {item.badge && (
-            <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-500/80">
-              {item.badge}
-            </Badge>
-          )}
-        </Link>
-      ))}
-      <h3 className="px-2 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Impostazioni</h3>
-      {settingsItems.map((item) => (
-        <Link
-          key={item.label}
-          href={item.href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-slate-300 transition-all hover:text-white hover:bg-indigo-500/10",
-            pathname === item.href && "bg-indigo-500/20 text-white",
-          )}
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-        </Link>
-      ))}
-    </nav>
-  )
-}
+  const { profile, loading, isAdmin } = useAuth()
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, logout } = useAuth()
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-900">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-white border-t-transparent" />
+      </div>
+    )
+  }
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <SiteNavbar />
-      <div className="flex-grow pt-16">
-        <div className="grid min-h-full w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] bg-slate-900 text-white">
-          <div className="hidden border-r border-indigo-500/20 bg-slate-900/50 md:block">
-            <div className="flex h-full max-h-screen flex-col gap-2 sticky top-16">
-              <div className="flex h-14 items-center border-b border-indigo-500/20 px-4 lg:h-[60px] lg:px-6">
-                <Link href="/admin" className="flex items-center gap-2 font-semibold">
-                  <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={24} height={24} />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
-                    Moonthir Admin
-                  </span>
-                </Link>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <AdminSidebarNav />
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <header className="flex h-14 items-center gap-4 border-b border-indigo-500/20 bg-slate-900/50 px-4 lg:h-[60px] lg:px-6 md:hidden">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="shrink-0 bg-transparent border-slate-700">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle navigation menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col bg-slate-900 border-r-slate-800 text-white">
-                  <div className="flex h-14 items-center border-b border-indigo-500/20 px-4 lg:h-[60px] lg:px-6">
-                    <Link href="/admin" className="flex items-center gap-2 font-semibold">
-                      <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={24} height={24} />
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
-                        Moonthir Admin
-                      </span>
-                    </Link>
-                  </div>
-                  <div className="overflow-y-auto">
-                    <AdminSidebarNav />
-                  </div>
-                </SheetContent>
-              </Sheet>
-              <div className="w-full flex-1">{/* Search bar can go here */}</div>
-            </header>
-            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 overflow-y-auto">
-              {children}
-            </main>
-          </div>
+  if (!isAdmin) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Accesso Negato</h1>
+          <p className="mt-2 text-gray-400">Non disponi delle autorizzazioni per visualizzare questa pagina.</p>
+          <Link href="/" className="mt-4 inline-block rounded-md bg-indigo-600 px-4 py-2 text-white">
+            Torna alla Home
+          </Link>
         </div>
       </div>
-      <SiteFooter />
+    )
+  }
+
+  return (
+    <div className="flex min-h-screen w-full bg-gray-900 text-gray-200">
+      <aside className="sticky top-0 h-screen w-64 flex-col border-r border-gray-800 bg-gray-950 p-4 hidden md:flex">
+        <div className="mb-8 flex items-center gap-3 px-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 font-bold">A</div>
+          <h1 className="text-xl font-semibold">Admin Panel</h1>
+        </div>
+        <nav className="flex flex-col gap-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-800 hover:text-white",
+                pathname.startsWith(item.href) && "bg-gray-800 text-white",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </aside>
+      <main className="flex-1 p-6 lg:p-8">
+        <div className="mx-auto max-w-7xl">{children}</div>
+      </main>
     </div>
   )
 }
