@@ -1,6 +1,6 @@
--- 🌑 MOONTHIR - MASTER SCHEMA V1.1 🌑
+-- 🌑 MOONTHIR - MASTER SCHEMA V1.2 🌑
 -- Questo script imposta l'intera struttura del database necessaria per la piattaforma.
--- Versione 1.1: Aggiunto controllo di esistenza colonna per robustezza.
+-- Versione 1.2: Corretti gli UUID di esempio con valori sintatticamente validi.
 -- È progettato per essere eseguito una sola volta.
 
 -- 1. TIPI ENUM SIMULATI
@@ -102,7 +102,6 @@ CREATE POLICY "Operators can manage their own services."
     USING ( auth.uid() = operator_id );
 
 -- REVIEWS
--- FIX: Assicura che la colonna esista prima di creare la policy per evitare errori.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -149,9 +148,15 @@ CREATE TRIGGER on_auth_user_created
 -- 9. INSERIMENTO DATI DI ESEMPIO
 DO $$
 DECLARE
-    client_uuid UUID := '8a9a7a7a-1b1b-2c2c-3d3d-4e4e5f5f6g6g';
-    operator1_uuid UUID := '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d';
-    operator2_uuid UUID := 'b1c2d3e4-f5a6-b7c8-d9e0-f1a2b3c4d5e6';
+    -- ===================================================================================
+    -- !! ATTENZIONE !!
+    -- SOSTITUIRE QUESTI UUID CON GLI UUID REALI DEI VOSTRI UTENTI DI TEST.
+    -- Li trovate in Supabase Studio -> Authentication -> Users -> Copia UUID.
+    -- Ho usato degli UUID di esempio validi, ma dovete usare i vostri.
+    -- ===================================================================================
+    client_uuid UUID := '00000000-0000-0000-0000-000000000001'; -- Sostituire con UUID di un utente cliente
+    operator1_uuid UUID := '00000000-0000-0000-0000-000000000002'; -- Sostituire con UUID di Luna Stellare
+    operator2_uuid UUID := '00000000-0000-0000-0000-000000000003'; -- Sostituire con UUID di Maestro Cosmos
 BEGIN
     INSERT INTO public.profiles (id, role, full_name, wallet_balance)
     VALUES (client_uuid, 'client', 'Giulia Rossi', 50.00)
