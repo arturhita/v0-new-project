@@ -1,141 +1,72 @@
-"use client"
-
-import type React from "react"
-import { useEffect, useState, useTransition } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { getOperatorTaxDetails, saveOperatorTaxDetails } from "@/lib/actions/operator.actions"
-import { Button } from "@/components/ui/button"
+import { getTaxDetails, updateTaxDetails } from "@/lib/actions/operator.actions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
-import type { OperatorTaxDetails } from "@/types/database.types"
+import { Input } from "@/components/ui/input"
+import { SubmitButton } from "@/components/ui/submit-button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export default function TaxInfoPage() {
-  const supabase = createClient()
-  const { toast } = useToast()
-  const [taxDetails, setTaxDetails] = useState<Partial<OperatorTaxDetails>>({})
-  const [loading, setLoading] = useState(true)
-  const [isSubmitting, startTransition] = useTransition()
-  const [userId, setUserId] = useState<string | null>(null)
+export default async function TaxInfoPage() {
+  const { data: taxDetails, error } = await getTaxDetails()
 
-  useEffect(() => {
-    const fetchUserAndDetails = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
-        setLoading(true)
-        getOperatorTaxDetails(user.id)
-          .then((data) => setTaxDetails(data || {}))
-          .finally(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    }
-    fetchUserAndDetails()
-  }, [supabase])
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!userId) return
-    const formData = new FormData(event.currentTarget)
-    startTransition(async () => {
-      const result = await saveOperatorTaxDetails(userId, formData)
-      if (result.success) {
-        toast({ title: "Successo", description: result.message })
-      } else {
-        toast({ title: "Errore", description: result.message, variant: "destructive" })
-      }
-    })
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Errore</AlertTitle>
+        <AlertDescription>{error.message}</AlertDescription>
+      </Alert>
+    )
   }
 
-  if (loading) return <Loader2 className="mx-auto mt-8 h-8 w-8 animate-spin text-primary" />
-
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-white">Dati Fiscali</h1>
-      <Card className="bg-gray-800 border-gray-700 text-white">
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Dati Fiscali</h1>
+        <p className="text-gray-600">
+          Inserisci i tuoi dati fiscali per la corretta emissione delle fatture e dei pagamenti.
+        </p>
+      </div>
+      <Card>
         <CardHeader>
-          <CardTitle>I Tuoi Dati</CardTitle>
-          <CardDescription className="text-gray-400">
-            Assicurati che i dati siano corretti per fatture e pagamenti.
+          <CardTitle>Informazioni Fiscali</CardTitle>
+          <CardDescription>
+            Questi dati sono obbligatori per ricevere i pagamenti e saranno trattati con la massima riservatezza.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form action={updateTaxDetails} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="company_name">Nome Azienda / Ditta</Label>
-                <Input
-                  id="company_name"
-                  name="company_name"
-                  defaultValue={taxDetails.company_name ?? ""}
-                  className="bg-gray-900 border-gray-600"
-                />
+                <Label htmlFor="company_name">Nome Azienda (se applicabile)</Label>
+                <Input id="company_name" name="company_name" defaultValue={taxDetails?.company_name || ""} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="vat_number">Partita IVA</Label>
-                <Input
-                  id="vat_number"
-                  name="vat_number"
-                  defaultValue={taxDetails.vat_number ?? ""}
-                  className="bg-gray-900 border-gray-600"
-                />
+                <Input id="vat_number" name="vat_number" defaultValue={taxDetails?.vat_number || ""} />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tax_id">Codice Fiscale</Label>
-              <Input
-                id="tax_id"
-                name="tax_id"
-                defaultValue={taxDetails.tax_id ?? ""}
-                className="bg-gray-900 border-gray-600"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Indirizzo Sede Legale</Label>
-              <Input
-                id="address"
-                name="address"
-                defaultValue={taxDetails.address ?? ""}
-                className="bg-gray-900 border-gray-600"
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="tax_id">Codice Fiscale</Label>
+                <Input id="tax_id" name="tax_id" defaultValue={taxDetails?.tax_id || ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Indirizzo</Label>
+                <Input id="address" name="address" defaultValue={taxDetails?.address || ""} />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="city">Città</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  defaultValue={taxDetails.city ?? ""}
-                  className="bg-gray-900 border-gray-600"
-                />
+                <Input id="city" name="city" defaultValue={taxDetails?.city || ""} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="zip_code">CAP</Label>
-                <Input
-                  id="zip_code"
-                  name="zip_code"
-                  defaultValue={taxDetails.zip_code ?? ""}
-                  className="bg-gray-900 border-gray-600"
-                />
+                <Input id="zip_code" name="zip_code" defaultValue={taxDetails?.zip_code || ""} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="country">Paese</Label>
-                <Input
-                  id="country"
-                  name="country"
-                  defaultValue={taxDetails.country ?? "Italia"}
-                  className="bg-gray-900 border-gray-600"
-                />
+                <Input id="country" name="country" defaultValue={taxDetails?.country || ""} />
               </div>
             </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salva Dati
-            </Button>
+            <div className="flex justify-end pt-4">
+              <SubmitButton>Salva Dati Fiscali</SubmitButton>
+            </div>
           </form>
         </CardContent>
       </Card>

@@ -3,55 +3,56 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  LayoutDashboard,
   User,
   Calendar,
-  MessageSquare,
-  Briefcase,
   BarChart2,
-  LifeBuoy,
-  Euro,
-  CreditCard,
+  Settings,
+  MessageSquare,
   FileText,
-  PercentSquare,
-  Sparkles,
+  Shield,
+  BookOpen,
+  Percent,
+  LifeBuoy,
+  Camera,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import OperatorStatusToggle from "@/components/operator-status-toggle"
 
 const navItems = [
-  { href: "/dashboard/operator", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/operator/profile", label: "Profilo Pubblico", icon: User },
-  { href: "/dashboard/operator/stories", label: "Gestisci Storie", icon: Sparkles },
-  { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
-  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Euro },
-  { href: "/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: CreditCard },
-  { href: "/dashboard/operator/commission-request", label: "Richiesta Commissione", icon: PercentSquare },
-  { href: "/dashboard/operator/consultations-history", label: "Storico Consulti", icon: Briefcase },
-  { href: "/dashboard/operator/internal-messages", label: "Messaggi", icon: MessageSquare },
-  { href: "/dashboard/operator/invoices", label: "Fatture", icon: FileText },
-  { href: "/dashboard/operator/tax-info", label: "Dati Fiscali", icon: Briefcase },
-  { href: "/dashboard/operator/reviews", label: "Recensioni", icon: BarChart2 },
-  { href: "/dashboard/operator/support", label: "Supporto", icon: LifeBuoy },
+  { href: "/(platform)/dashboard/operator/profile", label: "Profilo e Servizi", icon: User },
+  { href: "/(platform)/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
+  { href: "/(platform)/dashboard/operator/stories", label: "Storie", icon: Camera },
+  { href: "/(platform)/dashboard/operator/earnings", label: "Guadagni", icon: BarChart2 },
+  { href: "/(platform)/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: Settings },
+  { href: "/(platform)/dashboard/operator/commission-request", label: "Richiesta Commissione", icon: Percent },
+  { href: "/(platform)/dashboard/operator/invoices", label: "Fatture", icon: FileText },
+  { href: "/(platform)/dashboard/operator/tax-info", label: "Dati Fiscali", icon: Shield },
+  { href: "/(platform)/dashboard/operator/internal-messages", label: "Messaggi Interni", icon: MessageSquare },
+  { href: "/(platform)/dashboard/operator/reviews", label: "Recensioni", icon: BookOpen },
+  { href: "/(platform)/dashboard/operator/support", label: "Supporto", icon: LifeBuoy },
 ]
 
-export function OperatorNavClient() {
+export default function OperatorNavClient() {
   const pathname = usePathname()
 
   return (
-    <>
+    <nav className="flex flex-col space-y-2">
+      <div className="p-2 mb-4">
+        <OperatorStatusToggle />
+      </div>
       {navItems.map((item) => (
         <Link
-          key={item.label}
+          key={item.href}
           href={item.href}
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-300 transition-all hover:text-white hover:bg-brand-blue-900",
-            pathname === item.href && "bg-brand-blue-800 text-white",
+            "flex items-center space-x-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            pathname === item.href ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-gray-100",
           )}
         >
-          <item.icon className="h-4 w-4" />
-          {item.label}
+          <item.icon className="h-5 w-5" />
+          <span>{item.label}</span>
         </Link>
       ))}
-    </>
+    </nav>
   )
 }

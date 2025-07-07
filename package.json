@@ -40,6 +40,7 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@stripe/react-stripe-js": "latest",
     "@stripe/stripe-js": "latest",
+    "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "autoprefixer": "^10.4.20",
@@ -58,7 +59,6 @@
     "react-day-picker": "8.10.1",
     "react-dom": "^19",
     "react-hook-form": "^7.54.1",
-    "react-icons": "latest",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
     "socket.io-client": "latest",
@@ -67,7 +67,6 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "twilio": "latest",
-    "uuid": "latest",
     "vaul": "^0.9.6",
     "zod": "latest"
   },

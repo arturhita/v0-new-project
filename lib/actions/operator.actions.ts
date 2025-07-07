@@ -1,159 +1,174 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { v4 as uuidv4 } from "uuid"
-import type { Profile } from "@/types/database.types"
 
-// Funzioni pubbliche
-export async function getOperators(options?: { limit?: number; category?: string }): Promise<Profile[]> {
-  const supabase = createClient()
-  let query = supabase
-    .from("profiles")
-    .select(
-      `
-      id, stage_name, bio, is_available, is_online, profile_image_url, 
-      average_rating, review_count, main_discipline, specialties,
-      categories ( name, slug )
-      `,
-    )
-    .eq("role", "operator")
-    .eq("status", "Attivo")
+export async function getOperatorProfile() {
+  const supabase = createServerActionClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (options?.category) {
-    query = query.filter("categories.slug", "eq", options.category)
+  if (!user) {
+    return { error: { message: "User not authenticated" } }
   }
-  if (options?.limit) {
-    query = query.limit(options.limit)
-  }
-  query = query
-    .order("is_online", { ascending: false })
-    .order("average_rating", { ascending: false, nullsFirst: false })
 
-  const { data, error } = await query
-  if (error) throw new Error(`Error fetching operators: ${error.message}`)
-  return (data as Profile[]) || []
-}
-
-export async function getOperatorByStageName(stageName: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`*, categories ( name, slug ), stories ( id, media_url, media_type, expires_at )`)
-    .eq("stage_name", stageName)
-    .eq("role", "operator")
-    .gt("stories.expires_at", new Date().toISOString()) // Prende solo storie attive
-    .single()
+  const { data, error } = await supabase.from("operator_profiles_view").select("*").eq("id", user.id).single()
 
   if (error) {
-    console.error("Error fetching operator by stage name:", error)
-    return null
+    console.error("Error fetching operator profile:", error)
+    return { error }
   }
-  return data
+
+  return { data }
 }
 
-// Funzioni Dashboard Operatore
-export async function updateOperatorStatus(operatorId: string, isAvailable: boolean) {
-  const supabase = createClient()
-  const { error } = await supabase.from("profiles").update({ is_available: isAvailable }).eq("id", operatorId)
-  if (error) return { success: false, message: "Impossibile aggiornare lo stato." }
-  revalidatePath("/dashboard/operator")
-  return { success: true }
-}
+export async function updateOperatorProfile(formData: FormData) {
+  const supabase = createServerActionClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-export async function getOperatorPublicProfile(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("stage_name, bio, main_discipline, specialties, profile_image_url, service_prices")
-    .eq("id", operatorId)
-    .single()
-  if (error) return null
-  return data
-}
-
-export async function updateOperatorPublicProfile(operatorId: string, prevState: any, formData: FormData) {
-  const supabase = createClient()
-  const profileImage = formData.get("profile_image") as File
-  let profileImageUrl = formData.get("current_image_url") as string
-
-  if (profileImage && profileImage.size > 0) {
-    const fileExtension = profileImage.name.split(".").pop()
-    const fileName = `${operatorId}/${uuidv4()}.${fileExtension}`
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(fileName, profileImage, { upsert: true })
-    if (uploadError) return { success: false, message: "Errore durante il caricamento dell'immagine." }
-    const { data } = supabase.storage.from("avatars").getPublicUrl(fileName)
-    profileImageUrl = data.publicUrl
-  }
+  if (!user) return { error: { message: "Not authenticated" } }
 
   const profileData = {
-    stage_name: formData.get("stage_name") as string,
-    bio: formData.get("bio") as string,
-    main_discipline: formData.get("main_discipline") as string,
-    specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
-    service_prices: {
-      chat: Number(formData.get("price_chat") as string) || 0,
-      call: Number(formData.get("price_call") as string) || 0,
-      video: Number(formData.get("price_video") as string) || 0,
-    },
-    profile_image_url: profileImageUrl,
+    display_name: formData.get("display_name") as string,
+    description: formData.get("description") as string,
+    headline: formData.get("headline") as string,
+    chat_price_per_minute: Number.parseFloat(formData.get("chat_price_per_minute") as string),
+    call_price_per_minute: Number.parseFloat(formData.get("call_price_per_minute") as string),
+    video_price_per_minute: Number.parseFloat(formData.get("video_price_per_minute") as string),
   }
 
-  const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
-  if (error) return { success: false, message: `Errore: ${error.message}` }
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      display_name: profileData.display_name,
+      description: profileData.description,
+    })
+    .eq("id", user.id)
 
-  revalidatePath("/dashboard/operator/profile")
-  revalidatePath(`/operator/${profileData.stage_name}`)
-  return { success: true, message: "Profilo aggiornato!" }
+  const { error: servicesError } = await supabase
+    .from("operator_services")
+    .update({
+      headline: profileData.headline,
+      chat_price_per_minute: profileData.chat_price_per_minute,
+      call_price_per_minute: profileData.call_price_per_minute,
+      video_price_per_minute: profileData.video_price_per_minute,
+    })
+    .eq("operator_id", user.id)
+
+  if (profileError || servicesError) {
+    console.error("Error updating profile:", profileError || servicesError)
+    return { error: profileError || servicesError }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/profile")
+  return { success: true, message: "Profilo aggiornato con successo." }
 }
 
-export async function getOperatorTaxDetails(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("operator_tax_details").select("*").eq("operator_id", operatorId).single()
-  if (error && error.code !== "PGRST116") console.error("Error fetching tax details:", error)
-  return data
+export async function updateProfileImage(formData: FormData) {
+  const supabase = createServerActionClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: { message: "Not authenticated" } }
+
+  const file = formData.get("profile_image") as File
+  if (!file || file.size === 0) {
+    return { error: { message: "Nessun file selezionato." } }
+  }
+
+  const filePath = `${user.id}/${Date.now()}-${file.name}`
+
+  const { data: uploadData, error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file)
+
+  if (uploadError) {
+    console.error("Error uploading avatar:", uploadError)
+    return { error: uploadError }
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("avatars").getPublicUrl(filePath)
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ profile_image_url: publicUrl })
+    .eq("id", user.id)
+
+  if (updateError) {
+    console.error("Error updating profile with new avatar URL:", updateError)
+    return { error: updateError }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/profile")
+  return { success: true, message: "Immagine del profilo aggiornata.", publicUrl }
 }
 
-export async function saveOperatorTaxDetails(operatorId: string, formData: FormData) {
-  const supabase = createClient()
+export async function getOperatorInvoices() {
+  const supabase = createServerActionClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: { message: "Not authenticated" } }
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("operator_id", user.id)
+    .order("issue_date", { ascending: false })
+
+  if (error) return { error }
+  return { data }
+}
+
+export async function updateTaxDetails(formData: FormData) {
+  const supabase = createServerActionClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: { message: "Not authenticated" } }
+
   const taxData = {
-    operator_id: operatorId,
-    tax_id: formData.get("tax_id") as string,
-    vat_number: formData.get("vat_number") as string,
+    operator_id: user.id,
     company_name: formData.get("company_name") as string,
+    vat_number: formData.get("vat_number") as string,
+    tax_id: formData.get("tax_id") as string,
     address: formData.get("address") as string,
     city: formData.get("city") as string,
     zip_code: formData.get("zip_code") as string,
     country: formData.get("country") as string,
+    updated_at: new Date().toISOString(),
   }
-  const { error } = await supabase.from("operator_tax_details").upsert(taxData)
-  if (error) return { success: false, message: "Errore salvataggio dati fiscali." }
-  revalidatePath("/dashboard/operator/tax-info")
-  return { success: true, message: "Dati fiscali salvati." }
+
+  const { error } = await supabase.from("operator_tax_details").upsert(taxData, { onConflict: "operator_id" })
+
+  if (error) {
+    console.error("Error updating tax details:", error)
+    return { error }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/tax-info")
+  return { success: true, message: "Dati fiscali aggiornati con successo." }
 }
 
-export async function getOperatorInvoices(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("*")
-    .eq("operator_id", operatorId)
-    .order("issue_date", { ascending: false })
-  if (error) return []
-  // Mock data if empty for display
-  if (!data || data.length === 0) {
-    return [
-      {
-        id: "123",
-        invoice_number: "INV-2024-001",
-        issue_date: new Date().toISOString(),
-        amount: 150.0,
-        status: "paid",
-        pdf_url: "#",
-      },
-    ]
+export async function getTaxDetails() {
+  const supabase = createServerActionClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: { message: "Not authenticated" } }
+
+  const { data, error } = await supabase.from("operator_tax_details").select("*").eq("operator_id", user.id).single()
+
+  // Non trattare "not found" come un errore, è normale per un nuovo utente
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching tax details:", error)
+    return { error }
   }
-  return data.map((i) => ({ ...i, date: i.issue_date, amount: i.amount ?? 0 }))
+
+  return { data: data || {} }
 }

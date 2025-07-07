@@ -4,186 +4,159 @@ import type React from "react"
 
 import { useFormState } from "react-dom"
 import { useEffect, useRef, useState } from "react"
-import Image from "next/image"
-import { updateOperatorPublicProfile } from "@/lib/actions/operator.actions"
-import { useToast } from "@/hooks/use-toast"
-import { Label } from "@/components/ui/label"
+import { updateOperatorProfile, updateProfileImage } from "@/lib/actions/operator.actions"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { SubmitButton } from "@/components/submit-button"
-import { User } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import Image from "next/image"
+import { SubmitButton } from "./submit-button"
 
-type ProfileData = {
-  stage_name: string | null
-  bio: string | null
-  main_discipline: string | null
-  specialties: string[] | null
+type Profile = {
+  id: string
+  display_name: string
+  description: string
   profile_image_url: string | null
-  service_prices: any
+  headline: string
+  chat_price_per_minute: number
+  call_price_per_minute: number
+  video_price_per_minute: number
 }
 
-interface OperatorProfileFormProps {
-  profileData: ProfileData
-  operatorId: string
-}
-
-const initialState = { message: "", success: false }
-
-export function OperatorProfileForm({ profileData, operatorId }: OperatorProfileFormProps) {
+export default function OperatorProfileForm({ profile }: { profile: Profile }) {
   const { toast } = useToast()
-  const updateProfileWithId = updateOperatorPublicProfile.bind(null, operatorId)
-  const [state, formAction] = useFormState(updateProfileWithId, initialState)
-  const formRef = useRef<HTMLFormElement>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(profileData.profile_image_url)
+  const [formState, formAction] = useFormState(updateOperatorProfile, undefined)
+  const [imageFormState, imageFormAction] = useFormState(updateProfileImage, undefined)
+  const [preview, setPreview] = useState<string | null>(profile.profile_image_url)
+  const imageFormRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
-    if (state.message) {
-      toast({
-        title: state.success ? "Successo" : "Errore",
-        description: state.message,
-        variant: state.success ? "default" : "destructive",
-      })
-      if (state.success) {
-        formRef.current?.reset()
-      }
+    if (formState?.success) {
+      toast({ title: "Successo", description: formState.message })
+    } else if (formState?.error) {
+      toast({ title: "Errore", description: formState.error.message, variant: "destructive" })
     }
-  }, [state, toast])
+  }, [formState, toast])
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  useEffect(() => {
+    if (imageFormState?.success) {
+      toast({ title: "Successo", description: imageFormState.message })
+      if (imageFormState.publicUrl) {
+        setPreview(imageFormState.publicUrl)
+      }
+    } else if (imageFormState?.error) {
+      toast({ title: "Errore", description: imageFormState.error.message, variant: "destructive" })
+    }
+  }, [imageFormState, toast])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (file) {
-      setPreviewUrl(URL.createObjectURL(file))
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreview(reader.result as string)
+        // Submit the form automatically on file selection
+        setTimeout(() => imageFormRef.current?.requestSubmit(), 0)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-8">
-      <div className="space-y-4 p-4 rounded-lg border border-gray-700">
-        <Label htmlFor="profile_image" className="text-gray-300">
-          Immagine del Profilo
-        </Label>
-        <div className="flex items-center gap-4">
-          {previewUrl ? (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Immagine del Profilo</h2>
+        <form ref={imageFormRef} action={imageFormAction} className="flex items-center gap-6">
+          <div className="relative w-24 h-24">
             <Image
-              src={previewUrl || "/placeholder.svg"}
+              src={preview || "/images/placeholder.svg?width=96&height=96&query=avatar"}
               alt="Avatar"
-              width={80}
-              height={80}
+              width={96}
+              height={96}
               className="rounded-full object-cover"
             />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center">
-              <User className="w-10 h-10 text-gray-400" />
+          </div>
+          <div>
+            <Label
+              htmlFor="profile_image"
+              className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md"
+            >
+              Cambia Immagine
+            </Label>
+            <Input
+              id="profile_image"
+              name="profile_image"
+              type="file"
+              className="hidden"
+              onChange={handleFileChange}
+              accept="image/*"
+            />
+          </div>
+        </form>
+      </div>
+
+      <form action={formAction} className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Informazioni Pubbliche</h2>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="display_name">Nome Pubblico</Label>
+              <Input id="display_name" name="display_name" defaultValue={profile.display_name} required />
             </div>
-          )}
-          <Input
-            id="profile_image"
-            name="profile_image"
-            type="file"
-            accept="image/*"
-            className="bg-gray-900 border-gray-600 file:text-gray-300 file:bg-gray-700 file:border-0 file:rounded-md file:px-3 file:py-1.5"
-            onChange={handleFileChange}
-          />
-          <input type="hidden" name="current_image_url" value={profileData.profile_image_url || ""} />
+            <div>
+              <Label htmlFor="headline">Titolo (es. Cartomante Esperta)</Label>
+              <Input id="headline" name="headline" defaultValue={profile.headline} required />
+            </div>
+            <div>
+              <Label htmlFor="description">Descrizione del Profilo</Label>
+              <Textarea id="description" name="description" defaultValue={profile.description} rows={5} required />
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="stage_name" className="text-gray-300">
-            Nome d'Arte
-          </Label>
-          <Input
-            id="stage_name"
-            name="stage_name"
-            defaultValue={profileData.stage_name || ""}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Tariffe dei Servizi (€/min)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="chat_price_per_minute">Chat</Label>
+              <Input
+                id="chat_price_per_minute"
+                name="chat_price_per_minute"
+                type="number"
+                step="0.01"
+                defaultValue={profile.chat_price_per_minute}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="call_price_per_minute">Chiamata</Label>
+              <Input
+                id="call_price_per_minute"
+                name="call_price_per_minute"
+                type="number"
+                step="0.01"
+                defaultValue={profile.call_price_per_minute}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="video_price_per_minute">Video</Label>
+              <Input
+                id="video_price_per_minute"
+                name="video_price_per_minute"
+                type="number"
+                step="0.01"
+                defaultValue={profile.video_price_per_minute}
+                required
+              />
+            </div>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="main_discipline" className="text-gray-300">
-            Disciplina Principale
-          </Label>
-          <Input
-            id="main_discipline"
-            name="main_discipline"
-            defaultValue={profileData.main_discipline || ""}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="bio" className="text-gray-300">
-          Biografia
-        </Label>
-        <Textarea
-          id="bio"
-          name="bio"
-          defaultValue={profileData.bio || ""}
-          rows={5}
-          className="bg-gray-900 border-gray-600 text-white"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="specialties" className="text-gray-300">
-          Specialità (separate da virgola)
-        </Label>
-        <Input
-          id="specialties"
-          name="specialties"
-          defaultValue={profileData.specialties?.join(", ") || ""}
-          className="bg-gray-900 border-gray-600 text-white"
-        />
-      </div>
-
-      <h3 className="text-lg font-semibold pt-4 border-t border-gray-700 text-white">Tariffe al Minuto (€)</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="price_chat" className="text-gray-300">
-            Chat
-          </Label>
-          <Input
-            id="price_chat"
-            name="price_chat"
-            type="number"
-            step="0.01"
-            defaultValue={profileData.service_prices?.chat || 0}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
+        <div className="flex justify-end">
+          <SubmitButton>Salva Modifiche</SubmitButton>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="price_call" className="text-gray-300">
-            Chiamata
-          </Label>
-          <Input
-            id="price_call"
-            name="price_call"
-            type="number"
-            step="0.01"
-            defaultValue={profileData.service_prices?.call || 0}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="price_video" className="text-gray-300">
-            Video
-          </Label>
-          <Input
-            id="price_video"
-            name="price_video"
-            type="number"
-            step="0.01"
-            defaultValue={profileData.service_prices?.video || 0}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end pt-4">
-        <SubmitButton buttonText="Salva Modifiche" />
-      </div>
-    </form>
+      </form>
+    </div>
   )
 }
