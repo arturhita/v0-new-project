@@ -6,7 +6,7 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
-import { Search, ArrowRight, Sparkles } from "lucide-react"
+import { Search, ArrowRight, Sparkles, Star } from "lucide-react"
 
 // Dati di prova per le recensioni, verranno sostituiti in seguito
 const allMockReviews: ReviewCardType[] = [
@@ -50,7 +50,6 @@ export default async function UnveillyHomePage() {
     .slice(0, 3)
 
   return (
-    // CORREZIONE: Rimosso il layout duplicato (flex, min-h-screen) e il tag <main>
     <div className="bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
         @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
@@ -203,26 +202,6 @@ export default async function UnveillyHomePage() {
         </div>
       </section>
 
-      {/* Reviews Section */}
-      <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
-        <ConstellationBackground goldVisible={true} />
-        <div className="container px-4 md:px-6 relative z-10">
-          <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
-            <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
-              Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {allMockReviews.map((review, index) => (
-              <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                <ReviewCard review={review} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Why Trust Us Section */}
       <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
         <ConstellationBackground goldVisible={false} />
@@ -296,68 +275,108 @@ export default async function UnveillyHomePage() {
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* New Talents Section */}
-        {newTalents.length > 0 && (
-          <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
-            <ConstellationBackground goldVisible={true} />
-            <div className="container px-4 md:px-6 relative z-10">
-              <div className="text-center mb-12 md:mb-16">
-                <h2 className="text-3xl font-bold md:text-4xl text-white">Nuovi talenti Moonthir</h2>
-                <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
-                  Scopri i maestri spirituali che si sono uniti di recente alla nostra comunità mistica.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                {newTalents.map((operator, index) => (
-                  <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                    <OperatorCard operator={operator} showNewBadge={true} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+      {/* Quote Section */}
+      <section className="py-20 md:py-28 relative bg-slate-900">
+        <ConstellationBackground goldVisible={false} />
+        <div className="container px-4 md:px-6 relative z-10 text-center max-w-4xl mx-auto">
+          <div className="text-5xl text-yellow-400 mb-6 animate-glow">
+            <Star className="inline-block h-12 w-12" />
+          </div>
+          <blockquote className="font-playfair text-3xl md:text-4xl italic text-white leading-relaxed md:leading-loose animate-fadeInUp">
+            "Le stelle possono guidarti, ma sei tu a dover percorrere il sentiero. Noi ti offriamo la mappa."
+          </blockquote>
+          <cite
+            className="block font-playfair text-xl text-slate-400 mt-6 animate-fadeInUp"
+            style={{ animationDelay: "200ms" }}
+          >
+            — L'Oracolo di Moonthir
+          </cite>
+        </div>
+      </section>
 
-        {/* Ready to Reveal Section */}
-        <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+      {/* New Talents Section */}
+      {newTalents.length > 0 && (
+        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
           <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
-            <div className="text-center max-w-3xl mx-auto">
-              <div className="mb-8 animate-float">
-                <div className="text-6xl md:text-8xl">🌙</div>
-              </div>
-              <h2 className="text-4xl font-bold md:text-5xl text-white mb-6">
-                Pronto a Svelare i Misteri del Tuo Destino?
-              </h2>
-              <p className="text-xl text-slate-300 mb-12">
-                L'universo ha preparato per te un cammino unico. I nostri maestri sono qui per illuminare ogni passo del
-                tuo viaggio.
+            <div className="text-center mb-12 md:mb-16">
+              <h2 className="text-3xl font-bold md:text-4xl text-white">Nuovi talenti Moonthir</h2>
+              <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+                Scopri i maestri spirituali che si sono uniti di recente alla nostra comunità mistica.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  asChild
-                  size="lg"
-                  className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
-                >
-                  <Link href="/esperti/cartomanzia">
-                    Inizia la Tua Prima Lettura
-                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="text-white border-2 border-yellow-400/60 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:border-yellow-400 text-lg px-8 py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
-                >
-                  <Link href="/esperti/cartomanzia">Esplora i Nostri Esperti</Link>
-                </Button>
-              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {newTalents.map((operator, index) => (
+                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                  <OperatorCard operator={operator} showNewBadge={true} />
+                </div>
+              ))}
             </div>
           </div>
         </section>
-      </div>
-  )\
+      )}
+
+      {/* Reviews Section */}
+      <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
+        <ConstellationBackground goldVisible={true} />
+        <div className="container px-4 md:px-6 relative z-10">
+          <div className="text-center mb-12 md:mb-16">
+            <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
+            <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+              Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {allMockReviews.map((review, index) => (
+              <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                <ReviewCard review={review} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Ready to Reveal Section */}
+      <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+        <ConstellationBackground goldVisible={true} />
+        <div className="container px-4 md:px-6 relative z-10">
+          <div className="text-center max-w-3xl mx-auto">
+            <div className="mb-8 animate-float">
+              <div className="text-6xl md:text-8xl">🌙</div>
+            </div>
+            <h2 className="text-4xl font-bold md:text-5xl text-white mb-6">
+              Pronto a Svelare i Misteri del Tuo Destino?
+            </h2>
+            <p className="text-xl text-slate-300 mb-12">
+              L'universo ha preparato per te un cammino unico. I nostri maestri sono qui per illuminare ogni passo del
+              tuo viaggio.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                asChild
+                size="lg"
+                className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
+              >
+                <Link href="/esperti/cartomanzia">
+                  Inizia la Tua Prima Lettura
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="text-white border-2 border-yellow-400/60 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:border-yellow-400 text-lg px-8 py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
+              >
+                <Link href="/esperti/cartomanzia">Esplora i Nostri Esperti</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
 }
