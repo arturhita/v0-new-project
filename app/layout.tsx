@@ -27,7 +27,7 @@ export default function RootLayout({
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <SiteNavbar />
-            <main className="flex-grow pt-16">{children}</main>
+            <main className="flex-grow">{/* CORREZIONE: Rimosso pt-16 */}</main>
             <SiteFooter />
           </div>
           <CookieBanner />
