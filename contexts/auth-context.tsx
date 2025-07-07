@@ -2,12 +2,13 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
 
-// Combine Supabase user with our custom profile data
-interface UserProfile extends SupabaseUser {
+// Definiamo un'interfaccia per il nostro utente, che combina i dati di Supabase Auth
+// con quelli della nostra tabella 'profiles'.
+export interface UserProfile extends SupabaseUser {
   name: string
   role: "client" | "operator" | "admin"
   avatar_url: string | null
@@ -30,17 +31,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setLoading(true)
       if (session?.user) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
         if (profile) {
-          const currentUser = { ...session.user, ...profile }
+          const currentUser: UserProfile = { ...session.user, ...profile }
           setUser(currentUser)
+          // Reindirizza solo al momento del login
           if (_event === "SIGNED_IN") {
             switch (currentUser.role) {
               case "admin":
@@ -49,14 +53,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               case "operator":
                 router.push("/dashboard/operator")
                 break
-              case "client":
+              default:
                 router.push("/dashboard/client")
                 break
-              default:
-                router.push("/")
             }
           }
         } else {
+          // Se l'utente esiste in Auth ma non ha un profilo, lo slogghiamo per sicurezza
+          // Potrebbe succedere se il profilo viene cancellato manualmente dal DB
+          await supabase.auth.signOut()
           setUser(null)
           console.error("Profile not found for user:", session.user.id)
         }
@@ -66,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
+    // Funzione per caricare la sessione iniziale al caricamento della pagina
     const getInitialSession = async () => {
       const {
         data: { session },
@@ -78,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false)
     }
+
     getInitialSession()
 
     return () => {
@@ -90,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword(data)
     setLoading(false)
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: "Credenziali non valide. Riprova." }
     }
     return { success: true }
   }
@@ -107,20 +114,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
       options: {
         data: {
-          name,
-          role: role || "client", // Default to client if role is not provided
+          name: name,
+          role: role || "client",
         },
       },
     })
     setLoading(false)
     if (error) {
-      return { success: false, error: error.message }
+      if (error.message.includes("User already registered")) {
+        return { success: false, error: "Un utente con questa email è già registrato." }
+      }
+      return { success: false, error: "Errore durante la registrazione. Riprova." }
     }
+    // Reindirizzamento alla pagina di login dopo la registrazione
+    router.push("/login?registration=success")
     return { success: true }
   }
 
   const logout = async () => {
     await supabase.auth.signOut()
+    setUser(null)
     router.push("/")
   }
 
@@ -140,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth deve essere usato all'interno di AuthProvider")
+    throw new Error("useAuth deve essere usato all'interno di un AuthProvider")
   }
   return context
 }
