@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser, Session, AuthChangeEvent } from "@supabase/supabase-js"
@@ -21,8 +21,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
+// Definiamo i props che il nostro provider accetterà
+type AuthProviderProps = {
+  children: React.ReactNode
+  supabaseUrl: string
+  supabaseAnonKey: string
+}
+
+export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthProviderProps) {
+  // Creiamo il client Supabase in modo sicuro usando useState per garantirne una sola istanza
+  const [supabase] = useState(() => createClient(supabaseUrl, supabaseAnonKey))
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -87,7 +95,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    // Check initial session
     const getInitialSession = async () => {
       const {
         data: { session },
@@ -112,7 +119,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }> => {
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword(credentials)
-    // onAuthStateChange will handle setting user and redirecting
     setLoading(false)
     if (error) {
       console.error("Login error:", error)
