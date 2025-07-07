@@ -1,8 +1,12 @@
 import type React from "react"
-import { NavClient } from "./nav-client"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
+import { OperatorNavClient } from "./nav-client"
+import { Toaster } from "sonner"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { User } from "lucide-react"
+import Link from "next/link"
+import Image from "next/image"
 
 export default async function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
@@ -11,26 +15,46 @@ export default async function OperatorDashboardLayout({ children }: { children: 
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login")
+    return redirect("/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role, is_available").eq("id", user.id).single()
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("role, full_name, profile_image_url")
+    .eq("id", user.id)
+    .single()
 
-  if (!profile || profile.role !== "operator") {
-    redirect("/")
+  if (error || !profile || profile.role !== "operator") {
+    return redirect("/")
   }
 
   return (
-    <OperatorStatusProvider initialAvailability={profile.is_available ?? false}>
-      <div className="flex min-h-screen w-full bg-gray-50">
-        <aside className="w-64 flex-shrink-0 border-r border-gray-200 bg-white">
-          <div className="flex h-16 items-center justify-center border-b border-gray-200">
-            <h1 className="text-xl font-bold text-gray-800">Dashboard Operatore</h1>
+    <div className="flex min-h-screen w-full bg-gray-100 dark:bg-gray-950">
+      <aside className="sticky top-0 h-screen w-72 flex-col border-r bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hidden md:flex">
+        <div className="mb-6 flex items-center gap-3 px-2">
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Image src="/images/moonthir-logo.png" width={32} height={32} alt="Moonthir Logo" />
+            <span className="text-lg text-gray-800 dark:text-white">Moonthir</span>
+          </Link>
+        </div>
+        <div className="mb-6 flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+          <Avatar className="h-11 w-11 border-2 border-primary">
+            <AvatarImage src={profile.profile_image_url || undefined} alt={profile.full_name || "Operatore"} />
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              {profile.full_name?.charAt(0).toUpperCase() || <User />}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-white">{profile.full_name}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Operatore</p>
           </div>
-          <NavClient operatorId={user.id} />
-        </aside>
-        <main className="flex-1 p-6">{children}</main>
-      </div>
-    </OperatorStatusProvider>
+        </div>
+        <OperatorNavClient operatorId={user.id} />
+      </aside>
+      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+        <div className="mx-auto max-w-7xl">{children}</div>
+        <Toaster richColors />
+      </main>
+    </div>
   )
 }

@@ -15,18 +15,8 @@ export async function getOperators(options?: { limit?: number; category?: string
     .from("profiles")
     .select(
       `
-     id, 
-     full_name, 
-     stage_name, 
-     bio, 
-     is_available, 
-     is_online, 
-     profile_image_url, 
-     service_prices, 
-     average_rating, 
-     review_count, 
-     main_discipline,
-     specialties,
+     id, full_name, stage_name, bio, is_available, is_online, profile_image_url, 
+     service_prices, average_rating, review_count, main_discipline, specialties,
      categories ( name, slug )
      `,
     )
@@ -61,7 +51,6 @@ export async function getOperatorByStageName(stageName: string) {
     .single()
 
   if (error && error.code !== "PGRST116") {
-    // Ignore no rows found for stories
     console.error("Error fetching operator by stage name:", error)
     return null
   }
@@ -71,6 +60,25 @@ export async function getOperatorByStageName(stageName: string) {
 // ============================================================================
 // FUNZIONI PER DASHBOARD OPERATORE
 // ============================================================================
+
+export async function getOperatorDashboardData(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operator_dashboard_data", { operator_id_param: operatorId }).single()
+
+  if (error) {
+    console.error("Error fetching operator dashboard data:", error)
+    return { success: false, message: "Impossibile caricare i dati della dashboard." }
+  }
+
+  return {
+    success: true,
+    data: {
+      monthlyEarnings: data.monthly_earnings,
+      consultationsCount: data.consultations_count,
+      unreadMessagesCount: data.unread_messages_count,
+    },
+  }
+}
 
 export async function updateOperatorStatus(operatorId: string, isAvailable: boolean) {
   const supabase = createClient()
@@ -100,23 +108,16 @@ export async function getOperatorPublicProfile(operatorId: string) {
 
 export async function updateOperatorPublicProfile(operatorId: string, prevState: any, formData: FormData) {
   const supabase = createClient()
-
   const profileImage = formData.get("profile_image") as File
   let profileImageUrl = formData.get("current_image_url") as string
 
   if (profileImage && profileImage.size > 0) {
     const fileExtension = profileImage.name.split(".").pop()
     const fileName = `${operatorId}/${uuidv4()}.${fileExtension}`
-
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, profileImage, {
-      upsert: true,
-    })
-
-    if (uploadError) {
-      console.error("Error uploading avatar:", uploadError)
-      return { success: false, message: "Errore durante il caricamento dell'immagine." }
-    }
-
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(fileName, profileImage, { upsert: true })
+    if (uploadError) return { success: false, message: "Errore durante il caricamento dell'immagine." }
     const { data } = supabase.storage.from("avatars").getPublicUrl(fileName)
     profileImageUrl = data.publicUrl
   }
@@ -135,23 +136,17 @@ export async function updateOperatorPublicProfile(operatorId: string, prevState:
   }
 
   const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
-
-  if (error) {
-    return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
-  }
+  if (error) return { success: false, message: `Errore: ${error.message}` }
 
   revalidatePath("/(platform)/dashboard/operator/profile")
   revalidatePath(`/operator/${profileData.stage_name}`)
-  return { success: true, message: "Profilo aggiornato con successo!" }
+  return { success: true, message: "Profilo aggiornato!" }
 }
 
 export async function getOperatorTaxDetails(operatorId: string) {
   const supabase = createClient()
   const { data, error } = await supabase.from("operator_tax_details").select("*").eq("operator_id", operatorId).single()
-
-  if (error && error.code !== "PGRST116") {
-    console.error("Error fetching tax details:", error)
-  }
+  if (error && error.code !== "PGRST116") console.error("Error fetching tax details:", error)
   return data
 }
 
@@ -167,16 +162,10 @@ export async function saveOperatorTaxDetails(operatorId: string, prevState: any,
     zip_code: formData.get("zip_code") as string,
     country: formData.get("country") as string,
   }
-
   const { error } = await supabase.from("operator_tax_details").upsert(taxData, { onConflict: "operator_id" })
-
-  if (error) {
-    console.error("Error saving tax details:", error)
-    return { success: false, message: "Errore durante il salvataggio dei dati fiscali." }
-  }
-
+  if (error) return { success: false, message: "Errore salvataggio dati fiscali." }
   revalidatePath("/(platform)/dashboard/operator/tax-info")
-  return { success: true, message: "Dati fiscali salvati con successo." }
+  return { success: true, message: "Dati fiscali salvati." }
 }
 
 export async function getOperatorInvoices(operatorId: string) {
@@ -186,10 +175,6 @@ export async function getOperatorInvoices(operatorId: string) {
     .select("*")
     .eq("operator_id", operatorId)
     .order("issue_date", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching invoices:", error)
-    return []
-  }
+  if (error) return []
   return data
 }

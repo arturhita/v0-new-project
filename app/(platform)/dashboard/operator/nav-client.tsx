@@ -2,44 +2,67 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { User, BarChart, FileText, Settings, Percent, BookUser, Camera } from "lucide-react"
+import {
+  LayoutDashboard,
+  User,
+  Calendar,
+  BarChart2,
+  LifeBuoy,
+  Euro,
+  CreditCard,
+  FileText,
+  PercentSquare,
+  Sparkles,
+  Shield,
+  MessageSquare,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { OperatorStatusToggle } from "@/components/operator-status-toggle"
 
 const navItems = [
-  { href: "/(platform)/dashboard/operator/profile", label: "Profilo Pubblico", icon: User },
-  { href: "/(platform)/dashboard/operator/stories", label: "Storie", icon: Camera },
-  { href: "/(platform)/dashboard/operator/earnings", label: "Guadagni", icon: BarChart },
-  { href: "/(platform)/dashboard/operator/invoices", label: "Fatture", icon: FileText },
-  { href: "/(platform)/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: Settings },
-  { href: "/(platform)/dashboard/operator/commission-request", label: "Richiesta Commissione", icon: Percent },
-  { href: "/(platform)/dashboard/operator/tax-info", label: "Dati Fiscali", icon: BookUser },
+  { href: "/dashboard/operator", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/operator/profile", label: "Profilo Pubblico", icon: User },
+  { href: "/dashboard/operator/stories", label: "Gestisci Storie", icon: Sparkles },
+  { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
+  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Euro },
+  { href: "/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: CreditCard },
+  { href: "/dashboard/operator/commission-request", label: "Richiesta Commissione", icon: PercentSquare },
+  { href: "/dashboard/operator/consultations-history", label: "Storico Consulti", icon: FileText },
+  { href: "/dashboard/operator/internal-messages", label: "Messaggi", icon: MessageSquare },
+  { href: "/dashboard/operator/invoices", label: "Fatture", icon: FileText },
+  { href: "/dashboard/operator/tax-info", label: "Dati Fiscali", icon: Shield },
+  { href: "/dashboard/operator/reviews", label: "Recensioni", icon: BarChart2 },
+  { href: "/dashboard/operator/support", label: "Supporto", icon: LifeBuoy },
 ]
 
-export function NavClient({ operatorId }: { operatorId: string }) {
+export function OperatorNavClient({ operatorId }: { operatorId: string }) {
   const pathname = usePathname()
 
   return (
-    <nav className="flex flex-col p-4">
-      <div className="mb-4">
+    <div className="flex h-full flex-col">
+      <div className="px-2 pb-4 border-b dark:border-gray-800">
         <OperatorStatusToggle operatorId={operatorId} />
       </div>
-      <ul className="space-y-2">
-        {navItems.map((item) => (
-          <li key={item.href}>
+      <nav className="flex-1 space-y-1 px-2 py-4">
+        {navItems.map((item) => {
+          const fullPath = `/platform${item.href}`
+          const isActive =
+            pathname === fullPath || (pathname.startsWith(fullPath) && fullPath !== "/platform/dashboard/operator")
+          return (
             <Link
-              href={item.href}
+              key={item.label}
+              href={`/platform${item.href}`}
               className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900",
-                pathname === item.href && "bg-indigo-50 text-indigo-600",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-600 transition-all hover:text-primary dark:text-gray-400 dark:hover:text-white",
+                isActive && "bg-gray-100 text-primary dark:bg-gray-800 dark:text-white",
               )}
             >
-              <item.icon className="mr-3 h-5 w-5" />
-              <span>{item.label}</span>
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+          )
+        })}
+      </nav>
+    </div>
   )
 }
