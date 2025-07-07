@@ -58,7 +58,7 @@ export type Database = {
           email?: string | null
           id: string
           name?: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["operator_status"] | null
           updated_at?: string
         }
@@ -89,7 +89,27 @@ export type Database = {
     Functions: {
       handle_new_user: {
         Args: Record<PropertyKey, never>
-        Returns: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          aud: string
+          role: string
+          email: string
+          phone: string
+          created_at: string
+          updated_at: string
+          last_sign_in_at: string
+          app_metadata: Json
+          user_metadata: Json
+          identities: Json
+          email_confirmed_at: string
+          phone_confirmed_at: string
+          confirmation_sent_at: string
+          recovery_sent_at: string
+          email_change_sent_at: string
+          new_email: string
+          new_phone: string
+          is_sso_user: boolean
+        }
       }
     }
     Enums: {
@@ -122,6 +142,44 @@ export type Tables<
         Row: infer R
       }
       ? R
+      : never
+    : never
+
+export type TablesInsert<
+  PublicTableNameOrOptions extends keyof Database["public"]["Tables"] | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  PublicTableNameOrOptions extends keyof Database["public"]["Tables"] | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
       : never
     : never
 

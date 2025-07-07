@@ -43,10 +43,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (profile) {
+        // Supabase v2 with foreign table returns an array, even for one-to-one.
+        const operatorDetails = Array.isArray(profile.operator_details)
+          ? (profile.operator_details[0] ?? null)
+          : profile.operator_details
+
         return {
           ...sessionUser,
           ...profile,
-          operator_details: Array.isArray(profile.operator_details) ? profile.operator_details[0] : null,
+          operator_details: operatorDetails,
         }
       }
       return null
@@ -55,9 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setLoading(true)
       if (session?.user) {
         const fullUser = await fetchUser(session.user)
-        setUser(fullUser)
+        setUser(fullUser as UserProfile)
         if (_event === "SIGNED_IN" && fullUser) {
           switch (fullUser.role) {
             case "admin":
@@ -78,12 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Controlla la sessione iniziale
     const getInitialSession = async () => {
+      setLoading(true)
       const {
         data: { session },
       } = await supabase.auth.getSession()
       if (session?.user) {
         const fullUser = await fetchUser(session.user)
-        setUser(fullUser)
+        setUser(fullUser as UserProfile)
       }
       setLoading(false)
     }
@@ -129,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut()
+    setUser(null)
     router.push("/")
   }
 

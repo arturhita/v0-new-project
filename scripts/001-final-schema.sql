@@ -4,13 +4,17 @@ DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 -- STEP 1: Definizione dei Tipi Personalizzati (ENUMs)
 -- L'uso di ENUM garantisce che i ruoli e gli stati possano avere solo i valori specificati,
--- migliorando l'integrità dei dati.
+-- migliorando l'integrità dei dati. Questa versione è più robusta e aggiunge i valori mancanti se il tipo esiste già.
 
 -- Tipo per i ruoli utente
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
         CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
+    ELSE
+        ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'client';
+        ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'operator';
+        ALTER TYPE public.user_role ADD VALUE IF NOT EXISTS 'admin';
     END IF;
 END$$;
 
@@ -19,6 +23,11 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'operator_status') THEN
         CREATE TYPE public.operator_status AS ENUM ('active', 'inactive', 'pending_approval', 'suspended');
+    ELSE
+        ALTER TYPE public.operator_status ADD VALUE IF NOT EXISTS 'active';
+        ALTER TYPE public.operator_status ADD VALUE IF NOT EXISTS 'inactive';
+        ALTER TYPE public.operator_status ADD VALUE IF NOT EXISTS 'pending_approval';
+        ALTER TYPE public.operator_status ADD VALUE IF NOT EXISTS 'suspended';
     END IF;
 END$$;
 
@@ -94,7 +103,7 @@ $$;
 -- STEP 5: Creazione del Trigger
 -- Collega la funzione `handle_new_user` alla tabella `auth.users`.
 -- Si attiva DOPO ogni inserimento di un nuovo utente.
-CREATE TRIGGER on_auth_user_created
+CREATE OR REPLACE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
