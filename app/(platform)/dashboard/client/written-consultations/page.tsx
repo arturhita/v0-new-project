@@ -6,14 +6,17 @@ import { getWrittenConsultationsForClient, type WrittenConsultation } from "@/li
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, MessageSquare, CheckCircle2, Clock } from "lucide-react"
+import { Loader2, MessageSquare, CheckCircle2, Clock, AlertTriangle } from "lucide-react"
 
 export default function ClientWrittenConsultationsPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [consultations, setConsultations] = useState<WrittenConsultation[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    if (authLoading) {
+      return // Aspetta che l'autenticazione sia completata
+    }
     if (user) {
       setIsLoading(true)
       getWrittenConsultationsForClient(user.id)
@@ -23,14 +26,33 @@ export default function ClientWrittenConsultationsPage() {
         .finally(() => {
           setIsLoading(false)
         })
+    } else {
+      // Utente non loggato dopo il caricamento dell'auth
+      setIsLoading(false)
     }
-  }, [user])
+  }, [user, authLoading])
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
       </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="text-yellow-500" />
+            Accesso Richiesto
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Devi effettuare l'accesso per visualizzare le tue consulenze scritte.</p>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -68,14 +90,14 @@ export default function ClientWrittenConsultationsPage() {
                     </Badge>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="space-y-4">
+                <AccordionContent className="space-y-4 p-4 bg-gray-50 rounded-b-md">
                   <div>
-                    <h4 className="font-semibold mb-2">La tua domanda:</h4>
-                    <p className="text-gray-700 bg-gray-50 p-4 rounded-md border">{item.question}</p>
+                    <h4 className="font-semibold mb-2 text-gray-800">La tua domanda:</h4>
+                    <p className="text-gray-700 bg-white p-4 rounded-md border">{item.question}</p>
                   </div>
                   {item.answer ? (
                     <div>
-                      <h4 className="font-semibold mb-2">Risposta di {item.operatorName}:</h4>
+                      <h4 className="font-semibold mb-2 text-gray-800">Risposta di {item.operatorName}:</h4>
                       <p className="text-gray-800 bg-sky-50 p-4 rounded-md border border-sky-200 whitespace-pre-wrap">
                         {item.answer}
                       </p>
