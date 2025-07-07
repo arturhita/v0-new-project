@@ -1,53 +1,91 @@
--- 🌑 MOONTHIR - SEED DATA V1.0 🌑
--- Questo script popola il database con dati di esempio.
--- ESEGUIRE DOPO 001-master-schema.sql
--- ATTENZIONE: Prima di eseguire, crea 2 utenti "operatori" nella dashboard di Supabase
--- e incolla i loro UUID qui sotto.
+-- 🌑 MOONTHIR - SCRIPT DI POPOLAMENTO (SEED) V1.0 🌑
+-- Eseguire questo script DOPO 001-master-schema.sql per inserire dati di esempio.
 
--- Inserimento di due operatori di esempio
--- Sostituisci gli UUID con quelli reali dei tuoi utenti di test
-UPDATE public.profiles
-SET
-    role = 'operator',
-    full_name = 'Elara',
-    headline = 'Guida Stellare per Anima e Cuore',
-    bio = 'Con decenni di esperienza nella lettura dei tarocchi e nell''astrologia, offro una guida chiara e compassionevole. Insieme, possiamo svelare i messaggi che le stelle hanno in serbo per te e trovare il percorso verso la serenità.',
-    specializations = '{"tarocchi", "astrologia", "amore"}',
-    application_status = 'approved',
-    is_visible = true,
-    commission_rate = 25.00,
-    avatar_url = '/placeholder.svg?height=100&width=100'
-WHERE id = 'INCOLLA-QUI-UUID-OPERATORE-1'; -- <--- INCOLLA QUI
+-- ===================================================================================
+-- !! ATTENZIONE !!
+-- 1. Crea 2 utenti di test in Supabase Studio -> Authentication -> Users.
+-- 2. Copia i loro UUID.
+-- 3. Incolla gli UUID qui sotto al posto dei placeholder.
+-- ===================================================================================
 
-UPDATE public.profiles
-SET
-    role = 'operator',
-    full_name = 'Orion',
-    headline = 'Interprete dei Sogni e dei Numeri',
-    bio = 'La numerologia e l''interpretazione dei sogni sono le mie passioni. Ti aiuto a decodificare i simboli e i numeri che influenzano la tua vita, portando alla luce intuizioni profonde per il tuo futuro lavorativo e personale.',
-    specializations = '{"numerologia", "sogni", "lavoro"}',
-    application_status = 'approved',
-    is_visible = true,
-    commission_rate = 20.00,
-    avatar_url = '/placeholder.svg?height=100&width=100'
-WHERE id = 'INCOLLA-QUI-UUID-OPERATORE-2'; -- <--- INCOLLA QUI
+DO $$
+DECLARE
+    -- === INCOLLA QUI I TUOI UUID ===
+    operator_1_uuid UUID := 'INCOLLA-QUI-UUID-OPERATORE-1';
+    operator_2_uuid UUID := 'INCOLLA-QUI-UUID-OPERATORE-2';
+    client_1_uuid UUID := 'INCOLLA-QUI-UUID-CLIENTE-1'; -- Opzionale, per le recensioni
+BEGIN
+    -- Inserimento/Aggiornamento Operatore 1: Luna Stellare
+    INSERT INTO public.profiles (id, role, full_name, headline, bio, specializations, avatar_url, application_status, is_visible, is_online, online_status)
+    VALUES (
+        operator_1_uuid,
+        'operator',
+        'Luna Stellare',
+        'Cartomante Esperta in Tarocchi dell''Amore',
+        'Con oltre 15 anni di esperienza, illumino il tuo cammino sentimentale con la saggezza dei tarocchi. Letture chiare, empatiche e dirette per aiutarti a trovare le risposte che cerchi.',
+        ARRAY['Tarocchi', 'Amore e Relazioni', 'Cartomanzia', 'Ritorno d''amore'],
+        '/placeholder.svg?width=128&height=128&text=Luna',
+        'approved',
+        true,
+        true,
+        'Online'
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        role = EXCLUDED.role,
+        full_name = EXCLUDED.full_name,
+        headline = EXCLUDED.headline,
+        bio = EXCLUDED.bio,
+        specializations = EXCLUDED.specializations,
+        application_status = EXCLUDED.application_status,
+        is_visible = EXCLUDED.is_visible,
+        is_online = EXCLUDED.is_online,
+        online_status = EXCLUDED.online_status;
 
--- Inserimento dei servizi per Elara
-INSERT INTO public.services (operator_id, type, price_per_minute, is_active)
-VALUES
-    ('INCOLLA-QUI-UUID-OPERATORE-1', 'call', 1.50, true),
-    ('INCOLLA-QUI-UUID-OPERATORE-1', 'chat', 1.20, true);
+    -- Servizi per Luna Stellare
+    INSERT INTO public.services (operator_id, type, price_per_minute, is_active)
+    VALUES (operator_1_uuid, 'chat', 1.50, true), (operator_1_uuid, 'call', 2.00, true)
+    ON CONFLICT (operator_id, type) DO NOTHING;
 
--- Inserimento dei servizi per Orion
-INSERT INTO public.services (operator_id, type, price_per_consultation, is_active)
-VALUES
-    ('INCOLLA-QUI-UUID-OPERATORE-2', 'written', 25.00, true);
-INSERT INTO public.services (operator_id, type, price_per_minute, is_active)
-VALUES
-    ('INCOLLA-QUI-UUID-OPERATORE-2', 'call', 1.80, true);
+    -- Inserimento/Aggiornamento Operatore 2: Maestro Cosmos
+    INSERT INTO public.profiles (id, role, full_name, headline, bio, specializations, avatar_url, application_status, is_visible, is_online, online_status)
+    VALUES (
+        operator_2_uuid,
+        'operator',
+        'Maestro Cosmos',
+        'Astrologo Professionista e Tema Natale',
+        'Specializzato in astrologia karmica e analisi del tema natale. Scopri il tuo potenziale e le sfide della tua vita attraverso un''interpretazione astrologica profonda e personalizzata.',
+        ARRAY['Astrologia', 'Tema Natale', 'Oroscopo', 'Sinastria di Coppia'],
+        '/placeholder.svg?width=128&height=128&text=Cosmos',
+        'approved',
+        true,
+        false,
+        'Offline'
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        role = EXCLUDED.role,
+        full_name = EXCLUDED.full_name,
+        headline = EXCLUDED.headline,
+        bio = EXCLUDED.bio,
+        specializations = EXCLUDED.specializations,
+        application_status = EXCLUDED.application_status,
+        is_visible = EXCLUDED.is_visible,
+        is_online = EXCLUDED.is_online,
+        online_status = EXCLUDED.online_status;
 
--- Inserimento di una recensione di esempio per Elara
--- (Richiede un utente 'client' esistente)
--- INSERT INTO public.reviews (client_id, operator_id, rating, comment, is_approved)
--- VALUES
---     ('INCOLLA-QUI-UUID-CLIENTE', 'INCOLLA-QUI-UUID-OPERATORE-1', 5, 'Elara è stata incredibilmente precisa e gentile. Mi ha dato la chiarezza che cercavo. Consigliatissima!', true);
+    -- Servizi per Maestro Cosmos
+    INSERT INTO public.services (operator_id, type, price_per_minute, price_per_consultation, is_active)
+    VALUES
+        (operator_2_uuid, 'chat', 1.80, true),
+        (operator_2_uuid, 'call', 2.50, true),
+        (operator_2_uuid, 'written', 35.00, true)
+    ON CONFLICT (operator_id, type) DO NOTHING;
+
+    -- Inserimento Recensione di Esempio (se hai un UUID cliente)
+    -- Se non hai un cliente, puoi commentare o rimuovere questa parte
+    IF client_1_uuid != 'INCOLLA-QUI-UUID-CLIENTE-1' THEN
+        INSERT INTO public.reviews (client_id, operator_id, rating, comment, is_approved)
+        VALUES (client_1_uuid, operator_1_uuid, 5, 'Luna è stata incredibile! Precisa, gentile e mi ha dato dei consigli che si sono rivelati utilissimi. La consiglio a tutti!', true)
+        ON CONFLICT DO NOTHING;
+    END IF;
+
+END $$;

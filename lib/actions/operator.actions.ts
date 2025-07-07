@@ -1,135 +1,205 @@
-"use server"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
+import type { DetailedOperatorProfile, OperatorCardData } from "@/types/database"
 
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
-import type { DetailedOperatorProfile, OperatorCardData, Review, Service, Profile } from "@/types/database"
+// Funzione helper per creare un client Supabase
+const createSupabaseServerClient = () => {
+  const cookieStore = cookies()
+  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value
+      },
+    },
+  })
+}
 
-// Funzione helper per trasformare i dati del profilo in ciò che i componenti si aspettano
-const transformProfileToOperatorCard = (profile: any): OperatorCardData => {
-  const reviewsRaw = profile.reviews || []
-  const reviewsCount = reviewsRaw.length
-  const averageRating =
-    reviewsCount > 0 ? reviewsRaw.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviewsCount : 0
-
-  const operatorServices = (profile.services || []).map((service: any) => ({
-    type: service.type,
-    price: service.price_per_minute ?? service.price_per_consultation,
-  }))
-
-  return {
-    id: profile.id,
-    fullName: profile.full_name,
-    avatarUrl: profile.avatar_url,
-    headline: profile.headline,
-    isOnline: profile.is_online,
-    specializations: profile.specializations || [],
-    averageRating: Number.parseFloat(averageRating.toFixed(1)),
-    reviewsCount: reviewsCount,
-    services: operatorServices,
-  }
+// Funzione per calcolare la media delle recensioni
+// Nota: Supabase non supporta `avg` direttamente in questo modo, quindi lo calcoliamo dopo
+const calculateAverageRating = (reviews: { rating: number }[]) => {
+  if (!reviews || reviews.length === 0) return 0
+  const total = reviews.reduce((acc, review) => acc + review.rating, 0)
+  return Number.parseFloat((total / reviews.length).toFixed(1))
 }
 
 // Funzione per ottenere tutti gli operatori approvati e visibili
 export async function getApprovedOperators(): Promise<OperatorCardData[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      id, full_name, avatar_url, headline, is_online, specializations,
-      services ( type, price_per_minute, price_per_consultation ),
-      reviews ( rating )
-    `,
-    )
-    .eq("role", "operator")
-    .eq("application_status", "approved")
-    .eq("is_visible", true)
+  const supabase = createSupabaseServerClient()
+  try {
+    const { data: operators, error } = await supabase
+      .from("profiles")
+      .select(`
+        id,
+        full_name,
+        avatar_url,
+        headline,
+        is_online,
+        specializations,
+        services (
+          type,
+          price_per_minute,
+          price_per_consultation,
+          is_active
+        ),
+        reviews (
+          rating
+        )
+      `)
+      .eq("role", "operator")
+      .eq("application_status", "approved")
+      .eq("is_visible", true)
 
-  if (error) {
-    console.error("Error fetching approved operators:", error.message)
+    if (error) {
+      console.error("Error fetching approved operators:", error.message)
+      throw new Error(`Error fetching approved operators: ${error.message}`)
+    }
+
+    if (!operators) {
+      return []
+    }
+
+    // Mappiamo i dati nel formato OperatorCardData
+    return operators.map((op) => {
+      const activeServices = op.services.filter((s) => s.is_active)
+
+      const servicesForCard = activeServices.map((s) => ({
+        type: s.type,
+        price: s.price_per_minute ?? s.price_per_consultation,
+      }))
+
+      const averageRating = calculateAverageRating(op.reviews)
+      const reviewsCount = op.reviews.length
+
+      return {
+        id: op.id,
+        fullName: op.full_name,
+        avatarUrl: op.avatar_url,
+        headline: op.headline,
+        isOnline: op.is_online,
+        specializations: op.specializations || [],
+        averageRating,
+        reviewsCount,
+        services: servicesForCard,
+      }
+    })
+  } catch (err) {
+    console.error("Caught exception in getApprovedOperators:", err)
+    // Restituisce un array vuoto o gestisce l'errore come preferito
     return []
   }
-  return data.map(transformProfileToOperatorCard)
 }
 
-// Funzione per ottenere gli operatori per categoria
-export async function getOperatorsByCategory(categorySlug: string): Promise<OperatorCardData[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      id, full_name, avatar_url, headline, is_online, specializations,
-      services ( type, price_per_minute, price_per_consultation ),
-      reviews ( rating )
-    `,
-    )
-    .eq("role", "operator")
-    .eq("application_status", "approved")
-    .eq("is_visible", true)
-    .cs("specializations", `{${categorySlug}}`)
+// Funzione per ottenere gli operatori per categoria (specializzazione)
+export async function getOperatorsByCategory(category: string): Promise<OperatorCardData[]> {
+  const supabase = createSupabaseServerClient()
+  try {
+    const { data: operators, error } = await supabase
+      .from("profiles")
+      .select(`
+                id,
+                full_name,
+                avatar_url,
+                headline,
+                is_online,
+                specializations,
+                services (
+                    type,
+                    price_per_minute,
+                    price_per_consultation,
+                    is_active
+                ),
+                reviews (
+                    rating
+                )
+            `)
+      .eq("role", "operator")
+      .eq("application_status", "approved")
+      .eq("is_visible", true)
+      .contains("specializations", [category])
 
-  if (error) {
-    console.error(`Error fetching operators for category ${categorySlug}:`, error.message)
+    if (error) {
+      console.error(`Error fetching operators for category ${category}:`, error.message)
+      throw new Error(`Error fetching operators for category ${category}: ${error.message}`)
+    }
+
+    if (!operators) {
+      return []
+    }
+
+    return operators.map((op) => {
+      const activeServices = op.services.filter((s) => s.is_active)
+      const servicesForCard = activeServices.map((s) => ({
+        type: s.type,
+        price: s.price_per_minute ?? s.price_per_consultation,
+      }))
+      const averageRating = calculateAverageRating(op.reviews)
+      const reviewsCount = op.reviews.length
+
+      return {
+        id: op.id,
+        fullName: op.full_name,
+        avatarUrl: op.avatar_url,
+        headline: op.headline,
+        isOnline: op.is_online,
+        specializations: op.specializations || [],
+        averageRating,
+        reviewsCount,
+        services: servicesForCard,
+      }
+    })
+  } catch (err) {
+    console.error(`Caught exception in getOperatorsByCategory for ${category}:`, err)
     return []
   }
-  return data.map(transformProfileToOperatorCard)
 }
 
 // Funzione per ottenere il profilo dettagliato di un singolo operatore
-export async function getOperatorById(id: string): Promise<DetailedOperatorProfile | null> {
-  if (!id) return null
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      *,
-      services ( * ),
-      reviews ( *, client_profile:profiles!client_id(full_name) )
-    `,
-    )
-    .eq("id", id)
-    .eq("role", "operator")
-    .single()
+export async function getOperatorById(operatorId: string): Promise<DetailedOperatorProfile | null> {
+  const supabase = createSupabaseServerClient()
+  try {
+    const { data: operator, error } = await supabase
+      .from("profiles")
+      .select(`
+                *,
+                services (*),
+                reviews (
+                    *,
+                    client_profile:profiles(full_name)
+                )
+            `)
+      .eq("id", operatorId)
+      .eq("role", "operator")
+      .single()
 
-  if (error) {
-    console.error(`Error fetching operator profile ${id}:`, error.message)
+    if (error) {
+      console.error(`Error fetching operator with ID ${operatorId}:`, error.message)
+      // Se l'errore è "PGRST116" (risultato non unico o non trovato), restituisci null
+      if (error.code === "PGRST116") return null
+      throw new Error(`Error fetching operator with ID ${operatorId}: ${error.message}`)
+    }
+
+    if (!operator) {
+      return null
+    }
+
+    const averageRating = calculateAverageRating(operator.reviews)
+    const reviewsCount = operator.reviews.length
+
+    // TypeScript non può inferire il tipo di client_profile, quindi lo gestiamo con un cast
+    const reviewsWithClientName = operator.reviews.map((r) => ({
+      ...r,
+      client_profile: r.client_profile as { full_name: string | null } | null,
+    }))
+
+    return {
+      ...operator,
+      services: operator.services || [],
+      reviews: reviewsWithClientName,
+      averageRating,
+      reviewsCount,
+    }
+  } catch (err) {
+    console.error(`Caught exception in getOperatorById for ID ${operatorId}:`, err)
     return null
   }
-
-  const reviewsRaw = data.reviews || []
-  const reviewsCount = reviewsRaw.length
-  const averageRating =
-    reviewsCount > 0 ? reviewsRaw.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviewsCount : 0
-
-  return {
-    ...(data as Profile),
-    services: data.services as Service[],
-    reviews: data.reviews as Review[],
-    averageRating: Number.parseFloat(averageRating.toFixed(1)),
-    reviewsCount: reviewsCount,
-  }
-}
-
-// Funzione per aggiornare lo stato online di un operatore
-export async function updateOperatorStatus(
-  operatorId: string,
-  isOnline: boolean,
-  status: "Online" | "Offline" | "In Pausa",
-) {
-  const supabase = createClient()
-  const { error } = await supabase
-    .from("profiles")
-    .update({ is_online: isOnline, online_status: status, updated_at: new Date().toISOString() })
-    .eq("id", operatorId)
-
-  if (error) {
-    console.error("Error updating operator status:", error)
-    return { success: false, message: error.message }
-  }
-
-  revalidatePath(`/(platform)/dashboard/operator`)
-  revalidatePath(`/operator/${operatorId}`)
-  return { success: true, message: "Stato aggiornato." }
 }
