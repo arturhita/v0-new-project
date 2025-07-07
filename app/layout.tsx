@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body className={`${inter.className} bg-slate-50 text-slate-800`}>
+      <body className={`${inter.className} bg-slate-900 text-white`}>
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <SiteNavbar />
