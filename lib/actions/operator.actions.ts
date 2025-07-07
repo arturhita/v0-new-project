@@ -6,33 +6,8 @@ import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import type { Profile } from "@/contexts/auth-context"
 
-async function uploadAvatarFromDataUrl(dataUrl: string, userId: string) {
-  if (!dataUrl || !dataUrl.startsWith("data:image")) {
-    return null
-  }
-
-  const supabase = createClient()
-  const mimeType = dataUrl.match(/data:(.*);/)?.[1]
-  const extension = mimeType?.split("/")[1] || "png"
-  const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
-  const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
-  const fileBuffer = Buffer.from(base64Str, "base64")
-
-  const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, fileBuffer, {
-    contentType: mimeType,
-    upsert: false,
-  })
-
-  if (uploadError) {
-    console.error("Avatar upload failed:", uploadError.message)
-    return null
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("avatars").getPublicUrl(filePath)
-  return publicUrl
-}
+// NOTA: L'upload dell'avatar è stato temporaneamente rimosso per risolvere il bug principale del salvataggio.
+// Verrà reintrodotto non appena questa versione sarà confermata funzionante.
 
 export async function createOperator(operatorData: any) {
   console.log("Azione 'createOperator' avviata.")
@@ -45,12 +20,10 @@ export async function createOperator(operatorData: any) {
       data: { user: currentUser },
     } = await supabase.auth.getUser()
     if (!currentUser) {
-      console.error("Errore: Utente non autenticato.")
       return { success: false, message: "Autenticazione richiesta." }
     }
     const { data: adminProfile } = await supabase.from("profiles").select("role").eq("id", currentUser.id).single()
     if (adminProfile?.role !== "admin") {
-      console.error(`Errore: L'utente ${currentUser.id} non ha i permessi di admin.`)
       return { success: false, message: "Non hai i permessi per creare un operatore." }
     }
     console.log("Permessi admin verificati.")
@@ -81,7 +54,7 @@ export async function createOperator(operatorData: any) {
     }
     console.log("Dati validati con successo.")
 
-    // 3. Create Auth User
+    // 3. Create Auth User with metadata for the trigger
     console.log(`Step 3: Creazione utente auth per ${email}...`)
     const temporaryPassword = randomBytes(12).toString("hex")
     const {
@@ -92,9 +65,9 @@ export async function createOperator(operatorData: any) {
       password: temporaryPassword,
       email_confirm: true,
       user_metadata: {
-        full_name: fullName,
-        stage_name: stageName,
-        role: "operator",
+        role: "operator", // Passa il ruolo al trigger
+        full_name: fullName, // Passa il nome al trigger
+        stage_name: stageName, // Passa il nome d'arte al trigger
       },
     })
 
@@ -106,31 +79,15 @@ export async function createOperator(operatorData: any) {
       throw createUserError
     }
     if (!user) throw new Error("Creazione utente fallita senza un errore specifico.")
-    console.log(`Utente auth creato con ID: ${user.id}`)
+    console.log(`Utente auth e profilo base creati dal trigger con ID: ${user.id}`)
 
-    // 4. Upload Avatar
-    console.log("Step 4: Gestione upload avatar...")
-    let publicAvatarUrl = null
-    if (operatorData.avatarUrl) {
-      publicAvatarUrl = await uploadAvatarFromDataUrl(operatorData.avatarUrl, user.id)
-      console.log(
-        publicAvatarUrl ? `Avatar caricato: ${publicAvatarUrl}` : "Upload avatar saltato o fallito (non critico).",
-      )
-    } else {
-      console.log("Nessun avatar fornito.")
-    }
-
-    // 5. Update Profile
-    console.log(`Step 5: Aggiornamento profilo per l'utente ${user.id}...`)
+    // 4. Update Profile with remaining details
+    console.log(`Step 4: Aggiornamento profilo con dettagli aggiuntivi per l'utente ${user.id}...`)
     const profileToUpdate = {
-      full_name: fullName,
-      stage_name: stageName,
-      email: email,
       phone: operatorData.phone || null,
       bio: operatorData.bio || null,
       specialties: operatorData.specialties || [],
       main_discipline: operatorData.categories?.[0] || null,
-      profile_image_url: publicAvatarUrl,
       service_prices: services,
       availability_schedule: operatorData.availability || {},
       status: operatorData.status || "In Attesa",
@@ -148,8 +105,8 @@ export async function createOperator(operatorData: any) {
     }
     console.log("Profilo aggiornato con successo.")
 
-    // 6. Revalidate and Return Success
-    console.log("Step 6: Revalidazione cache e invio risposta di successo...")
+    // 5. Revalidate and Return Success
+    console.log("Step 5: Revalidazione cache e invio risposta di successo...")
     revalidatePath("/admin/operators")
     console.log("Azione 'createOperator' completata con successo.")
     return {
