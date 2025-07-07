@@ -4,15 +4,15 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster } from "@/components/ui/toaster"
-import { SiteFooter } from "@/components/site-footer"
-import { SiteNavbar } from "@/components/site-navbar"
-import { CookieBanner } from "@/components/cookie-banner"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import CookieBanner from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Moonthir - Consulenza Mistica",
-  description: "La tua guida nel mondo della consulenza mistica e astrologica.",
+  description: "La tua guida nel mondo della cartomanzia e astrologia. Connettiti con i migliori esperti.",
     generator: 'v0.dev'
 }
 
@@ -22,16 +22,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it" className="dark">
-      <body className={`${inter.className} bg-background text-foreground`}>
+    <html lang="it">
+      <body className={inter.className}>
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <SiteNavbar />
-            <main className="flex-grow">{children}</main>
-            <SiteFooter />
-          </div>
-          <Toaster />
-          <CookieBanner />
+          <OperatorStatusProvider>
+            <ChatRequestProvider>
+              {children}
+              <Toaster />
+              <CookieBanner />
+            </ChatRequestProvider>
+          </OperatorStatusProvider>
         </AuthProvider>
       </body>
     </html>

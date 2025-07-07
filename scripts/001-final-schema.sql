@@ -38,30 +38,37 @@ CREATE TABLE public.operator_details (
 COMMENT ON TABLE public.operator_details IS 'Stores detailed information specific to operators.';
 
 
--- STEP 4: Funzione Trigger per la Creazione di Nuovi Utenti
+-- STEP 4: Funzione Trigger per la Creazione di Nuovi Utenti (CORRETTA)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    -- Dichiarare una variabile per il ruolo per renderlo più leggibile e sicuro
+    v_role public.user_role;
 BEGIN
-    -- Inserisce il nuovo utente nella tabella profiles
+    -- Assegna un ruolo di default ('client') se non viene specificato in raw_user_meta_data.
+    -- Questo risolve il problema della creazione dell'utente admin, che non ha meta data.
+    v_role := COALESCE((new.raw_user_meta_data->>'role')::public.user_role, 'client');
+
+    -- Inserisce il nuovo utente nella tabella profiles usando la variabile v_role
     INSERT INTO public.profiles (id, name, email, role, avatar_url, status)
     VALUES (
         new.id,
         new.raw_user_meta_data->>'name',
         new.email,
-        (new.raw_user_meta_data->>'role')::public.user_role,
+        v_role, -- Usa la variabile sicura
         new.raw_user_meta_data->>'avatar_url',
         CASE
-            WHEN (new.raw_user_meta_data->>'role')::public.user_role = 'operator' THEN 'pending_approval'::public.operator_status
+            WHEN v_role = 'operator' THEN 'pending_approval'::public.operator_status
             ELSE NULL
         END
     );
 
     -- Se il nuovo utente è un operatore, crea anche i dettagli operatore
-    IF (new.raw_user_meta_data->>'role')::public.user_role = 'operator' THEN
+    IF v_role = 'operator' THEN
         INSERT INTO public.operator_details (id, stage_name)
         VALUES (
             new.id,
@@ -138,14 +145,15 @@ BEGIN
     SELECT id INTO admin_user_id FROM auth.users WHERE email = admin_email;
 
     IF admin_user_id IS NULL THEN
-        admin_user_id := extensions.uuid_generate_v4();
         INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, instance_id, aud)
-        VALUES (admin_user_id, admin_email, crypt(admin_pass, gen_salt('bf')), now(), '00000000-0000-0000-0000-000000000000', 'authenticated');
+        VALUES (extensions.uuid_generate_v4(), admin_email, crypt(admin_pass, gen_salt('bf')), now(), '00000000-0000-0000-0000-000000000000', 'authenticated')
+        RETURNING id INTO admin_user_id;
 
         INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
         VALUES (extensions.uuid_generate_v4(), admin_user_id, format('{"sub":"%s","email":"%s"}', admin_user_id, admin_email)::jsonb, 'email', now(), now(), now());
     END IF;
 
+    -- Ora che il trigger ha già creato un profilo 'client', lo aggiorniamo a 'admin'.
     INSERT INTO public.profiles (id, email, name, role)
     VALUES (admin_user_id, admin_email, 'Admin', 'admin')
     ON CONFLICT (id) DO UPDATE SET
