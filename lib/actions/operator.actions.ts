@@ -6,138 +6,73 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/contexts/auth-context"
 
-// Schema Zod per l'oggetto che ci aspettiamo dal client
+// Schema di validazione semplificato per il test
 const OperatorInputSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(3),
   stageName: z.string().min(3),
-  phone: z.string().optional(),
-  bio: z.string().optional(),
-  commission: z.coerce.number(),
-  status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
-  isOnline: z.boolean(),
-  categories: z.string().array().min(1),
-  specialties: z.string().array(),
-  services: z.object({
-    chatEnabled: z.boolean(),
-    chatPrice: z.coerce.number(),
-    callEnabled: z.boolean(),
-    callPrice: z.coerce.number(),
-    emailEnabled: z.boolean(),
-    emailPrice: z.coerce.number(),
-  }),
-  availability: z.any(), // Per ora lo lasciamo flessibile
-  avatarUrl: z.string().optional(), // Data URL
+  // Tutti gli altri campi sono ignorati per questo test
+  phone: z.any().optional(),
+  bio: z.any().optional(),
+  commission: z.any().optional(),
+  status: z.any().optional(),
+  isOnline: z.any().optional(),
+  categories: z.any().optional(),
+  specialties: z.any().optional(),
+  services: z.any().optional(),
+  availability: z.any().optional(),
+  avatarUrl: z.any().optional(),
 })
 
-// La funzione ora accetta un singolo oggetto
+/**
+ * VERSIONE DI DEBUG #1: Crea solo l'utente in Auth.
+ * L'obiettivo è verificare che il client riceva una risposta e il caricamento si sblocchi.
+ */
 export async function createOperator(operatorData: z.infer<typeof OperatorInputSchema>) {
-  console.log("--- [Action Start] createOperator con oggetto JSON ---")
-  let newUserId: string | null = null
+  console.log("--- [DEBUG TEST #1] --- Inizio azione di creazione MINIMA.")
 
   try {
-    // 1. Validazione dei dati ricevuti
+    // 1. Validazione dei dati essenziali
     const validation = OperatorInputSchema.safeParse(operatorData)
     if (!validation.success) {
-      throw new Error(`Errore di validazione: ${validation.error.flatten().fieldErrors}`)
+      const errorMsg = `Errore di validazione: ${JSON.stringify(validation.error.flatten().fieldErrors)}`
+      console.error(errorMsg)
+      return { success: false, message: errorMsg }
     }
-    const { avatarUrl, ...data } = validation.data
-    console.log("Step 1: Dati validati con successo.")
+    const { email, password, fullName, stageName } = validation.data
+    console.log(`[DEBUG] Dati validati per: ${email}`)
 
     const supabaseAdmin = createSupabaseAdminClient()
+    console.log("[DEBUG] Client Admin Supabase creato.")
 
-    // 2. Creazione utente in Auth
+    // 2. Creazione utente in Auth (UNICA OPERAZIONE REALE)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: data.email,
-      password: data.password,
-      email_confirm: true,
-      user_metadata: { role: "operator", full_name: data.fullName, stage_name: data.stageName },
+      email: email,
+      password: password,
+      email_confirm: true, // Auto-conferma l'utente
+      user_metadata: { full_name: fullName, stage_name: stageName, role: "operator" },
     })
 
     if (authError) {
+      console.error("[DEBUG] Errore durante la creazione utente Auth:", authError)
       throw new Error(`Errore Auth: ${authError.message}`)
     }
-    newUserId = authData.user.id
-    console.log(`Step 2: Utente Auth creato con ID: ${newUserId}`)
 
-    // 3. Inserimento profilo nel DB (senza avatar per ora)
-    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-      id: newUserId,
-      email: data.email,
-      role: "operator",
-      full_name: data.fullName,
-      stage_name: data.stageName,
-      phone: data.phone,
-      bio: data.bio,
-      commission_rate: data.commission,
-      status: data.status,
-      is_online: data.isOnline,
-      main_discipline: data.categories[0],
-      specialties: data.specialties,
-      service_prices: data.services,
-      availability_schedule: data.availability,
-      profile_image_url: null,
-    })
-
-    if (profileError) {
-      throw new Error(`Errore DB: ${profileError.message}`)
-    }
-    console.log("Step 3: Profilo creato nel database.")
-
-    // 4. Gestione Avatar (operazione secondaria)
-    if (avatarUrl) {
-      console.log("Step 4: Inizio upload avatar...")
-      // Non blocchiamo il successo per l'avatar, ma lo proviamo
-      uploadAndLinkAvatar(avatarUrl, newUserId, supabaseAdmin).catch((err) => {
-        console.error("Upload avatar fallito in background:", err)
-      })
-    }
+    console.log(`[DEBUG] Utente Auth creato con successo con ID: ${authData.user.id}`)
+    console.log("--- [DEBUG TEST #1] --- Azione completata con SUCCESSO.")
 
     revalidatePath("/admin/operators")
-    revalidatePath("/")
-    console.log("--- [Action Success] ---")
-    return { success: true, message: `Operatore ${data.stageName} creato con successo!` }
+    // Messaggio di successo specifico per il test
+    return { success: true, message: `TEST #1 SUPERATO: L'utente Auth è stato creato. Il caricamento si è sbloccato.` }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
-    console.error("--- [Action FAILED] ---", errorMessage)
-
-    // Rollback
-    if (newUserId) {
-      const supabaseAdminForRollback = createSupabaseAdminClient()
-      await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
-      console.log(`Rollback: Utente Auth ${newUserId} eliminato.`)
-    }
-
-    return { success: false, message: errorMessage }
+    console.error("--- [DEBUG TEST #1] --- CATTURATO ERRORE GRAVE:", errorMessage)
+    return { success: false, message: `TEST #1 FALLITO: ${errorMessage}` }
   }
 }
 
-async function uploadAndLinkAvatar(dataUrl: string, userId: string, supabaseAdmin: any) {
-  const mimeType = dataUrl.match(/data:(.*);/)?.[1]
-  const extension = mimeType?.split("/")[1] || "png"
-  const filePath = `public/${userId}/avatar.${new Date().getTime()}.${extension}`
-  const base64Str = dataUrl.replace(/^data:image\/\w+;base64,/, "")
-  const fileBuffer = Buffer.from(base64Str, "base64")
-
-  const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(filePath, fileBuffer, {
-    contentType: mimeType,
-    upsert: true,
-  })
-  if (uploadError) throw new Error(`Storage Upload Error: ${uploadError.message}`)
-
-  const {
-    data: { publicUrl },
-  } = supabaseAdmin.storage.from("avatars").getPublicUrl(filePath)
-
-  const { error: updateError } = await supabaseAdmin
-    .from("profiles")
-    .update({ profile_image_url: publicUrl })
-    .eq("id", userId)
-  if (updateError) throw new Error(`DB Update Error: ${updateError.message}`)
-}
-
-// --- FUNZIONI ESISTENTI (invariate) ---
+// --- LE ALTRE FUNZIONI RIMANGONO QUI SOTTO MA NON VENGONO MODIFICATE ---
 
 export async function getAllOperatorsForAdmin() {
   const supabase = createClient()
