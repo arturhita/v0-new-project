@@ -3,13 +3,13 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "@/components/ui/toaster"
+import { CookieBanner } from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenza Mistica",
-  description: "Trova i migliori esperti di astrologia, tarocchi e numerologia per una consulenza personalizzata.",
+  title: "Unveilly - Consulenza Spirituale Online",
+  description: "Piattaforma di consulenza spirituale con cartomanti, astrologi e sensitivi esperti",
     generator: 'v0.dev'
 }
 
@@ -23,7 +23,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           {children}
-          <Toaster />
+          <CookieBanner />
         </AuthProvider>
       </body>
     </html>

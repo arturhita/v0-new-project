@@ -28,7 +28,6 @@ import {
   Clock,
   Euro,
   Tags,
-  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
@@ -63,15 +62,20 @@ export default function CreateOperatorPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   const [operator, setOperator] = useState({
+    // Dati personali
     name: "",
     surname: "",
     stageName: "",
     email: "",
     phone: "",
+
+    // Profilo pubblico
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
     avatarUrl: "",
+
+    // Servizi e prezzi
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -80,6 +84,8 @@ export default function CreateOperatorPage() {
       emailEnabled: true,
       emailPrice: "15.00",
     },
+
+    // Disponibilità
     availability: {
       monday: [] as string[],
       tuesday: [] as string[],
@@ -89,6 +95,8 @@ export default function CreateOperatorPage() {
       saturday: [] as string[],
       sunday: [] as string[],
     },
+
+    // Stato
     status: "Attivo" as "Attivo" | "In Attesa" | "Sospeso",
     isOnline: true,
     commission: "15",
@@ -102,23 +110,12 @@ export default function CreateOperatorPage() {
     setOperator((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleServiceChange = (
-    service: "chat" | "call" | "email",
-    field: "Price" | "Enabled",
-    value: string | boolean,
-  ) => {
-    const fieldName = `${service}${field}` as
-      | "chatPrice"
-      | "chatEnabled"
-      | "callPrice"
-      | "callEnabled"
-      | "emailPrice"
-      | "emailEnabled"
+  const handleServiceChange = (service: string, field: string, value: string | boolean) => {
     setOperator((prev) => ({
       ...prev,
       services: {
         ...prev.services,
-        [fieldName]: value,
+        [`${service}${field}`]: value,
       },
     }))
   }
@@ -181,22 +178,41 @@ export default function CreateOperatorPage() {
   }
 
   const handleSave = async () => {
+    // Validazione
     if (!operator.name || !operator.surname || !operator.stageName || !operator.email) {
       toast({
         title: "Campi obbligatori mancanti",
-        description: "Compila tutti i campi anagrafici e il nome d'arte.",
+        description: "Compila tutti i campi obbligatori.",
         variant: "destructive",
       })
       return
     }
+
     if (operator.categories.length === 0) {
-      toast({ title: "Categoria richiesta", description: "Seleziona almeno una categoria.", variant: "destructive" })
+      toast({
+        title: "Categoria richiesta",
+        description: "Seleziona almeno una categoria.",
+        variant: "destructive",
+      })
       return
     }
 
     setIsSaving(true)
+
     try {
-      const result = await createOperator(operator)
+      // Salva nel localStorage per simulare il database
+      const existingOperators = JSON.parse(localStorage.getItem("mock_operators") || "[]")
+      const newOperator = {
+        ...operator,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString().split("T")[0],
+      }
+
+      existingOperators.push(newOperator)
+      localStorage.setItem("mock_operators", JSON.stringify(existingOperators))
+
+      // Chiama anche la server action
+      const result = await createOperator(newOperator)
 
       if (result.success) {
         toast({
@@ -204,20 +220,27 @@ export default function CreateOperatorPage() {
           description: `${operator.stageName} è stato aggiunto con successo.`,
           className: "bg-green-100 border-green-300 text-green-700",
         })
-        router.push("/admin/operators")
+
+        // Notifica aggiornamento
+        window.dispatchEvent(new CustomEvent("operatorsUpdated"))
+
+        // Redirect alla lista operatori
+        setTimeout(() => {
+          router.push("/admin/operators")
+        }, 1500)
       } else {
-        throw new Error(result.message || "Si è verificato un errore sconosciuto.")
+        throw new Error(result.message)
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Errore nel salvataggio:", error)
       toast({
-        title: "Errore nel salvataggio",
-        description: error.message || "Non è stato possibile creare l'operatore. Riprova.",
+        title: "Errore",
+        description: "Errore nel salvataggio dell'operatore. Riprova.",
         variant: "destructive",
       })
-    } finally {
-      setIsSaving(false)
     }
+
+    setIsSaving(false)
   }
 
   const PreviewCard = () => (
@@ -449,7 +472,7 @@ export default function CreateOperatorPage() {
                         checked={operator.categories.includes(category)}
                         onCheckedChange={() => handleCategoryToggle(category)}
                       />
-                      <Label htmlFor={category} className="text-sm font-normal">
+                      <Label htmlFor={category} className="text-sm">
                         {category}
                       </Label>
                     </div>
@@ -479,13 +502,10 @@ export default function CreateOperatorPage() {
                   <Input
                     value={newSpecialty}
                     onChange={(e) => setNewSpecialty(e.target.value)}
-                    placeholder="Aggiungi specializzazione e premi Invio"
+                    placeholder="Aggiungi specializzazione"
                     className="flex-grow"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        handleAddSpecialty()
-                      }
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") handleAddSpecialty()
                     }}
                   />
                   <Button onClick={handleAddSpecialty} variant="outline">
@@ -620,7 +640,7 @@ export default function CreateOperatorPage() {
                             )}
                             onCheckedChange={() => handleAvailabilityToggle(day.key, slot)}
                           />
-                          <Label htmlFor={`${day.key}-${slot}`} className="text-sm font-normal">
+                          <Label htmlFor={`${day.key}-${slot}`} className="text-sm">
                             {slot}
                           </Label>
                         </div>
@@ -671,11 +691,10 @@ export default function CreateOperatorPage() {
                 </div>
                 <div className="flex items-center space-x-2 pt-6">
                   <Switch
-                    id="isOnline"
                     checked={operator.isOnline}
                     onCheckedChange={(checked) => setOperator((prev) => ({ ...prev, isOnline: checked }))}
                   />
-                  <Label htmlFor="isOnline">Online</Label>
+                  <Label>Online</Label>
                 </div>
               </div>
             </CardContent>
@@ -703,7 +722,7 @@ export default function CreateOperatorPage() {
           disabled={isSaving}
           className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
         >
-          {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+          <Save className="mr-2 h-5 w-5" />
           {isSaving ? "Salvataggio..." : "Crea Operatore"}
         </Button>
       </div>

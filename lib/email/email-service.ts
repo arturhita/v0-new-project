@@ -1,17 +1,6 @@
 "use server"
 
-// --- ATTENZIONE: SERVIZIO EMAIL SIMULATO ---
-// Questo file simula l'invio di email stampando i dati nella console del server.
-// Per un'applicazione in produzione, è necessario sostituire questa logica
-// con un vero servizio di invio email come Resend, SendGrid, o AWS SES.
-//
-// Passi per l'integrazione di un servizio reale (es. Resend):
-// 1. Registrati su https://resend.com e ottieni una API key.
-// 2. Aggiungi la API key alle variabili d'ambiente (es. RESEND_API_KEY).
-// 3. Installa il pacchetto: `npm install resend`.
-// 4. Modifica la funzione `sendEmail` per usare `resend.emails.send({...})`.
-// ---------------------------------------------
-
+// Simulazione servizio email (in produzione usare Resend, SendGrid, etc.)
 export interface EmailTemplate {
   id: string
   name: string
@@ -397,6 +386,7 @@ class EmailService {
         throw new Error(`Template ${data.template} non trovato`)
       }
 
+      // Sostituisci le variabili nel template
       let htmlContent = template.htmlContent
       let textContent = template.textContent
       let subject = data.subject || template.subject
@@ -410,23 +400,25 @@ class EmailService {
         })
       }
 
-      console.log("📧 [SIMULAZIONE EMAIL] Invio email in corso...")
-      console.log("-------------------------------------------")
-      console.log(`A: ${Array.isArray(data.to) ? data.to.join(", ") : data.to}`)
-      console.log(`Oggetto: ${subject}`)
-      console.log(`Template: ${data.template}`)
-      console.log("-------------------------------------------")
+      // Simula invio email (in produzione usare Resend, SendGrid, etc.)
+      console.log("📧 Invio email:", {
+        to: data.to,
+        subject,
+        template: data.template,
+        variables: data.variables,
+      })
 
+      // Simula ritardo di invio
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      const messageId = `simulated_${Date.now()}`
+      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
       return {
         success: true,
         messageId,
       }
     } catch (error) {
-      console.error("❌ Errore simulazione invio email:", error)
+      console.error("Errore invio email:", error)
       return {
         success: false,
         error: error instanceof Error ? error.message : "Errore sconosciuto",

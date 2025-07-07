@@ -1,6 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       consultations: {
@@ -9,62 +9,56 @@ export interface Database {
           created_at: string
           duration_minutes: number | null
           ended_at: string | null
+          final_cost: number | null
           id: number
-          operator_earning: number | null
           operator_id: string
-          platform_fee: number | null
-          recording_url: string | null
           service_id: number
           started_at: string | null
           status: Database["public"]["Enums"]["consultation_status"]
-          total_cost: number | null
         }
         Insert: {
           client_id: string
           created_at?: string
           duration_minutes?: number | null
           ended_at?: string | null
+          final_cost?: number | null
           id?: number
-          operator_earning?: number | null
           operator_id: string
-          platform_fee?: number | null
-          recording_url?: string | null
           service_id: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["consultation_status"]
-          total_cost?: number | null
         }
         Update: {
           client_id?: string
           created_at?: string
           duration_minutes?: number | null
           ended_at?: string | null
+          final_cost?: number | null
           id?: number
-          operator_earning?: number | null
           operator_id?: string
-          platform_fee?: number | null
-          recording_url?: string | null
           service_id?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["consultation_status"]
-          total_cost?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "consultations_client_id_fkey"
             columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "consultations_operator_id_fkey"
             columns: ["operator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "consultations_service_id_fkey"
             columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "services"
             referencedColumns: ["id"]
           },
@@ -72,72 +66,55 @@ export interface Database {
       }
       profiles: {
         Row: {
-          application_status: Database["public"]["Enums"]["application_status"]
+          application_status: Database["public"]["Enums"]["application_status"] | null
           avatar_url: string | null
           bio: string | null
-          billing_address: string | null
-          commission_rate: number
+          commission_rate: number | null
           created_at: string
-          email: string | null
-          fiscal_code: string | null
           full_name: string | null
-          headline: string | null
           id: string
-          is_online: boolean
-          is_visible: boolean
-          online_status: string | null
+          is_visible: boolean | null
+          phone_number: string | null
           role: Database["public"]["Enums"]["user_role"]
           specializations: string[] | null
           updated_at: string
-          vat_number: string | null
           wallet_balance: number
         }
         Insert: {
-          application_status?: Database["public"]["Enums"]["application_status"]
+          application_status?: Database["public"]["Enums"]["application_status"] | null
           avatar_url?: string | null
           bio?: string | null
-          billing_address?: string | null
-          commission_rate?: number
+          commission_rate?: number | null
           created_at?: string
-          email?: string | null
-          fiscal_code?: string | null
           full_name?: string | null
-          headline?: string | null
           id: string
-          is_online?: boolean
-          is_visible?: boolean
-          online_status?: string | null
+          is_visible?: boolean | null
+          phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           specializations?: string[] | null
           updated_at?: string
-          vat_number?: string | null
           wallet_balance?: number
         }
         Update: {
-          application_status?: Database["public"]["Enums"]["application_status"]
+          application_status?: Database["public"]["Enums"]["application_status"] | null
           avatar_url?: string | null
           bio?: string | null
-          billing_address?: string | null
-          commission_rate?: number
+          commission_rate?: number | null
           created_at?: string
-          email?: string | null
-          fiscal_code?: string | null
           full_name?: string | null
-          headline?: string | null
           id?: string
-          is_online?: boolean
-          is_visible?: boolean
-          online_status?: string | null
+          is_visible?: boolean | null
+          phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           specializations?: string[] | null
           updated_at?: string
-          vat_number?: string | null
           wallet_balance?: number
         }
         Relationships: [
           {
             foreignKeyName: "profiles_id_fkey"
             columns: ["id"]
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -147,30 +124,24 @@ export interface Database {
         Row: {
           client_id: string
           comment: string | null
-          consultation_id: number | null
           created_at: string
           id: number
-          is_approved: boolean
           operator_id: string
           rating: number
         }
         Insert: {
           client_id: string
           comment?: string | null
-          consultation_id?: number | null
           created_at?: string
           id?: number
-          is_approved?: boolean
           operator_id: string
           rating: number
         }
         Update: {
           client_id?: string
           comment?: string | null
-          consultation_id?: number | null
           created_at?: string
           id?: number
-          is_approved?: boolean
           operator_id?: string
           rating?: number
         }
@@ -178,18 +149,14 @@ export interface Database {
           {
             foreignKeyName: "reviews_client_id_fkey"
             columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_consultation_id_fkey"
-            columns: ["consultation_id"]
-            referencedRelation: "consultations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "reviews_operator_id_fkey"
             columns: ["operator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -227,6 +194,7 @@ export interface Database {
           {
             foreignKeyName: "services_operator_id_fkey"
             columns: ["operator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -237,8 +205,10 @@ export interface Database {
           amount: number
           consultation_id: number | null
           created_at: string
-          description: string | null
+          currency: string
           id: number
+          status: Database["public"]["Enums"]["transaction_status"]
+          stripe_payment_intent_id: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
         }
@@ -246,8 +216,10 @@ export interface Database {
           amount: number
           consultation_id?: number | null
           created_at?: string
-          description?: string | null
+          currency?: string
           id?: number
+          status?: Database["public"]["Enums"]["transaction_status"]
+          stripe_payment_intent_id?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
         }
@@ -255,8 +227,10 @@ export interface Database {
           amount?: number
           consultation_id?: number | null
           created_at?: string
-          description?: string | null
+          currency?: string
           id?: number
+          status?: Database["public"]["Enums"]["transaction_status"]
+          stripe_payment_intent_id?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
           user_id?: string
         }
@@ -264,12 +238,14 @@ export interface Database {
           {
             foreignKeyName: "transactions_consultation_id_fkey"
             columns: ["consultation_id"]
+            isOneToOne: false
             referencedRelation: "consultations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "transactions_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -282,18 +258,19 @@ export interface Database {
     Functions: {
       handle_new_user: {
         Args: Record<PropertyKey, never>
-        Returns: unknown
+        Returns: Record<PropertyKey, never>
       }
-      sync_profiles_from_auth: {
+      handle_updated_at: {
         Args: Record<PropertyKey, never>
-        Returns: undefined
+        Returns: Record<PropertyKey, never>
       }
     }
     Enums: {
       application_status: "pending" | "approved" | "rejected"
-      consultation_status: "requested" | "accepted" | "in_progress" | "completed" | "canceled" | "refunded"
+      consultation_status: "pending" | "active" | "completed" | "cancelled"
       service_type: "chat" | "call" | "written"
-      transaction_type: "recharge" | "consultation_payment" | "payout" | "refund"
+      transaction_status: "pending" | "completed" | "failed"
+      transaction_type: "recharge" | "payment" | "payout" | "refund"
       user_role: "client" | "operator" | "admin"
     }
     CompositeTypes: {
@@ -301,3 +278,78 @@ export interface Database {
     }
   }
 }
+
+export type Tables<
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+    ? (Database["public"]["Tables"] & Database["public"]["Views"])[PublicTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  PublicTableNameOrOptions extends keyof Database["public"]["Tables"] | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  PublicTableNameOrOptions extends keyof Database["public"]["Tables"] | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  PublicEnumNameOrOptions extends keyof Database["public"]["Enums"] | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
+    ? Database["public"]["Enums"][PublicEnumNameOrOptions]
+    : never
+
+// Custom type for our profile, easier to use in the app
+export type Profile = Tables<"profiles">

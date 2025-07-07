@@ -1,7 +1,6 @@
 import type React from "react"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SiteFooter } from "@/components/site-footer"
-import { ConstellationBackground } from "@/components/constellation-background"
 
 export default function PlatformLayout({
   children,
@@ -9,10 +8,9 @@ export default function PlatformLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="relative min-h-screen bg-gray-900 text-white">
-      <ConstellationBackground />
+    <div className="flex flex-col min-h-screen bg-white">
       <SiteNavbar />
-      <main className="relative z-10">{children}</main>
+      <main className="flex-grow pt-16">{children}</main>
       <SiteFooter />
     </div>
   )

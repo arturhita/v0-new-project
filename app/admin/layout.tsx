@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import React, { Suspense } from "react"
+import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 
 const navItems = [
@@ -156,10 +157,13 @@ export default function ModernAdminDashboardLayout({ children }: { children: Rea
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]">
-        <aside className="hidden border-r border-gray-200 bg-white md:block">
+      {/* Site Navbar */}
+      <SiteNavbar />
+
+      <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
+        <aside className="hidden border-r border-gray-200 bg-white md:block shadow-lg rounded-r-2xl m-0 md:m-3 md:my-3 md:mr-0 overflow-hidden">
           <div className="flex h-full max-h-screen flex-col">
-            <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
+            <div className="flex h-24 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
               <Link href="/admin" className="flex items-center gap-3 font-bold text-white text-xl">
                 <span>Admin Panel</span>
               </Link>
@@ -180,7 +184,7 @@ export default function ModernAdminDashboardLayout({ children }: { children: Rea
           </div>
         </aside>
         <div className="flex flex-col">
-          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-8 sticky top-0 z-30">
+          <header className="flex h-24 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-8 sticky top-16 z-30">
             <Suspense fallback={<div>Loading...</div>}>
               <Sheet>
                 <SheetTrigger asChild>
@@ -194,7 +198,7 @@ export default function ModernAdminDashboardLayout({ children }: { children: Rea
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="flex flex-col bg-white p-0 w-[300px]">
-                  <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
+                  <div className="flex h-24 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
                     <Link href="/admin" className="flex items-center gap-3 font-bold text-white text-xl">
                       <span>Admin Panel</span>
                     </Link>

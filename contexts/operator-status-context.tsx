@@ -33,16 +33,11 @@ interface OperatorStatusContextType {
 
 const OperatorStatusContext = createContext<OperatorStatusContextType | undefined>(undefined)
 
-export function OperatorStatusProvider({
-  children,
-  operatorName,
-}: {
-  children: React.ReactNode
-  operatorName: string
-}) {
+export function OperatorStatusProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatusInternal] = useState<OperatorStatus>("offline") // Inizia offline
   const [isManuallySet, setIsManuallySet] = useState(false)
   const [pauseTimer, setPauseTimer] = useState(0)
+  const [operatorName] = useState("Stella Divina") // Mock
   const [isInConsultation, setIsInConsultation] = useState(false)
 
   const isWithinAvailability = useCallback(() => {
@@ -114,6 +109,9 @@ export function OperatorStatusProvider({
       if (status === "paused") return // Se in pausa, non fare nulla
 
       if (isManuallySet && (status === "offline" || status === "online")) {
+        // Se è stato impostato manualmente online/offline, non cambiarlo automaticamente
+        // finché non c'è un cambio di consultazione o fine pausa.
+        // L'utente può cambiarlo di nuovo manualmente.
         return
       }
 
@@ -139,6 +137,7 @@ export function OperatorStatusProvider({
   const endConsultation = useCallback(() => {
     setIsInConsultation(false)
     setIsManuallySet(false) // Dopo un consulto, lo stato dovrebbe essere automatico
+    // La logica nell'useEffect si occuperà di reimpostare online/offline
     console.log("Consultation ended, status will be re-evaluated")
   }, [])
 

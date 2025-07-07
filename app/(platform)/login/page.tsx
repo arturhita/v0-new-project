@@ -1,89 +1,75 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
-import { Loader2 } from "lucide-react"
-import Image from "next/image"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      await login(email, password)
-      // La redirezione avverrà nel contesto Auth
-    } catch (err: any) {
-      setError(err.message || "Credenziali non valide o errore di rete.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 p-4">
-      <div className="w-full max-w-md">
-        <div className="flex justify-center mb-6">
-          <Link href="/">
-            <Image src="/images/moonthir-logo.png" alt="Moonthir Logo" width={150} height={40} />
-          </Link>
+    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
+      <ConstellationBackground goldVisible={true} />
+      <div className="relative z-10 w-full max-w-md">
+        <div className="text-center mb-8">
+          <Image
+            src="/images/moonthir-logo-white.png"
+            alt="Moonthir Logo"
+            width={180}
+            height={50}
+            className="mx-auto"
+          />
         </div>
-        <Card className="shadow-2xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Bentornato</CardTitle>
-            <CardDescription>Inserisci le tue credenziali per accedere alla piattaforma.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="tua@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
-              {error && <p className="text-sm text-red-500 text-center">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? "Accesso in corso..." : "Accedi"}
-              </Button>
-            </form>
-            <div className="mt-4 text-center text-sm">
-              Non hai un account?{" "}
-              <Link href="/register" className="font-semibold text-sky-600 hover:underline">
-                Registrati ora
-              </Link>
+
+        <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
+          <div className="grid gap-2 text-center mb-6">
+            <h1 className="text-3xl font-bold text-white">Bentornato</h1>
+            <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
+          </div>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email" className="text-slate-200">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="mario@esempio.com"
+                required
+                className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+              />
             </div>
-          </CardContent>
-        </Card>
+            <div className="grid gap-2">
+              <div className="flex items-center">
+                <Label htmlFor="password" className="text-slate-200">
+                  Password
+                </Label>
+                <Link href="#" className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline">
+                  Password dimenticata?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                required
+                className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+            >
+              Accedi
+            </Button>
+          </div>
+          <div className="mt-6 text-center text-sm text-slate-300">
+            Non hai un account?{" "}
+            <Link href="/register" className="underline text-blue-400 hover:text-blue-300 font-semibold">
+              Registrati
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   )

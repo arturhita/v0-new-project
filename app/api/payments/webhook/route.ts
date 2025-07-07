@@ -23,6 +23,28 @@ export async function POST(request: NextRequest) {
       const userId = paymentIntent.metadata.userId
       const amount = paymentIntent.amount / 100 // Converti da centesimi
 
+      // Questo è il punto più critico per la logica di business.
+      // Una volta che Stripe conferma che il pagamento è andato a buon fine,
+      // devi aggiornare il tuo database per riflettere questo cambiamento.
+      // Ad esempio, se stai usando Supabase:
+      //
+      // import { createClient } from '@supabase/supabase-js'
+      // const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      //
+      // const { data: profile, error } = await supabase
+      //   .from('profiles')
+      //   .select('wallet_balance')
+      //   .eq('id', userId)
+      //   .single()
+      //
+      // if (profile) {
+      //   await supabase
+      //     .from('profiles')
+      //     .update({ wallet_balance: profile.wallet_balance + amount })
+      //     .eq('id', userId)
+      // }
+      //
+      // Inoltre, dovresti registrare la transazione in una tabella 'transactions' per lo storico.
       console.log(`Pagamento riuscito: ${amount}€ per utente ${userId}`)
 
       // Qui dovresti aggiornare il database

@@ -1,104 +1,211 @@
 "use client"
 
+import type React from "react"
+import { useState } from "react"
 import Link from "next/link"
-import { Star, MessageCircle, Phone, Sparkles } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { Star, MessageCircle, Phone, Mail, Sparkles, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/contexts/auth-context"
+import { initiateChatRequest } from "@/lib/actions/chat.actions"
+import { WrittenConsultationModal } from "./written-consultation-modal"
 import type { OperatorCardData } from "@/lib/actions/operator.actions"
+
+export interface Operator {
+  id: string
+  name: string
+  avatarUrl: string
+  specialization: string
+  rating: number
+  reviewsCount: number
+  description: string
+  tags: string[]
+  isOnline: boolean
+  services: {
+    chatPrice?: number
+    callPrice?: number
+    emailPrice?: number
+  }
+  profileLink?: string
+  joinedDate?: string
+}
 
 interface OperatorCardProps {
   operator: OperatorCardData
+  showNewBadge?: boolean
 }
 
-export function OperatorCard({ operator }: OperatorCardProps) {
-  const getInitials = (name: string | null) => {
-    if (!name) return ""
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
+export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
+  const [imageError, setImageError] = useState(false)
+  const [isStartingChat, setIsStartingChat] = useState(false)
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+  const router = useRouter()
+  const { user } = useAuth()
+
+  const hasChat = operator.services.some((s) => s.type === "chat" && s.is_active)
+  const hasCall = operator.services.some((s) => s.type === "call" && s.is_active)
+  const hasWritten = operator.services.some((s) => s.type === "written" && s.is_active)
+
+  const isNewOperator =
+    showNewBadge && operator.joinedDate
+      ? new Date(operator.joinedDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      : false
+
+  const profileLink = operator.profileLink || `/operator/${operator.name.toLowerCase().replace(/ /g, "-")}`
+
+  const handleStartChat = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!user) {
+      alert("Devi effettuare l'accesso per avviare una chat.")
+      router.push("/login")
+      return
+    }
+
+    if (!operator.isOnline) {
+      alert("L'operatore non è al momento online.")
+      return
+    }
+
+    setIsStartingChat(true)
+    try {
+      const result = await initiateChatRequest(user.id, operator.id)
+      if (result.success && result.sessionId) {
+        router.push(`/chat/${result.sessionId}`)
+      } else {
+        alert(`Errore: ${result.error || "Impossibile avviare la chat."}`)
+      }
+    } catch (error) {
+      console.error("Failed to initiate chat:", error)
+      alert("Si è verificato un errore tecnico. Riprova più tardi.")
+    } finally {
+      setIsStartingChat(false)
+    }
   }
 
-  const chatPrice = operator.services.find((s) => s.type === "chat")?.price_per_minute
-  const callPrice = operator.services.find((s) => s.type === "call")?.price_per_minute
+  const handleOpenEmailModal = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) {
+      alert("Devi effettuare l'accesso per inviare una domanda.")
+      router.push("/login")
+      return
+    }
+    setIsEmailModalOpen(true)
+  }
 
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-blue-800/50 bg-gradient-to-br from-slate-900/80 to-blue-950/70 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:border-cyan-400/50 hover:shadow-cyan-500/10">
-      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-cyan-500/10 blur-3xl transition-all duration-500 group-hover:-right-0 group-hover:-top-0 group-hover:scale-150"></div>
-
-      <div className="flex items-center space-x-4">
-        <Avatar className="h-16 w-16 border-2 border-blue-700/80 transition-all duration-300 group-hover:border-cyan-400">
-          <AvatarImage src={operator.avatar_url || undefined} alt={operator.full_name || "Operatore"} />
-          <AvatarFallback className="bg-blue-900 text-lg font-bold text-blue-300">
-            {getInitials(operator.full_name)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <Link href={`/operator/${operator.id}`} className="block">
-            <h3 className="text-xl font-bold text-white transition-colors duration-300 group-hover:text-cyan-300">
-              {operator.full_name}
-            </h3>
-          </Link>
-          <p className="text-sm text-blue-300">{operator.headline}</p>
+    <>
+      <div className="relative group overflow-hidden rounded-2xl border border-blue-500/20 bg-slate-900/30 backdrop-blur-sm shadow-lg hover:shadow-blue-500/20 transition-all duration-300">
+        {/* Online Status & New Badge */}
+        <div className="absolute top-3 right-3 z-10">
+          {operator.isOnline ? (
+            <Badge variant="secondary" className="bg-green-500/20 border-green-500/30 text-green-300">
+              Online
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="bg-red-500/20 border-red-500/30 text-red-300">
+              Offline
+            </Badge>
+          )}
         </div>
-      </div>
-
-      <div className="my-4 flex items-center justify-between rounded-lg bg-slate-900/50 p-2">
-        <div className="flex items-center space-x-2">
-          <Star className="h-4 w-4 text-yellow-400" />
-          <span className="text-sm font-semibold text-white">
-            {typeof operator.averageRating === "number" ? operator.averageRating.toFixed(1) : "0.0"}
-          </span>
-          <span className="text-xs text-slate-400">({operator.reviewsCount ?? 0} rec.)</span>
+        <div className="absolute top-4 left-4 z-20">
+          {isNewOperator && (
+            <Badge className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
+              <Sparkles className="w-3 h-3 mr-1" />
+              NUOVO
+            </Badge>
+          )}
         </div>
-        <Badge
-          className={
-            operator.is_online
-              ? "border-green-400/50 bg-green-500/20 text-green-300"
-              : "border-slate-600/50 bg-slate-700/50 text-slate-300"
-          }
-        >
-          {operator.is_online ? "Online" : "Offline"}
-        </Badge>
-      </div>
 
-      <p className="mb-4 flex-1 text-sm text-slate-300">{operator.bio}</p>
+        <div className="p-5">
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="relative">
+              <Image
+                src={operator.avatarUrl || "/placeholder.svg?height=80&width=80"}
+                alt={operator.name || "Operatore"}
+                width={80}
+                height={80}
+                className="rounded-full border-2 border-blue-500/50 object-cover"
+                onError={() => setImageError(true)}
+              />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-white truncate">{operator.name}</h3>
+              <div className="flex items-center text-sm text-yellow-400 mt-1">
+                <Star className="w-4 h-4 mr-1 fill-current" />
+                <span>{operator.rating.toFixed(1)}</span>
+                <span className="text-slate-400 ml-1">({operator.reviewsCount} rec.)</span>
+              </div>
+            </div>
+          </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {(operator.specializations || []).slice(0, 3).map((spec) => (
-          <Badge key={spec} variant="secondary" className="border-blue-600/50 bg-blue-900/70 text-blue-200">
-            {spec}
-          </Badge>
-        ))}
-      </div>
+          <p className="text-slate-300 text-sm mb-4 h-10 line-clamp-2">{operator.description}</p>
 
-      <div className="mt-auto grid grid-cols-2 gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-blue-700 bg-blue-950/50 text-blue-200 hover:border-blue-500 hover:bg-blue-900/80 hover:text-white"
-          disabled={!operator.is_online}
-        >
-          <MessageCircle className="mr-2 h-4 w-4" />
-          {chatPrice ? `${chatPrice.toFixed(2)} €/min` : "Chat"}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-blue-700 bg-blue-950/50 text-blue-200 hover:border-blue-500 hover:bg-blue-900/80 hover:text-white"
-          disabled={!operator.is_online}
-        >
-          <Phone className="mr-2 h-4 w-4" />
-          {callPrice ? `${callPrice.toFixed(2)} €/min` : "Chiama"}
-        </Button>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {operator.tags?.slice(0, 3).map((tag) => (
+              <Badge key={tag} variant="outline" className="border-blue-700 text-blue-300">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-slate-900/50 p-3 flex justify-around items-center">
+          {hasChat && (
+            <Button
+              onClick={handleStartChat}
+              disabled={isStartingChat || !operator.isOnline}
+              size="sm"
+              className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+            >
+              {isStartingChat ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <MessageCircle className="w-3 h-3 mr-1" />
+              )}
+              Chat
+            </Button>
+          )}
+          {hasCall && (
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+            >
+              <Phone className="w-3 h-3 mr-1" />
+              Chiama
+            </Button>
+          )}
+          {hasWritten && (
+            <Button
+              onClick={handleOpenEmailModal}
+              size="sm"
+              className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+            >
+              <Mail className="w-3 h-3 mr-1" />
+              Email
+            </Button>
+          )}
+        </div>
+
+        <Link href={profileLink} className="absolute inset-0" prefetch={false}>
+          <span className="sr-only">Vedi profilo di {operator.name}</span>
+        </Link>
       </div>
-      <Link href={`/operator/${operator.id}`} className="mt-4 block">
-        <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg transition-all duration-300 hover:shadow-cyan-500/30">
-          Vedi Profilo
-          <Sparkles className="ml-2 h-4 w-4" />
-        </Button>
-      </Link>
-    </div>
+      {hasWritten && (
+        <WrittenConsultationModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          operator={{
+            id: operator.id,
+            name: operator.name,
+            emailPrice: operator.services.find((s) => s.type === "written")?.price,
+          }}
+        />
+      )}
+    </>
   )
 }
