@@ -1,5 +1,5 @@
 "use server"
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
 export interface OperatorService {
   type: "chat" | "call" | "email"
@@ -21,7 +21,7 @@ export interface OperatorProfile {
 }
 
 export async function getApprovedOperators(): Promise<OperatorProfile[]> {
-  const supabase = createServerClient()
+  const supabase = createClient()
 
   const { data: operatorsData, error } = await supabase
     .from("profiles")
