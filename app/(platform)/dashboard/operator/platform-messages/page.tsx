@@ -51,7 +51,7 @@ export default function OperatorPlatformMessagesPage() {
     } else {
       setIsLoading(false)
     }
-  }, [user, authLoading])
+  }, [user, authLoading, selectedConversationId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })

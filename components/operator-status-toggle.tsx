@@ -1,59 +1,70 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { updateOperatorStatus, getOperatorById } from "@/lib/actions/operator.actions"
-import { toast } from "sonner"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useOperatorStatus } from "@/contexts/operator-status-context"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { Wifi, WifiOff, Pause, Play } from "lucide-react"
 
-export default function OperatorStatusToggle({ operatorId }: { operatorId: string }) {
-  const [isOnline, setIsOnline] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+export default function OperatorStatusToggle() {
+  const { status, setStatus, pauseTimer } = useOperatorStatus()
 
-  useEffect(() => {
-    async function fetchStatus() {
-      if (!operatorId) {
-        setIsLoading(false)
-        return
-      }
-      setIsLoading(true)
-      const operator = await getOperatorById(operatorId)
-      if (operator) {
-        setIsOnline(operator.isOnline)
-      }
-      setIsLoading(false)
-    }
-    fetchStatus()
-  }, [operatorId])
-
-  const handleToggle = async (checked: boolean) => {
-    setIsOnline(checked)
-    const result = await updateOperatorStatus(operatorId, checked)
-    if (result.success) {
-      toast.success(`Stato aggiornato a: ${checked ? "Online" : "Offline"}`)
+  const handleToggleOnline = () => {
+    if (status === "online" || status === "paused") {
+      setStatus("offline", true)
     } else {
-      toast.error(result.message || "Errore nell'aggiornamento dello stato.")
-      // Revert UI on error
-      setIsOnline(!checked)
+      setStatus("online", true)
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center space-x-2">
-        <Skeleton className="h-6 w-10 rounded-full" />
-        <Skeleton className="h-4 w-16" />
-      </div>
-    )
+  const handleTogglePause = () => {
+    if (status === "paused") {
+      setStatus("online", true) // Riprende dalla pausa
+    } else {
+      setStatus("paused", true)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
   }
 
   return (
-    <div className="flex items-center space-x-2">
-      <Switch id="online-status" checked={isOnline} onCheckedChange={handleToggle} aria-label="Stato online" />
-      <Label htmlFor="online-status" className="cursor-pointer">
-        {isOnline ? "Online" : "Offline"}
-      </Label>
+    <div className="flex items-center gap-2">
+      <Button
+        onClick={handleToggleOnline}
+        variant={status === "online" ? "default" : "outline"}
+        className={cn(
+          "w-28 transition-all",
+          status === "online" && "bg-green-500 hover:bg-green-600 text-white",
+          status === "offline" && "text-red-500 border-red-300 hover:bg-red-50 hover:text-red-600",
+          status === "paused" && "bg-yellow-500 hover:bg-yellow-600 text-white",
+          status === "occupied" && "bg-gray-400 text-white",
+        )}
+        disabled={status === "occupied"}
+      >
+        {status === "online" ? <Wifi className="mr-2 h-4 w-4" /> : <WifiOff className="mr-2 h-4 w-4" />}
+        {status === "online" ? "Online" : "Offline"}
+      </Button>
+      <Button
+        onClick={handleTogglePause}
+        variant="outline"
+        className="w-36 bg-transparent"
+        disabled={status === "offline" || status === "occupied"}
+      >
+        {status === "paused" ? (
+          <>
+            <Play className="mr-2 h-4 w-4" />
+            <span>Riprendi ({formatTime(pauseTimer)})</span>
+          </>
+        ) : (
+          <>
+            <Pause className="mr-2 h-4 w-4" />
+            <span>Pausa</span>
+          </>
+        )}
+      </Button>
     </div>
   )
 }
