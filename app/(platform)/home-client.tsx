@@ -4,10 +4,10 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperatorCard } from "@/components/operator-card" // FIX: Changed to named import
+import OperatorCard from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
-import type { Profile } from "@/contexts/auth-context"
+import type { Profile } from "@/types/database"
 
 const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
   const date = new Date()
@@ -48,11 +48,7 @@ export const allMockReviews: ReviewCardType[] = [
   },
 ]
 
-interface HomeClientProps {
-  initialOperators: Profile[]
-}
-
-export function HomeClient({ initialOperators }: HomeClientProps) {
+export function HomeClient({ initialOperators }: { initialOperators: Profile[] }) {
   const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -451,6 +447,22 @@ export function HomeClient({ initialOperators }: HomeClientProps) {
                 </Button>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Updated Section */}
+        <section className="py-16 bg-slate-900/50 backdrop-blur-sm">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12 text-white">I Nostri Esperti</h2>
+            {initialOperators.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
+                {initialOperators.map((operator) => (
+                  <OperatorCard key={operator.id} operator={operator} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-400">Nessun operatore disponibile al momento. Riprova più tardi.</p>
+            )}
           </div>
         </section>
       </main>

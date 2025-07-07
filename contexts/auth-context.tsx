@@ -1,86 +1,82 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import type { Profile } from "@/types/database.types"
+import type { Profile } from "@/types/database"
 
 type AuthContextType = {
   user: User | null
   profile: Profile | null
-  loading: boolean
+  isLoading: boolean
+  isAdmin: boolean
+  isOperator: boolean
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  profile: null,
-  loading: true,
-})
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const fetchProfile = useCallback(
-    async (userToFetch: User | null) => {
-      if (!userToFetch) {
-        setProfile(null)
-        return
-      }
-      try {
-        const { data, error } = await supabase.from("profiles").select("*").eq("id", userToFetch.id).single()
-        if (error) throw error
-        setProfile(data as Profile)
-      } catch (error) {
-        console.error("Error fetching profile:", error)
-        setProfile(null)
-      }
-    },
-    [supabase],
-  )
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    let isMounted = true
-
-    const initializeAuth = async () => {
+    const getSession = async () => {
       const {
         data: { session },
+        error,
       } = await supabase.auth.getSession()
-      if (isMounted) {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        await fetchProfile(currentUser)
-        setLoading(false)
+
+      if (error) {
+        console.error("Error getting session:", error)
+        setIsLoading(false)
+        return
       }
+
+      if (session) {
+        setUser(session.user)
+        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        setProfile(profileData)
+      }
+      setIsLoading(false)
     }
 
-    initializeAuth()
+    getSession()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (isMounted) {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        await fetchProfile(currentUser)
-        if (loading) setLoading(false)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        const fetchProfile = async () => {
+          const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+          setProfile(profileData)
+        }
+        fetchProfile()
+      } else {
+        setProfile(null)
       }
+      // No need to set loading here as it's for subsequent changes
     })
 
     return () => {
-      isMounted = false
       subscription.unsubscribe()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchProfile])
+  }, [supabase])
 
-  return <AuthContext.Provider value={{ user, profile, loading }}>{children}</AuthContext.Provider>
+  const value = {
+    user,
+    profile,
+    isLoading,
+    isAdmin: profile?.role === "admin",
+    isOperator: profile?.role === "operator",
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")

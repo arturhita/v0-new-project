@@ -1,9 +1,9 @@
 import { getOperators } from "@/lib/actions/operator.actions"
-import OperatorCard from "@/components/operator-card"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { HomeClient } from "./home-client"
 
 export default async function HomePage() {
-  const operators = await getOperators({ limit: 8 })
+  const operators = await getOperators({ limit: 12 })
 
   return (
     <div className="relative min-h-screen w-full bg-slate-900 text-white">
@@ -21,15 +21,7 @@ export default async function HomePage() {
 
         <section>
           <h2 className="text-3xl font-bold text-center mb-8 text-white">I Nostri Esperti Online</h2>
-          {operators.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-              {operators.map((operator) => (
-                <OperatorCard key={operator.id} operator={operator} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-400">Nessun operatore disponibile al momento. Riprova più tardi.</p>
-          )}
+          <HomeClient initialOperators={operators} />
         </section>
       </main>
     </div>
