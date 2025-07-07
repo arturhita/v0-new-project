@@ -41,8 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (_event === "PASSWORD_RECOVERY") {
-        // The user has clicked on the password recovery link
-        // We can redirect them to a page to reset their password
         router.push("/reset-password")
       }
     })
