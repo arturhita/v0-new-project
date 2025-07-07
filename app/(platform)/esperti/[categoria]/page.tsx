@@ -1,90 +1,95 @@
+import { SiteNavbar } from "@/components/site-navbar"
 import { OperatorCard } from "@/components/operator-card"
+import { SiteFooter } from "@/components/site-footer"
 import { ConstellationBackground } from "@/components/constellation-background"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import type { OperatorCardProfile } from "@/lib/actions/operator.actions"
 
-// Dati di prova aggiornati per corrispondere alla struttura di OperatorCardProfile
-const operators: OperatorCardProfile[] = [
+// Dati di prova AGGIORNATI per corrispondere alla nuova interfaccia OperatorCardProfile
+const mockOperators: OperatorCardProfile[] = [
   {
-    id: "1",
+    id: "op_luna_stellare",
     fullName: "Luna Stellare",
-    avatarUrl: "/placeholder.svg?height=100&width=100",
-    headline: "Cartomante",
-    averageRating: 4.9,
-    reviewsCount: 134,
-    bio: "Esperta in tarocchi dell'amore, ti guiderò attraverso le stelle.",
-    specializations: ["Amore", "Tarocchi", "Destino"],
+    avatarUrl: "/placeholder.svg?width=128&height=128&text=LS",
+    headline: "Cartomante Esperta in Tarocchi dell'Amore",
     isOnline: true,
+    specializations: ["Amore", "Tarocchi", "Relazioni"],
+    averageRating: 4.9,
+    reviewsCount: 182,
     services: [
-      { type: "chat", price: 1.5 },
-      { type: "call", price: 2.0 },
-      { type: "email", price: 25.0 },
-    ],
-    joinedDate: "2023-10-15",
-  },
-  {
-    id: "2",
-    fullName: "Astro Solare",
-    avatarUrl: "/placeholder.svg?height=100&width=100",
-    headline: "Astrologo",
-    averageRating: 4.8,
-    reviewsCount: 210,
-    bio: "Leggo il tuo futuro nelle stelle con precisione e professionalità.",
-    specializations: ["Astrologia", "Lavoro", "Fortuna"],
-    isOnline: false,
-    services: [
-      { type: "chat", price: 1.8 },
-      { type: "call", price: 2.2 },
+      { type: "chat", price: 2.5 },
+      { type: "call", price: 3.0 },
       { type: "email", price: 30.0 },
     ],
-    joinedDate: "2023-09-01",
+    joinedDate: "2023-01-15T10:00:00Z",
+    bio: "Con anni di esperienza e una profonda connessione con il mondo spirituale, Luna ti guida attraverso le complessità della vita e dell'amore.",
   },
   {
-    id: "3",
-    fullName: "Maga Iris",
-    avatarUrl: "/placeholder.svg?height=100&width=100",
-    headline: "Sensitiva",
-    averageRating: 5.0,
-    reviewsCount: 95,
-    bio: "Le mie percezioni ti aiuteranno a fare chiarezza nella tua vita.",
-    specializations: ["Sensitività", "Relazioni", "Energie"],
-    isOnline: true,
+    id: "op_sol_divino",
+    fullName: "Sol Divino",
+    avatarUrl: "/placeholder.svg?width=128&height=128&text=SD",
+    headline: "Astrologo e Lettore del Destino",
+    isOnline: false,
+    specializations: ["Astrologia", "Futuro", "Lavoro"],
+    averageRating: 4.8,
+    reviewsCount: 250,
     services: [
-      { type: "chat", price: 2.0 },
-      { type: "call", price: 2.5 },
+      { type: "chat", price: 2.8 },
+      { type: "call", price: 3.2 },
       { type: "email", price: 35.0 },
     ],
-    joinedDate: "2024-01-10",
+    joinedDate: "2022-11-20T10:00:00Z",
+    bio: "Interpreto le stelle per svelare il tuo cammino e aiutarti a prendere le decisioni migliori per il tuo futuro.",
   },
 ]
 
-export default function CategoriaPage({ params }: { params: { categoria: string } }) {
-  const categoryName = decodeURIComponent(params.categoria)
+export default function ExpertsByCategoryPage({ params }: { params: { categoria: string } }) {
+  const categoryName = decodeURIComponent(params.categoria).replace(/-/g, " ")
 
   return (
-    <div className="relative min-h-screen bg-slate-900 text-white">
+    <div className="flex min-h-screen flex-col bg-slate-900 text-white">
       <ConstellationBackground />
-      <main className="container mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <div className="relative z-10 text-center">
-          <h1 className="text-4xl font-bold capitalize tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Esperti in {categoryName}
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-300">
-            Trova il consulente specializzato che fa per te e inizia subito la tua consulenza.
-          </p>
-        </div>
+      <SiteNavbar />
+      <main className="flex-1">
+        <div className="container py-12 pt-24 md:py-16">
+          <Breadcrumb className="mb-8">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/esperti">Esperti</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="capitalize">{categoryName}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
-        {operators.length > 0 ? (
-          <div className="relative z-10 mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {operators.map((operator, index) => (
+          <div className="mb-8 text-center">
+            <h1 className="text-4xl font-bold capitalize tracking-tight md:text-5xl">Esperti in {categoryName}</h1>
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-400">
+              Trova il professionista più adatto a te per un consulto approfondito.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {mockOperators.map((operator) => (
               <OperatorCard key={operator.id} operator={operator} />
             ))}
           </div>
-        ) : (
-          <div className="relative z-10 mt-12 text-center">
-            <p className="text-xl text-slate-400">Nessun operatore disponibile per questa categoria al momento.</p>
-          </div>
-        )}
+        </div>
       </main>
+      <SiteFooter />
     </div>
   )
 }
