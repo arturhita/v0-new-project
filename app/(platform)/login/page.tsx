@@ -1,13 +1,33 @@
 "use client"
 
+import type React from "react"
+
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { useAuth } from "@/contexts/auth-context"
+import { ArrowRight } from "lucide-react"
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const { login, loading } = useAuth()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    const result = await login({ email, password })
+    if (!result.success) {
+      setError(result.error || "Si è verificato un errore.")
+    }
+    // Redirect is handled by AuthContext
+  }
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground goldVisible={true} />
@@ -27,7 +47,10 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold text-white">Bentornato</h1>
             <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
           </div>
-          <div className="grid gap-4">
+          <form onSubmit={handleSubmit} className="grid gap-4">
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">{error}</div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="email" className="text-slate-200">
                 Email
@@ -37,6 +60,9 @@ export default function LoginPage() {
                 type="email"
                 placeholder="mario@esempio.com"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
@@ -53,16 +79,30 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
             >
-              Accedi
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-blue-200/30 border-t-blue-400 rounded-full animate-spin mr-2"></div>
+                  Accesso in corso...
+                </div>
+              ) : (
+                <div className="flex items-center justify-center">
+                  Accedi
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </div>
+              )}
             </Button>
-          </div>
+          </form>
           <div className="mt-6 text-center text-sm text-slate-300">
             Non hai un account?{" "}
             <Link href="/register" className="underline text-blue-400 hover:text-blue-300 font-semibold">
