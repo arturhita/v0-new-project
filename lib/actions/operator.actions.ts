@@ -6,18 +6,18 @@ import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/contexts/auth-context"
 import { revalidatePath } from "next/cache"
 
-// Schema di validazione per i dati in input
+// Schema di validazione per i dati in input dal form
 const OperatorInputSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  fullName: z.string().min(3),
-  stageName: z.string().min(3),
+  email: z.string().email({ message: "Email non valida." }),
+  password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
+  fullName: z.string().min(3, { message: "Il nome completo è obbligatorio." }),
+  stageName: z.string().min(3, { message: "Il nome d'arte è obbligatorio." }),
   phone: z.string().optional(),
   bio: z.string().optional(),
   commission: z.coerce.number(),
   status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
   isOnline: z.boolean(),
-  categories: z.string().array().min(1),
+  categories: z.string().array().min(1, { message: "Selezionare almeno una categoria." }),
   specialties: z.string().array(),
   services: z.object({
     chatEnabled: z.boolean(),
@@ -28,29 +28,53 @@ const OperatorInputSchema = z.object({
     emailPrice: z.coerce.number(),
   }),
   availability: z.any(),
-  avatarUrl: z.string().optional(),
+  avatarUrl: z.string().optional(), // L'avatar non viene ancora salvato, ma lo schema lo prevede
 })
 
 /**
- * VERSIONE STABILE BASATA SUL TEST #2 (FUNZIONANTE)
- * Crea utente e profilo. Non gestisce avatar né revalidate per garantire il completamento.
+ * VERSIONE CORRETTA E STABILE
+ * Converte i nomi delle categorie in UUID prima dell'inserimento.
+ * Gestisce il rollback e la revalidation dei percorsi.
  */
-export async function createOperator(operatorData: z.infer<typeof OperatorInputSchema>) {
-  console.log("--- [STABLE] Inizio azione: Auth + Profilo DB.")
+export async function createOperator(operatorData: unknown) {
+  console.log("--- Inizio azione di creazione operatore (versione stabile) ---")
   let newUserId: string | null = null
+  const supabaseAdmin = createSupabaseAdminClient()
 
   try {
-    // 1. Validazione
+    // 1. Validazione con Zod
     const validation = OperatorInputSchema.safeParse(operatorData)
     if (!validation.success) {
-      throw new Error(`Errore di validazione: ${JSON.stringify(validation.error.flatten().fieldErrors)}`)
+      // Estrae il primo errore per un messaggio più chiaro
+      const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0]
+      throw new Error(`Dati non validi: ${firstError}` || "Errore di validazione.")
     }
     const { avatarUrl, ...data } = validation.data
-    console.log(`[STABLE] Step 1: Dati validati per ${data.email}.`)
+    console.log(`[1/6] Dati validati per ${data.email}.`)
 
-    const supabaseAdmin = createSupabaseAdminClient()
+    // 2. Controllo Esistenza Email o Nome d'Arte
+    const { data: existingProfile, error: checkError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .or(`email.eq.${data.email},stage_name.eq.${data.stageName}`)
+      .maybeSingle()
 
-    // 2. Creazione utente in Auth
+    if (checkError) throw new Error(`Errore DB controllo esistenza: ${checkError.message}`)
+    if (existingProfile) throw new Error("Un operatore con questa email o nome d'arte esiste già.")
+    console.log("[2/6] Email e nome d'arte sono unici.")
+
+    // 3. Conversione Nomi Categorie in UUID
+    const { data: categoryData, error: categoryError } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .in("name", data.categories)
+
+    if (categoryError) throw new Error(`Errore DB recupero categorie: ${categoryError.message}`)
+    if (categoryData.length !== data.categories.length) throw new Error("Una o più categorie non sono valide.")
+    const categoryUuids = categoryData.map((c) => c.id)
+    console.log("[3/6] Nomi categorie convertiti in UUIDs.")
+
+    // 4. Creazione Utente in Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
@@ -59,9 +83,9 @@ export async function createOperator(operatorData: z.infer<typeof OperatorInputS
     })
     if (authError) throw new Error(`Errore Auth: ${authError.message}`)
     newUserId = authData.user.id
-    console.log(`[STABLE] Step 2: Utente Auth creato: ${newUserId}`)
+    console.log(`[4/6] Utente Auth creato con ID: ${newUserId}`)
 
-    // 3. Inserimento del profilo nel database
+    // 5. Inserimento Profilo nel Database
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: newUserId,
       email: data.email,
@@ -73,33 +97,35 @@ export async function createOperator(operatorData: z.infer<typeof OperatorInputS
       commission_rate: data.commission,
       status: data.status,
       is_online: data.isOnline,
+      is_available: data.isOnline, // Impostiamo available come online inizialmente
       main_discipline: data.categories[0],
       specialties: data.specialties,
+      categories: categoryUuids, // <-- QUI L'ERRORE È STATO CORRETTO
       service_prices: data.services,
       availability_schedule: data.availability,
-      profile_image_url: null,
+      profile_image_url: null, // Gestione avatar in un secondo momento
     })
 
-    if (profileError) {
-      throw new Error(`Errore Database: ${profileError.message}`)
-    }
-    console.log("[STABLE] Step 3: Profilo inserito nel DB con successo.")
+    if (profileError) throw new Error(`Errore Database durante inserimento profilo: ${profileError.message}`)
+    console.log("[5/6] Profilo inserito nel DB con successo.")
 
-    // 4. Successo
-    console.log("--- [STABLE] Azione completata con SUCCESSO.")
+    // 6. Revalidation dei percorsi per aggiornare la UI
+    revalidatePath("/admin/operators")
+    revalidatePath("/")
+    console.log("[6/6] Percorsi revalidati.")
+
+    console.log("--- Azione completata con SUCCESSO ---")
     return {
       success: true,
-      message: `Operatore ${data.stageName} creato con successo.`,
+      message: `Operatore "${data.stageName}" creato con successo.`,
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
-    console.error("--- [STABLE] CATTURATO ERRORE CRITICO:", errorMessage)
+    console.error("--- CATTURATO ERRORE CRITICO:", errorMessage)
 
-    // Rollback
     if (newUserId) {
       console.log(`[ROLLBACK] Avvio eliminazione utente Auth orfano: ${newUserId}`)
-      const supabaseAdminForRollback = createSupabaseAdminClient()
-      await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
+      await supabaseAdmin.auth.admin.deleteUser(newUserId)
       console.log("[ROLLBACK] Utente Auth orfano eliminato.")
     }
 
@@ -107,7 +133,7 @@ export async function createOperator(operatorData: z.infer<typeof OperatorInputS
   }
 }
 
-// --- LE ALTRE FUNZIONI RIMANGONO QUI SOTTO ---
+// --- LE ALTRE FUNZIONI RIMANGONO INVARIATE ---
 
 export async function getAllOperatorsForAdmin() {
   const supabase = createClient()

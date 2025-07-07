@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -61,7 +61,7 @@ export default function CreateOperatorPage() {
   const router = useRouter()
   const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   const [operator, setOperator] = useState({
     fullName: "",
@@ -72,7 +72,7 @@ export default function CreateOperatorPage() {
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
-    avatarUrl: "", // Data URL base64
+    avatarUrl: "",
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -98,45 +98,30 @@ export default function CreateOperatorPage() {
   const [newSpecialty, setNewSpecialty] = useState("")
   const [showPreview, setShowPreview] = useState(false)
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setIsSubmitting(true)
+    startTransition(async () => {
+      try {
+        const result = await createOperator(operator)
 
-    const operatorData = {
-      ...operator,
-      services: {
-        chatEnabled: operator.services.chatEnabled,
-        chatPrice: Number.parseFloat(operator.services.chatPrice) || 0,
-        callEnabled: operator.services.callEnabled,
-        callPrice: Number.parseFloat(operator.services.callPrice) || 0,
-        emailEnabled: operator.services.emailEnabled,
-        emailPrice: Number.parseFloat(operator.services.emailPrice) || 0,
-      },
-      commission: Number.parseInt(operator.commission, 10) || 0,
-    }
-
-    try {
-      const result = await createOperator(operatorData)
-
-      if (result.success) {
+        if (result.success) {
+          toast({
+            title: "Successo!",
+            description: result.message,
+          })
+          router.push("/admin/operators")
+        } else {
+          throw new Error(result.message || "Qualcosa è andato storto.")
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
         toast({
-          title: "Successo!",
-          description: result.message,
+          title: "Errore nella Creazione",
+          description: errorMessage,
+          variant: "destructive",
         })
-        router.push("/admin/operators")
-      } else {
-        throw new Error(result.message || "Qualcosa è andato storto.")
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
-      toast({
-        title: "Errore nella Creazione",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+    })
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -661,10 +646,10 @@ export default function CreateOperatorPage() {
         <Button
           size="lg"
           type="submit"
-          disabled={isSubmitting}
+          disabled={isPending}
           className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
         >
-          {isSubmitting ? (
+          {isPending ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Salvataggio...
