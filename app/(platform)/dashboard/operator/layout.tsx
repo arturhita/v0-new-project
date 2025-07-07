@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -43,10 +43,8 @@ import { Suspense, useEffect } from "react"
 import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-status-context"
 import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-context"
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
-import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 import { ProtectedRoute } from "@/components/protected-route"
-import OperatorSidebar from "./_components/operator-sidebar"
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -84,9 +82,8 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
   )
 }
 
-function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
+function OperatorDashboardLayoutComponent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
   const { showRequest } = useChatRequest()
   const { logout } = useAuth()
@@ -157,141 +154,130 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
     </nav>
   )
 
-  const handleLogout = () => {
-    // Implement your logout logic here, e.g., clearing cookies, local storage, etc.
-    // After logging out, redirect the user to the home page or login page.
-    router.push("/")
-  }
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Site Navbar */}
-      <SiteNavbar />
-
-      <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
-        <aside className="hidden border-r border-blue-700 bg-blue-800 md:block shadow-xl rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden relative z-10">
-          <div className="flex h-full max-h-screen flex-col">
-            <div className="flex h-20 items-center justify-center border-b border-blue-700 px-6 bg-gradient-to-br from-blue-800 to-blue-900">
-              <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                <span>Dashboard Operatore</span>
-              </Link>
-            </div>
-            <div className="flex-1 overflow-auto py-5 space-y-2">
-              <SidebarNavOperator />
-            </div>
-            <div className="mt-auto p-3 border-t border-blue-700">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-base font-medium text-blue-200 hover:text-white hover:bg-blue-700"
-                onClick={logout}
-              >
-                <LogOut className="mr-2.5 h-5 w-5" />
-                Disconnetti
-              </Button>
-            </div>
+    <div className="grid w-full flex-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr]">
+      <aside className="hidden border-r border-blue-700 bg-blue-800 md:block shadow-xl relative">
+        <div className="flex h-full max-h-screen flex-col">
+          <div className="flex h-20 items-center justify-center border-b border-blue-700 px-6 bg-gradient-to-br from-blue-800 to-blue-900">
+            <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
+              <span>Dashboard Operatore</span>
+            </Link>
           </div>
-        </aside>
-
-        <div className="flex flex-col relative z-10">
-          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
-            <Suspense fallback={<div>Loading...</div>}>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 md:hidden rounded-lg border-2 border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent"
-                  >
-                    <MenuIcon className="h-6 w-6" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col bg-blue-800 p-0 w-[300px] border-r border-blue-700">
-                  <div className="flex h-20 items-center justify-center border-b border-blue-700 px-6 bg-gradient-to-br from-blue-800 to-blue-900">
-                    <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                      <span>Dashboard Operatore</span>
-                    </Link>
-                  </div>
-                  <div className="py-5 flex-1 overflow-auto">
-                    <SidebarNavOperator />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </Suspense>
-
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold text-gray-800 capitalize">
-                {pathname.split("/").pop()?.replace(/-/g, " ") || "Panoramica"}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-3 ml-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm border-2 bg-white",
-                      currentStatusInfo.buttonClass,
-                    )}
-                  >
-                    <span className={cn("h-2.5 w-2.5 rounded-full", currentStatusInfo.dotClass)} />
-                    <span className="font-medium">{currentStatusInfo.text}</span>
-                    <ChevronDown className="h-4 w-4 opacity-80" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white border-gray-200">
-                  <DropdownMenuLabel className="text-gray-700">Imposta il tuo stato</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-gray-200" />
-                  <DropdownMenuItem
-                    onClick={() => handleSetStatusManually("online")}
-                    disabled={status === "online" && !currentStatusInfo.text.startsWith("In Pausa")}
-                    className="text-gray-800 focus:bg-blue-100"
-                  >
-                    <Sun className="mr-2 h-4 w-4 text-green-500" />
-                    <span>Online</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSetStatusManually("paused")}
-                    disabled={status === "paused"}
-                    className="text-gray-800 focus:bg-blue-100"
-                  >
-                    <Coffee className="mr-2 h-4 w-4 text-amber-500" />
-                    <span>Pausa (20 min)</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSetStatusManually("offline")}
-                    disabled={status === "offline" && !currentStatusInfo.text.startsWith("In Pausa")}
-                    className="text-gray-800 focus:bg-blue-100"
-                  >
-                    <Moon className="mr-2 h-4 w-4 text-gray-500" />
-                    <span>Offline</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="sr-only">Notifiche</span>
-              </Button>
-              <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
-                <AvatarImage src="/placeholder.svg?height=38&width=38" alt={operatorName} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {operatorName?.substring(0, 1).toUpperCase()}
-                </AvatarFallback>
-                <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
-              </Avatar>
-            </div>
-          </header>
-          <main className="flex-1 overflow-x-hidden p-4 sm:p-6 md:p-8">
-            {children}
-            <IncomingChatRequestModal />
-          </main>
+          <div className="flex-1 overflow-auto py-5 space-y-2">
+            <SidebarNavOperator />
+          </div>
+          <div className="mt-auto p-3 border-t border-blue-700">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-base font-medium text-blue-200 hover:text-white hover:bg-blue-700"
+              onClick={logout}
+            >
+              <LogOut className="mr-2.5 h-5 w-5" />
+              Disconnetti
+            </Button>
+          </div>
         </div>
+      </aside>
+
+      <div className="flex flex-col">
+        <header className="flex h-20 items-center gap-4 border-b bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
+          <Suspense fallback={<div>Loading...</div>}>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 md:hidden rounded-lg border-2 border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent"
+                >
+                  <MenuIcon className="h-6 w-6" />
+                  <span className="sr-only">Apri menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex flex-col bg-blue-800 p-0 w-[300px] border-r border-blue-700">
+                <div className="flex h-20 items-center justify-center border-b border-blue-700 px-6 bg-gradient-to-br from-blue-800 to-blue-900">
+                  <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
+                    <span>Dashboard Operatore</span>
+                  </Link>
+                </div>
+                <div className="py-5 flex-1 overflow-auto">
+                  <SidebarNavOperator />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </Suspense>
+
+          <div className="flex-1">
+            <h1 className="text-xl font-semibold text-gray-800 capitalize">
+              {pathname.split("/").pop()?.replace(/-/g, " ") || "Panoramica"}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3 ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm border-2 bg-white",
+                    currentStatusInfo.buttonClass,
+                  )}
+                >
+                  <span className={cn("h-2.5 w-2.5 rounded-full", currentStatusInfo.dotClass)} />
+                  <span className="font-medium">{currentStatusInfo.text}</span>
+                  <ChevronDown className="h-4 w-4 opacity-80" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-white border-gray-200">
+                <DropdownMenuLabel className="text-gray-700">Imposta il tuo stato</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-gray-200" />
+                <DropdownMenuItem
+                  onClick={() => handleSetStatusManually("online")}
+                  disabled={status === "online"}
+                  className="text-gray-800 focus:bg-blue-100"
+                >
+                  <Sun className="mr-2 h-4 w-4 text-green-500" />
+                  <span>Online</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleSetStatusManually("paused")}
+                  disabled={status === "paused"}
+                  className="text-gray-800 focus:bg-blue-100"
+                >
+                  <Coffee className="mr-2 h-4 w-4 text-amber-500" />
+                  <span>Pausa (20 min)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleSetStatusManually("offline")}
+                  disabled={status === "offline"}
+                  className="text-gray-800 focus:bg-blue-100"
+                >
+                  <Moon className="mr-2 h-4 w-4 text-gray-500" />
+                  <span>Offline</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="sr-only">Notifiche</span>
+            </Button>
+            <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
+              <AvatarImage src="/placeholder.svg?height=38&width=38" alt={operatorName || "O"} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
+                {operatorName?.substring(0, 1).toUpperCase() || "O"}
+              </AvatarFallback>
+              <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
+            </Avatar>
+          </div>
+        </header>
+        <main className="flex-1 overflow-x-hidden p-4 sm:p-6 md:p-8 bg-gray-50">
+          {children}
+          <IncomingChatRequestModal />
+        </main>
       </div>
     </div>
   )
@@ -302,12 +288,7 @@ export default function OperatorDashboardLayout({ children }: { children: React.
     <ProtectedRoute allowedRoles={["operator"]}>
       <OperatorStatusProvider>
         <ChatRequestProvider>
-          <div className="flex min-h-screen bg-muted/40">
-            <OperatorSidebar />
-            <main className="flex-1 p-4 sm:p-6">
-              <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
-            </main>
-          </div>
+          <OperatorDashboardLayoutComponent>{children}</OperatorDashboardLayoutComponent>
         </ChatRequestProvider>
       </OperatorStatusProvider>
     </ProtectedRoute>
