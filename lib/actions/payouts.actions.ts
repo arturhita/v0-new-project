@@ -79,7 +79,6 @@ export async function saveOperatorPayoutMethod(operatorId: string, formData: For
     return { success: false, message: "Metodo di pagamento non valido." }
   }
 
-  // Se si imposta come default, prima si rimuove il default da altri metodi
   if (isDefault) {
     const { error: updateError } = await supabase
       .from("operator_payout_methods")
@@ -104,8 +103,19 @@ export async function saveOperatorPayoutMethod(operatorId: string, formData: For
   return { success: true, message: "Metodo di pagamento salvato." }
 }
 
+// AGGIORNATA CON REGOLA DEI 15 GIORNI
 export async function createPayoutRequest(operatorId: string, amount: number) {
   const supabase = createClient()
+
+  // 0. Controlla se è una finestra di pagamento valida (1-5 e 16-20 di ogni mese)
+  const today = new Date().getDate()
+  const isPayoutWindow = (today >= 1 && today <= 5) || (today >= 16 && today <= 20)
+  if (!isPayoutWindow) {
+    return {
+      success: false,
+      message: "Le richieste di pagamento sono aperte solo dall'1 al 5 e dal 16 al 20 di ogni mese.",
+    }
+  }
 
   // 1. Controlla se l'operatore ha un metodo di pagamento di default
   const { data: defaultMethod, error: methodError } = await supabase
@@ -119,7 +129,7 @@ export async function createPayoutRequest(operatorId: string, amount: number) {
     return { success: false, message: "Imposta un metodo di pagamento di default prima di richiedere un pagamento." }
   }
 
-  // 2. Controlla se l'importo è valido (maggiore di zero e non superiore al saldo disponibile)
+  // 2. Controlla se l'importo è valido
   const earningsData = await getOperatorEarningsData(operatorId)
   if (amount <= 0) {
     return { success: false, message: "L'importo deve essere maggiore di zero." }

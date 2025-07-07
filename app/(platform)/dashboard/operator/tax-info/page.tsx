@@ -1,143 +1,128 @@
 "use client"
-import { useState } from "react"
+
 import type React from "react"
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { getOperatorTaxDetails, saveOperatorTaxDetails } from "@/lib/actions/operator.actions"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Save, ShieldCheck } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { Loader2, ShieldCheck } from "lucide-react"
+import type { OperatorTaxDetails } from "@/types/database.types"
 
 export default function TaxInfoPage() {
-  const [taxInfo, setTaxInfo] = useState({
-    name: "", // Nuovo campo
-    surname: "", // Nuovo campo
-    country: "IT",
-    taxId: "",
-    vatNumber: "",
-    address: "",
-    city: "",
-    zipCode: "",
-  })
+  const { profile } = useAuth()
+  const { toast } = useToast()
+  const [details, setDetails] = useState<Partial<OperatorTaxDetails>>({})
+  const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setTaxInfo((prev) => ({ ...prev, [name]: value }))
+  useEffect(() => {
+    if (profile?.id) {
+      getOperatorTaxDetails(profile.id)
+        .then((data) => {
+          if (data) setDetails(data)
+        })
+        .finally(() => setLoading(false))
+    }
+  }, [profile])
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!profile) return
+
+    setIsSubmitting(true)
+    const formData = new FormData(event.currentTarget)
+    const result = await saveOperatorTaxDetails(profile.id, formData)
+
+    if (result.success) {
+      toast({ title: "Successo", description: result.message })
+    } else {
+      toast({ title: "Errore", description: result.message, variant: "destructive" })
+    }
+    setIsSubmitting(false)
   }
 
-  const handleSave = () => {
-    console.log("Dati fiscali salvati:", taxInfo)
-    alert("Dati fiscali salvati con successo (simulazione).")
+  if (loading) {
+    return <Loader2 className="mx-auto mt-8 h-8 w-8 animate-spin" />
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Dati Fiscali</h1>
-        <Button
-          onClick={handleSave}
-          className="bg-gradient-to-r from-[hsl(var(--primary-light))] to-[hsl(var(--primary-medium))] text-white shadow-md hover:opacity-90"
-        >
-          <Save className="mr-2 h-5 w-5" /> Salva Dati
-        </Button>
-      </div>
-      <CardDescription className="text-slate-500 -mt-4">
-        Inserisci i tuoi dati fiscali per la corretta fatturazione e gestione dei compensi. Questi dati sono privati e
-        non verranno mostrati pubblicamente.
-      </CardDescription>
+      <h1 className="text-3xl font-bold">Dati Fiscali e di Fatturazione</h1>
+      <p className="text-gray-400">
+        Queste informazioni sono private, verranno usate solo per la fatturazione e non saranno mostrate pubblicamente.
+      </p>
 
-      <Card className="shadow-xl rounded-2xl">
+      <Card className="bg-gray-800/50 border-gray-700/50">
         <CardHeader>
-          <CardTitle className="text-xl text-slate-700 flex items-center">
-            <ShieldCheck className="mr-2 h-5 w-5 text-[hsl(var(--primary-medium))]" />
-            Informazioni di Fatturazione
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="text-green-400" />
+            Informazioni Protette
           </CardTitle>
+          <CardDescription>Compila i campi richiesti per la corretta gestione amministrativa.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Nome (Anagrafico)</Label>
-              <Input id="name" name="name" value={taxInfo.name} onChange={handleInputChange} placeholder="Mario" />
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="company_name">Ragione Sociale (se applicabile)</Label>
+                <Input
+                  id="company_name"
+                  name="company_name"
+                  defaultValue={details.company_name ?? ""}
+                  placeholder="Es. Consulente S.R.L."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vat_id">Partita IVA</Label>
+                <Input id="vat_id" name="vat_id" defaultValue={details.vat_id ?? ""} placeholder="IT12345678901" />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="surname">Cognome (Anagrafico)</Label>
-              <Input
-                id="surname"
-                name="surname"
-                value={taxInfo.surname}
-                onChange={handleInputChange}
-                placeholder="Rossi"
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="tax_id">Codice Fiscale</Label>
+                <Input id="tax_id" name="tax_id" defaultValue={details.tax_id ?? ""} placeholder="RSSMRA80A01H501U" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="full_address">Indirizzo di Fatturazione Completo</Label>
+                <Input
+                  id="full_address"
+                  name="full_address"
+                  defaultValue={details.full_address ?? ""}
+                  placeholder="Via, Numero, CAP, Città, Provincia"
+                />
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="taxId">Codice Fiscale</Label>
-              <Input
-                id="taxId"
-                name="taxId"
-                value={taxInfo.taxId}
-                onChange={handleInputChange}
-                placeholder="RSSMRA80A01H501U"
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="pec_email">Email PEC</Label>
+                <Input
+                  id="pec_email"
+                  name="pec_email"
+                  type="email"
+                  defaultValue={details.pec_email ?? ""}
+                  placeholder="tua.email@pec.it"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sdi_code">Codice SDI</Label>
+                <Input id="sdi_code" name="sdi_code" defaultValue={details.sdi_code ?? ""} placeholder="ES. XXXXXXX" />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="vatNumber">Partita IVA (se applicabile)</Label>
-              <Input
-                id="vatNumber"
-                name="vatNumber"
-                value={taxInfo.vatNumber}
-                onChange={handleInputChange}
-                placeholder="IT12345678901"
-              />
+
+            <div className="pt-4">
+              <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700">
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Salva Dati Fiscali
+              </Button>
             </div>
-          </div>
-          <div>
-            <Label htmlFor="address">Indirizzo di Residenza</Label>
-            <Input
-              id="address"
-              name="address"
-              value={taxInfo.address}
-              onChange={handleInputChange}
-              placeholder="Via Roma, 1"
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="city">Città</Label>
-              <Input id="city" name="city" value={taxInfo.city} onChange={handleInputChange} placeholder="Milano" />
-            </div>
-            <div>
-              <Label htmlFor="zipCode">CAP</Label>
-              <Input
-                id="zipCode"
-                name="zipCode"
-                value={taxInfo.zipCode}
-                onChange={handleInputChange}
-                placeholder="20121"
-              />
-            </div>
-            <div>
-              <Label htmlFor="country">Paese</Label>
-              <Select
-                name="country"
-                value={taxInfo.country}
-                onValueChange={(val) => setTaxInfo((p) => ({ ...p, country: val }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona paese" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="IT">Italia</SelectItem>
-                  <SelectItem value="CH">Svizzera</SelectItem>
-                  <SelectItem value="SM">San Marino</SelectItem>
-                  <SelectItem value="FR">Francia</SelectItem>
-                  <SelectItem value="DE">Germania</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
