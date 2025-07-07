@@ -1,12 +1,113 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
+import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/contexts/auth-context"
+import { revalidatePath } from "next/cache"
 
-// La funzione createOperator è stata spostata in un API Route per stabilità.
-// Questo file contiene ora solo le altre funzioni di helper per gli operatori.
+// Schema di validazione per i dati in input
+const OperatorInputSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().min(3),
+  stageName: z.string().min(3),
+  phone: z.string().optional(),
+  bio: z.string().optional(),
+  commission: z.coerce.number(),
+  status: z.enum(["Attivo", "In Attesa", "Sospeso"]),
+  isOnline: z.boolean(),
+  categories: z.string().array().min(1),
+  specialties: z.string().array(),
+  services: z.object({
+    chatEnabled: z.boolean(),
+    chatPrice: z.coerce.number(),
+    callEnabled: z.boolean(),
+    callPrice: z.coerce.number(),
+    emailEnabled: z.boolean(),
+    emailPrice: z.coerce.number(),
+  }),
+  availability: z.any(),
+  avatarUrl: z.string().optional(),
+})
+
+/**
+ * VERSIONE STABILE BASATA SUL TEST #2 (FUNZIONANTE)
+ * Crea utente e profilo. Non gestisce avatar né revalidate per garantire il completamento.
+ */
+export async function createOperator(operatorData: z.infer<typeof OperatorInputSchema>) {
+  console.log("--- [STABLE] Inizio azione: Auth + Profilo DB.")
+  let newUserId: string | null = null
+
+  try {
+    // 1. Validazione
+    const validation = OperatorInputSchema.safeParse(operatorData)
+    if (!validation.success) {
+      throw new Error(`Errore di validazione: ${JSON.stringify(validation.error.flatten().fieldErrors)}`)
+    }
+    const { avatarUrl, ...data } = validation.data
+    console.log(`[STABLE] Step 1: Dati validati per ${data.email}.`)
+
+    const supabaseAdmin = createSupabaseAdminClient()
+
+    // 2. Creazione utente in Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { role: "operator", full_name: data.fullName, stage_name: data.stageName },
+    })
+    if (authError) throw new Error(`Errore Auth: ${authError.message}`)
+    newUserId = authData.user.id
+    console.log(`[STABLE] Step 2: Utente Auth creato: ${newUserId}`)
+
+    // 3. Inserimento del profilo nel database
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      id: newUserId,
+      email: data.email,
+      role: "operator",
+      full_name: data.fullName,
+      stage_name: data.stageName,
+      phone: data.phone,
+      bio: data.bio,
+      commission_rate: data.commission,
+      status: data.status,
+      is_online: data.isOnline,
+      main_discipline: data.categories[0],
+      specialties: data.specialties,
+      service_prices: data.services,
+      availability_schedule: data.availability,
+      profile_image_url: null,
+    })
+
+    if (profileError) {
+      throw new Error(`Errore Database: ${profileError.message}`)
+    }
+    console.log("[STABLE] Step 3: Profilo inserito nel DB con successo.")
+
+    // 4. Successo
+    console.log("--- [STABLE] Azione completata con SUCCESSO.")
+    return {
+      success: true,
+      message: `Operatore ${data.stageName} creato con successo.`,
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto."
+    console.error("--- [STABLE] CATTURATO ERRORE CRITICO:", errorMessage)
+
+    // Rollback
+    if (newUserId) {
+      console.log(`[ROLLBACK] Avvio eliminazione utente Auth orfano: ${newUserId}`)
+      const supabaseAdminForRollback = createSupabaseAdminClient()
+      await supabaseAdminForRollback.auth.admin.deleteUser(newUserId)
+      console.log("[ROLLBACK] Utente Auth orfano eliminato.")
+    }
+
+    return { success: false, message: `Creazione fallita: ${errorMessage}` }
+  }
+}
+
+// --- LE ALTRE FUNZIONI RIMANGONO QUI SOTTO ---
 
 export async function getAllOperatorsForAdmin() {
   const supabase = createClient()
