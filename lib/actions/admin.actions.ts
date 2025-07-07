@@ -10,23 +10,25 @@ export type OperatorWithDetails = Tables<"profiles"> & {
 
 export async function approveOperator(operatorId: string) {
   console.log(`Approvazione operatore: ${operatorId}`)
-  // Logica per approvare l'operatore nel database
   const { success, error } = await updateOperatorStatus(operatorId, "active")
   if (!success) {
     console.error("Error approving operator:", error)
     return { success: false, message: "Errore nell'approvazione dell'operatore." }
   }
+  revalidatePath("/admin/operator-approvals")
+  revalidatePath("/admin/operators")
   return { success: true, message: "Operatore approvato con successo." }
 }
 
 export async function rejectOperator(operatorId: string, reason?: string) {
   console.log(`Rifiuto operatore: ${operatorId}, Motivo: ${reason}`)
-  // Logica per rifiutare l'operatore nel database
   const { success, error } = await updateOperatorStatus(operatorId, "inactive")
   if (!success) {
     console.error("Error rejecting operator:", error)
     return { success: false, message: "Errore nel rifiuto dell'operatore." }
   }
+  revalidatePath("/admin/operator-approvals")
+  revalidatePath("/admin/operators")
   return { success: true, message: "Operatore rifiutato." }
 }
 
@@ -43,10 +45,12 @@ export async function getOperators(): Promise<{ operators: OperatorWithDetails[]
     return { operators: [], error: error.message }
   }
 
-  // The join returns an array for operator_details, so we flatten it.
   const operators = data.map((profile) => ({
     ...profile,
-    operator_details: Array.isArray(profile.operator_details) ? profile.operator_details[0] : null,
+    operator_details:
+      Array.isArray(profile.operator_details) && profile.operator_details.length > 0
+        ? profile.operator_details[0]
+        : null,
   }))
 
   return { operators, error: null }
@@ -54,7 +58,7 @@ export async function getOperators(): Promise<{ operators: OperatorWithDetails[]
 
 export async function updateOperatorStatus(
   userId: string,
-  status: "active" | "inactive" | "suspended",
+  status: "active" | "inactive" | "suspended" | "pending_approval",
 ): Promise<{ success: boolean; error: string | null }> {
   const supabase = createAdminClient()
   const { error } = await supabase.from("profiles").update({ status }).eq("id", userId)
@@ -80,14 +84,14 @@ export async function createOperator(formData: FormData): Promise<{ success: boo
     return { success: false, error: "Tutti i campi sono obbligatori." }
   }
 
-  // 1. Create the user in auth.users
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: true, // Auto-confirm email for admin-created users
+    email_confirm: true,
     user_metadata: {
-      name: name,
+      name,
       role: "operator",
+      stage_name: stageName,
     },
   })
 
@@ -96,24 +100,6 @@ export async function createOperator(formData: FormData): Promise<{ success: boo
     return { success: false, error: authError.message }
   }
 
-  const userId = authData.user.id
-
-  // 2. The trigger has already created the profile, now create operator_details
-  const { error: detailsError } = await supabase.from("operator_details").insert({
-    id: userId,
-    stage_name: stageName,
-    // Add other details with default values
-  })
-
-  if (detailsError) {
-    console.error("Error creating operator details:", detailsError)
-    // Potentially delete the auth user here for cleanup
-    await supabase.auth.admin.deleteUser(userId)
-    return { success: false, error: detailsError.message }
-  }
-
   revalidatePath("/admin/operators")
   return { success: true, error: null }
 }
-
-// Altre actions per la gestione operatori (modifica commissione, profilo) possono essere aggiunte qui

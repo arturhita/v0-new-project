@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -25,7 +24,7 @@ export default function LoginPage() {
     if (!result.success) {
       setError(result.error || "Si è verificato un errore.")
     }
-    // Redirect is handled by AuthContext
+    // Il redirect è gestito da AuthContext
   }
 
   return (
