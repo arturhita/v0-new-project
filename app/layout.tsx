@@ -4,8 +4,6 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster } from "sonner"
-import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
 import { CookieBanner } from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -23,13 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body className={`${inter.className} bg-slate-900 text-white`}>
+      <body className={inter.className}>
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <SiteNavbar />
-            <main className="flex-grow">{/* CORREZIONE: Rimosso pt-16 */}</main>
-            <SiteFooter />
-          </div>
+          {/* CORREZIONE: Ripristinato {children} e rimossa la struttura duplicata */}
+          {children}
           <CookieBanner />
           <Toaster richColors />
         </AuthProvider>

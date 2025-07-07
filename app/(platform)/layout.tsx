@@ -8,9 +8,11 @@ export default function PlatformLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    // CORREZIONE: Rimosso bg-white per permettere alle pagine di definire il proprio sfondo
+    <div className="flex flex-col min-h-screen">
       <SiteNavbar />
-      <main className="flex-grow pt-16">{children}</main>
+      {/* CORREZIONE: Rimosso pt-16 per eliminare la barra bianca */}
+      <main className="flex-grow">{children}</main>
       <SiteFooter />
     </div>
   )
