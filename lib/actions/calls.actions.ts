@@ -1,18 +1,15 @@
 "use server"
 
-import { twilioClient, type CallSession } from "@/lib/twilio"
+import { createTwilioCall, endTwilioCall, type CallSession } from "@/lib/twilio"
 import { revalidatePath } from "next/cache"
 
 // --- MOCK DATABASE ---
-// In un'applicazione reale, questi dati proverrebbero da Supabase.
 const mockData = {
   users: {
     user123: {
       id: "user123",
       name: "Mario Rossi",
-      // ! IMPORTANTE PER IL TEST:
-      // ! Sostituisci questo numero con il TUO numero di telefono reale (formato E.164)
-      // ! per ricevere la chiamata come "cliente".
+      // ! IMPORTANTE PER IL TEST: Sostituisci con il TUO numero reale
       phone: "+393331122333",
       wallet: 50.0,
     },
@@ -21,7 +18,6 @@ const mockData = {
     op123: {
       id: "op123",
       name: "Dott.ssa Elara",
-      // Questo numero viene dalle variabili d'ambiente
       phone: process.env.NEXT_PUBLIC_OPERATOR_PHONE_NUMBER!,
       ratePerMinute: 1.5,
       commissionRate: 0.7, // 70%
@@ -59,20 +55,19 @@ export async function initiateCallAction(
     }
     mockData.callSessions.set(sessionId, callSession)
 
-    const call = await twilioClient.calls.create({
-      to: client.phone,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${encodeURIComponent(operatorPhone)}`,
-      statusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/status`,
-      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-      statusCallbackMethod: "POST",
-    })
+    // URL che Twilio chiamerà per ottenere le istruzioni TwiML
+    const twimlUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}&number=${encodeURIComponent(operatorPhone)}`
+    // URL che Twilio chiamerà per gli aggiornamenti di stato
+    const statusCallbackUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/status`
+
+    // Usa la nuova funzione basata su fetch
+    const call = await createTwilioCall(client.phone, twimlUrl, statusCallbackUrl)
 
     callSession.twilioCallSid = call.sid
     callSession.status = "ringing"
     mockData.callSessions.set(sessionId, callSession)
 
-    console.log(`✅ Call initiated: ${call.sid} for session ${sessionId}`)
+    console.log(`✅ Call initiated via API: ${call.sid} for session ${sessionId}`)
     return { success: true, sessionId }
   } catch (error: any) {
     console.error("❌ Error initiating call:", error)
@@ -92,7 +87,9 @@ export async function endCallAction(sessionId: string): Promise<{ success: boole
       return { success: true }
     }
 
-    await twilioClient.calls(session.twilioCallSid).update({ status: "completed" })
+    // Usa la nuova funzione basata su fetch
+    await endTwilioCall(session.twilioCallSid)
+
     console.log(`✅ Call ended manually: ${sessionId}`)
     return { success: true }
   } catch (error) {
