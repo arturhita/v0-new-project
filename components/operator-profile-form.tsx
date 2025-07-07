@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useFormState } from "react-dom"
 import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
@@ -30,9 +29,6 @@ export function OperatorProfileForm({ profileData, operatorId }: { profileData: 
         description: state.message,
         variant: state.success ? "default" : "destructive",
       })
-      if (state.success) {
-        formRef.current?.reset()
-      }
     }
   }, [state, toast])
 
@@ -91,7 +87,7 @@ export function OperatorProfileForm({ profileData, operatorId }: { profileData: 
                 name="price_chat"
                 type="number"
                 step="0.01"
-                defaultValue={profileData.service_prices?.chat || 0}
+                defaultValue={profileData.chat_price_per_minute || 0}
               />
             </div>
             <div className="space-y-2">
@@ -101,7 +97,7 @@ export function OperatorProfileForm({ profileData, operatorId }: { profileData: 
                 name="price_call"
                 type="number"
                 step="0.01"
-                defaultValue={profileData.service_prices?.call || 0}
+                defaultValue={profileData.call_price_per_minute || 0}
               />
             </div>
             <div className="space-y-2">
@@ -111,7 +107,7 @@ export function OperatorProfileForm({ profileData, operatorId }: { profileData: 
                 name="price_video"
                 type="number"
                 step="0.01"
-                defaultValue={profileData.service_prices?.video || 0}
+                defaultValue={profileData.video_price_per_minute || 0}
               />
             </div>
           </fieldset>

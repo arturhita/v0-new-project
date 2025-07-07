@@ -18,7 +18,7 @@ export default async function PayoutSettingsPage() {
   }
 
   const settings = await getPayoutSettings(user.id)
-  const boundAction = savePayoutSettings.bind(null, user.id, null)
+  const boundAction = savePayoutSettings.bind(null, user.id)
 
   return (
     <Card>

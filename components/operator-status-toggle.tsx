@@ -3,43 +3,53 @@
 import { useState, useTransition } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { useAuth } from "@/contexts/auth-context"
-import { updateOperatorStatus } from "@/lib/actions/operator.actions"
-import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { createClient } from "@/lib/supabase/client"
 
 export function OperatorStatusToggle({ operatorId }: { operatorId: string }) {
-  const { profile } = useAuth()
+  const supabase = createClient()
+  const { toast } = useToast()
+  const [isAvailable, setIsAvailable] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [isAvailable, setIsAvailable] = useState(profile?.is_available ?? false)
+
+  // Fetch initial state
+  useState(() => {
+    const fetchStatus = async () => {
+      const { data } = await supabase.from("profiles").select("is_available").eq("id", operatorId).single()
+      if (data) {
+        setIsAvailable(data.is_available || false)
+      }
+    }
+    fetchStatus()
+  })
 
   const handleToggle = (checked: boolean) => {
-    setIsAvailable(checked)
     startTransition(async () => {
-      const result = await updateOperatorStatus(operatorId, checked)
-      if (result.success) {
-        toast.success(`Stato aggiornato: ora sei ${checked ? "Disponibile" : "Non Disponibile"}.`)
+      setIsAvailable(checked)
+      const { error } = await supabase.from("profiles").update({ is_available: checked }).eq("id", operatorId)
+      if (error) {
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiornare lo stato.",
+          variant: "destructive",
+        })
+        setIsAvailable(!checked) // Revert on error
       } else {
-        toast.error(result.message || "Impossibile aggiornare lo stato.")
-        // Revert UI on failure
-        setIsAvailable(!checked)
+        toast({
+          title: "Stato Aggiornato",
+          description: `Ora sei ${checked ? "disponibile" : "non disponibile"}.`,
+        })
       }
     })
   }
 
   return (
-    <div className="flex items-center space-x-3 rounded-lg border p-3 dark:border-gray-700">
-      <Switch
-        id="availability-toggle"
-        checked={isAvailable}
-        onCheckedChange={handleToggle}
-        disabled={isPending}
-        aria-label="Toggle availability"
-      />
-      <Label htmlFor="availability-toggle" className="flex-grow font-medium">
-        {isAvailable ? "Disponibile" : "Non Disponibile"}
+    <div className="flex items-center space-x-2 rounded-lg border p-3">
+      <Switch id="availability-toggle" checked={isAvailable} onCheckedChange={handleToggle} disabled={isPending} />
+      <Label htmlFor="availability-toggle" className="flex flex-col">
+        <span className="font-medium">{isAvailable ? "Disponibile" : "Non Disponibile"}</span>
+        <span className="text-xs text-gray-500">Attiva per ricevere richieste</span>
       </Label>
-      {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
     </div>
   )
 }

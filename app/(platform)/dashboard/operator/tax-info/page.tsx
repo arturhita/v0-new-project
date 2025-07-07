@@ -17,7 +17,7 @@ export default async function TaxInfoPage() {
   }
 
   const taxDetails = await getOperatorTaxDetails(user.id)
-  const boundAction = saveOperatorTaxDetails.bind(null, user.id, null)
+  const boundAction = saveOperatorTaxDetails.bind(null)
 
   return (
     <Card>
@@ -27,6 +27,7 @@ export default async function TaxInfoPage() {
       </CardHeader>
       <CardContent>
         <form action={boundAction} className="space-y-6">
+          <input type="hidden" name="operator_id" value={user.id} />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="company_name">Nome Azienda (opzionale)</Label>

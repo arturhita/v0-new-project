@@ -1,17 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { getOperatorEarningsSummary } from "@/lib/actions/payouts.actions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, TrendingUp, Clock } from "lucide-react"
-
-async function getEarningsData(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: operatorId }).single()
-  if (error) {
-    console.error("Error fetching earnings summary:", error)
-    return { total_earnings: 0, pending_payout: 0, last_payout_amount: 0, last_payout_date: null }
-  }
-  return data
-}
 
 export default async function OperatorEarningsPage() {
   const supabase = createClient()
@@ -23,7 +14,7 @@ export default async function OperatorEarningsPage() {
     redirect("/login")
   }
 
-  const earnings = await getEarningsData(user.id)
+  const earnings = await getOperatorEarningsSummary(user.id)
 
   return (
     <div className="space-y-6">

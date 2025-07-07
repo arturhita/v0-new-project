@@ -40,7 +40,7 @@ export function OperatorNavClient({ operatorId }: { operatorId: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-2 pb-4 border-b dark:border-gray-800">
+      <div className="px-2 pb-4 border-b">
         <OperatorStatusToggle operatorId={operatorId} />
       </div>
       <nav className="flex-1 space-y-1 px-2 py-4">
@@ -53,8 +53,8 @@ export function OperatorNavClient({ operatorId }: { operatorId: string }) {
               key={item.label}
               href={`/platform${item.href}`}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-600 transition-all hover:text-primary dark:text-gray-400 dark:hover:text-white",
-                isActive && "bg-gray-100 text-primary dark:bg-gray-800 dark:text-white",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 transition-all hover:bg-gray-100 hover:text-indigo-600",
+                isActive && "bg-indigo-50 text-indigo-600 font-medium",
               )}
             >
               <item.icon className="h-4 w-4" />
