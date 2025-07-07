@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Paperclip, Search, MessageSquare, Users, AlertTriangle, MessageSquareWarning } from "lucide-react" // Aggiunto MessageSquareWarning
+import { Send, Paperclip, Search, MessageSquare, Users, AlertTriangle, MessageSquareWarning } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -44,7 +44,7 @@ const initialOperatorConversations: Conversation[] = [
         avatar: "/placeholder.svg?height=40&width=40",
       },
     ],
-    operatorMessagesSent: 1, // L'operatore ha inviato 1 messaggio
+    operatorMessagesSent: 1,
   },
   {
     id: "chat_client456_operator_elena",
@@ -81,7 +81,7 @@ const initialOperatorConversations: Conversation[] = [
         avatar: "/placeholder.svg?height=40&width=40",
       },
     ],
-    operatorMessagesSent: 1, // L'operatore ha inviato 1 messaggio
+    operatorMessagesSent: 1,
   },
   {
     id: "chat_client789_operator_elena",
@@ -142,7 +142,7 @@ const initialOperatorConversations: Conversation[] = [
         avatar: "/placeholder.svg?height=40&width=40",
       },
     ],
-    operatorMessagesSent: 5, // L'operatore ha inviato 5 messaggi (limite raggiunto)
+    operatorMessagesSent: 5,
   },
 ]
 
@@ -219,7 +219,7 @@ export default function OperatorPlatformMessagesPage() {
       !selectedConversationId ||
       operatorGlobalStatus === "paused" ||
       isSending ||
-      !canOperatorSendMessage // Verifica il limite
+      !canOperatorSendMessage
     ) {
       return
     }
@@ -244,7 +244,7 @@ export default function OperatorPlatformMessagesPage() {
                 messages: [...conv.messages, optimisticMessage],
                 lastMessage: newMessageText,
                 lastMessageTimestamp: new Date(),
-                operatorMessagesSent: conv.operatorMessagesSent + 1, // Incrementa il contatore
+                operatorMessagesSent: conv.operatorMessagesSent + 1,
               }
             : conv,
         )
@@ -269,7 +269,6 @@ export default function OperatorPlatformMessagesPage() {
               ? {
                   ...conv,
                   messages: conv.messages.map((m) => (m.id === tempMessageId ? result.message! : m)),
-                  // operatorMessagesSent è già stato incrementato ottimisticamente
                 }
               : conv,
           )
@@ -277,7 +276,6 @@ export default function OperatorPlatformMessagesPage() {
       )
     } else {
       console.error("Errore invio messaggio operatore:", result.error)
-      // Rollback del contatore e del messaggio in caso di errore
       setConversations((prev) =>
         prev
           .map((conv) =>
@@ -285,7 +283,7 @@ export default function OperatorPlatformMessagesPage() {
               ? {
                   ...conv,
                   messages: conv.messages.filter((m) => m.id !== tempMessageId),
-                  operatorMessagesSent: conv.operatorMessagesSent - 1, // Decrementa se l'invio fallisce
+                  operatorMessagesSent: conv.operatorMessagesSent - 1,
                 }
               : conv,
           )
@@ -301,7 +299,7 @@ export default function OperatorPlatformMessagesPage() {
   )
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-slate-50">
+    <div className="h-[calc(100vh-5rem)] flex flex-col bg-slate-50">
       <CardHeader className="p-4 border-b bg-white">
         <CardTitle className="text-2xl font-bold text-slate-800 flex items-center">
           <Users className="mr-2 h-6 w-6 text-indigo-600" />

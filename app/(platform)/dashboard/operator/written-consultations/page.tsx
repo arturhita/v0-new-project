@@ -13,9 +13,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Send, User, Calendar } from "lucide-react"
+import { Loader2, Send, User, Calendar, AlertTriangle } from "lucide-react"
 
-function AnswerForm({ consultationId }: { consultationId: string }) {
+function AnswerForm({ consultationId, onAnswered }: { consultationId: string; onAnswered: () => void }) {
   const [isPending, startTransition] = useTransition()
   const [answer, setAnswer] = useState("")
 
@@ -29,7 +29,7 @@ function AnswerForm({ consultationId }: { consultationId: string }) {
       const result = await answerWrittenConsultation(formData)
       if (result.success) {
         alert(result.message)
-        // The revalidation should refresh the list
+        onAnswered() // Callback to refresh the list
       } else {
         alert(`Errore: ${result.error}`)
       }
@@ -55,12 +55,11 @@ function AnswerForm({ consultationId }: { consultationId: string }) {
 }
 
 export default function OperatorWrittenConsultationsPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [consultations, setConsultations] = useState<WrittenConsultation[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    // Assuming operator ID is stored in user object for simplicity
+  const fetchConsultations = () => {
     if (user && user.role === "operator") {
       setIsLoading(true)
       getWrittenConsultationsForOperator(user.id)
@@ -71,15 +70,37 @@ export default function OperatorWrittenConsultationsPage() {
           setIsLoading(false)
         })
     }
-  }, [user])
+  }
+
+  useEffect(() => {
+    if (!authLoading) {
+      fetchConsultations()
+    }
+  }, [user, authLoading])
 
   const pendingConsultations = consultations.filter((c) => c.status === "pending_operator_response")
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
       </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="text-yellow-500" />
+            Accesso Richiesto
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Devi effettuare l'accesso per visualizzare questa pagina.</p>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -113,9 +134,9 @@ export default function OperatorWrittenConsultationsPage() {
                     <span className="font-bold text-sky-600">{item.cost.toFixed(2)} €</span>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent>
-                  <p className="text-gray-700 bg-gray-50 p-4 rounded-md border mb-4">{item.question}</p>
-                  <AnswerForm consultationId={item.id} />
+                <AccordionContent className="p-4 bg-gray-50 rounded-b-md">
+                  <p className="text-gray-700 bg-white p-4 rounded-md border mb-4">{item.question}</p>
+                  <AnswerForm consultationId={item.id} onAnswered={fetchConsultations} />
                 </AccordionContent>
               </AccordionItem>
             ))}

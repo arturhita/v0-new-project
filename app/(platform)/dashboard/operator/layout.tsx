@@ -23,7 +23,6 @@ import {
 import { cn } from "@/lib/utils"
 import type React from "react"
 import { Suspense } from "react"
-import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 
 const navItemsOperator = [
@@ -39,11 +38,13 @@ const navItemsOperator = [
 ]
 
 const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0]; pathname: string }) => {
-  const isActive = pathname === item.href || (item.href !== "/dashboard/operator" && pathname.startsWith(item.href))
+  const isActive =
+    pathname === `/platform${item.href}` ||
+    (item.href !== "/dashboard/operator" && pathname.startsWith(`/platform${item.href}`))
 
   return (
     <Link
-      href={item.href}
+      href={`/dashboard/operator${item.href.substring("/dashboard/operator".length)}`}
       className={cn(
         "flex items-center gap-3.5 rounded-lg px-4 py-3 text-base font-medium transition-colors duration-200 ease-in-out",
         "hover:bg-purple-100 hover:text-purple-700",
@@ -71,10 +72,8 @@ export default function OperatorDashboardLayout({ children }: { children: React.
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <SiteNavbar />
-
-      <div className="grid w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr] pt-16">
-        <aside className="hidden border-r border-gray-200 bg-white md:block shadow-lg rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden">
+      <div className="grid w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr]">
+        <aside className="hidden border-r border-gray-200 bg-white md:block">
           <div className="flex h-full max-h-screen flex-col">
             <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-purple-600 to-indigo-700">
               <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
@@ -99,7 +98,7 @@ export default function OperatorDashboardLayout({ children }: { children: React.
         </aside>
 
         <div className="flex flex-col">
-          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
+          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
             <Suspense fallback={<div>Loading...</div>}>
               <Sheet>
                 <SheetTrigger asChild>
