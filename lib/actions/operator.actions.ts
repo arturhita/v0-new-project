@@ -1,121 +1,117 @@
 "use server"
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { z } from "zod"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+import { z } from "zod"
+import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 
-// Definisce lo schema di validazione per i dati del form di creazione operatore
-const operatorSchema = z.object({
-  email: z.string().email({ message: "Indirizzo email non valido." }),
+// Schema di validazione per i dati del form
+const OperatorSchema = z.object({
+  email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
   password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
-  full_name: z.string().min(1, { message: "Il nome completo è obbligatorio." }),
-  stage_name: z.string().min(1, { message: "Il nome d'arte è obbligatorio." }),
-  phone_number: z.string().optional(),
-  bio: z.string().optional(),
-  // L'upload dell'avatar verrà gestito in un secondo momento per concentrarci sulla logica di base
+  fullName: z.string().min(3, { message: "Il nome completo è obbligatorio." }),
+  stageName: z.string().min(3, { message: "Il nome d'arte è obbligatorio." }),
 })
 
-export type FormState = {
-  message: string
+export type OperatorState = {
   errors?: {
     email?: string[]
     password?: string[]
-    full_name?: string[]
-    stage_name?: string[]
-    phone_number?: string[]
-    bio?: string[]
-    _form?: string[] // Per errori generici del form
+    fullName?: string[]
+    stageName?: string[]
+    server?: string[]
   }
+  message?: string | null
 }
 
-export async function createOperator(prevState: FormState, formData: FormData): Promise<FormState> {
-  // 1. Valida i dati ricevuti dal form
-  const validatedFields = operatorSchema.safeParse({
+export async function createOperator(prevState: OperatorState, formData: FormData): Promise<OperatorState> {
+  // 1. Validazione dei dati del form
+  const validatedFields = OperatorSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
-    full_name: formData.get("full_name"),
-    stage_name: formData.get("stage_name"),
-    phone_number: formData.get("phone_number"),
-    bio: formData.get("bio"),
+    fullName: formData.get("fullName"),
+    stageName: formData.get("stageName"),
   })
 
   if (!validatedFields.success) {
-    console.log("Errori di validazione:", validatedFields.error.flatten().fieldErrors)
+    console.error("Validation Errors:", validatedFields.error.flatten().fieldErrors)
     return {
-      message: "Errore di validazione. Controlla i campi inseriti.",
       errors: validatedFields.error.flatten().fieldErrors,
+      message: "Errore di validazione. Controlla i campi inseriti.",
     }
   }
 
-  const { email, password, full_name, stage_name, phone_number, bio } = validatedFields.data
+  const { email, password, fullName, stageName } = validatedFields.data
+  const supabaseAdmin = createSupabaseAdminClient()
 
   try {
-    const supabaseAdmin = await createSupabaseAdminClient()
-
-    // 2. Crea l'utente in auth.users usando l'API Admin di Supabase
-    // Il trigger che abbiamo corretto si occuperà di creare la riga corrispondente in public.profiles
+    // 2. Creazione dell'utente in Supabase Auth
+    console.log(`Tentativo di creare l'utente auth per: ${email}`)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Conferma automaticamente l'email per gli utenti creati dall'admin
+      email: email,
+      password: password,
+      email_confirm: true, // Confermiamo l'email direttamente dato che è un admin a creare l'utente
       user_metadata: {
         role: "operator",
-        full_name,
-        stage_name,
+        full_name: fullName,
+        stage_name: stageName,
       },
     })
 
     if (authError) {
-      console.error("Errore Auth Supabase:", authError.message)
-      // Fornisce un feedback specifico se l'utente esiste già
-      if (authError.message.includes("unique constraint")) {
+      console.error("Supabase Auth Error:", authError.message)
+      if (authError.message.includes("User already registered")) {
         return {
-          message: "Errore: Esiste già un utente con questa email.",
-          errors: { _form: ["Esiste già un utente con questa email."] },
+          errors: { server: ["Questo indirizzo email è già registrato."] },
+          message: "Questo indirizzo email è già registrato.",
         }
       }
       return {
-        message: `Errore durante la creazione dell'utente: ${authError.message}`,
-        errors: { _form: [authError.message] },
+        errors: { server: ["Si è verificato un errore durante la creazione dell'utente."] },
+        message: `Errore Auth: ${authError.message}`,
       }
     }
 
     if (!authData.user) {
-      return {
-        message: "Errore: L'utente non è stato creato, nessuna informazione di ritorno da Supabase.",
-        errors: { _form: ["Creazione utente fallita."] },
-      }
+      throw new Error("Creazione utente auth fallita, nessun utente restituito.")
     }
 
-    const userId = authData.user.id
+    const newUserId = authData.user.id
+    console.log(`Utente auth creato con successo. ID: ${newUserId}`)
 
-    // 3. Aggiorna il profilo appena creato con i dettagli aggiuntivi (bio, telefono)
-    // Il trigger ha già creato il profilo base, ora lo arricchiamo.
-    const { error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        phone_number,
-        bio,
-      })
-      .eq("id", userId)
+    // 3. Inserimento del profilo nella tabella 'profiles'
+    console.log(`Tentativo di inserire il profilo per l'utente ID: ${newUserId}`)
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      id: newUserId,
+      email: email,
+      role: "operator",
+      full_name: fullName,
+      stage_name: stageName,
+    })
 
     if (profileError) {
-      console.error("Errore Aggiornamento Profilo Supabase:", profileError.message)
-      // Questo è un errore critico. Potremmo avere un utente in auth ma un profilo incompleto.
-      // Per ora lo segnaliamo. In un sistema di produzione, si potrebbe voler eliminare l'utente auth creato.
+      console.error("Supabase Profile Error:", profileError.message)
+      // Se l'inserimento del profilo fallisce, per consistenza, eliminiamo l'utente auth appena creato.
+      console.log(`Errore inserimento profilo. Tentativo di rollback cancellando l'utente auth ID: ${newUserId}`)
+      await supabaseAdmin.auth.admin.deleteUser(newUserId)
+      console.log("Utente auth cancellato con successo.")
+
       return {
-        message: `Errore durante l'aggiornamento del profilo: ${profileError.message}`,
-        errors: { _form: [profileError.message] },
+        errors: { server: ["Si è verificato un errore durante la creazione del profilo utente."] },
+        message: `Errore Profilo: ${profileError.message}`,
       }
     }
+
+    console.log(`Profilo creato con successo per l'utente ID: ${newUserId}`)
   } catch (error) {
-    console.error("Errore Inaspettato:", error)
-    const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto."
-    return { message: `Errore imprevisto: ${errorMessage}`, errors: { _form: [errorMessage] } }
+    console.error("Unexpected Server Error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto del server."
+    return {
+      errors: { server: [errorMessage] },
+      message: "Si è verificato un errore imprevisto.",
+    }
   }
 
-  // 4. Successo: Invalida la cache per la pagina degli operatori e reindirizza
+  // 4. Se tutto va a buon fine, revalida il path e ritorna successo
   revalidatePath("/admin/operators")
-  redirect("/admin/operators")
+  return { message: `Operatore ${stageName} creato con successo.` }
 }
