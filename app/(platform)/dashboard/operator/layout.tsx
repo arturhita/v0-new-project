@@ -1,83 +1,97 @@
 import type React from "react"
-import {
-  LayoutDashboard,
-  User,
-  Calendar,
-  MessageSquare,
-  Briefcase,
-  BarChart2,
-  LifeBuoy,
-  Euro,
-  CreditCard,
-  FileText,
-  PercentSquare,
-} from "lucide-react"
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@/lib/supabase/server"
+import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { OperatorStatusToggle } from "@/components/operator-status-toggle"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { NavClient } from "./nav-client"
+import { OperatorNavClient } from "./nav-client"
+import { Toaster } from "@/components/ui/sonner"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { Menu } from "lucide-react"
+import Link from "next/link"
+import Image from "next/image"
 
-const navItems = [
-  { href: "/dashboard/operator", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/operator/profile", label: "Profilo Pubblico", icon: User },
-  { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
-  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Euro },
-  { href: "/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: CreditCard },
-  { href: "/dashboard/operator/commission-request", label: "Richiesta Commissione", icon: PercentSquare },
-  { href: "/dashboard/operator/consultations-history", label: "Storico Consulti", icon: Briefcase },
-  { href: "/dashboard/operator/internal-messages", label: "Messaggi", icon: MessageSquare },
-  { href: "/dashboard/operator/invoices", label: "Fatture", icon: FileText },
-  { href: "/dashboard/operator/tax-info", label: "Dati Fiscali", icon: Briefcase },
-  { href: "/dashboard/operator/reviews", label: "Recensioni", icon: BarChart2 },
-  { href: "/dashboard/operator/support", label: "Supporto", icon: LifeBuoy },
-]
+export default async function OperatorDashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const cookieStore = cookies()
+  const supabase = createServerClient(cookieStore)
 
-export default async function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login")
+    return redirect("/login")
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("role, is_available, full_name, profile_image_url")
-    .eq("id", user.id)
+  const { data: operatorProfile, error: profileError } = await supabase
+    .from("operator_profiles")
+    .select("is_available, user_id")
+    .eq("user_id", user.id)
     .single()
 
-  if (error || !profile || profile.role !== "operator") {
-    redirect("/login")
+  if (profileError || !operatorProfile) {
+    console.error("Operator profile not found or error:", profileError)
+    // Redirect to a page that explains the user is not an operator
+    // or back to the main dashboard.
+    return redirect("/")
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-brand-blue-950 text-gray-200">
-      <aside className="sticky top-0 h-screen w-72 flex-col border-r border-brand-blue-900 bg-brand-blue-950/50 p-6 hidden md:flex">
-        <div className="mb-8 flex items-center gap-4">
-          <Avatar className="h-12 w-12 border-2 border-brand-blue-700">
-            <AvatarImage src={profile.profile_image_url || undefined} alt={profile.full_name || "Operatore"} />
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {profile.full_name?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold text-lg text-white">{profile.full_name}</p>
-            <p className="text-sm text-primary">Operatore</p>
+    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] bg-background text-foreground">
+      <aside className="hidden border-r bg-muted/40 md:block">
+        <div className="flex h-full max-h-screen flex-col gap-2">
+          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <Image
+                src="/images/moonthir-logo-white.png"
+                width={32}
+                height={32}
+                alt="Moonthir Logo"
+                className="dark:invert-0 invert"
+              />
+              <span className="">Moonthir</span>
+            </Link>
+          </div>
+          <div className="flex-1 overflow-auto py-2">
+            <OperatorNavClient isAvailable={operatorProfile.is_available ?? false} />
           </div>
         </div>
-
-        <OperatorStatusToggle operatorId={user.id} initialIsAvailable={profile.is_available ?? false} />
-
-        <nav className="mt-8 flex flex-col gap-2">
-          <NavClient navItems={navItems} />
-        </nav>
       </aside>
-      <main className="flex-1 p-6 lg:p-10 bg-brand-blue-950">
-        <div className="mx-auto max-w-7xl">{children}</div>
-      </main>
+      <div className="flex flex-col">
+        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0 bg-transparent">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col p-0 bg-muted/40">
+              <div className="flex h-14 items-center border-b px-4">
+                <Link href="/" className="flex items-center gap-2 font-semibold">
+                  <Image
+                    src="/images/moonthir-logo-white.png"
+                    width={24}
+                    height={24}
+                    alt="Moonthir Logo"
+                    className="dark:invert-0 invert"
+                  />
+                  <span className="">Moonthir</span>
+                </Link>
+              </div>
+              <div className="flex-1 overflow-auto py-2">
+                <OperatorNavClient isAvailable={operatorProfile.is_available ?? false} />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <div className="w-full flex-1">{/* You can add other header elements here, like a search bar */}</div>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-slate-900">{children}</main>
+        <Toaster />
+      </div>
     </div>
   )
 }

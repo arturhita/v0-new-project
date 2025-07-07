@@ -23,23 +23,27 @@ export function OperatorNavClient({ isAvailable }: { isAvailable: boolean }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="p-4 border-b border-gray-700">
+      <div className="p-4 border-b border-gray-700/50">
         <OperatorStatusToggle initialIsAvailable={isAvailable} />
       </div>
-      <nav className="flex-1 space-y-1 p-2">
-        {navItems.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-300 transition-all hover:text-white hover:bg-gray-700",
-              pathname === item.href && "bg-gray-700 text-white",
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </Link>
-        ))}
+      <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+        {navItems.map((item) => {
+          const isActive =
+            pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/dashboard/operator")
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                isActive && "bg-muted text-primary",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          )
+        })}
       </nav>
     </div>
   )
