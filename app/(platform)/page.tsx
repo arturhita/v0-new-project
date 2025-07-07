@@ -2,15 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowRight, Sparkles } from "lucide-react"
+import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard, type Operator as OperatorCardType } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
-import { createClient } from "@/lib/supabase/server"
-import type { OperatorWithDetails } from "@/lib/actions/admin.actions"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -164,31 +160,7 @@ export const allMockReviews: ReviewCardType[] = [
   },
 ]
 
-async function getActiveOperators(): Promise<OperatorWithDetails[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*, operator_details(*)")
-    .eq("role", "operator")
-    .eq("status", "active") // Fetch only active operators
-    .limit(12)
-
-  if (error) {
-    console.error("Error fetching active operators:", error)
-    return []
-  }
-
-  return data.map((profile) => ({
-    ...profile,
-    operator_details:
-      Array.isArray(profile.operator_details) && profile.operator_details.length > 0
-        ? profile.operator_details[0]
-        : null,
-  }))
-}
-
-export default async function HomePage() {
-  const operators = await getActiveOperators()
+export default function UnveillyHomePage() {
   const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -209,49 +181,125 @@ export default async function HomePage() {
     .slice(0, 3)
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
-      <SiteNavbar />
+    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
+      <style jsx>{`
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+      .font-playfair {
+        font-family: 'Playfair Display', serif;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+      @keyframes glow {
+        0%,
+        100% {
+          box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
+        }
+      }
+      .animate-fadeInUp {
+        animation: fadeInUp 1s ease-out forwards;
+      }
+      .animate-fadeInLeft {
+        animation: fadeInLeft 0.8s ease-out forwards;
+      }
+      .animate-fadeInRight {
+        animation: fadeInRight 0.8s ease-out forwards;
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.6s ease-out forwards;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+      }
+    `}</style>
+
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white py-20 md:py-32 overflow-hidden">
-          <ConstellationBackground />
-          <div className="container mx-auto px-4 text-center relative z-10">
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight">Il Tuo Futuro, Rivelato.</h1>
-            <p className="mt-4 text-lg md:text-xl max-w-3xl mx-auto text-blue-200">
-              Connettiti con i migliori esperti di astrologia e cartomanzia. Ricevi consulenze personalizzate in chat,
-              telefono o video.
-            </p>
-            <div className="mt-8 flex justify-center gap-4">
-              <button className="px-8 py-3 bg-white text-blue-800 font-semibold rounded-full shadow-lg hover:bg-blue-100 transition">
-                Trova il tuo Esperto
-              </button>
-              <button className="px-8 py-3 bg-blue-500/20 border border-blue-400 text-white font-semibold rounded-full hover:bg-blue-500/40 transition">
-                Come Funziona
-              </button>
-            </div>
+        <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/images/hero-background.png')" }}
+          >
+            <div className="absolute inset-0 bg-black/40"></div>
           </div>
-        </section>
 
-        {/* Operators Section */}
-        <section className="py-16 lg:py-24 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-800">I Nostri Esperti a Tua Disposizione</h2>
-              <p className="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">
-                Selezionati per la loro esperienza e professionalità, pronti ad ascoltarti.
-              </p>
-            </div>
-            {operators.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {operators.map((operator) => (
-                  <OperatorCard key={operator.id} operator={operator} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <p className="text-slate-500">Nessun operatore disponibile al momento. Riprova più tardi.</p>
-              </div>
-            )}
+          <div
+            className={`relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 ${isLoaded ? "animate-fadeInUp" : "opacity-0"}`}
+          >
+            <h1
+              className="font-playfair font-bold text-white text-6xl md:text-8xl"
+              style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
+            >
+              Il Viaggio
+            </h1>
+            <h2
+              className="font-playfair text-white text-4xl md:text-5xl"
+              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
+            >
+              Inizia da Qui
+            </h2>
+            <Link href="/esperti/cartomanzia" passHref>
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
+              >
+                <Search className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                Cerca Esperti
+              </Button>
+            </Link>
           </div>
         </section>
 
@@ -513,7 +561,6 @@ export default async function HomePage() {
           </div>
         </section>
       </main>
-      <SiteFooter />
     </div>
   )
 }

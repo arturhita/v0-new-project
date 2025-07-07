@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useRef, useState, useTransition } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,11 +28,10 @@ import {
   Clock,
   Euro,
   Tags,
-  RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
-import { createOperator } from "@/lib/actions/admin.actions"
+import { createOperator } from "@/lib/actions/operator.actions"
 
 const categories = [
   "Tarocchi",
@@ -60,10 +59,6 @@ const weekDays = [
 export default function CreateOperatorPage() {
   const router = useRouter()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const formRef = useRef<HTMLFormElement>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const [isSaving, setIsSaving] = useState(false)
 
   const [operator, setOperator] = useState({
@@ -182,18 +177,70 @@ export default function CreateOperatorPage() {
     }
   }
 
-  const handleSubmit = (formData: FormData) => {
-    setError(null)
-    setSuccess(null)
-    startTransition(async () => {
-      const result = await createOperator(formData)
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setSuccess("Operatore creato con successo!")
-        formRef.current?.reset()
+  const handleSave = async () => {
+    // Validazione
+    if (!operator.name || !operator.surname || !operator.stageName || !operator.email) {
+      toast({
+        title: "Campi obbligatori mancanti",
+        description: "Compila tutti i campi obbligatori.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (operator.categories.length === 0) {
+      toast({
+        title: "Categoria richiesta",
+        description: "Seleziona almeno una categoria.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      // Salva nel localStorage per simulare il database
+      const existingOperators = JSON.parse(localStorage.getItem("mock_operators") || "[]")
+      const newOperator = {
+        ...operator,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString().split("T")[0],
       }
-    })
+
+      existingOperators.push(newOperator)
+      localStorage.setItem("mock_operators", JSON.stringify(existingOperators))
+
+      // Chiama anche la server action
+      const result = await createOperator(newOperator)
+
+      if (result.success) {
+        toast({
+          title: "✅ Operatore Creato!",
+          description: `${operator.stageName} è stato aggiunto con successo.`,
+          className: "bg-green-100 border-green-300 text-green-700",
+        })
+
+        // Notifica aggiornamento
+        window.dispatchEvent(new CustomEvent("operatorsUpdated"))
+
+        // Redirect alla lista operatori
+        setTimeout(() => {
+          router.push("/admin/operators")
+        }, 1500)
+      } else {
+        throw new Error(result.message)
+      }
+    } catch (error) {
+      console.error("Errore nel salvataggio:", error)
+      toast({
+        title: "Errore",
+        description: "Errore nel salvataggio dell'operatore. Riprova.",
+        variant: "destructive",
+      })
+    }
+
+    setIsSaving(false)
   }
 
   const PreviewCard = () => (
@@ -663,55 +710,6 @@ export default function CreateOperatorPage() {
             </div>
           </div>
         )}
-
-        {/* Form */}
-        <div className="hidden">
-          <form ref={formRef} action={handleSubmit} className="space-y-4 max-w-lg">
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            {success && <p className="text-green-500 text-sm">{success}</p>}
-
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome Reale</Label>
-              <Input id="name" name="name" placeholder="Mario Rossi" required disabled={isPending} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="stageName">Nome d'Arte</Label>
-              <Input id="stageName" name="stageName" placeholder="Mago Mario" required disabled={isPending} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="operatore@esempio.com"
-                required
-                disabled={isPending}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Crea una password sicura"
-                required
-                disabled={isPending}
-              />
-            </div>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Creazione in corso...
-                </>
-              ) : (
-                "Crea Operatore"
-              )}
-            </Button>
-          </form>
-        </div>
       </div>
 
       <div className="flex justify-end gap-4">
@@ -720,12 +718,12 @@ export default function CreateOperatorPage() {
         </Button>
         <Button
           size="lg"
-          onClick={handleSubmit}
-          disabled={isPending}
+          onClick={handleSave}
+          disabled={isSaving}
           className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
         >
           <Save className="mr-2 h-5 w-5" />
-          {isPending ? "Salvataggio..." : "Crea Operatore"}
+          {isSaving ? "Salvataggio..." : "Crea Operatore"}
         </Button>
       </div>
     </div>

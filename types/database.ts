@@ -1,113 +1,137 @@
-import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
-
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
-      profiles: {
+      operator_details: {
         Row: {
-          id: string
-          name: string | null
-          email: string | null
-          role: "client" | "operator" | "admin"
-          avatar_url: string | null
-          wallet_balance: number
-          status: "pending_approval" | "active" | "inactive" | "suspended" | null
+          bio: string | null
+          commission_rate: number | null
           created_at: string
+          id: string
+          specialties: string[] | null
+          stage_name: string | null
           updated_at: string
         }
         Insert: {
+          bio?: string | null
+          commission_rate?: number | null
+          created_at?: string
           id: string
-          name?: string | null
-          email?: string | null
-          role?: "client" | "operator" | "admin"
-          avatar_url?: string | null
-          wallet_balance?: number
-          status?: "pending_approval" | "active" | "inactive" | "suspended" | null
+          specialties?: string[] | null
+          stage_name?: string | null
+          updated_at?: string
         }
         Update: {
-          name?: string | null
-          email?: string | null
-          role?: "client" | "operator" | "admin"
-          avatar_url?: string | null
-          wallet_balance?: number
-          status?: "pending_approval" | "active" | "inactive" | "suspended" | null
-        }
-      }
-      operator_details: {
-        Row: {
-          id: string
-          stage_name: string
-          bio: string | null
-          specialties: Json | null
-          categories: string[] | null
-          chat_price_per_minute: number | null
-          call_price_per_minute: number | null
-          written_consultation_price: number | null
-          is_chat_enabled: boolean
-          is_call_enabled: boolean
-          is_written_consultation_enabled: boolean
-          average_rating: number
-          total_reviews: number
-          joined_at: string
-        }
-        Insert: {
-          id: string
-          stage_name: string
           bio?: string | null
-        }
-        Update: {
-          stage_name?: string
-          bio?: string | null
-        }
-      }
-      chat_sessions: {
-        Row: {
-          id: string
-          client_id: string
-          operator_id: string
-          status: "pending" | "accepted" | "declined" | "active" | "ended" | "cancelled"
-          started_at: string | null
-          ended_at: string | null
-          created_at: string
-        }
-        Insert: {
+          commission_rate?: number | null
+          created_at?: string
           id?: string
-          client_id: string
-          operator_id: string
-          status?: "pending" | "accepted" | "declined" | "active" | "ended" | "cancelled"
+          specialties?: string[] | null
+          stage_name?: string | null
+          updated_at?: string
         }
-        Update: {
-          status?: "pending" | "accepted" | "declined" | "active" | "ended" | "cancelled"
-        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_details_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      chat_messages: {
+      profiles: {
         Row: {
-          id: number
-          session_id: string
-          sender_id: string
-          content: string
+          avatar_url: string | null
           created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          status: Database["public"]["Enums"]["operator_status"] | null
+          updated_at: string
         }
         Insert: {
-          session_id: string
-          sender_id: string
-          content: string
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["operator_status"] | null
+          updated_at?: string
         }
         Update: {
-          content?: string
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["operator_status"] | null
+          updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
-    Views: {}
-    Functions: {}
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      handle_new_user: {
+        Args: Record<PropertyKey, never>
+        Returns: Record<PropertyKey, never>
+      }
+    }
+    Enums: {
+      operator_status: "active" | "inactive" | "pending_approval" | "suspended"
+      user_role: "client" | "operator" | "admin"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
 
-export type Tables<T extends keyof Database["public"]["Tables"]> = Database["public"]["Tables"][T]["Row"]
-export type Enums<T extends keyof Database["public"]["Enums"]> = Database["public"]["Enums"][T]
+export type Tables<
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+    ? (Database["public"]["Tables"] & Database["public"]["Views"])[PublicTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
-export type UserProfile = SupabaseUser & Tables<"profiles"> & { operator_details?: Tables<"operator_details"> }
-
-export type SupabaseClientType = SupabaseClient<Database>
+export type Enums<
+  PublicEnumNameOrOptions extends keyof Database["public"]["Enums"] | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
+    ? Database["public"]["Enums"][PublicEnumNameOrOptions]
+    : never

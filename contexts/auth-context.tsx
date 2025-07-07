@@ -4,7 +4,11 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import type { UserProfile, SupabaseClientType } from "@/types/database"
+import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
+import type { Database, Tables } from "@/types/database"
+
+// Uniamo l'utente Supabase con il nostro profilo custom
+export type UserProfile = SupabaseUser & Tables<"profiles"> & { operator_details: Tables<"operator_details"> | null }
 
 interface AuthContextType {
   user: UserProfile | null
@@ -13,53 +17,58 @@ interface AuthContextType {
   logout: () => Promise<void>
   loading: boolean
   isAuthenticated: boolean
-  supabase: SupabaseClientType
+  supabase: SupabaseClient<Database>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase: SupabaseClientType = createClient()
+  const supabase = createClient()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
+    const fetchUser = async (sessionUser: SupabaseUser) => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*, operator_details(*)")
+        .eq("id", sessionUser.id)
+        .single()
+
+      if (error) {
+        console.error("Error fetching profile:", error)
+        await supabase.auth.signOut()
+        return null
+      }
+
+      if (profile) {
+        return {
+          ...sessionUser,
+          ...profile,
+          operator_details: Array.isArray(profile.operator_details) ? profile.operator_details[0] : null,
+        }
+      }
+      return null
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("*, operator_details(*)")
-          .eq("id", session.user.id)
-          .single()
-
-        if (profile) {
-          const currentUser: UserProfile = {
-            ...session.user,
-            ...profile,
-            operator_details: Array.isArray(profile.operator_details) ? profile.operator_details[0] : undefined,
+        const fullUser = await fetchUser(session.user)
+        setUser(fullUser)
+        if (_event === "SIGNED_IN" && fullUser) {
+          switch (fullUser.role) {
+            case "admin":
+              router.push("/admin/dashboard")
+              break
+            case "operator":
+              router.push("/dashboard/operator")
+              break
+            default:
+              router.push("/")
           }
-          setUser(currentUser)
-          if (_event === "SIGNED_IN") {
-            switch (currentUser.role) {
-              case "admin":
-                router.push("/admin/dashboard")
-                break
-              case "operator":
-                router.push("/dashboard/operator")
-                break
-              case "client":
-                router.push("/")
-                break
-              default:
-                router.push("/")
-            }
-          }
-        } else {
-          setUser(null)
-          console.error("Profile not found for user:", session.user.id, "Error:", error?.message)
         }
       } else {
         setUser(null)
@@ -67,31 +76,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
+    // Controlla la sessione iniziale
     const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*, operator_details(*)")
-          .eq("id", session.user.id)
-          .single()
-        if (profile) {
-          setUser({
-            ...session.user,
-            ...profile,
-            operator_details: Array.isArray(profile.operator_details) ? profile.operator_details[0] : undefined,
-          })
-        }
+        const fullUser = await fetchUser(session.user)
+        setUser(fullUser)
       }
       setLoading(false)
     }
     getInitialSession()
 
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [supabase, router])
 
   const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
@@ -117,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options: {
         data: {
           name,
-          email,
           role: role || "client",
         },
       },
@@ -126,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       return { success: false, error: error.message }
     }
+    // Il redirect avverrà automaticamente grazie a onAuthStateChange
     return { success: true }
   }
 

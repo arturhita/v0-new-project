@@ -1,198 +1,205 @@
--- 1. Create custom types for roles and statuses to ensure data integrity.
+-- Rimuove le vecchie versioni delle funzioni e dei tipi per garantire una nuova installazione pulita.
+-- L'uso di "IF EXISTS" previene errori se gli oggetti non esistono.
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+
+-- STEP 1: Definizione dei Tipi Personalizzati (ENUMs)
+-- L'uso di ENUM garantisce che i ruoli e gli stati possano avere solo i valori specificati,
+-- migliorando l'integrità dei dati.
+
+-- Tipo per i ruoli utente
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
         CREATE TYPE public.user_role AS ENUM ('client', 'operator', 'admin');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'operator_status') THEN
-        CREATE TYPE public.operator_status AS ENUM ('pending_approval', 'active', 'inactive', 'suspended');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chat_session_status') THEN
-        CREATE TYPE public.chat_session_status AS ENUM ('pending', 'accepted', 'declined', 'active', 'ended', 'cancelled');
-    END IF;
 END$$;
 
-
--- 2. Create or update the 'profiles' table
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id uuid NOT NULL PRIMARY KEY,
-  name text,
-  email text UNIQUE,
-  role public.user_role NOT NULL DEFAULT 'client',
-  avatar_url text,
-  wallet_balance numeric(10, 2) NOT NULL DEFAULT 0.00,
-  status public.operator_status, -- Only relevant for operators
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- Ensure the foreign key to auth.users is set
+-- Tipo per lo stato di un operatore
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'profiles_id_fkey' AND conrelid = 'public.profiles'::regclass
-    ) THEN
-        ALTER TABLE public.profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'operator_status') THEN
+        CREATE TYPE public.operator_status AS ENUM ('active', 'inactive', 'pending_approval', 'suspended');
     END IF;
 END$$;
 
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-
--- 3. Create operator_details table for operator-specific public info
-CREATE TABLE IF NOT EXISTS public.operator_details (
-  id uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
-  stage_name text NOT NULL,
-  bio text,
-  specialties jsonb,
-  categories text[],
-  chat_price_per_minute numeric(10, 2) DEFAULT 1.00,
-  call_price_per_minute numeric(10, 2) DEFAULT 1.50,
-  written_consultation_price numeric(10, 2) DEFAULT 20.00,
-  is_chat_enabled boolean DEFAULT true,
-  is_call_enabled boolean DEFAULT true,
-  is_written_consultation_enabled boolean DEFAULT true,
-  average_rating numeric(3, 2) DEFAULT 0.00,
-  total_reviews integer DEFAULT 0,
-  joined_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+-- STEP 2: Creazione della Tabella PROFILES
+-- Questa tabella estende la tabella `auth.users` di Supabase, aggiungendo dati specifici dell'applicazione
+-- come il ruolo e lo stato.
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT,
+    email TEXT UNIQUE,
+    avatar_url TEXT,
+    role public.user_role NOT NULL DEFAULT 'client',
+    status public.operator_status, -- Usato solo se role = 'operator'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+COMMENT ON TABLE public.profiles IS 'Stores public-facing profile information for each user.';
+
+
+-- STEP 3: Creazione della Tabella OPERATOR_DETAILS
+-- Contiene informazioni specifiche solo per gli operatori.
+CREATE TABLE IF NOT EXISTS public.operator_details (
+    id UUID NOT NULL PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
+    stage_name TEXT,
+    bio TEXT,
+    specialties TEXT[],
+    commission_rate NUMERIC(5, 2) DEFAULT 15.00,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE public.operator_details IS 'Stores detailed information specific to operators.';
+
+
+-- STEP 4: Funzione Trigger per la Creazione di Nuovi Utenti
+-- Questa funzione viene eseguita automaticamente ogni volta che un nuovo utente si registra.
+-- Popola la tabella `profiles` e, se l'utente è un operatore, anche `operator_details`.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    -- Inserisce il nuovo utente nella tabella profiles
+    INSERT INTO public.profiles (id, name, email, role, avatar_url, status)
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'name',
+        new.email,
+        (new.raw_user_meta_data->>'role')::public.user_role,
+        new.raw_user_meta_data->>'avatar_url',
+        -- Imposta lo stato iniziale per gli operatori
+        CASE
+            WHEN (new.raw_user_meta_data->>'role')::public.user_role = 'operator' THEN 'pending_approval'::public.operator_status
+            ELSE NULL
+        END
+    );
+
+    -- Se il nuovo utente è un operatore, crea anche i dettagli operatore
+    IF (new.raw_user_meta_data->>'role')::public.user_role = 'operator' THEN
+        INSERT INTO public.operator_details (id, stage_name)
+        VALUES (
+            new.id,
+            new.raw_user_meta_data->>'stage_name'
+        );
+    END IF;
+
+    RETURN new;
+END;
+$$;
+
+-- STEP 5: Creazione del Trigger
+-- Collega la funzione `handle_new_user` alla tabella `auth.users`.
+-- Si attiva DOPO ogni inserimento di un nuovo utente.
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
+-- STEP 6: Abilitazione della Row Level Security (RLS)
+-- Fondamentale per la sicurezza: per impostazione predefinita, nessuno può accedere ai dati.
+-- Le policy successive definiranno le eccezioni.
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operator_details ENABLE ROW LEVEL SECURITY;
 
+-- STEP 7: Creazione delle Policy RLS
+-- Definiscono chi può fare cosa.
 
--- 4. Create chat_sessions and chat_messages tables
-CREATE TABLE IF NOT EXISTS public.chat_sessions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL REFERENCES public.profiles(id),
-  operator_id uuid NOT NULL REFERENCES public.profiles(id),
-  status public.chat_session_status NOT NULL DEFAULT 'pending',
-  started_at timestamp with time zone,
-  ended_at timestamp with time zone,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
-
-CREATE TABLE IF NOT EXISTS public.chat_messages (
-  id bigserial PRIMARY KEY,
-  session_id uuid NOT NULL REFERENCES public.chat_sessions(id) ON DELETE CASCADE,
-  sender_id uuid NOT NULL REFERENCES public.profiles(id),
-  content text NOT NULL,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-
-
--- 5. Update the function and trigger for new user creation
--- First, drop the existing trigger that depends on the function.
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
--- Now, we can safely replace the function.
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  user_role public.user_role;
-  user_name text;
-  user_email text;
-  stage_name text;
-BEGIN
-  -- Extract role, default to 'client' if not provided
-  user_role := (new.raw_user_meta_data->>'role')::public.user_role;
-  IF user_role IS NULL THEN
-    user_role := 'client';
-  END IF;
-
-  -- Extract name and email from metadata, fall back to auth fields
-  user_name := new.raw_user_meta_data->>'name';
-  user_email := new.raw_user_meta_data->>'email';
-  IF user_name IS NULL OR user_name = '' THEN
-    user_name := new.raw_user_meta_data->>'full_name'; -- another common field
-  END IF;
-  IF user_email IS NULL OR user_email = '' THEN
-    user_email := new.email;
-  END IF;
-
-
-  -- Insert into public.profiles
-  INSERT INTO public.profiles (id, name, email, role)
-  VALUES (new.id, user_name, user_email, user_role);
-
-  -- If the new user is an operator, create an entry in operator_details
-  IF user_role = 'operator' THEN
-    stage_name := new.raw_user_meta_data->>'stage_name';
-    IF stage_name IS NULL OR stage_name = '' THEN
-      stage_name := user_name; -- Default stage_name to user's name if not provided
-    END IF;
-    INSERT INTO public.operator_details (id, stage_name)
-    VALUES (new.id, stage_name);
-  END IF;
-
-  return new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Finally, re-create the trigger to call the updated function.
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
-
--- 6. RLS Policies
--- Profiles
+-- Policy per PROFILES
 DROP POLICY IF EXISTS "Users can view their own profile." ON public.profiles;
+CREATE POLICY "Users can view their own profile."
+ON public.profiles FOR SELECT
+USING (auth.uid() = id);
+
 DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
-DROP POLICY IF EXISTS "Admins have full access to profiles." ON public.profiles;
-DROP POLICY IF EXISTS "Authenticated users can view operator profiles." ON public.profiles;
+CREATE POLICY "Users can update their own profile."
+ON public.profiles FOR UPDATE
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "Users can view their own profile." ON public.profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Admins have full access to profiles." ON public.profiles FOR ALL USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
-CREATE POLICY "Authenticated users can view operator profiles." ON public.profiles FOR SELECT USING (role = 'operator');
+DROP POLICY IF EXISTS "Admins can manage all profiles." ON public.profiles;
+CREATE POLICY "Admins can manage all profiles."
+ON public.profiles FOR ALL
+USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
--- Operator Details
-DROP POLICY IF EXISTS "Public can view operator details" ON public.operator_details;
-DROP POLICY IF EXISTS "Operators can update their own details" ON public.operator_details;
-DROP POLICY IF EXISTS "Admins can manage operator details" ON public.operator_details;
+-- Policy per OPERATOR_DETAILS
+DROP POLICY IF EXISTS "Operators can view their own details." ON public.operator_details;
+CREATE POLICY "Operators can view their own details."
+ON public.operator_details FOR SELECT
+USING (auth.uid() = id);
 
-CREATE POLICY "Public can view operator details" ON public.operator_details FOR SELECT USING (true);
-CREATE POLICY "Operators can update their own details" ON public.operator_details FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Admins can manage operator details" ON public.operator_details FOR ALL USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+DROP POLICY IF EXISTS "Operators can update their own details." ON public.operator_details;
+CREATE POLICY "Operators can update their own details."
+ON public.operator_details FOR UPDATE
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
 
--- Chat Sessions & Messages
-DROP POLICY IF EXISTS "Users can access their own chat sessions" ON public.chat_sessions;
-DROP POLICY IF EXISTS "Users can access messages in their own sessions" ON public.chat_messages;
-DROP POLICY IF EXISTS "Admins can view all chat sessions and messages" ON public.chat_sessions;
-DROP POLICY IF EXISTS "Admins can view all chat sessions and messages" ON public.chat_messages;
+DROP POLICY IF EXISTS "Admins can manage all operator details." ON public.operator_details;
+CREATE POLICY "Admins can manage all operator details."
+ON public.operator_details FOR ALL
+USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
-CREATE POLICY "Users can access their own chat sessions" ON public.chat_sessions FOR ALL USING (auth.uid() = client_id OR auth.uid() = operator_id);
-CREATE POLICY "Users can access messages in their own sessions" ON public.chat_messages FOR ALL USING (
-  (SELECT client_id FROM public.chat_sessions WHERE id = session_id) = auth.uid() OR
-  (SELECT operator_id FROM public.chat_sessions WHERE id = session_id) = auth.uid()
-);
-CREATE POLICY "Admins can view all chat sessions and messages" ON public.chat_sessions FOR SELECT USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
-CREATE POLICY "Admins can view all chat sessions and messages" ON public.chat_messages FOR SELECT USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+DROP POLICY IF EXISTS "Authenticated users can view operator details." ON public.operator_details;
+CREATE POLICY "Authenticated users can view operator details."
+ON public.operator_details FOR SELECT
+USING (auth.role() = 'authenticated');
 
 
--- 7. INSTRUCTIONS FOR ADMIN CREATION
-/******************************************************************************
-* IMPORTANT: ADMIN USER CREATION
-*
-* To create the admin user, follow these steps:
-*
-* 1. Manually sign up through your application's registration page using the
-*    following credentials:
-*    - Email:    pagamenticonsulenza@gmail.com
-*    - Password: @Annaadmin2025@#
-*    - Name:     Admin
-*
-* 2. After successful registration, connect to your Supabase database using the
-*    SQL Editor in the Supabase Dashboard.
-*
-* 3. Run the following SQL command to elevate the new user to an admin role:
-*
-*    UPDATE public.profiles
-*    SET role = 'admin'
-*    WHERE email = 'pagamenticonsulenza@gmail.com';
-*
-* This two-step process is necessary for security, as user creation with a
-* password must go through the Supabase Auth service.
-******************************************************************************/
+-- Sincronizza gli utenti esistenti in auth.users che non hanno un profilo
+INSERT INTO public.profiles (id, name, email, role, avatar_url, status)
+SELECT
+    u.id,
+    u.raw_user_meta_data->>'name',
+    u.email,
+    COALESCE((u.raw_user_meta_data->>'role')::public.user_role, 'client'),
+    u.raw_user_meta_data->>'avatar_url',
+    CASE
+        WHEN COALESCE((u.raw_user_meta_data->>'role')::public.user_role, 'client') = 'operator' THEN 'pending_approval'::public.operator_status
+        ELSE NULL
+    END
+FROM auth.users u
+LEFT JOIN public.profiles p ON u.id = p.id
+WHERE p.id IS NULL;
+
+-- Sincronizza i dettagli per gli operatori esistenti che non li hanno
+INSERT INTO public.operator_details (id, stage_name)
+SELECT
+    p.id,
+    p.name -- Usa il nome del profilo come fallback per il nome d'arte
+FROM public.profiles p
+LEFT JOIN public.operator_details od ON p.id = od.id
+WHERE p.role = 'operator' AND od.id IS NULL;
+
+-- Creazione utente admin se non esiste
+-- Questo blocco è sicuro da eseguire più volte.
+DO $$
+DECLARE
+    admin_email TEXT := 'pagamenticonsulenza@gmail.com';
+    admin_pass TEXT := '@Annaadmin2025@#';
+    admin_user_id UUID;
+BEGIN
+    -- Controlla se l'utente esiste già in auth.users
+    SELECT id INTO admin_user_id FROM auth.users WHERE email = admin_email;
+
+    IF admin_user_id IS NULL THEN
+        -- Se non esiste, lo crea
+        admin_user_id := extensions.uuid_generate_v4();
+        INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, instance_id, aud)
+        VALUES (admin_user_id, admin_email, crypt(admin_pass, gen_salt('bf')), now(), '00000000-0000-0000-0000-000000000000', 'authenticated');
+
+        INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+        VALUES (extensions.uuid_generate_v4(), admin_user_id, format('{"sub":"%s","email":"%s"}', admin_user_id, admin_email)::jsonb, 'email', now(), now(), now());
+    END IF;
+
+    -- Assicura che il profilo esista e abbia il ruolo di admin
+    INSERT INTO public.profiles (id, email, name, role)
+    VALUES (admin_user_id, admin_email, 'Admin', 'admin')
+    ON CONFLICT (id) DO UPDATE SET
+        role = 'admin',
+        name = 'Admin';
+END $$;

@@ -1,172 +1,200 @@
 "use client"
 
 import type React from "react"
-
-import type { ChatMessage, getChatSession } from "@/types/chat.types"
-import { useEffect, useRef, useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Paperclip, Send, Clock, Phone, Video } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+import { Send, Timer, Coins } from "lucide-react"
+import { wsManager } from "@/lib/websocket"
 import { useTimer } from "@/hooks/use-timer"
+import type { ChatSessionDetails, Message } from "@/types/chat.types"
 
 interface RealTimeChatProps {
-  initialSession: Awaited<ReturnType<typeof getChatSession>>
+  session: ChatSessionDetails
+  currentUserId: string
+  currentUserName: string
+  initialBalance: number
+  onBalanceUpdate: (newBalance: number) => void
+  onSessionEnd: () => void
 }
 
-const MOCK_MESSAGES: ChatMessage[] = [
-  {
-    id: "1",
-    sender_id: "system",
-    sender_name: "System",
-    content: "La sessione di chat è iniziata. Il tempo sta scorrendo.",
-    timestamp: new Date().toISOString(),
-    is_system_message: true,
-  },
-]
-
-export function RealTimeChat({ initialSession }: RealTimeChatProps) {
-  const { user } = useAuth()
-  const [messages, setMessages] = useState<ChatMessage[]>(MOCK_MESSAGES)
+export function RealTimeChat({
+  session,
+  currentUserId,
+  currentUserName,
+  initialBalance,
+  onBalanceUpdate,
+  onSessionEnd,
+}: RealTimeChatProps) {
+  const [messages, setMessages] = useState<Message[]>(session.messages || [])
   const [newMessage, setNewMessage] = useState("")
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [balance, setBalance] = useState(initialBalance)
+  const [isConnected, setIsConnected] = useState(false)
+  const [isCallActive, setIsCallActive] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const { time, isRunning, startTimer, stopTimer } = useTimer()
 
-  const { seconds, formattedTime, isActive, start, pause } = useTimer()
+  const ratePerMinute = session.operator.ratePerMinute
 
   useEffect(() => {
-    start()
-  }, [start])
+    const socket = wsManager.connect(currentUserId)
+    socket.on("connect", () => setIsConnected(true))
+    socket.on("disconnect", () => setIsConnected(false))
+    socket.emit("join_session", { sessionId: session.id })
+    socket.on("new_message", (message: Message) => {
+      setMessages((prev) => [...prev, message])
+    })
+    socket.on("balance_update", (newBalance: number) => {
+      setBalance(newBalance)
+      onBalanceUpdate(newBalance)
+    })
+    socket.on("session_ended", () => {
+      stopTimer()
+      onSessionEnd()
+    })
+
+    startTimer()
+
+    return () => {
+      socket.off("new_message")
+      socket.off("balance_update")
+      socket.off("session_ended")
+      wsManager.disconnect()
+    }
+  }, [session.id, currentUserId, onBalanceUpdate, onSessionEnd, startTimer, stopTimer])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
   }, [messages])
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newMessage.trim() === "" || !user) return
+  useEffect(() => {
+    if (!isRunning || balance <= 0) return
 
-    const message: ChatMessage = {
-      id: Date.now().toString(),
-      sender_id: user.id,
-      sender_name: user.name || "Tu",
-      content: newMessage,
-      timestamp: new Date().toISOString(),
+    const interval = setInterval(() => {
+      const costPerSecond = ratePerMinute / 60
+      const newBalance = Math.max(0, balance - costPerSecond)
+
+      if (newBalance <= 0) {
+        wsManager.emit("end_session", {
+          sessionId: session.id,
+          reason: "insufficient_balance",
+        })
+        stopTimer()
+      } else {
+        setBalance(newBalance)
+        onBalanceUpdate(newBalance)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [isRunning, balance, ratePerMinute, session.id, stopTimer, onBalanceUpdate])
+
+  const sendMessage = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newMessage.trim() || balance <= 0) return
+
+    const message: Message = {
+      id: `msg_${Date.now()}`,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      text: newMessage.trim(),
+      timestamp: new Date(),
+      type: "text",
     }
 
+    wsManager.emit("send_message", { sessionId: session.id, message })
     setMessages((prev) => [...prev, message])
     setNewMessage("")
-
-    // Mock operator response
-    setTimeout(() => {
-      const operatorResponse: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender_id: initialSession?.operator?.id || "operator_mock_id",
-        sender_name: initialSession?.operator?.name || "Operatore",
-        content: "Grazie per il tuo messaggio. Sto analizzando la tua richiesta.",
-        timestamp: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, operatorResponse])
-    }, 1500)
   }
 
-  if (!initialSession || !user) {
-    return <div>Caricamento sessione...</div>
+  const endSession = () => {
+    wsManager.emit("end_session", { sessionId: session.id })
+    stopTimer()
+    onSessionEnd()
   }
 
-  const otherParticipant = user.id === initialSession.client_id ? initialSession.operator : initialSession.client
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] bg-slate-50">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-white shadow-sm">
+    <div className="h-full flex flex-col bg-white dark:bg-slate-950">
+      <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center gap-4">
-          <Avatar>
-            <AvatarImage src={otherParticipant?.avatar_url || ""} />
-            <AvatarFallback>{otherParticipant?.name?.charAt(0).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="font-bold text-lg">{otherParticipant?.name}</h2>
-            <p className="text-sm text-green-500">Online</p>
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <Timer className="h-5 w-5 text-blue-500" />
+            <span className="font-mono font-semibold text-lg">{formatTime(time)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <Coins className="h-5 w-5 text-yellow-500" />
+            <span className="font-semibold text-lg">€{balance.toFixed(2)}</span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <div className="font-bold text-lg flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-500" />
-              {formattedTime}
-            </div>
-            <p className="text-xs text-gray-500">Durata sessione</p>
-          </div>
-          <Button variant="ghost" size="icon">
-            <Phone className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Video className="w-5 h-5" />
-          </Button>
-          <Button variant="destructive" onClick={pause}>
-            Termina Chat
-          </Button>
-        </div>
+        <Badge variant={isConnected ? "default" : "destructive"}>{isConnected ? "Connesso" : "Disconnesso"}</Badge>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn(
-              "flex items-end gap-3",
-              msg.sender_id === user.id ? "justify-end" : "justify-start",
-              msg.is_system_message && "justify-center",
-            )}
-          >
-            {msg.sender_id !== user.id && !msg.is_system_message && (
-              <Avatar className="w-8 h-8">
-                <AvatarImage src={otherParticipant?.avatar_url || ""} />
-                <AvatarFallback>{msg.sender_name.charAt(0)}</AvatarFallback>
-              </Avatar>
-            )}
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <div className="space-y-4">
+          {messages.map((message) => (
             <div
-              className={cn(
-                "max-w-md lg:max-w-xl p-3 rounded-2xl",
-                msg.sender_id === user.id
-                  ? "bg-blue-600 text-white rounded-br-none"
-                  : "bg-white text-gray-800 rounded-bl-none border",
-                msg.is_system_message && "bg-gray-200 text-gray-600 text-sm text-center",
-              )}
+              key={message.id}
+              className={`flex items-end gap-2 ${message.senderId === currentUserId ? "justify-end" : "justify-start"}`}
             >
-              <p className="text-base">{msg.content}</p>
-              {!msg.is_system_message && (
-                <p className="text-xs opacity-70 mt-1 text-right">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </p>
+              {message.senderId !== currentUserId && (
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={session.operator.avatar || "/placeholder.svg"} />
+                  <AvatarFallback>{session.operator.name.charAt(0)}</AvatarFallback>
+                </Avatar>
               )}
+              <div
+                className={`max-w-[70%] p-3 rounded-2xl ${
+                  message.senderId === currentUserId
+                    ? "bg-blue-600 text-white rounded-br-none"
+                    : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 rounded-bl-none"
+                } ${
+                  message.type === "system"
+                    ? "w-full max-w-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 text-center text-xs italic rounded-2xl"
+                    : ""
+                }`}
+              >
+                <p className="text-sm">{message.text}</p>
+                {message.type !== "system" && (
+                  <p className="text-xs opacity-70 mt-1 text-right">
+                    {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
+          ))}
+        </div>
+      </ScrollArea>
 
-      {/* Input */}
-      <div className="p-4 bg-white border-t">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" type="button">
-            <Paperclip className="w-5 h-5 text-gray-500" />
-          </Button>
+      <form onSubmit={sendMessage} className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+        <div className="flex gap-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Scrivi un messaggio..."
-            className="flex-1 bg-slate-100 border-transparent focus:bg-white focus:border-blue-500"
-            autoComplete="off"
+            placeholder={balance > 0 ? "Scrivi un messaggio..." : "Credito insufficiente"}
+            disabled={balance <= 0 || !isConnected}
+            className="flex-1 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 rounded-full px-4"
           />
-          <Button type="submit" size="icon">
-            <Send className="w-5 h-5" />
+          <Button
+            type="submit"
+            disabled={!newMessage.trim() || balance <= 0 || !isConnected}
+            className="bg-blue-600 hover:bg-blue-700 rounded-full w-12 h-12 flex-shrink-0"
+            size="icon"
+          >
+            <Send className="h-5 w-5" />
           </Button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   )
 }
