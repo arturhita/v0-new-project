@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "./written-consultation-modal"
-import type { OperatorProfile as Operator } from "@/lib/actions/operator.actions"
+import type { OperatorCardProfile as Operator } from "@/lib/actions/operator.actions"
 
 interface OperatorCardProps {
   operator: Operator
@@ -26,7 +26,8 @@ export function OperatorCard({ operator }: OperatorCardProps) {
 
   const isNewOperator = new Date(operator.joinedDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-  const operatorSlug = operator.fullName.toLowerCase().replace(/\s+/g, "-")
+  // FIX: Gestisce il caso in cui fullName sia nullo, usando l'ID come fallback.
+  const operatorSlug = (operator.fullName || operator.id).toLowerCase().replace(/\s+/g, "-")
   const profileLink = `/operator/${operatorSlug}`
 
   const getServicePrice = (type: "chat" | "call" | "email") => {
@@ -108,7 +109,7 @@ export function OperatorCard({ operator }: OperatorCardProps) {
             <div className="h-20 w-20 overflow-hidden rounded-full shadow-lg ring-4 ring-yellow-600/30 transition-all duration-500 group-hover:ring-yellow-600/50">
               <Image
                 src={operator.avatarUrl || "/placeholder.svg?width=80&height=80&text=E"}
-                alt={operator.fullName}
+                alt={operator.fullName || "Operatore"}
                 width={80}
                 height={80}
                 className="h-full w-full object-cover"
@@ -118,7 +119,7 @@ export function OperatorCard({ operator }: OperatorCardProps) {
           </div>
 
           <h3 className="text-lg font-bold text-white transition-colors duration-500 group-hover:text-yellow-100">
-            {operator.fullName}
+            {operator.fullName || "Operatore Esperto"}
           </h3>
           <p className="mb-3 text-sm font-medium text-white/80 transition-colors duration-500 group-hover:text-white/90">
             {operator.headline}
@@ -244,7 +245,7 @@ export function OperatorCard({ operator }: OperatorCardProps) {
         <WrittenConsultationModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
-          operator={{ id: operator.id, name: operator.fullName, emailPrice: emailPrice }}
+          operator={{ id: operator.id, name: operator.fullName || "Operatore", emailPrice: emailPrice }}
         />
       )}
     </>
