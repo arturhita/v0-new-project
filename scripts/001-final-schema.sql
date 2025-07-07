@@ -82,32 +82,55 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 
--- 5. Update the function to handle new user creation
-DROP FUNCTION IF EXISTS public.handle_new_user();
+-- 5. Update the function and trigger for new user creation
+-- First, drop the existing trigger that depends on the function.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Now, we can safely replace the function.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
   user_role public.user_role;
+  user_name text;
+  user_email text;
+  stage_name text;
 BEGIN
+  -- Extract role, default to 'client' if not provided
   user_role := (new.raw_user_meta_data->>'role')::public.user_role;
   IF user_role IS NULL THEN
     user_role := 'client';
   END IF;
 
-  INSERT INTO public.profiles (id, name, email, role)
-  VALUES (new.id, new.raw_user_meta_data->>'name', new.email, user_role);
+  -- Extract name and email from metadata, fall back to auth fields
+  user_name := new.raw_user_meta_data->>'name';
+  user_email := new.raw_user_meta_data->>'email';
+  IF user_name IS NULL OR user_name = '' THEN
+    user_name := new.raw_user_meta_data->>'full_name'; -- another common field
+  END IF;
+  IF user_email IS NULL OR user_email = '' THEN
+    user_email := new.email;
+  END IF;
 
+
+  -- Insert into public.profiles
+  INSERT INTO public.profiles (id, name, email, role)
+  VALUES (new.id, user_name, user_email, user_role);
+
+  -- If the new user is an operator, create an entry in operator_details
   IF user_role = 'operator' THEN
+    stage_name := new.raw_user_meta_data->>'stage_name';
+    IF stage_name IS NULL OR stage_name = '' THEN
+      stage_name := user_name; -- Default stage_name to user's name if not provided
+    END IF;
     INSERT INTO public.operator_details (id, stage_name)
-    VALUES (new.id, new.raw_user_meta_data->>'stage_name');
+    VALUES (new.id, stage_name);
   END IF;
 
   return new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-create the trigger
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- Finally, re-create the trigger to call the updated function.
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
