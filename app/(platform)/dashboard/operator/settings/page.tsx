@@ -1,31 +1,29 @@
 "use client"
 
-import React, { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useFormState, useFormStatus } from "react-dom"
-import { toast } from "@/hooks/use-toast"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+import { createClient } from "@/lib/supabase/client"
+import { getOperatorByUserId, updateOperatorFiscalData } from "@/lib/actions/operator.actions"
 import { Button } from "@/components/ui/button"
-import { updateOperatorFiscalData, getOperatorByUserId } from "@/lib/actions/operator.actions"
-import { useAuth } from "@/contexts/auth-context"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "sonner"
 import type { Operator } from "@/types/database"
-import { Save, Loader2 } from "lucide-react"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" disabled={pending} className="w-full md:w-auto">
-      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-      {pending ? "Salvataggio in corso..." : "Salva Dati Fiscali"}
+    <Button type="submit" disabled={pending}>
+      {pending ? "Salvataggio..." : "Salva Modifiche"}
     </Button>
   )
 }
 
 export default function OperatorSettingsPage() {
-  const { user } = useAuth()
-  const [operator, setOperator] = React.useState<Operator | null>(null)
-  const [isLoading, setIsLoading] = React.useState(true)
+  const [operator, setOperator] = useState<Operator | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [formState, formAction] = useFormState(updateOperatorFiscalData, {
     success: false,
@@ -33,104 +31,146 @@ export default function OperatorSettingsPage() {
   })
 
   useEffect(() => {
-    if (user?.id) {
-      setIsLoading(true)
-      getOperatorByUserId(user.id)
-        .then((data) => {
-          if (data) {
-            setOperator(data)
+    const fetchOperator = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        try {
+          const operatorData = await getOperatorByUserId(user.id)
+          if (operatorData) {
+            setOperator(operatorData)
+          } else {
+            setError("Dati operatore non trovati.")
           }
-        })
-        .finally(() => setIsLoading(false))
-    } else {
-      setIsLoading(false)
+        } catch (e) {
+          setError("Errore nel caricamento dei dati operatore.")
+        }
+      } else {
+        setError("Utente non autenticato.")
+      }
+      setLoading(false)
     }
-  }, [user])
+
+    fetchOperator()
+  }, [])
 
   useEffect(() => {
     if (formState.message) {
-      toast({
-        title: formState.success ? "Successo" : "Errore",
-        description: formState.message,
-        variant: formState.success ? "default" : "destructive",
-      })
+      if (formState.success) {
+        toast.success(formState.message)
+      } else {
+        toast.error(formState.message)
+      }
     }
   }, [formState])
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
+      <div className="p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Dati Fiscali</CardTitle>
+            <CardDescription>Caricamento dei tuoi dati fiscali...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded w-full animate-pulse"></div>
+              <div className="h-10 bg-gray-200 rounded w-full animate-pulse"></div>
+              <div className="h-10 bg-gray-200 rounded w-full animate-pulse"></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  if (!operator) {
+  if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Errore</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Impossibile caricare i dati dell'operatore. Assicurati di aver completato il tuo profilo.</p>
-        </CardContent>
-      </Card>
+      <div className="p-4 text-red-500">
+        <p>{error}</p>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Impostazioni Fiscali</h1>
-        <p className="text-slate-500">
-          Inserisci i tuoi dati per la fatturazione. Queste informazioni saranno visibili solo all'amministrazione.
-        </p>
-      </div>
+    <div className="p-4 md:p-6">
       <form action={formAction}>
         <Card>
           <CardHeader>
-            <CardTitle>Dati di Fatturazione</CardTitle>
+            <CardTitle>Dati Fiscali</CardTitle>
             <CardDescription>
-              Assicurati che i dati siano corretti. Verranno utilizzati per generare le fatture dei tuoi compensi.
+              Questi dati sono necessari per la fatturazione e i pagamenti. Saranno visibili solo all'amministrazione.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="fiscal_code">Codice Fiscale</Label>
-              <Input id="fiscal_code" name="fiscal_code" defaultValue={operator.fiscal_code || ""} required />
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fiscal_code">Codice Fiscale</Label>
+                <Input
+                  id="fiscal_code"
+                  name="fiscal_code"
+                  defaultValue={operator?.fiscal_code || ""}
+                  placeholder="RSSMRA80A01H501U"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vat_number">Partita IVA (se applicabile)</Label>
+                <Input
+                  id="vat_number"
+                  name="vat_number"
+                  defaultValue={operator?.vat_number || ""}
+                  placeholder="IT12345678901"
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="vat_number">Partita IVA (se applicabile)</Label>
-              <Input id="vat_number" name="vat_number" defaultValue={operator.vat_number || ""} />
-            </div>
-            <div className="space-y-2 col-span-2">
               <Label htmlFor="billing_address">Indirizzo di Fatturazione</Label>
               <Input
                 id="billing_address"
                 name="billing_address"
-                defaultValue={operator.billing_address || ""}
+                defaultValue={operator?.billing_address || ""}
+                placeholder="Via Roma, 1"
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="billing_city">Città</Label>
-              <Input id="billing_city" name="billing_city" defaultValue={operator.billing_city || ""} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="billing_zip">CAP</Label>
-              <Input id="billing_zip" name="billing_zip" defaultValue={operator.billing_zip || ""} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="billing_country">Paese</Label>
-              <Input
-                id="billing_country"
-                name="billing_country"
-                defaultValue={operator.billing_country || "Italia"}
-                required
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="billing_city">Città</Label>
+                <Input
+                  id="billing_city"
+                  name="billing_city"
+                  defaultValue={operator?.billing_city || ""}
+                  placeholder="Milano"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing_zip">CAP</Label>
+                <Input
+                  id="billing_zip"
+                  name="billing_zip"
+                  defaultValue={operator?.billing_zip || ""}
+                  placeholder="20121"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing_country">Paese</Label>
+                <Input
+                  id="billing_country"
+                  name="billing_country"
+                  defaultValue={operator?.billing_country || ""}
+                  placeholder="Italia"
+                  required
+                />
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="border-t px-6 py-4">
+          <CardFooter>
             <SubmitButton />
           </CardFooter>
         </Card>
