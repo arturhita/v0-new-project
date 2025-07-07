@@ -11,6 +11,11 @@ export async function GET(request: Request) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // For email confirmation, redirect to login with a success message
+      if (next === "/") {
+        return NextResponse.redirect(`${origin}/login?registration=success`)
+      }
+      // For password reset, redirect to the reset page
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
