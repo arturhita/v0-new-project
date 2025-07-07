@@ -4,15 +4,15 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster } from "@/components/ui/toaster"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
-import CookieBanner from "@/components/cookie-banner"
+import { SiteFooter } from "@/components/site-footer"
+import { SiteNavbar } from "@/components/site-navbar"
+import { CookieBanner } from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir",
-  description: "Piattaforma di consulenza al minuto",
+  title: "Moonthir - Consulenza Mistica",
+  description: "La tua guida nel mondo della consulenza mistica e astrologica.",
     generator: 'v0.dev'
 }
 
@@ -22,32 +22,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it">
-      <body className={inter.className}>
+    <html lang="it" className="dark">
+      <body className={`${inter.className} bg-background text-foreground`}>
         <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>
-              {children}
-              <Toaster />
-              <CookieBanner />
-            </ChatRequestProvider>
-          </OperatorStatusProvider>
+          <div className="flex flex-col min-h-screen">
+            <SiteNavbar />
+            <main className="flex-grow">{children}</main>
+            <SiteFooter />
+          </div>
+          <Toaster />
+          <CookieBanner />
         </AuthProvider>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').then(registration => {
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                  }, err => {
-                    console.log('ServiceWorker registration failed: ', err);
-                  });
-                });
-              }
-            `,
-          }}
-        />
       </body>
     </html>
   )
