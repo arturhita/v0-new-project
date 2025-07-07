@@ -5,8 +5,28 @@ import { createClient } from "@/lib/supabase/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { Profile } from "@/types/database.types"
 
-// La funzione createOperator è stata spostata in un API Route per stabilità.
-// Questo file contiene ora solo le altre funzioni di helper per gli operatori.
+/**
+ * FUNZIONE RIPRISTINATA E OTTIMIZZATA
+ * Ora chiama la funzione SQL 'get_operator_dashboard_data' per massima efficienza.
+ */
+export async function getOperatorDashboardData(operatorId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operator_dashboard_data", { operator_id_param: operatorId }).single()
+
+  if (error) {
+    console.error("Error fetching operator dashboard data:", error)
+    return { success: false, message: "Impossibile caricare i dati della dashboard." }
+  }
+
+  return {
+    success: true,
+    data: {
+      monthlyEarnings: data.monthly_earnings,
+      consultationsCount: data.consultations_count,
+      unreadMessagesCount: data.unread_messages_count,
+    },
+  }
+}
 
 export async function getAllOperatorsForAdmin() {
   const supabase = createClient()
@@ -22,10 +42,6 @@ export async function getAllOperatorsForAdmin() {
   return data
 }
 
-/**
- * NUOVA FUNZIONE: Recupera le categorie direttamente dal database
- * per garantire che il form sia sempre sincronizzato.
- */
 export async function getCategoriesForAdmin() {
   const supabase = createClient()
   const { data, error } = await supabase.from("categories").select("name").order("name", { ascending: true })
@@ -34,7 +50,6 @@ export async function getCategoriesForAdmin() {
     console.error("Error fetching categories:", error)
     return []
   }
-  // Restituisce un array di stringhe, es: ["Astrologia", "Tarocchi"]
   return data.map((c) => c.name)
 }
 
