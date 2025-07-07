@@ -1,55 +1,52 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { createClient } from "@/lib/supabase/client"
+import { toggleAvailability } from "@/lib/actions/operator.actions"
+import { useToast } from "./ui/use-toast"
 
-export function OperatorStatusToggle({ operatorId }: { operatorId: string }) {
-  const supabase = createClient()
+export default function OperatorStatusToggle({ initialIsAvailable }: { initialIsAvailable: boolean }) {
+  const [isAvailable, setIsAvailable] = useState(initialIsAvailable)
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const [isAvailable, setIsAvailable] = useState(false)
-  const [isPending, startTransition] = useTransition()
 
-  // Fetch initial state
-  useState(() => {
-    const fetchStatus = async () => {
-      const { data } = await supabase.from("profiles").select("is_available").eq("id", operatorId).single()
-      if (data) {
-        setIsAvailable(data.is_available || false)
-      }
+  const handleChange = async (checked: boolean) => {
+    setIsLoading(true)
+    setIsAvailable(checked)
+    const result = await toggleAvailability(checked)
+    if (result.success) {
+      toast({
+        title: "Stato aggiornato",
+        description: result.message,
+      })
+    } else {
+      // Revert state on failure
+      setIsAvailable(!checked)
+      toast({
+        title: "Errore",
+        description: result.message,
+        variant: "destructive",
+      })
     }
-    fetchStatus()
-  })
-
-  const handleToggle = (checked: boolean) => {
-    startTransition(async () => {
-      setIsAvailable(checked)
-      const { error } = await supabase.from("profiles").update({ is_available: checked }).eq("id", operatorId)
-      if (error) {
-        toast({
-          title: "Errore",
-          description: "Impossibile aggiornare lo stato.",
-          variant: "destructive",
-        })
-        setIsAvailable(!checked) // Revert on error
-      } else {
-        toast({
-          title: "Stato Aggiornato",
-          description: `Ora sei ${checked ? "disponibile" : "non disponibile"}.`,
-        })
-      }
-    })
+    setIsLoading(false)
   }
 
   return (
-    <div className="flex items-center space-x-2 rounded-lg border p-3">
-      <Switch id="availability-toggle" checked={isAvailable} onCheckedChange={handleToggle} disabled={isPending} />
-      <Label htmlFor="availability-toggle" className="flex flex-col">
-        <span className="font-medium">{isAvailable ? "Disponibile" : "Non Disponibile"}</span>
-        <span className="text-xs text-gray-500">Attiva per ricevere richieste</span>
+    <div className="flex items-center space-x-2 rounded-full bg-gray-100 p-2">
+      <Label
+        htmlFor="availability-switch"
+        className={isAvailable ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}
+      >
+        {isAvailable ? "Disponibile" : "Non Disponibile"}
       </Label>
+      <Switch
+        id="availability-switch"
+        checked={isAvailable}
+        onCheckedChange={handleChange}
+        disabled={isLoading}
+        aria-label="Toggle availability"
+      />
     </div>
   )
 }

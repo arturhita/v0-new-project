@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { getOperatorPublicProfile } from "@/lib/actions/operator.actions"
-import { OperatorProfileForm } from "@/components/operator-profile-form"
+import OperatorProfileForm from "@/components/operator-profile-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function OperatorProfilePage() {
@@ -11,26 +10,29 @@ export default async function OperatorProfilePage() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login")
+    return redirect("/login")
   }
 
-  const profileData = await getOperatorPublicProfile(user.id)
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
-  if (!profileData) {
-    return <div>Impossibile caricare i dati del profilo.</div>
+  if (error) {
+    console.error("Error fetching profile:", error)
+    return <div>Errore nel caricamento del profilo.</div>
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Gestisci il tuo Profilo Pubblico</CardTitle>
-        <CardDescription>
-          Queste informazioni saranno visibili ai clienti. Assicurati che siano accurate e professionali.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <OperatorProfileForm profileData={profileData} operatorId={user.id} />
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Gestisci il Tuo Profilo</CardTitle>
+          <CardDescription>
+            Queste informazioni saranno visibili ai clienti. Mantienile aggiornate per attrarre più consulti.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OperatorProfileForm profile={profile} />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

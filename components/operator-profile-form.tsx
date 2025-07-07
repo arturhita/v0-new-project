@@ -1,121 +1,136 @@
 "use client"
 
-import type React from "react"
 import { useFormState } from "react-dom"
-import { useEffect, useRef, useState } from "react"
-import Image from "next/image"
-import { updateOperatorPublicProfile } from "@/lib/actions/operator.actions"
+import { updateOperatorProfile } from "@/lib/actions/operator.actions"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { SubmitButton } from "@/components/submit-button"
+import { useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
-import { SubmitButton } from "./submit-button"
+import type { Profile } from "@/types/database" // Assicurati di avere questo tipo definito
 
-const initialState = {
-  success: false,
-  message: "",
+const disciplines = ["Cartomanzia", "Astrologia", "Lottologia", "Medianità"]
+const specialtiesByDiscipline: { [key: string]: string[] } = {
+  Cartomanzia: ["Tarocchi", "Sibille", "Carte Napoletane"],
+  Astrologia: ["Tema Natale", "Sinastria", "Transiti Planetari"],
+  Lottologia: ["Previsioni Lotto", "Numerologia"],
+  Medianità: ["Contatto Defunti", "Canalizzazione"],
 }
 
-export function OperatorProfileForm({ profileData, operatorId }: { profileData: any; operatorId: string }) {
-  const [state, formAction] = useFormState(updateOperatorPublicProfile.bind(null, operatorId), initialState)
+export default function OperatorProfileForm({ profile }: { profile: Profile }) {
+  const initialState = { message: null, errors: {}, success: false }
+  const [state, dispatch] = useFormState(updateOperatorProfile, initialState)
   const { toast } = useToast()
-  const formRef = useRef<HTMLFormElement>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(profileData.profile_image_url)
 
   useEffect(() => {
-    if (state.message) {
+    if (state.success) {
       toast({
-        title: state.success ? "Successo" : "Errore",
+        title: "Successo!",
         description: state.message,
-        variant: state.success ? "default" : "destructive",
+      })
+    } else if (state.message && !state.success) {
+      toast({
+        title: "Errore",
+        description: state.message,
+        variant: "destructive",
       })
     }
   }, [state, toast])
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setPreviewUrl(URL.createObjectURL(file))
-    }
-  }
-
   return (
-    <form ref={formRef} action={formAction} className="space-y-8">
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label>Immagine Profilo</Label>
-          {previewUrl && (
-            <Image
-              src={previewUrl || "/placeholder.svg"}
-              alt="Anteprima immagine profilo"
-              width={128}
-              height={128}
-              className="h-32 w-32 rounded-full object-cover"
-            />
+    <form action={dispatch} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <Label htmlFor="stage_name">Nome d'Arte</Label>
+          <Input id="stage_name" name="stage_name" defaultValue={profile.stage_name || ""} required />
+          {state.errors?.stage_name && <p className="text-sm text-red-500 mt-1">{state.errors.stage_name[0]}</p>}
+        </div>
+        <div>
+          <Label htmlFor="headline">Headline (slogan)</Label>
+          <Input
+            id="headline"
+            name="headline"
+            defaultValue={profile.headline || ""}
+            placeholder="La tua guida spirituale personale"
+            required
+          />
+          {state.errors?.headline && <p className="text-sm text-red-500 mt-1">{state.errors.headline[0]}</p>}
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="bio">Biografia</Label>
+        <Textarea
+          id="bio"
+          name="bio"
+          defaultValue={profile.bio || ""}
+          rows={6}
+          placeholder="Descrivi chi sei, la tua esperienza e il tuo approccio."
+          required
+        />
+        {state.errors?.bio && <p className="text-sm text-red-500 mt-1">{state.errors.bio[0]}</p>}
+      </div>
+
+      {/* Qui andrebbe la logica per la selezione di discipline e specialità, per ora usiamo un input semplice */}
+      <div>
+        <Label htmlFor="main_discipline">Disciplina Principale</Label>
+        <Input id="main_discipline" name="main_discipline" defaultValue={profile.main_discipline || ""} required />
+        {state.errors?.main_discipline && (
+          <p className="text-sm text-red-500 mt-1">{state.errors.main_discipline[0]}</p>
+        )}
+      </div>
+      <div>
+        <Label htmlFor="specialties">Specialità (separate da virgola)</Label>
+        <Input id="specialties" name="specialties" defaultValue={profile.specialties?.join(", ") || ""} required />
+        {state.errors?.specialties && <p className="text-sm text-red-500 mt-1">{state.errors.specialties[0]}</p>}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <Label htmlFor="chat_price_per_minute">Prezzo Chat (€/min)</Label>
+          <Input
+            id="chat_price_per_minute"
+            name="chat_price_per_minute"
+            type="number"
+            step="0.01"
+            defaultValue={profile.chat_price_per_minute || 1.0}
+            required
+          />
+          {state.errors?.chat_price_per_minute && (
+            <p className="text-sm text-red-500 mt-1">{state.errors.chat_price_per_minute[0]}</p>
           )}
-          <Input id="profile_image" name="profile_image" type="file" accept="image/*" onChange={handleImageChange} />
-          <input type="hidden" name="current_image_url" value={profileData.profile_image_url || ""} />
         </div>
-
-        <div className="space-y-6 md:col-span-2">
-          <div className="space-y-2">
-            <Label htmlFor="stage_name">Nome Scena</Label>
-            <Input id="stage_name" name="stage_name" defaultValue={profileData.stage_name || ""} required />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bio">Bio / Descrizione</Label>
-            <Textarea id="bio" name="bio" defaultValue={profileData.bio || ""} rows={5} required />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="main_discipline">Disciplina Principale</Label>
-            <Input id="main_discipline" name="main_discipline" defaultValue={profileData.main_discipline || ""} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="specialties">Specialità (separate da virgola)</Label>
-            <Input id="specialties" name="specialties" defaultValue={profileData.specialties?.join(", ") || ""} />
-          </div>
-
-          <fieldset className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-3">
-            <legend className="-ml-1 px-1 text-sm font-medium">Prezzi per Minuto (€)</legend>
-            <div className="space-y-2">
-              <Label htmlFor="price_chat">Chat</Label>
-              <Input
-                id="price_chat"
-                name="price_chat"
-                type="number"
-                step="0.01"
-                defaultValue={profileData.chat_price_per_minute || 0}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="price_call">Chiamata Vocale</Label>
-              <Input
-                id="price_call"
-                name="price_call"
-                type="number"
-                step="0.01"
-                defaultValue={profileData.call_price_per_minute || 0}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="price_video">Videochiamata</Label>
-              <Input
-                id="price_video"
-                name="price_video"
-                type="number"
-                step="0.01"
-                defaultValue={profileData.video_price_per_minute || 0}
-              />
-            </div>
-          </fieldset>
+        <div>
+          <Label htmlFor="call_price_per_minute">Prezzo Chiamata (€/min)</Label>
+          <Input
+            id="call_price_per_minute"
+            name="call_price_per_minute"
+            type="number"
+            step="0.01"
+            defaultValue={profile.call_price_per_minute || 1.5}
+            required
+          />
+          {state.errors?.call_price_per_minute && (
+            <p className="text-sm text-red-500 mt-1">{state.errors.call_price_per_minute[0]}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="video_price_per_minute">Prezzo Video (€/min)</Label>
+          <Input
+            id="video_price_per_minute"
+            name="video_price_per_minute"
+            type="number"
+            step="0.01"
+            defaultValue={profile.video_price_per_minute || 2.0}
+            required
+          />
+          {state.errors?.video_price_per_minute && (
+            <p className="text-sm text-red-500 mt-1">{state.errors.video_price_per_minute[0]}</p>
+          )}
         </div>
       </div>
-      <div className="flex justify-end">
-        <SubmitButton>Salva Modifiche</SubmitButton>
-      </div>
+
+      <SubmitButton>Salva Profilo</SubmitButton>
     </form>
   )
 }

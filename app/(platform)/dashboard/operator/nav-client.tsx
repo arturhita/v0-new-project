@@ -5,64 +5,108 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   User,
-  Calendar,
-  BarChart2,
-  LifeBuoy,
-  Euro,
-  CreditCard,
+  Wallet,
   FileText,
-  PercentSquare,
-  Sparkles,
-  Shield,
+  Settings,
+  HandCoins,
+  BookUser,
   MessageSquare,
+  Star,
+  LogOut,
+  Menu,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { OperatorStatusToggle } from "@/components/operator-status-toggle"
+import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 const navItems = [
   { href: "/dashboard/operator", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/operator/profile", label: "Profilo Pubblico", icon: User },
-  { href: "/dashboard/operator/stories", label: "Gestisci Storie", icon: Sparkles },
-  { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
-  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Euro },
-  { href: "/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: CreditCard },
-  { href: "/dashboard/operator/commission-request", label: "Richiesta Commissione", icon: PercentSquare },
-  { href: "/dashboard/operator/consultations-history", label: "Storico Consulti", icon: FileText },
-  { href: "/dashboard/operator/internal-messages", label: "Messaggi", icon: MessageSquare },
+  { href: "/dashboard/operator/profile", label: "Profilo", icon: User },
+  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Wallet },
   { href: "/dashboard/operator/invoices", label: "Fatture", icon: FileText },
-  { href: "/dashboard/operator/tax-info", label: "Dati Fiscali", icon: Shield },
-  { href: "/dashboard/operator/reviews", label: "Recensioni", icon: BarChart2 },
-  { href: "/dashboard/operator/support", label: "Supporto", icon: LifeBuoy },
+  { href: "/dashboard/operator/payout-settings", label: "Impostazioni Pagamento", icon: Settings },
+  { href: "/dashboard/operator/commission-request", label: "Richiesta Commissioni", icon: HandCoins },
+  { href: "/dashboard/operator/tax-info", label: "Dati Fiscali", icon: BookUser },
+  { href: "/dashboard/operator/internal-messages", label: "Messaggi", icon: MessageSquare },
+  { href: "/dashboard/operator/reviews", label: "Recensioni", icon: Star },
 ]
 
-export function OperatorNavClient({ operatorId }: { operatorId: string }) {
+export default function OperatorNavClient() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/")
+    router.refresh()
+  }
+
+  const NavLinks = () => (
+    <nav className="flex flex-col gap-2 px-4 py-6">
+      {navItems.map((item) => {
+        const fullPath = `/platform${item.href}`
+        const isActive = pathname === fullPath
+        return (
+          <Link
+            key={item.href}
+            href={fullPath}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 transition-all hover:bg-gray-200 hover:text-gray-900",
+              isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
+          </Link>
+        )
+      })}
+      <Button
+        variant="ghost"
+        onClick={handleLogout}
+        className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 transition-all hover:bg-gray-200 hover:text-gray-900 justify-start mt-4"
+      >
+        <LogOut className="h-4 w-4" />
+        Logout
+      </Button>
+    </nav>
+  )
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="px-2 pb-4 border-b">
-        <OperatorStatusToggle operatorId={operatorId} />
-      </div>
-      <nav className="flex-1 space-y-1 px-2 py-4">
-        {navItems.map((item) => {
-          const fullPath = `/platform${item.href}`
-          const isActive =
-            pathname === fullPath || (pathname.startsWith(fullPath) && fullPath !== "/platform/dashboard/operator")
-          return (
-            <Link
-              key={item.label}
-              href={`/platform${item.href}`}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 transition-all hover:bg-gray-100 hover:text-indigo-600",
-                isActive && "bg-indigo-50 text-indigo-600 font-medium",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          )
-        })}
-      </nav>
-    </div>
+    <>
+      {/* Mobile Header */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-white px-4 sm:hidden">
+        <Link href="/platform/dashboard/operator" className="text-lg font-bold text-primary">
+          Moonthir
+        </Link>
+        <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </Button>
+      </header>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-20 bg-white sm:hidden">
+          <NavLinks />
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-64 flex-col border-r bg-white sm:flex">
+        <div className="flex h-16 items-center border-b px-6">
+          <Link href="/" className="text-lg font-bold text-primary">
+            Moonthir Operatore
+          </Link>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <NavLinks />
+        </div>
+      </aside>
+    </>
   )
 }

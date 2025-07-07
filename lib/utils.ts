@@ -5,11 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function isPayoutWindowOpen(): { isOpen: boolean; message: string } {
-  const today = new Date().getDate()
-  const isOpen = (today >= 1 && today <= 5) || (today >= 16 && today <= 20)
-  const message = isOpen
-    ? "La finestra di pagamento è aperta."
-    : "Le richieste di pagamento sono disponibili solo dall'1 al 5 e dal 16 al 20 di ogni mese."
-  return { isOpen, message }
+export function formatCurrency(amount: number | null | undefined, currency = "EUR"): string {
+  if (amount === null || amount === undefined) {
+    amount = 0
+  }
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: currency,
+  }).format(amount)
+}
+
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "N/A"
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(date))
 }

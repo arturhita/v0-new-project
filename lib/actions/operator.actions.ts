@@ -2,156 +2,85 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-// Funzione per ottenere il profilo pubblico di un operatore
-export async function getOperatorPublicProfile(operatorId: string) {
+const ProfileSchema = z.object({
+  stage_name: z.string().min(2, "Il nome d'arte è obbligatorio."),
+  headline: z.string().min(10, "La headline deve avere almeno 10 caratteri."),
+  bio: z.string().min(50, "La biografia deve avere almeno 50 caratteri."),
+  main_discipline: z.string().min(1, "Seleziona una disciplina principale."),
+  specialties: z.array(z.string()).min(1, "Seleziona almeno una specialità."),
+  chat_price_per_minute: z.coerce.number().min(0.5, "Il prezzo minimo è 0.50€."),
+  call_price_per_minute: z.coerce.number().min(0.5, "Il prezzo minimo è 0.50€."),
+  video_price_per_minute: z.coerce.number().min(0.5, "Il prezzo minimo è 0.50€."),
+})
+
+export async function updateOperatorProfile(prevState: any, formData: FormData) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "stage_name, bio, main_discipline, specialties, profile_image_url, service_prices, chat_price_per_minute, call_price_per_minute, video_price_per_minute",
-    )
-    .eq("id", operatorId)
-    .single()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (error) {
-    console.error("Error fetching operator public profile:", error)
-    return null
-  }
-  return data
-}
-
-// Funzione per aggiornare il profilo pubblico di un operatore
-export async function updateOperatorPublicProfile(operatorId: string, prevState: any, formData: FormData) {
-  const supabase = createClient()
-
-  const profileData = {
-    stage_name: formData.get("stage_name") as string,
-    bio: formData.get("bio") as string,
-    main_discipline: formData.get("main_discipline") as string,
-    specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
-    chat_price_per_minute: Number.parseFloat(formData.get("price_chat") as string),
-    call_price_per_minute: Number.parseFloat(formData.get("price_call") as string),
-    video_price_per_minute: Number.parseFloat(formData.get("price_video") as string),
-    updated_at: new Date().toISOString(),
+  if (!user) {
+    return { success: false, message: "Utente non autenticato." }
   }
 
-  // Gestione dell'immagine del profilo
-  const imageFile = formData.get("profile_image") as File
-  if (imageFile && imageFile.size > 0) {
-    const fileName = `${operatorId}/${Date.now()}-${imageFile.name}`
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, imageFile)
+  const validatedFields = ProfileSchema.safeParse({
+    stage_name: formData.get("stage_name"),
+    headline: formData.get("headline"),
+    bio: formData.get("bio"),
+    main_discipline: formData.get("main_discipline"),
+    specialties: formData.getAll("specialties"),
+    chat_price_per_minute: formData.get("chat_price_per_minute"),
+    call_price_per_minute: formData.get("call_price_per_minute"),
+    video_price_per_minute: formData.get("video_price_per_minute"),
+  })
 
-    if (uploadError) {
-      console.error("Error uploading profile image:", uploadError)
-      return { success: false, message: "Errore durante il caricamento dell'immagine." }
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Dati non validi.",
+      errors: validatedFields.error.flatten().fieldErrors,
     }
-
-    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(fileName)
-    profileData.profile_image_url = publicUrlData.publicUrl
   }
 
-  const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      ...validatedFields.data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id)
 
   if (error) {
-    console.error("Error updating operator profile:", error)
-    return { success: false, message: "Errore durante l'aggiornamento del profilo." }
+    console.error("Error updating profile:", error)
+    return { success: false, message: `Errore durante l'aggiornamento del profilo: ${error.message}` }
   }
 
   revalidatePath("/(platform)/dashboard/operator/profile")
   return { success: true, message: "Profilo aggiornato con successo!" }
 }
 
-// Funzione per ottenere i dati della dashboard dell'operatore
-export async function getOperatorDashboardData(operatorId: string) {
+export async function toggleAvailability(is_available: boolean) {
   const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_operator_dashboard_data", { p_operator_id: operatorId }).single()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_available: is_available, updated_at: new Date().toISOString() })
+    .eq("id", user.id)
 
   if (error) {
-    console.error("Error fetching operator dashboard data:", error)
-    return { success: false, message: "Impossibile caricare i dati della dashboard.", data: null }
+    console.error("Error toggling availability:", error)
+    return { success: false, message: "Errore durante l'aggiornamento della disponibilità." }
   }
 
-  return { success: true, message: "Dati caricati.", data }
-}
-
-// Funzione per ottenere le fatture di un operatore
-export async function getOperatorInvoices(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("invoices").select("*").eq("operator_id", operatorId)
-
-  if (error) {
-    console.error("Error fetching operator invoices:", error)
-    return []
-  }
-  return data
-}
-
-// Funzione per ottenere i dettagli fiscali di un operatore
-export async function getOperatorTaxDetails(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("operator_tax_details").select("*").eq("id", operatorId).single()
-
-  if (error) {
-    if (error.code === "PGRST116") return null // Nessuna riga trovata, non è un errore
-    console.error("Error fetching tax details:", error)
-    return null
-  }
-  return data
-}
-
-// Funzione per salvare i dettagli fiscali di un operatore
-export async function saveOperatorTaxDetails(operatorId: string, prevState: any, formData: FormData) {
-  const supabase = createClient()
-  const taxData = {
-    id: operatorId,
-    company_name: formData.get("company_name") as string,
-    vat_number: formData.get("vat_number") as string,
-    tax_id: formData.get("tax_id") as string,
-    address: formData.get("address") as string,
-    city: formData.get("city") as string,
-    zip_code: formData.get("zip_code") as string,
-    country: formData.get("country") as string,
-    updated_at: new Date().toISOString(),
-  }
-
-  const { error } = await supabase.from("operator_tax_details").upsert(taxData)
-
-  if (error) {
-    console.error("Error saving tax details:", error)
-    return { success: false, message: "Errore durante il salvataggio dei dati fiscali." }
-  }
-
-  revalidatePath("/(platform)/dashboard/operator/tax-info")
-  return { success: true, message: "Dati fiscali salvati con successo." }
-}
-
-// Funzione per ottenere l'elenco degli operatori
-export async function getOperators(category?: string) {
-  const supabase = createClient()
-  let query = supabase.from("profiles").select("*").eq("role", "operator")
-
-  if (category) {
-    query = query.eq("main_discipline", category)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error("Error fetching operators:", error)
-    return []
-  }
-  return data
-}
-
-// Funzione per ottenere un operatore dal suo nome d'arte
-export async function getOperatorByStageName(stageName: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("stage_name", stageName).single()
-
-  if (error) {
-    console.error("Error fetching operator by stage name:", error)
-    return null
-  }
-  return data
+  revalidatePath("/(platform)/dashboard/operator")
+  return { success: true, message: `Disponibilità aggiornata a: ${is_available ? "Disponibile" : "Non Disponibile"}` }
 }
