@@ -1,186 +1,141 @@
 "use client"
 
 import type React from "react"
-import { useState, Suspense } from "react"
+
+import { useState } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, User, Mail, Lock, ArrowRight } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useAuth } from "@/contexts/auth-context"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import Image from "next/image"
-import { ConstellationBackground } from "@/components/constellation-background"
 
-function RegisterPageContent() {
+export default function RegisterPage() {
+  const { register } = useAuth()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
-  const [error, setError] = useState("")
-  const { register, loading } = useAuth()
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-
-    if (!acceptTerms) {
-      setError("Devi accettare i Termini e Condizioni per registrarti.")
+    if (password.length < 6) {
+      setError("La password deve essere di almeno 6 caratteri.")
       return
     }
-
-    const result = await register({ name, email, password, acceptTerms })
-
-    if (result && !result.success) {
-      setError(result.error || "Si è verificato un errore durante la registrazione.")
+    if (!acceptTerms) {
+      setError("Devi accettare i termini e le condizioni.")
+      return
     }
+    setLoading(true)
+    setError(null)
+    const { success, error: registerError } = await register({ name, email, password, acceptTerms })
+    if (!success) {
+      setError(registerError || "Si è verificato un errore.")
+    }
+    // La redirezione avviene automaticamente dal AuthContext dopo la registrazione
+    setLoading(false)
   }
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
-      <ConstellationBackground goldVisible={true} />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8 mt-8">
-          <Link href="/">
-            <Image
-              src="/images/moonthir-logo-white.png"
-              alt="Moonthir Logo"
-              width={180}
-              height={50}
-              className="mx-auto"
-            />
-          </Link>
-        </div>
-
-        <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
-          <div className="grid gap-2 text-center mb-6">
-            <h1 className="text-3xl font-bold text-white">Crea il tuo Account</h1>
-            <p className="text-balance text-slate-300">Inizia il tuo viaggio con noi.</p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 p-4">
+      <Card className="w-full max-w-md bg-gray-900/80 backdrop-blur-sm border-purple-400/20 text-white">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4">
+            <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={120} height={120} />
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">{error}</div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="name" className="text-slate-200">
+          <CardTitle className="text-3xl font-bold text-purple-300">Crea un Account</CardTitle>
+          <CardDescription className="text-gray-400">Unisciti alla nostra community.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && <div className="mb-4 rounded-md bg-red-900/50 p-3 text-center text-sm text-red-300">{error}</div>}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-gray-300">
                 Nome Completo
               </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Mario Rossi"
-                  disabled={loading}
-                  required
-                />
-              </div>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Mario Rossi"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white focus:ring-purple-500"
+              />
             </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="email" className="text-slate-200">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-gray-300">
                 Email
               </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="la-tua-email@esempio.com"
-                  disabled={loading}
-                  required
-                />
-              </div>
+              <Input
+                id="email"
+                type="email"
+                placeholder="tu@esempio.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white focus:ring-purple-500"
+              />
             </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="password" className="text-slate-200">
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-gray-300">
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Crea una password sicura"
-                  disabled={loading}
-                  required
+                  className="bg-gray-800 border-gray-700 text-white focus:ring-purple-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                  disabled={loading}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
-
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="terms"
                 checked={acceptTerms}
-                onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
-                disabled={loading}
+                onCheckedChange={(checked) => setAcceptTerms(Boolean(checked))}
+                className="border-gray-600 data-[state=checked]:bg-purple-600 data-[state=checked]:text-white"
               />
-              <label
-                htmlFor="terms"
-                className="text-sm text-slate-300 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
+              <label htmlFor="terms" className="text-sm text-gray-400">
                 Accetto i{" "}
-                <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
-                  Termini e Condizioni
+                <Link href="/legal/terms-and-conditions" className="text-purple-400 hover:underline">
+                  termini e le condizioni
                 </Link>
               </label>
             </div>
-
             <Button
               type="submit"
-              disabled={loading || !acceptTerms}
-              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
+              disabled={loading}
             >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-blue-200/30 border-t-blue-400 rounded-full animate-spin mr-2"></div>
-                  Creazione account...
-                </div>
-              ) : (
-                <div className="flex items-center justify-center">
-                  Registrati
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </div>
-              )}
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Registrati"}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-sm text-slate-300">
+          <div className="mt-6 text-center text-sm text-gray-400">
             Hai già un account?{" "}
-            <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
+            <Link href="/login" className="font-semibold text-purple-400 hover:underline">
               Accedi
             </Link>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
-  )
-}
-
-export default function RegisterPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <RegisterPageContent />
-    </Suspense>
   )
 }
