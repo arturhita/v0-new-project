@@ -1,9 +1,8 @@
 import type React from "react"
-import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { OperatorNavClient } from "./nav-client"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "sonner"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
@@ -15,8 +14,7 @@ export default async function OperatorDashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+  const supabase = createClient()
 
   const {
     data: { user },
