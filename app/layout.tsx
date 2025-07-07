@@ -3,16 +3,16 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
+import { SiteNavbar } from "@/components/site-navbar"
+import { SiteFooter } from "@/components/site-footer"
 import { Toaster } from "@/components/ui/toaster"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
-import CookieBanner from "@/components/cookie-banner"
+import { CookieBanner } from "@/components/cookie-banner" // FIX: Changed to named import
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir",
-  description: "Consulenza al minuto con i migliori esperti",
+  title: "Moonthir - Consulenti del benessere",
+  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
     generator: 'v0.dev'
 }
 
@@ -22,15 +22,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="it">
+    <html lang="it" suppressHydrationWarning>
       <body className={inter.className}>
         <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>{children}</ChatRequestProvider>
-          </OperatorStatusProvider>
+          <div className="flex flex-col min-h-screen">
+            <SiteNavbar />
+            <main className="flex-grow pt-16">{children}</main>
+            <SiteFooter />
+            <Toaster />
+            <CookieBanner />
+          </div>
         </AuthProvider>
-        <Toaster />
-        <CookieBanner />
       </body>
     </html>
   )
