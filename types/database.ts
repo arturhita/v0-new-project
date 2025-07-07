@@ -1,4 +1,4 @@
-// Tipi che rispecchiano il nuovo schema del database (001-master-schema.sql)
+// Tipi che rispecchiano il nuovo schema del database (001-final-schema.sql)
 
 export type UserRole = "client" | "operator" | "admin"
 export type ApplicationStatus = "pending" | "approved" | "rejected"
