@@ -32,7 +32,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
-import { createOperator } from "@/lib/actions/operator.actions"
 
 const categories = [
   "Tarocchi",
@@ -102,17 +101,23 @@ export default function CreateOperatorPage() {
     event.preventDefault()
     startTransition(async () => {
       try {
-        const result = await createOperator(operator)
+        const response = await fetch("/api/operators/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(operator),
+        })
 
-        if (result.success) {
-          toast({
-            title: "Successo!",
-            description: result.message,
-          })
-          router.push("/admin/operators")
-        } else {
+        const result = await response.json()
+
+        if (!response.ok) {
           throw new Error(result.message || "Qualcosa è andato storto.")
         }
+
+        toast({
+          title: "Successo!",
+          description: result.message,
+        })
+        router.push("/admin/operators")
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto"
         toast({
