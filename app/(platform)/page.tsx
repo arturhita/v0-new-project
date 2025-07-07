@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard, type Operator as OperatorCardType } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { getApprovedOperators } from "@/lib/actions/operator.actions"
-import { Input } from "@/components/ui/input"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -162,39 +160,6 @@ export const allMockReviews: ReviewCardType[] = [
   },
 ]
 
-function OperatorList() {
-  const [operators, setOperators] = useState<OperatorCardType[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadOperators() {
-      setLoading(true)
-      const fetchedOperators = await getApprovedOperators()
-      setOperators(fetchedOperators)
-      setLoading(false)
-    }
-    loadOperators()
-  }, [])
-
-  if (loading) {
-    return <p className="text-center text-slate-400 col-span-full">Caricamento esperti...</p>
-  }
-
-  if (operators.length === 0) {
-    return <p className="text-center text-slate-400 col-span-full">Nessun operatore disponibile al momento.</p>
-  }
-
-  return (
-    <>
-      {operators.map((operator, index) => (
-        <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-          <OperatorCard operator={operator} />
-        </div>
-      ))}
-    </>
-  )
-}
-
 export default function UnveillyHomePage() {
   const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
@@ -326,23 +291,13 @@ export default function UnveillyHomePage() {
             >
               Inizia da Qui
             </h2>
-            <div className="max-w-xl w-full p-4">
-              <div className="relative">
-                <Input
-                  type="search"
-                  placeholder="Cerca un esperto o una specializzazione..."
-                  className="w-full p-4 pl-12 rounded-full bg-slate-900/50 border-2 border-blue-800 text-lg text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                />
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-400" />
-              </div>
-            </div>
             <Link href="/esperti/cartomanzia" passHref>
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
               >
-                <Sparkles className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
-                Vedi gli Esperti
+                <Search className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                Cerca Esperti
               </Button>
             </Link>
           </div>
@@ -359,9 +314,11 @@ export default function UnveillyHomePage() {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              <Suspense fallback={<p className="text-center col-span-full">Caricamento...</p>}>
-                <OperatorList />
-              </Suspense>
+              {mockOperators.slice(0, 8).map((operator, index) => (
+                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                  <OperatorCard operator={operator} />
+                </div>
+              ))}
             </div>
             <div className="text-center mt-12">
               <Link href="/esperti/cartomanzia" passHref>

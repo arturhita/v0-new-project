@@ -1,72 +1,131 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import type { Database } from "@/types/database"
-import type { Operator } from "@/components/operator-card"
+import { revalidatePath } from "next/cache"
 
-export async function getApprovedOperators(): Promise<Operator[]> {
-  const supabase = createServerComponentClient<Database>({ cookies })
+// Mock data per operatori
+const mockOperators = [
+  {
+    id: "op_luna_stellare",
+    name: "Elara",
+    surname: "Luna",
+    stageName: "Luna Stellare",
+    email: "stella@unveilly.com",
+    phone: "+39 123 456 7890",
+    bio: "Esperta in tarocchi e astrologia con oltre 10 anni di esperienza.",
+    specialties: ["Tarocchi", "Amore", "Lavoro"],
+    categories: ["Tarocchi"],
+    avatarUrl: "/placeholder.svg?height=100&width=100",
+    services: {
+      chatEnabled: true,
+      chatPrice: 2.5,
+      callEnabled: true,
+      callPrice: 3.0,
+      emailEnabled: true,
+      emailPrice: 30.0,
+    },
+    availability: {
+      monday: ["09:00-12:00", "15:00-18:00"],
+      tuesday: ["09:00-12:00", "15:00-18:00"],
+      wednesday: ["09:00-12:00"],
+      thursday: ["15:00-18:00"],
+      friday: ["09:00-12:00", "15:00-18:00"],
+      saturday: ["10:00-16:00"],
+      sunday: [],
+    },
+    status: "Attivo" as const,
+    isOnline: true,
+    commission: "15",
+    createdAt: "2025-05-20",
+  },
+  {
+    id: "op_sol_divino",
+    name: "Orion",
+    surname: "Astro",
+    stageName: "Sol Divino",
+    email: "orion@unveilly.com",
+    phone: "+39 123 456 7891",
+    bio: "Specialista in astrologia e lettura delle stelle.",
+    specialties: ["Astrologia", "Futuro", "Destino"],
+    categories: ["Astrologia"],
+    avatarUrl: "/placeholder.svg?height=100&width=100",
+    services: {
+      chatEnabled: true,
+      chatPrice: 3.0,
+      callEnabled: true,
+      callPrice: 3.5,
+      emailEnabled: true,
+      emailPrice: 40.0,
+    },
+    availability: {
+      monday: ["09:00-12:00", "15:00-18:00"],
+      tuesday: ["09:00-12:00", "15:00-18:00"],
+      wednesday: ["09:00-12:00", "15:00-18:00"],
+      thursday: ["09:00-12:00", "15:00-18:00"],
+      friday: ["09:00-12:00", "15:00-18:00"],
+      saturday: ["10:00-16:00"],
+      sunday: ["10:00-16:00"],
+    },
+    status: "Attivo" as const,
+    isOnline: true,
+    commission: "15",
+    createdAt: "2025-04-10",
+  },
+]
 
-  const { data, error } = await supabase
-    .from("operators")
-    .select(`
-      id,
-      display_name,
-      description,
-      is_online,
-      profile_image_url,
-      average_rating,
-      reviews_count,
-      joined_at,
-      operator_specializations (
-        specializations (
-          name
-        )
-      ),
-      operator_services (
-        service_type,
-        price_per_minute,
-        price_per_session
-      )
-    `)
-    .eq("status", "approved")
-    .order("is_online", { ascending: false })
-    .order("average_rating", { ascending: false, nulls: "last" })
+export async function createOperator(operatorData: any) {
+  try {
+    // Simula creazione operatore
+    const newOperator = {
+      ...operatorData,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString().split("T")[0],
+    }
 
-  if (error) {
-    console.error("Error fetching operators:", error)
-    return []
-  }
+    // In un'app reale, salveresti nel database
+    console.log("Operatore creato:", newOperator)
 
-  const operators: Operator[] = data.map((op) => {
-    const services: { [key: string]: number } = {}
-    op.operator_services.forEach((service) => {
-      if (service.service_type === "chat" && service.price_per_minute) {
-        services.chatPrice = service.price_per_minute
-      }
-      if (service.service_type === "call" && service.price_per_minute) {
-        services.callPrice = service.price_per_minute
-      }
-      if (service.service_type === "email" && service.price_per_session) {
-        services.emailPrice = service.price_per_session
-      }
-    })
+    revalidatePath("/admin/operators")
 
     return {
-      id: op.id,
-      name: op.display_name,
-      avatarUrl: op.profile_image_url || "/placeholder.svg?width=96&height=96",
-      specialization: op.operator_specializations[0]?.specializations?.name || "N/A",
-      rating: op.average_rating || 0,
-      reviewsCount: op.reviews_count || 0,
-      description: op.description || "",
-      tags: op.operator_specializations.map((s) => s.specializations.name),
-      isOnline: op.is_online,
-      services: services,
-      joinedDate: op.joined_at,
+      success: true,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      operator: newOperator,
     }
-  })
+  } catch (error) {
+    console.error("Errore creazione operatore:", error)
+    return {
+      success: false,
+      message: "Errore nella creazione dell'operatore",
+    }
+  }
+}
 
-  return operators
+export async function updateOperatorCommission(operatorId: string, commission: string) {
+  try {
+    // Simula aggiornamento commissione
+    console.log(`Aggiornamento commissione operatore ${operatorId}: ${commission}%`)
+
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+
+    return {
+      success: true,
+      message: "Commissione aggiornata con successo!",
+    }
+  } catch (error) {
+    console.error("Errore aggiornamento commissione:", error)
+    return {
+      success: false,
+      message: "Errore nell'aggiornamento della commissione",
+    }
+  }
+}
+
+export async function getAllOperators() {
+  // Simula fetch operatori
+  return mockOperators
+}
+
+export async function getOperatorById(id: string) {
+  return mockOperators.find((op) => op.id === id) || null
 }
