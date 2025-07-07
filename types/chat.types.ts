@@ -1,29 +1,16 @@
-export interface Message {
+import type { Tables } from "./database"
+
+export interface ChatMessage {
   id: string
-  senderId: string
-  senderName: string
-  text: string
-  timestamp: Date
-  avatar?: string
-  type?: "text" | "system"
+  sender_id: string
+  sender_name: string
+  content: string
+  timestamp: string
+  is_system_message?: boolean
 }
 
-// Tipo esteso per i dettagli della sessione di chat
-export interface ChatSessionDetails {
-  id: string
-  status: "pending" | "active" | "ended"
-  client: {
-    id: string
-    name: string
-    avatar?: string
-    initialBalance: number
-  }
-  operator: {
-    id: string
-    name: string
-    avatar?: string
-    ratePerMinute: number
-  }
-  messages: Message[]
-  createdAt: Date
+export type ChatSession = Tables<"chat_sessions"> & {
+  client: Tables<"profiles"> | null
+  operator: Tables<"profiles"> | null
+  messages: ChatMessage[]
 }

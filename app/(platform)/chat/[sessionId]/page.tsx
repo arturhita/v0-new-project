@@ -1,17 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, notFound } from "next/navigation"
-import { getChatSessionDetails } from "@/lib/actions/chat.actions"
-import { ChatSessionWindow } from "@/components/chat-session-window"
+import { notFound } from "next/navigation"
+import { getChatSessionDetails, getChatSession } from "@/lib/actions/chat.actions"
+import { RealTimeChat } from "@/components"
 import type { ChatSessionDetails } from "@/types/chat.types"
 import { Loader2 } from "lucide-react"
 
 // Questa pagina ora è un Client Component per gestire il caricamento lato client
-export default function ChatPage() {
-  const params = useParams()
-  const sessionId = params.sessionId as string
+export default async function ChatPage({ params }: { params: { sessionId: string } }) {
   const [sessionDetails, setSessionDetails] = useState<ChatSessionDetails | null | undefined>(undefined)
+  const sessionId = params.sessionId
 
   useEffect(() => {
     if (!sessionId) return
@@ -28,6 +27,12 @@ export default function ChatPage() {
 
     fetchSession()
   }, [sessionId])
+
+  const session = await getChatSession(sessionId)
+
+  if (!session) {
+    notFound()
+  }
 
   // Stato di caricamento
   if (sessionDetails === undefined) {
@@ -48,7 +53,7 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen w-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl h-[calc(100vh-4rem)]">
-        <ChatSessionWindow sessionDetails={sessionDetails} />
+        <RealTimeChat initialSession={session} />
       </div>
     </div>
   )
