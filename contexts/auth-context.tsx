@@ -33,17 +33,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (event: string, session: any) => {
       setLoading(true)
       if (session?.user) {
-        const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .maybeSingle() // Usa maybeSingle() per evitare errori quando non ci sono righe
 
         if (error) {
-          console.error("Error fetching profile:", error)
+          console.error("AuthContext: Error fetching profile:", error)
           await supabase.auth.signOut()
           setUser(null)
         } else if (profile) {
           const currentUser: UserProfile = { ...session.user, ...profile }
           setUser(currentUser)
-          // Redirect solo al momento del login
-          if (event === "SIGNED_IN" && !pathname.startsWith("/dashboard")) {
+          // Redirect solo al momento del login per evitare reindirizzamenti indesiderati
+          if (event === "SIGNED_IN" && !pathname.startsWith("/dashboard") && !pathname.startsWith("/admin")) {
             switch (currentUser.role) {
               case "admin":
                 router.push("/admin/dashboard")
@@ -56,6 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 break
             }
           }
+        } else {
+          // Caso critico: l'utente esiste in auth ma non ha un profilo.
+          // Questo indica un'incoerenza dei dati.
+          console.error(
+            `AuthContext: Data inconsistency. User with ID ${session.user.id} exists in auth but has no profile. Signing out.`,
+          )
+          await supabase.auth.signOut()
+          setUser(null)
         }
       } else {
         setUser(null)
@@ -70,11 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      if (session) {
-        await handleAuthStateChange("INITIAL_SESSION", session)
-      } else {
-        setLoading(false)
-      }
+      await handleAuthStateChange("INITIAL_SESSION", session)
     }
 
     getInitialSession()
@@ -82,7 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      handleAuthStateChange(event, session)
+      // Ignora l'evento USER_UPDATED per evitare loop di re-rendering non necessari
+      if (event !== "USER_UPDATED") {
+        handleAuthStateChange(event, session)
+      }
     })
 
     return () => {
@@ -95,6 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signInWithPassword(data)
     setLoading(false)
     if (error) {
+      if (error.message.includes("Email not confirmed")) {
+        return { success: false, error: "Devi prima confermare la tua email. Controlla la tua casella di posta." }
+      }
       return { success: false, error: "Credenziali non valide. Riprova." }
     }
     return { success: true }
@@ -124,7 +138,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Registration error:", error)
       return { success: false, error: "Errore durante la registrazione. Riprova." }
     }
-    // Non reindirizzare subito, ma mostra un messaggio
     router.push("/login?registration=success")
     return { success: true }
   }

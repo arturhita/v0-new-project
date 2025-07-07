@@ -1,26 +1,23 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Lock, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/contexts/auth-context"
 import Image from "next/image"
 import { ConstellationBackground } from "@/components/constellation-background"
 
-export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    acceptTerms: false,
-  })
+function RegisterPageContent() {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const [error, setError] = useState("")
   const { register, loading } = useAuth()
 
@@ -28,37 +25,16 @@ export default function RegisterPage() {
     e.preventDefault()
     setError("")
 
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError("Tutti i campi sono obbligatori")
-      return
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError("Le password non coincidono")
-      return
-    }
-    if (formData.password.length < 6) {
-      setError("La password deve essere di almeno 6 caratteri")
-      return
-    }
-    if (!formData.acceptTerms) {
-      setError("Devi accettare i termini e condizioni")
+    if (!acceptTerms) {
+      setError("Devi accettare i Termini e Condizioni per registrarti.")
       return
     }
 
-    const result = await register({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      acceptTerms: formData.acceptTerms,
-    })
+    const result = await register({ name, email, password, acceptTerms })
 
     if (result && !result.success) {
-      setError(result.error || "Errore durante la registrazione")
+      setError(result.error || "Si è verificato un errore durante la registrazione.")
     }
-  }
-
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
@@ -89,17 +65,17 @@ export default function RegisterPage() {
 
             <div className="grid gap-2">
               <Label htmlFor="name" className="text-slate-200">
-                Nome completo
+                Nome Completo
               </Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                 <Input
                   id="name"
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Il tuo nome completo"
+                  placeholder="Mario Rossi"
                   disabled={loading}
                   required
                 />
@@ -115,8 +91,8 @@ export default function RegisterPage() {
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
                   placeholder="la-tua-email@esempio.com"
                   disabled={loading}
@@ -134,10 +110,10 @@ export default function RegisterPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Almeno 6 caratteri"
+                  placeholder="Crea una password sicura"
                   disabled={loading}
                   required
                 />
@@ -152,45 +128,19 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="confirmPassword" className="text-slate-200">
-                Conferma Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                  className="pl-10 pr-10 bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                  placeholder="Ripeti la password"
-                  disabled={loading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                  disabled={loading}
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3 pt-2">
-              <input
-                type="checkbox"
-                id="acceptTerms"
-                checked={formData.acceptTerms}
-                onChange={(e) => handleInputChange("acceptTerms", e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-blue-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30"
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="terms"
+                checked={acceptTerms}
+                onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
                 disabled={loading}
               />
-              <label htmlFor="acceptTerms" className="text-sm text-slate-300 leading-relaxed">
+              <label
+                htmlFor="terms"
+                className="text-sm text-slate-300 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
                 Accetto i{" "}
-                <Link href="/legal/terms-and-conditions" className="text-blue-400 hover:text-blue-300 underline">
+                <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
                   Termini e Condizioni
                 </Link>
               </label>
@@ -198,17 +148,17 @@ export default function RegisterPage() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || !acceptTerms}
               className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
             >
               {loading ? (
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-blue-200/30 border-t-blue-400 rounded-full animate-spin mr-2"></div>
-                  Registrazione...
+                  Creazione account...
                 </div>
               ) : (
                 <div className="flex items-center justify-center">
-                  Crea Account
+                  Registrati
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </div>
               )}
@@ -218,11 +168,19 @@ export default function RegisterPage() {
           <div className="mt-6 text-center text-sm text-slate-300">
             Hai già un account?{" "}
             <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
-              Accedi ora
+              Accedi
             </Link>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterPageContent />
+    </Suspense>
   )
 }

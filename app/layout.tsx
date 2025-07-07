@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Moonthir - Consulenza Mistica",
-  description: "La tua guida nel mondo dei tarocchi, astrologia e numerologia.",
+  description: "La tua guida nel mondo della cartomanzia, astrologia e numerologia.",
     generator: 'v0.dev'
 }
 
@@ -20,9 +20,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
-        <Toaster />
+      <body className={`${inter.className} bg-[#000020] text-slate-100`}>
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   )
