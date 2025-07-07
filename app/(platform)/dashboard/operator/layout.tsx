@@ -8,17 +8,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Bell,
   MenuIcon,
-  LayoutDashboard,
-  MessageSquare,
-  Briefcase,
   LogOut,
-  Mail,
-  UserCircle,
+  LayoutDashboard,
   Calendar,
-  DollarSign,
-  FileText,
+  FileClock,
+  MessageSquare,
+  Wallet,
+  CreditCard,
+  FileEdit,
+  Percent,
+  User,
+  Sparkles,
   Settings,
-  Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type React from "react"
@@ -28,14 +29,14 @@ import { OperatorStatusToggle } from "@/components/operator-status-toggle"
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Panoramica", icon: LayoutDashboard },
-  { href: "/dashboard/operator/platform-messages", label: "Messaggi Clienti", icon: MessageSquare },
-  { href: "/dashboard/operator/internal-messages", label: "Messaggi Interni", icon: Mail },
-  { href: "/dashboard/operator/written-consultations", label: "Consulti Scritti", icon: FileText },
-  { href: "/dashboard/operator/consultations-history", label: "Storico Consulenze", icon: Briefcase },
   { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
-  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: DollarSign },
-  { href: "/dashboard/operator/client-notes", label: "Note Clienti", icon: Users },
-  { href: "/profile/operator", label: "Profilo Pubblico", icon: UserCircle },
+  { href: "/dashboard/operator/consultations-history", label: "Storico Consulti", icon: FileClock },
+  { href: "/dashboard/operator/written-consultations", label: "Consulti Scritti", icon: FileEdit },
+  { href: "/dashboard/operator/platform-messages", label: "Messaggi", icon: MessageSquare },
+  { href: "/dashboard/operator/earnings", label: "Guadagni", icon: Wallet },
+  { href: "/dashboard/operator/payouts", label: "Pagamenti", icon: CreditCard },
+  { href: "/dashboard/operator/commission-request", label: "Commissioni", icon: Percent },
+  { href: "/profile/operator", label: "Profilo Pubblico", icon: User },
   { href: "/dashboard/operator/settings", label: "Impostazioni", icon: Settings },
 ]
 
@@ -71,12 +72,13 @@ export default function OperatorDashboardLayout({ children }: { children: React.
 
   return (
     <OperatorStatusProvider operatorName={user?.name || "Operatore"}>
-      <div className="grid w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr]">
+      <div className="grid min-h-screen w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr]">
         <aside className="hidden border-r border-gray-200 bg-white md:block">
           <div className="flex h-full max-h-screen flex-col">
             <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-purple-600 to-indigo-700">
               <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                <span>Dashboard Operatore</span>
+                <Sparkles className="h-6 w-6" />
+                <span>Area Operatore</span>
               </Link>
             </div>
             <div className="flex-1 overflow-auto py-5 space-y-2">
@@ -111,7 +113,8 @@ export default function OperatorDashboardLayout({ children }: { children: React.
               <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px] border-gray-200">
                 <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-purple-600 to-indigo-700">
                   <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                    <span>Dashboard</span>
+                    <Sparkles className="h-6 w-6" />
+                    <span>Area Operatore</span>
                   </Link>
                 </div>
                 <div className="py-5 flex-1 overflow-auto">
