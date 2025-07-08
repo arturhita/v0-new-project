@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { PostgrestError } from "@supabase/supabase-js"
-import { nanoid } from "nanoid"
 
 interface OperatorData {
   name: string
@@ -32,9 +31,11 @@ interface OperatorData {
 
 export async function createOperator(operatorData: OperatorData) {
   const supabaseAdmin = createAdminClient()
-  const temporaryPassword = nanoid(12) // Genera una password casuale di 12 caratteri
+  // Genera una password casuale sicura senza dipendenze esterne
+  const temporaryPassword = Math.random().toString(36).slice(-12)
 
   try {
+    console.log("Inizio creazione operatore:", operatorData.email)
     // 1. Creare l'utente in Supabase Auth usando il client admin e la password temporanea
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
@@ -58,6 +59,7 @@ export async function createOperator(operatorData: OperatorData) {
     }
 
     const userId = authData.user.id
+    console.log("Utente Auth creato con ID:", userId)
 
     // 2. Creare il profilo nel database pubblico
     const profileData = {
@@ -93,14 +95,18 @@ export async function createOperator(operatorData: OperatorData) {
       is_online: operatorData.isOnline,
     }
 
+    console.log("Tentativo inserimento profilo per utente:", userId)
     const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
 
     if (profileError) {
       console.error("Errore inserimento profilo in DB:", profileError)
       // Se l'inserimento del profilo fallisce, eliminiamo l'utente per consistenza
       await supabaseAdmin.auth.admin.deleteUser(userId)
+      console.log("Utente Auth di fallback eliminato:", userId)
       throw profileError
     }
+
+    console.log("Profilo inserito con successo per utente:", userId)
 
     // 3. Riconvalida le pagine per mostrare i nuovi dati
     revalidatePath("/admin/operators")

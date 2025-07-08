@@ -194,7 +194,6 @@ export default function CreateOperatorPage() {
     }
 
     setIsSaving(true)
-
     try {
       const result = await createOperator(operator)
 
@@ -225,24 +224,28 @@ export default function CreateOperatorPage() {
               </p>
             </div>
           ),
-          duration: 20000, // Aumentata la durata per dare tempo di copiare
+          duration: 15000,
         })
         setTimeout(() => {
           router.push("/admin/operators")
-        }, 20000)
+        }, 15000)
       } else {
-        throw new Error(result.message || "Errore sconosciuto durante la creazione.")
+        toast({
+          title: "Errore nella creazione",
+          description: result.message || "Si è verificato un errore sconosciuto.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Errore nel salvataggio:", error)
+      console.error("Errore imprevisto nel salvataggio:", error)
       toast({
-        title: "Errore nel salvataggio",
-        description: (error as Error).message || "Si è verificato un errore. Riprova.",
+        title: "Errore di Sistema",
+        description: "Impossibile comunicare con il server. Riprova più tardi.",
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false)
     }
-
-    setIsSaving(false)
   }
 
   const PreviewCard = () => (
