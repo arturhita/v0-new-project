@@ -28,9 +28,10 @@ import {
   Clock,
   Euro,
   Tags,
+  Copy,
 } from "lucide-react"
 import Link from "next/link"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { createOperator } from "@/lib/actions/operator.actions"
 
 const categories = [
@@ -58,6 +59,7 @@ const weekDays = [
 
 export default function CreateOperatorPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -196,17 +198,40 @@ export default function CreateOperatorPage() {
     try {
       const result = await createOperator(operator)
 
-      if (result.success) {
+      if (result.success && result.temporaryPassword) {
         toast({
           title: "✅ Operatore Creato!",
-          description: result.message,
-          className: "bg-green-100 border-green-300 text-green-700",
+          description: (
+            <div>
+              <p>{`L'operatore ${operator.stageName} è stato creato.`}</p>
+              <p className="mt-2 font-semibold">Password Temporanea:</p>
+              <div className="flex items-center gap-2 mt-1 p-2 bg-slate-100 rounded-md">
+                <span className="font-mono text-sm">{result.temporaryPassword}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    navigator.clipboard.writeText(result.temporaryPassword!)
+                    toast({ title: "Copiato!", description: "Password copiata negli appunti." })
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs mt-2 text-slate-500">
+                Comunicare questa password all'operatore. Dovrà confermare l'email e potrà cambiare la password in
+                seguito.
+              </p>
+            </div>
+          ),
+          duration: 20000, // Aumentata la durata per dare tempo di copiare
         })
         setTimeout(() => {
           router.push("/admin/operators")
-        }, 1500)
+        }, 20000)
       } else {
-        throw new Error(result.message)
+        throw new Error(result.message || "Errore sconosciuto durante la creazione.")
       }
     } catch (error) {
       console.error("Errore nel salvataggio:", error)
@@ -324,7 +349,7 @@ export default function CreateOperatorPage() {
                 Dati Personali
               </CardTitle>
               <CardDescription>
-                Informazioni private dell'operatore. Verrà inviata un'email di invito per impostare la password.
+                Informazioni private dell'operatore. Verrà creata una password temporanea.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

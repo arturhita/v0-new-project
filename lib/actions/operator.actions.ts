@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { PostgrestError } from "@supabase/supabase-js"
+import { nanoid } from "nanoid"
 
 interface OperatorData {
   name: string
@@ -31,12 +32,14 @@ interface OperatorData {
 
 export async function createOperator(operatorData: OperatorData) {
   const supabaseAdmin = createAdminClient()
+  const temporaryPassword = nanoid(12) // Genera una password casuale di 12 caratteri
 
   try {
-    // 1. Creare l'utente in Supabase Auth usando il client admin
+    // 1. Creare l'utente in Supabase Auth usando il client admin e la password temporanea
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
-      email_confirm: true, // Invia un'email di invito per impostare la password
+      password: temporaryPassword,
+      email_confirm: true, // L'utente dovrà comunque confermare l'email per attivare l'account
     })
 
     if (authError) {
@@ -105,8 +108,9 @@ export async function createOperator(operatorData: OperatorData) {
 
     return {
       success: true,
-      message: `Operatore ${operatorData.stageName} creato con successo! È stato inviato un invito via email.`,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
       operator: { id: userId, ...profileData },
+      temporaryPassword: temporaryPassword,
     }
   } catch (error) {
     const errorMessage = (error as Error | PostgrestError).message
