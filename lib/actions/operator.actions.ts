@@ -4,6 +4,14 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+// Helper function to safely parse strings into floats.
+// Handles empty strings, null, undefined, and non-numeric strings by returning 0.
+const safeParseFloat = (value: string | number | undefined | null): number => {
+  if (value === null || value === undefined || String(value).trim() === "") return 0
+  const num = Number.parseFloat(String(value))
+  return isNaN(num) ? 0 : num
+}
+
 interface OperatorData {
   name: string
   surname: string
@@ -59,7 +67,7 @@ export async function createOperator(operatorData: OperatorData) {
 
     userId = authData.user.id
 
-    // 2. Creare il profilo nel database pubblico
+    // 2. Creare il profilo nel database pubblico con dati sanificati
     const profileData = {
       id: userId,
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
@@ -72,19 +80,19 @@ export async function createOperator(operatorData: OperatorData) {
       avatar_url: operatorData.avatarUrl || null,
       role: "operator" as const,
       status: operatorData.status,
-      commission_rate: Number.parseFloat(operatorData.commission) || 0,
+      commission_rate: safeParseFloat(operatorData.commission),
       services: {
         chat: {
           enabled: operatorData.services.chatEnabled,
-          price_per_minute: Number.parseFloat(operatorData.services.chatPrice) || 0,
+          price_per_minute: safeParseFloat(operatorData.services.chatPrice),
         },
         call: {
           enabled: operatorData.services.callEnabled,
-          price_per_minute: Number.parseFloat(operatorData.services.callPrice) || 0,
+          price_per_minute: safeParseFloat(operatorData.services.callPrice),
         },
         email: {
           enabled: operatorData.services.emailEnabled,
-          price: Number.parseFloat(operatorData.services.emailPrice) || 0,
+          price: safeParseFloat(operatorData.services.emailPrice),
         },
       },
       availability: operatorData.availability,
@@ -115,11 +123,10 @@ export async function createOperator(operatorData: OperatorData) {
     if (error && typeof error === "object" && "message" in error) {
       const dbError = error as { message: string; details?: string; hint?: string; code?: string }
 
-      // Controlla se il messaggio di errore è illeggibile (caratteri non-ASCII)
       if (/[^\x20-\x7E]/.test(dbError.message)) {
         errorMessage = "Errore di comunicazione con il database."
         errorDetails =
-          "I dati inviati potrebbero essere in un formato non valido (es. campi numerici vuoti). Controllare i dati e riprovare."
+          "I dati inviati potrebbero essere in un formato non valido (es. campi numerici vuoti o non validi). Controllare i dati e riprovare."
         console.error("!!! ERRORE DATABASE (messaggio corrotto):", error)
       } else {
         errorMessage = `Errore Database: ${dbError.message}`
@@ -135,7 +142,6 @@ export async function createOperator(operatorData: OperatorData) {
       console.error("!!! ERRORE SCONOSCIUTO CATTURATO:", error)
     }
 
-    // Rollback: se l'utente è stato creato in Auth ma il profilo no, eliminiamolo.
     if (userId) {
       console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
       await supabaseAdmin.auth.admin.deleteUser(userId)
@@ -154,7 +160,7 @@ export async function updateOperatorCommission(operatorId: string, commission: s
   try {
     const { error } = await supabase
       .from("profiles")
-      .update({ commission_rate: Number.parseFloat(commission) || 0 })
+      .update({ commission_rate: safeParseFloat(commission) })
       .eq("id", operatorId)
 
     if (error) throw error
