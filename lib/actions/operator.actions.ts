@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import type { PostgrestError } from "@supabase/supabase-js"
 
 interface OperatorData {
@@ -29,18 +30,17 @@ interface OperatorData {
 }
 
 export async function createOperator(operatorData: OperatorData) {
-  const supabase = createClient()
+  const supabaseAdmin = createAdminClient()
 
   try {
-    // 1. Creare l'utente in Supabase Auth e inviare l'invito
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // 1. Creare l'utente in Supabase Auth usando il client admin
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       email_confirm: true, // Invia un'email di invito per impostare la password
     })
 
     if (authError) {
       console.error("Errore creazione utente in Supabase Auth:", authError.message)
-      // Controlla se l'utente esiste già
       if (authError.message.includes("already registered")) {
         return {
           success: false,
@@ -90,18 +90,18 @@ export async function createOperator(operatorData: OperatorData) {
       is_online: operatorData.isOnline,
     }
 
-    const { error: profileError } = await supabase.from("profiles").insert(profileData)
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
 
     if (profileError) {
       console.error("Errore inserimento profilo in DB:", profileError)
-      // Se l'inserimento del profilo fallisce, dovremmo eliminare l'utente appena creato per consistenza
-      await supabase.auth.admin.deleteUser(userId)
+      // Se l'inserimento del profilo fallisce, eliminiamo l'utente per consistenza
+      await supabaseAdmin.auth.admin.deleteUser(userId)
       throw profileError
     }
 
     // 3. Riconvalida le pagine per mostrare i nuovi dati
     revalidatePath("/admin/operators")
-    revalidatePath("/") // Riconvalida anche la homepage per mostrare i nuovi operatori
+    revalidatePath("/")
 
     return {
       success: true,
