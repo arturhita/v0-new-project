@@ -39,7 +39,6 @@ export default function RegisterPage() {
         if (registrationError?.message.includes("User already registered")) {
           setError("Un utente con questa email esiste già.")
         } else {
-          // Use a more generic error message for the user, but log the specific one.
           setError("Errore durante la registrazione. Riprova più tardi.")
         }
         console.error("Register error:", registrationError?.message)

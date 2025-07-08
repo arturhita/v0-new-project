@@ -80,8 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: any) => {
     const { name, email, password } = data
-    // This options.data object is still useful, and the new SQL trigger will
-    // safely use it if it's available.
+    // The new database trigger will safely handle this metadata.
     const { error } = await supabase.auth.signUp({
       email,
       password,
