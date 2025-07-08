@@ -13,7 +13,7 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { BookOpen, Users, Sparkles } from "lucide-react"
+import { BookOpen, Users, Sparkles, Home } from "lucide-react"
 
 const expertCategories: { title: string; href: string; description: string }[] = [
   {
@@ -42,6 +42,19 @@ export function NavigationMenuDemo() {
   return (
     <NavigationMenu>
       <NavigationMenuList>
+        <NavigationMenuItem>
+          <Link href="/" legacyBehavior passHref>
+            <NavigationMenuLink
+              className={cn(
+                navigationMenuTriggerStyle(),
+                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
+              )}
+            >
+              <Home className="mr-2 h-4 w-4" />
+              Home
+            </NavigationMenuLink>
+          </Link>
+        </NavigationMenuItem>
         <NavigationMenuItem>
           <NavigationMenuTrigger className="text-white bg-transparent hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10">
             <Users className="mr-2 h-4 w-4" />
