@@ -1,10 +1,10 @@
-"use client"
-
 import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/types/database"
 
-// Questa funzione verrà chiamata da un Componente Client, ma le variabili d'ambiente
-// verranno passate da un Componente Server.
-export function createClient(supabaseUrl: string, supabaseAnonKey: string) {
-  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
+// Questa funzione legge le variabili d'ambiente che hai impostato su Vercel
+export function createClient() {
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 }

@@ -2,58 +2,65 @@
 
 import type React from "react"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+
+interface ProtectedRouteProps {
+  children: React.ReactNode
+  allowedRoles?: ("client" | "operator" | "admin")[]
+  redirectTo?: string
+}
 
 export function ProtectedRoute({
   children,
-  allowedRoles,
-}: {
-  children: React.ReactNode
-  allowedRoles: Array<"client" | "operator" | "admin">
-}) {
-  const { user, loading, isAuthenticated } = useAuth()
+  allowedRoles = ["client", "operator", "admin"],
+  redirectTo = "/login",
+}: ProtectedRouteProps) {
+  const { user, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push("/login")
-    } else if (!loading && isAuthenticated && user && !allowedRoles.includes(user.role)) {
-      // Utente loggato ma con ruolo non autorizzato, reindirizza alla sua dashboard
-      switch (user.role) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/dashboard/operator")
-          break
-        case "client":
-          router.push("/dashboard/client")
-          break
-        default:
-          router.push("/")
+    if (!loading) {
+      if (!user) {
+        router.push(redirectTo)
+        return
+      }
+
+      if (!allowedRoles.includes(user.role)) {
+        // Redirect basato sul ruolo
+        switch (user.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          case "client":
+            router.push("/dashboard/client")
+            break
+          default:
+            router.push("/")
+        }
+        return
       }
     }
-  }, [user, loading, isAuthenticated, allowedRoles, router])
+  }, [user, loading, router, allowedRoles, redirectTo])
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Caricamento...</p>
+        </div>
       </div>
     )
   }
 
-  if (isAuthenticated && user && allowedRoles.includes(user.role)) {
-    return <>{children}</>
+  if (!user || !allowedRoles.includes(user.role)) {
+    return null
   }
 
-  // Mostra il loader anche durante il reindirizzamento per evitare flash di contenuto
-  return (
-    <div className="flex h-screen w-full items-center justify-center bg-gray-100">
-      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-    </div>
-  )
+  return <>{children}</>
 }

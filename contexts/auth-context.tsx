@@ -1,64 +1,45 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react"
+import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser, Session, AuthChangeEvent } from "@supabase/supabase-js"
 import type { Database, Tables } from "@/types/database"
 
-export type UserProfile = SupabaseUser & Tables<"profiles"> & { operator_details: Tables<"operator_details"> | null }
+// Un tipo composito per avere sempre a disposizione i dati del profilo insieme a quelli dell'utente
+export type UserProfile = SupabaseUser & Tables<"profiles">
 
 interface AuthContextType {
   user: UserProfile | null
-  loading: boolean
-  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; error?: string }>
+  login: (data: any) => Promise<{ success: boolean; error?: string }>
   register: (data: any) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
+  loading: boolean
   isAuthenticated: boolean
   supabase: SupabaseClient<Database>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-type AuthProviderProps = {
-  children: React.ReactNode
-  supabaseUrl: string
-  supabaseAnonKey: string
-}
-
-export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthProviderProps) {
-  const supabase = useMemo(() => createClient(supabaseUrl, supabaseAnonKey), [supabaseUrl, supabaseAnonKey])
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   const fetchUserProfile = useCallback(
     async (sessionUser: SupabaseUser): Promise<UserProfile | null> => {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*, operator_details(*)")
-        .eq("id", sessionUser.id)
-        .single()
+      const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", sessionUser.id).single()
 
       if (error) {
-        console.error("Error fetching profile:", error.message)
+        console.error("Errore nel recupero del profilo:", error.message)
+        // Se non troviamo il profilo, forziamo il logout per evitare stati inconsistenti
         await supabase.auth.signOut()
         return null
       }
-
-      if (profile) {
-        const operatorDetails = Array.isArray(profile.operator_details)
-          ? (profile.operator_details[0] ?? null)
-          : profile.operator_details
-
-        return {
-          ...sessionUser,
-          ...profile,
-          operator_details: operatorDetails,
-        }
-      }
-      return null
+      // Uniamo i dati di auth.user e public.profiles
+      return { ...sessionUser, ...profile }
     },
     [supabase],
   )
@@ -71,6 +52,7 @@ export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthPro
       if (session?.user) {
         const fullUserProfile = await fetchUserProfile(session.user)
         setUser(fullUserProfile)
+
         if (event === "SIGNED_IN" && fullUserProfile) {
           switch (fullUserProfile.role) {
             case "admin":
@@ -79,11 +61,8 @@ export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthPro
             case "operator":
               router.push("/dashboard/operator")
               break
-            case "client":
-              router.push("/dashboard/client")
-              break
             default:
-              router.push("/")
+              router.push("/dashboard/client")
           }
         }
       } else {
@@ -92,6 +71,7 @@ export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthPro
       setLoading(false)
     })
 
+    // Controlla la sessione iniziale al caricamento dell'app
     const getInitialSession = async () => {
       const {
         data: { session },
@@ -108,19 +88,16 @@ export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthPro
     return () => {
       subscription.unsubscribe()
     }
-  }, [fetchUserProfile, router, supabase])
+  }, [supabase, router, fetchUserProfile])
 
-  const login = async (credentials: { email: string; password: string }): Promise<{
-    success: boolean
-    error?: string
-  }> => {
+  const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword(credentials)
+    const { error } = await supabase.auth.signInWithPassword(data)
     setLoading(false)
     if (error) {
-      console.error("Login error:", error)
       return { success: false, error: "Credenziali non valide." }
     }
+    // Il redirect è gestito da onAuthStateChange
     return { success: true }
   }
 
@@ -131,6 +108,7 @@ export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthPro
       setLoading(false)
       return { success: false, error: "Devi accettare i termini e le condizioni." }
     }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -143,9 +121,10 @@ export function AuthProvider({ children, supabaseUrl, supabaseAnonKey }: AuthPro
     })
     setLoading(false)
     if (error) {
-      console.error("Register error:", error)
+      console.error("Register error:", error.message)
       return { success: false, error: error.message }
     }
+    alert("Registrazione avvenuta con successo! Controlla la tua email per confermare l'account.")
     return { success: true }
   }
 

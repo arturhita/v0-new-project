@@ -8,9 +8,9 @@ export default function PlatformLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-white">
       <SiteNavbar />
-      <main className="flex-grow">{children}</main>
+      <main className="flex-grow pt-16">{children}</main>
       <SiteFooter />
     </div>
   )

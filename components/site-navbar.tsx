@@ -12,17 +12,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { User, Settings, LogOut, Menu, X, Loader2 } from "lucide-react"
+import { User, Settings, LogOut, Menu, X } from "lucide-react"
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 
 export function SiteNavbar() {
-  const { user, logout, isAuthenticated, loading } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
 
+  // Chiude il menu mobile quando la rotta cambia
   useEffect(() => {
     if (isMenuOpen) {
       setIsMenuOpen(false)
@@ -33,7 +33,7 @@ export function SiteNavbar() {
     if (!user) return "/login"
     switch (user.role) {
       case "admin":
-        return "/admin/dashboard"
+        return "/admin"
       case "operator":
         return "/dashboard/operator"
       case "client":
@@ -43,19 +43,11 @@ export function SiteNavbar() {
     }
   }
 
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U"
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-  }
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
             <Image
               src="/images/moonthir-logo-white.png"
@@ -67,20 +59,22 @@ export function SiteNavbar() {
             />
           </Link>
 
+          {/* Desktop Navigation Menu */}
           <div className="hidden md:flex items-center">
             <NavigationMenuDemo />
           </div>
 
+          {/* Desktop Auth Section */}
           <div className="hidden md:flex items-center space-x-4">
-            {loading ? (
-              <Loader2 className="h-6 w-6 animate-spin text-white" />
-            ) : isAuthenticated && user ? (
+            {isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
                     <Avatar className="h-10 w-10 border-2 border-white/20">
-                      <AvatarImage src={user.avatar_url || undefined} alt={user.name || "User Avatar"} />
-                      <AvatarFallback className="bg-blue-700 text-white">{getInitials(user.name)}</AvatarFallback>
+                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                      <AvatarFallback className="bg-blue-700 text-white">
+                        {user.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -89,17 +83,17 @@ export function SiteNavbar() {
                   align="end"
                   forceMount
                 >
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none text-slate-900">{user.name}</p>
-                      <p className="text-xs leading-none text-slate-500">{user.email}</p>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium text-slate-900">{user.name}</p>
+                      <p className="w-[200px] truncate text-sm text-slate-500">{user.email}</p>
                     </div>
-                  </DropdownMenuLabel>
+                  </div>
                   <DropdownMenuSeparator className="bg-slate-200" />
                   <DropdownMenuItem asChild>
                     <Link
                       href={getDashboardLink()}
-                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
                     >
                       <User className="mr-2 h-4 w-4" />
                       Dashboard
@@ -108,7 +102,7 @@ export function SiteNavbar() {
                   <DropdownMenuItem asChild>
                     <Link
                       href="/profile"
-                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                      className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
                     >
                       <Settings className="mr-2 h-4 w-4" />
                       Profilo
@@ -117,7 +111,7 @@ export function SiteNavbar() {
                   <DropdownMenuSeparator className="bg-slate-200" />
                   <DropdownMenuItem
                     onClick={logout}
-                    className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                    className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     Esci
@@ -143,6 +137,7 @@ export function SiteNavbar() {
             )}
           </div>
 
+          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <Button
               variant="ghost"
@@ -156,6 +151,7 @@ export function SiteNavbar() {
         </div>
       </div>
 
+      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">

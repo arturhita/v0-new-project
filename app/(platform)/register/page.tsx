@@ -57,8 +57,8 @@ export default function RegisterPage() {
     if (!result.success) {
       setError(result.error || "Errore durante la registrazione")
     } else {
+      // La notifica di successo è gestita da AuthContext
       setError("")
-      alert("Registrazione avvenuta con successo! Controlla la tua email per confermare l'account.")
     }
   }
 
@@ -185,7 +185,7 @@ export default function RegisterPage() {
                 id="acceptTerms"
                 checked={formData.acceptTerms}
                 onCheckedChange={(checked) => handleInputChange("acceptTerms", !!checked)}
-                className="mt-1 h-4 w-4 rounded border-blue-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30"
+                className="mt-1 h-4 w-4 rounded border-blue-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
                 disabled={loading}
               />
               <label htmlFor="acceptTerms" className="text-sm text-slate-300 leading-relaxed">
