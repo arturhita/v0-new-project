@@ -34,11 +34,7 @@ export async function createOperator(operatorData: OperatorData) {
   let userId: string | undefined = undefined
 
   try {
-    console.log("--- Inizio Processo Creazione Operatore ---")
-    console.log("Dati ricevuti:", { email: operatorData.email, stageName: operatorData.stageName })
-
     // 1. Creare l'utente in Supabase Auth
-    console.log("Passo 1: Creazione utente in Supabase Auth...")
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
@@ -50,6 +46,7 @@ export async function createOperator(operatorData: OperatorData) {
     })
 
     if (authError) {
+      // L'errore di Auth è specifico, lo gestiamo e lo lanciamo per il blocco catch
       console.error("!!! ERRORE in Supabase Auth:", authError)
       if (authError.message.includes("already registered")) {
         return { success: false, message: "Un utente con questa email è già registrato." }
@@ -62,7 +59,6 @@ export async function createOperator(operatorData: OperatorData) {
     }
 
     userId = authData.user.id
-    console.log(`Utente Auth creato con successo. ID: ${userId}`)
 
     // 2. Creare il profilo nel database pubblico
     const profileData = {
@@ -98,24 +94,17 @@ export async function createOperator(operatorData: OperatorData) {
       is_online: operatorData.isOnline,
     }
 
-    console.log("Passo 2: Inserimento profilo nel database...")
     const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
 
     if (profileError) {
-      console.error("!!! ERRORE Inserimento Profilo DB:", profileError.message)
-      console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      console.log("Rollback completato.")
+      // Se l'inserimento del profilo fallisce, lancia l'errore per il blocco catch
+      // che gestirà il rollback dell'utente Auth.
       throw profileError
     }
 
-    console.log("Profilo inserito con successo nel database.")
-
-    // 3. Riconvalida le pagine
-    console.log("Passo 3: Riconvalida percorsi...")
+    // 3. Riconvalida i percorsi per mostrare i dati aggiornati
     revalidatePath("/admin/operators")
     revalidatePath("/")
-    console.log("--- Processo Creazione Operatore Completato con Successo ---")
 
     return {
       success: true,
@@ -123,30 +112,34 @@ export async function createOperator(operatorData: OperatorData) {
       temporaryPassword: temporaryPassword,
     }
   } catch (error) {
-    let errorMessage: string
-    if (error instanceof Error) {
-      errorMessage = error.message
-    } else if (typeof error === "string") {
-      errorMessage = error
+    let errorMessage = "Si è verificato un errore imprevisto."
+    let errorDetails = ""
+
+    // Gestione migliorata per errori Supabase (PostgrestError)
+    if (typeof error === "object" && error !== null && "message" in error) {
+      const dbError = error as { message: string; details?: string; hint?: string; code?: string }
+      errorMessage = `Errore Database: ${dbError.message}`
+      if (dbError.details) errorDetails += ` Dettagli: ${dbError.details}`
+      if (dbError.hint) errorDetails += ` Suggerimento: ${dbError.hint}`
+      console.error("!!! ERRORE DATABASE CATTURATO:", JSON.stringify(dbError, null, 2))
+    } else if (error instanceof Error) {
+      errorMessage = `Errore Applicazione: ${error.message}`
+      console.error("!!! ERRORE GENERICO CATTURATO:", error)
     } else {
-      errorMessage = "Errore sconosciuto. Controlla i log del server."
+      errorMessage = "Errore di tipo sconosciuto."
+      console.error("!!! ERRORE SCONOSCIUTO CATTURATO:", error)
     }
 
-    console.error("!!! ERRORE CRITICO nel processo di creazione operatore:", errorMessage)
-
+    // Rollback: se l'utente è stato creato in Auth ma il profilo no, eliminiamolo.
     if (userId) {
-      console.log(`Tentativo di rollback per utente ${userId} a causa di errore successivo...`)
-      try {
-        await supabaseAdmin.auth.admin.deleteUser(userId)
-        console.log(`Rollback per utente ${userId} completato.`)
-      } catch (rollbackError) {
-        console.error(`!!! FALLIMENTO ROLLBACK per utente ${userId}:`, rollbackError)
-      }
+      console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      console.log("Rollback completato.")
     }
 
     return {
       success: false,
-      message: `Errore nella creazione dell'operatore: ${errorMessage}`,
+      message: `${errorMessage}${errorDetails}`,
     }
   }
 }
