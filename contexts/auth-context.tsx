@@ -23,11 +23,11 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const supabase = createClient()
-  const router = useRouter()
+  const [supabase] = useState(() => createClient())
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     const getSession = async () => {
@@ -65,41 +65,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      console.error("Login error:", error.message)
-      throw error
-    }
-    router.refresh()
+    if (error) throw error
+    // Redirect will be handled by onAuthStateChange
   }
 
   const register = async (name: string, email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          name: name,
+          full_name: name,
           role: "client",
         },
       },
     })
-
-    if (error) {
-      console.error("Register error:", error.message)
-      throw error
-    }
-
-    // After sign up, Supabase sends a confirmation email.
-    // We can redirect the user or show a message.
-    alert("Registrazione avvenuta! Controlla la tua email per confermare l'account.")
-    router.push("/login")
+    if (error) throw error
+    // Redirect will be handled by onAuthStateChange
   }
 
   const logout = async () => {
-    await supabase.auth.signOut()
-    setProfile(null)
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
     router.push("/")
-    router.refresh()
   }
 
   const value = {

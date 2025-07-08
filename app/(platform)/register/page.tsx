@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConstellationBackground } from "@/components/constellation-background"
+import Image from "next/image"
 
 export default function RegisterPage() {
   const [name, setName] = useState("")
@@ -18,111 +19,123 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const { register } = useAuth()
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!agreed) {
       setError("Devi accettare i Termini e Condizioni e la Privacy Policy.")
       return
     }
     setError(null)
-    setIsLoading(true)
+    setLoading(true)
     try {
       await register(name, email, password)
-      // The context will handle redirection or show a message
+      router.push("/dashboard/client")
     } catch (err: any) {
-      setError(err.message || "Errore durante la registrazione. Riprova.")
+      setError(err.message || "Errore durante la registrazione.")
+      console.error("Register error:", err)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gray-900 text-white">
+    <div className="relative w-full min-h-screen flex items-center justify-center p-4 bg-gray-900 text-white">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md space-y-8 rounded-2xl bg-gray-900/80 p-8 shadow-2xl shadow-blue-500/20 backdrop-blur-sm">
+      <div className="relative z-10 w-full max-w-md p-8 space-y-6 bg-gray-800 bg-opacity-80 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/30">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight">Crea il tuo Account</h2>
-          <p className="mt-2 text-sm text-gray-400">
-            Sei già dei nostri?{" "}
-            <Link href="/login" className="font-medium text-blue-400 hover:text-blue-300">
-              Accedi qui
-            </Link>
-          </p>
+          <Image
+            src="/images/moonthir-logo-white.png"
+            alt="Moonthir Logo"
+            width={150}
+            height={50}
+            className="mx-auto mb-4"
+          />
+          <h1 className="text-3xl font-bold text-indigo-300">Crea il tuo Account</h1>
+          <p className="text-gray-400">Entra a far parte della nostra community.</p>
         </div>
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div>
-            <Label htmlFor="name">Nome</Label>
+
+        {error && <p className="text-red-400 bg-red-900/50 p-3 rounded-md text-center">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-indigo-300">
+              Nome Completo
+            </Label>
             <Input
               id="name"
-              name="name"
               type="text"
-              autoComplete="name"
-              required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1"
+              required
+              className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="Mario Rossi"
             />
           </div>
-          <div>
-            <Label htmlFor="email">Indirizzo Email</Label>
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-indigo-300">
+              Email
+            </Label>
             <Input
               id="email"
-              name="email"
               type="email"
-              autoComplete="email"
-              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1"
+              required
+              className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="mario.rossi@email.com"
             />
           </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-indigo-300">
+              Password
+            </Label>
             <Input
               id="password"
-              name="password"
               type="password"
-              autoComplete="new-password"
-              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1"
+              required
+              className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
+              placeholder="••••••••"
             />
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="agree" checked={agreed} onCheckedChange={(checked) => setAgreed(!!checked)} />
-            <label htmlFor="agree" className="text-sm font-medium leading-none text-gray-300">
+            <Checkbox
+              id="terms"
+              checked={agreed}
+              onCheckedChange={(checked) => setAgreed(checked as boolean)}
+              className="border-indigo-400 data-[state=checked]:bg-indigo-500"
+            />
+            <label
+              htmlFor="terms"
+              className="text-sm text-gray-400 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
               Accetto i{" "}
-              <Link
-                href="/legal/terms-and-conditions"
-                target="_blank"
-                className="text-blue-400 underline hover:text-blue-300"
-              >
+              <Link href="/legal/terms-and-conditions" className="underline text-indigo-400 hover:text-indigo-300">
                 Termini e Condizioni
               </Link>{" "}
               e la{" "}
-              <Link
-                href="/legal/privacy-policy"
-                target="_blank"
-                className="text-blue-400 underline hover:text-blue-300"
-              >
+              <Link href="/legal/privacy-policy" className="underline text-indigo-400 hover:text-indigo-300">
                 Privacy Policy
               </Link>
+              .
             </label>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <div>
-            <Button type="submit" className="w-full" disabled={isLoading || !agreed}>
-              {isLoading ? "Creazione in corso..." : "Crea Account"}
-            </Button>
-          </div>
+          <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={loading}>
+            {loading ? "Creazione in corso..." : "Crea Account"}
+          </Button>
         </form>
+
+        <p className="text-center text-sm text-gray-400">
+          Hai già un account?{" "}
+          <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300 hover:underline">
+            Accedi
+          </Link>
+        </p>
       </div>
     </div>
   )
