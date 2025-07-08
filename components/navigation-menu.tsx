@@ -7,36 +7,33 @@ import {
   NavigationMenu,
   NavigationMenuContent,
   NavigationMenuItem,
-  NavigationMenuList,
   NavigationMenuLink,
+  NavigationMenuList,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { blogCategories } from "@/lib/blog-data"
+import { Users } from "lucide-react"
 
-const triggerStyles =
-  "bg-transparent text-white hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10 font-medium text-sm"
-
-const espertiLinks: { title: string; href: string; description: string }[] = [
+const components: { title: string; href: string; description: string }[] = [
   {
     title: "Cartomanzia",
     href: "/esperti/cartomanzia",
-    description: "Svela il futuro con la saggezza delle carte.",
+    description: "Scopri cosa ti riservano i tarocchi con i nostri esperti cartomanti.",
   },
   {
     title: "Astrologia",
     href: "/esperti/astrologia",
-    description: "Leggi il tuo destino nel movimento delle stelle.",
+    description: "Interpreta il tuo tema natale e le posizioni dei pianeti.",
   },
   {
-    title: "Medianità",
-    href: "/esperti/medianita",
-    description: "Entra in contatto con le energie sottili.",
+    title: "Benessere Spirituale",
+    href: "/esperti/benessere",
+    description: "Trova equilibrio e serenità con i nostri consulenti olistici.",
   },
   {
     title: "Tutti gli Esperti",
-    href: "/esperti/tutti",
-    description: "Trova la guida spirituale perfetta per te.",
+    href: "/esperti",
+    description: "Sfoglia l'elenco completo di tutti i nostri professionisti.",
   },
 ]
 
@@ -46,55 +43,42 @@ export function NavigationMenuDemo() {
       <NavigationMenuList>
         <NavigationMenuItem>
           <Link href="/" legacyBehavior passHref>
-            <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), triggerStyles)}>Home</NavigationMenuLink>
+            <NavigationMenuLink className={navigationMenuTriggerStyle()}>Home</NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
-
         <NavigationMenuItem>
-          <NavigationMenuTrigger className={triggerStyles}>Esperti</NavigationMenuTrigger>
+          <NavigationMenuTrigger>Esperti</NavigationMenuTrigger>
           <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-slate-50 rounded-lg shadow-lg border border-slate-100">
-              {espertiLinks.map((component) => (
-                <ListItem key={component.title} href={component.href} title={component.title}>
+            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
+              {components.map((component) => (
+                <ListItem key={component.title} title={component.title} href={component.href}>
                   {component.description}
                 </ListItem>
               ))}
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
-
         <NavigationMenuItem>
           <Link href="/oroscopo" legacyBehavior passHref>
-            <NavigationMenuLink className={cn(navigationMenuTriggerStyle(), triggerStyles)}>
-              Oroscopo
-            </NavigationMenuLink>
+            <NavigationMenuLink className={navigationMenuTriggerStyle()}>Oroscopo</NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
-
         <NavigationMenuItem>
-          <NavigationMenuTrigger className={triggerStyles}>AstroMag</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] bg-slate-50 rounded-lg shadow-lg border border-slate-100">
-              <li className="row-span-3">
-                <NavigationMenuLink asChild>
-                  <a
-                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-blue-50 to-blue-100 p-6 no-underline outline-none focus:shadow-md"
-                    href="/astromag"
-                  >
-                    <div className="mb-2 mt-4 text-lg font-medium text-slate-800">AstroMag Blog</div>
-                    <p className="text-sm leading-tight text-slate-600">
-                      Esplora i nostri articoli su astrologia, numerologia e spiritualità.
-                    </p>
-                  </a>
-                </NavigationMenuLink>
-              </li>
-              {blogCategories.map((category) => (
-                <ListItem key={category.name} href={`/astromag/${category.slug}`} title={category.name}>
-                  {category.description}
-                </ListItem>
-              ))}
-            </ul>
-          </NavigationMenuContent>
+          <Link href="/astromag" legacyBehavior passHref>
+            <NavigationMenuLink className={navigationMenuTriggerStyle()}>AstroMag</NavigationMenuLink>
+          </Link>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <Link href="/diventa-esperto" legacyBehavior passHref>
+            <NavigationMenuLink
+              className={cn(
+                navigationMenuTriggerStyle(),
+                "bg-yellow-400 text-blue-900 hover:bg-yellow-300 focus:bg-yellow-300 font-bold",
+              )}
+            >
+              <Users className="mr-2 h-4 w-4" /> Lavora con Noi
+            </NavigationMenuLink>
+          </Link>
         </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
@@ -109,13 +93,13 @@ const ListItem = React.forwardRef<React.ElementRef<"a">, React.ComponentPropsWit
           <a
             ref={ref}
             className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-blue-100/50 focus:bg-blue-100/50",
+              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
               className,
             )}
             {...props}
           >
-            <div className="text-sm font-medium leading-none text-slate-800">{title}</div>
-            <p className="line-clamp-2 text-sm leading-snug text-slate-500">{children}</p>
+            <div className="text-sm font-medium leading-none">{title}</div>
+            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{children}</p>
           </a>
         </NavigationMenuLink>
       </li>

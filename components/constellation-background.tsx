@@ -1,239 +1,79 @@
 "use client"
 
-import { Stars } from "lucide-react"
+import { useEffect, useRef, useCallback } from "react"
 
-// Componente per costellazioni sparse ANIMATE - ORO EVIDENTE - SOLO LAMPEGGIANTI
-export const ConstellationBackground = ({ goldVisible = false }: { goldVisible?: boolean }) => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    {/* Orsa Maggiore LAMPEGGIANTE */}
-    <div className="absolute top-20 left-20 animate-pulse">
-      <svg
-        width="120"
-        height="80"
-        viewBox="0 0 120 80"
-        className={`${goldVisible ? "text-yellow-500/80" : "text-yellow-600/20"}`}
-      >
-        <circle cx="10" cy="20" r="2" fill="currentColor" className="animate-pulse" />
-        <circle
-          cx="30"
-          cy="15"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.5s" }}
-        />
-        <circle cx="50" cy="10" r="2" fill="currentColor" className="animate-pulse" style={{ animationDelay: "1s" }} />
-        <circle
-          cx="70"
-          cy="15"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.5s" }}
-        />
-        <circle cx="85" cy="25" r="2" fill="currentColor" className="animate-pulse" style={{ animationDelay: "2s" }} />
-        <circle
-          cx="75"
-          cy="45"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "2.5s" }}
-        />
-        <circle cx="55" cy="50" r="2" fill="currentColor" className="animate-pulse" style={{ animationDelay: "3s" }} />
-        <line x1="10" y1="20" x2="30" y2="15" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="30" y1="15" x2="50" y2="10" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="50" y1="10" x2="70" y2="15" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="70" y1="15" x2="85" y2="25" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="85" y1="25" x2="75" y2="45" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="75" y1="45" x2="55" y2="50" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-      </svg>
-    </div>
+export default function ConstellationBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-    {/* Cassiopea LAMPEGGIANTE */}
-    <div className="absolute top-40 right-32 animate-pulse">
-      <svg
-        width="100"
-        height="60"
-        viewBox="0 0 100 60"
-        className={`${goldVisible ? "text-yellow-500/80" : "text-yellow-600/20"}`}
-      >
-        <circle
-          cx="10"
-          cy="30"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.2s" }}
-        />
-        <circle
-          cx="30"
-          cy="10"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.7s" }}
-        />
-        <circle
-          cx="50"
-          cy="40"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.2s" }}
-        />
-        <circle
-          cx="70"
-          cy="15"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.7s" }}
-        />
-        <circle
-          cx="90"
-          cy="35"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "2.2s" }}
-        />
-        <line x1="10" y1="30" x2="30" y2="10" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="30" y1="10" x2="50" y2="40" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="50" y1="40" x2="70" y2="15" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="70" y1="15" x2="90" y2="35" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-      </svg>
-    </div>
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
 
-    {/* Costellazione del Cigno LAMPEGGIANTE */}
-    <div className="absolute top-60 left-60 animate-pulse">
-      <svg
-        width="80"
-        height="100"
-        viewBox="0 0 80 100"
-        className={`${goldVisible ? "text-yellow-500/80" : "text-yellow-600/20"}`}
-      >
-        <circle
-          cx="40"
-          cy="20"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.3s" }}
-        />
-        <circle
-          cx="40"
-          cy="40"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.8s" }}
-        />
-        <circle
-          cx="20"
-          cy="50"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.3s" }}
-        />
-        <circle
-          cx="60"
-          cy="50"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.8s" }}
-        />
-        <circle
-          cx="40"
-          cy="70"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "2.3s" }}
-        />
-        <line x1="40" y1="20" x2="40" y2="40" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="40" y1="40" x2="20" y2="50" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="40" y1="40" x2="60" y2="50" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="40" y1="40" x2="40" y2="70" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-      </svg>
-    </div>
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
 
-    {/* Costellazione della Lira LAMPEGGIANTE */}
-    <div className="absolute bottom-40 right-20 animate-pulse">
-      <svg
-        width="90"
-        height="70"
-        viewBox="0 0 90 70"
-        className={`${goldVisible ? "text-yellow-500/80" : "text-yellow-600/20"}`}
-      >
-        <circle
-          cx="45"
-          cy="15"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.4s" }}
-        />
-        <circle
-          cx="25"
-          cy="35"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.9s" }}
-        />
-        <circle
-          cx="65"
-          cy="35"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.4s" }}
-        />
-        <circle
-          cx="35"
-          cy="55"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.9s" }}
-        />
-        <circle
-          cx="55"
-          cy="55"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "2.4s" }}
-        />
-        <line x1="45" y1="15" x2="25" y2="35" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="45" y1="15" x2="65" y2="35" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="25" y1="35" x2="35" y2="55" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-        <line x1="65" y1="35" x2="55" y2="55" stroke="currentColor" strokeWidth="1" opacity="0.6" />
-      </svg>
-    </div>
+    const stars: { x: number; y: number; radius: number; vx: number; vy: number }[] = []
+    const numStars = 100
 
-    {/* Stelle sparse animate con movimento LAMPEGGIANTI */}
-    {[...Array(40)].map((_, i) => (
-      <div
-        key={i}
-        className="absolute animate-pulse"
-        style={{
-          left: `${Math.random() * 100}%`,
-          top: `${Math.random() * 100}%`,
-          animationDelay: `${Math.random() * 3}s`,
-          animationDuration: `${2 + Math.random() * 3}s`,
-        }}
-      >
-        <Stars
-          className={`w-3 h-3 ${goldVisible ? "text-yellow-500/70" : "text-yellow-600/30"}`}
-          style={{
-            animationDuration: `${1.5 + Math.random() * 2}s`,
-          }}
-        />
-      </div>
-    ))}
-  </div>
-)
+    for (let i = 0; i < numStars; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: Math.random() * 1 + 1,
+        vx: Math.random() * 0.2 - 0.1,
+        vy: Math.random() * 0.2 - 0.1,
+      })
+    }
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+
+      stars.forEach((star) => {
+        ctx.beginPath()
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
+        ctx.fill()
+
+        star.x += star.vx
+        star.y += star.vy
+
+        if (star.x < 0 || star.x > canvas.width) star.vx = -star.vx
+        if (star.y < 0 || star.y > canvas.height) star.vy = -star.vy
+      })
+
+      for (let i = 0; i < numStars; i++) {
+        for (let j = i + 1; j < numStars; j++) {
+          const dist = Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y)
+          if (dist < 150) {
+            ctx.beginPath()
+            ctx.moveTo(stars[i].x, stars[i].y)
+            ctx.lineTo(stars[j].x, stars[j].y)
+            ctx.strokeStyle = `rgba(255, 215, 0, ${1 - dist / 150})`
+            ctx.lineWidth = 0.5
+            ctx.stroke()
+          }
+        }
+      }
+
+      requestAnimationFrame(animate)
+    }
+
+    animate()
+  }, [])
+
+  useEffect(() => {
+    draw()
+    window.addEventListener("resize", draw)
+    return () => window.removeEventListener("resize", draw)
+  }, [draw])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute top-0 left-0 w-full h-full -z-10 opacity-30"
+      style={{ backgroundColor: "#0a192f" }}
+    />
+  )
+}

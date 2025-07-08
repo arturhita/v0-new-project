@@ -25,7 +25,6 @@ export default function HomePageClient() {
         setReviews(reviewsData)
       } catch (error) {
         console.error("Failed to fetch homepage data:", error)
-        // Handle error state if necessary
       } finally {
         setLoading(false)
       }

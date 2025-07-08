@@ -29,7 +29,6 @@ export type Operator = {
   }
   profileLink?: string
   joinedDate?: string
-  showNewBadge?: boolean
 }
 
 interface OperatorCardProps {
@@ -56,7 +55,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
     e.stopPropagation()
 
     if (!user) {
-      alert("Devi effettuare l'accesso per avviare una chat.")
       router.push("/login")
       return
     }
@@ -76,7 +74,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
       }
     } catch (error) {
       console.error("Failed to initiate chat:", error)
-      alert("Si è verificato un errore tecnico. Riprova più tardi.")
     } finally {
       setIsStartingChat(false)
     }
@@ -86,7 +83,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
     e.preventDefault()
     e.stopPropagation()
     if (!user) {
-      alert("Devi effettuare l'accesso per inviare una domanda.")
       router.push("/login")
       return
     }
@@ -96,7 +92,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
   return (
     <>
       <div className="group relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-700 transform hover:-translate-y-3 hover:scale-105 border border-yellow-600/20 hover:border-yellow-600/40 h-full flex flex-col">
-        {/* Online Status & New Badge */}
         <div className="absolute top-4 left-4 z-20">
           {isNewOperator && (
             <Badge className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
@@ -117,7 +112,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
           </div>
         </div>
 
-        {/* Card Content */}
         <div className="relative p-6 text-center flex-1 flex flex-col">
           <div className="relative mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
             <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-600/30 group-hover:ring-yellow-600/50 transition-all duration-500">
@@ -134,7 +128,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
                 </div>
               )}
             </div>
-            <div className="absolute inset-0 rounded-full bg-yellow-600/20 blur-md scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           </div>
 
           <h3 className="text-lg font-bold mb-2 text-white group-hover:text-yellow-100 transition-colors duration-500">
@@ -164,48 +157,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
           <p className="text-sm text-white/70 mb-4 leading-relaxed flex-1 group-hover:text-white/80 transition-colors duration-500">
             {operator.description}
           </p>
-
-          <div className="flex flex-wrap justify-center gap-1 mb-4">
-            {operator.tags.slice(0, 3).map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="text-xs bg-blue-700/50 text-white border border-yellow-600/30 hover:bg-blue-600/50 transition-colors duration-300"
-              >
-                {tag}
-              </Badge>
-            ))}
-          </div>
-
-          <div className="space-y-2 mb-4">
-            {typeof operator.services.chatPrice === "number" && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2 text-white/80">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Chat</span>
-                </div>
-                <span className="font-medium text-yellow-200">{operator.services.chatPrice.toFixed(2)} €/min</span>
-              </div>
-            )}
-            {typeof operator.services.callPrice === "number" && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2 text-white/80">
-                  <Phone className="w-4 h-4" />
-                  <span>Chiamata</span>
-                </div>
-                <span className="font-medium text-yellow-200">{operator.services.callPrice.toFixed(2)} €/min</span>
-              </div>
-            )}
-            {typeof operator.services.emailPrice === "number" && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2 text-white/80">
-                  <Mail className="w-4 h-4" />
-                  <span>Email</span>
-                </div>
-                <span className="font-medium text-yellow-200">{operator.services.emailPrice.toFixed(2)} €</span>
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="p-6 pt-0 mt-auto">
@@ -258,7 +209,6 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
             </Link>
           </div>
         </div>
-        <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-yellow-600/30 transition-all duration-500 pointer-events-none"></div>
       </div>
       {operator.services.emailPrice != null && (
         <WrittenConsultationModal
