@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperatorCard, type Operator as OperatorCardType } from "@/components/operator-card"
+import { OperatorCard } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { createClient } from "@/lib/supabase/server"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -14,122 +15,47 @@ fiveDaysAgo.setDate(today.getDate() - 5)
 const twelveDaysAgo = new Date(today)
 twelveDaysAgo.setDate(today.getDate() - 12)
 
-export const mockOperators: OperatorCardType[] = [
-  {
-    id: "1",
-    name: "Luna Stellare",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Cartomante & Tarocchi",
-    rating: 4.9,
-    reviewsCount: 256,
-    description: "Esperta in letture di tarocchi con 15 anni di esperienza, ti guiderà con chiarezza.",
-    tags: ["Tarocchi", "Amore", "Lavoro", "Cartomante", "Cartomanzia"],
-    isOnline: true,
-    services: { chatPrice: 2.5, callPrice: 2.5 },
-    joinedDate: twelveDaysAgo.toISOString(),
-  },
-  {
-    id: "2",
-    name: "Maestro Cosmos",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Astrologo",
-    rating: 4.8,
-    reviewsCount: 189,
-    description: "Astrologo professionista specializzato in carte natali e transiti planetari.",
-    tags: ["Oroscopi", "Tema Natale", "Transiti", "Astrologia"],
-    isOnline: true,
-    services: { chatPrice: 3.2, callPrice: 3.2, emailPrice: 35 },
-    joinedDate: "2024-05-10T10:00:00.000Z",
-  },
-  {
-    id: "3",
-    name: "Sage Aurora",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Cartomante Sibilla",
-    rating: 4.8,
-    reviewsCount: 203,
-    description: "Specialista in carte Sibille e previsioni future, con un tocco di intuizione.",
-    tags: ["Sibille", "Futuro", "Amore", "Cartomante", "Cartomanzia"],
-    isOnline: false,
-    services: { chatPrice: 2.6, callPrice: 2.6, emailPrice: 26 },
-    joinedDate: "2024-05-15T10:00:00.000Z",
-  },
-  {
-    id: "4",
-    name: "Elara Mistica",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Canalizzatrice Spirituale",
-    rating: 4.7,
-    reviewsCount: 155,
-    description: "Connettiti con le energie superiori e ricevi messaggi illuminanti per il tuo cammino.",
-    tags: ["Canalizzazione", "Spiritualità", "Angeli"],
-    isOnline: true,
-    services: { callPrice: 3.0, emailPrice: 40 },
-    joinedDate: fiveDaysAgo.toISOString(),
-  },
-  {
-    id: "5",
-    name: "Sirius Lumen",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Guaritore Energetico",
-    rating: 4.9,
-    reviewsCount: 98,
-    description: "Armonizza i tuoi chakra e ritrova il benessere interiore con sessioni di guarigione energetica.",
-    tags: ["Energia", "Chakra", "Benessere", "Guarigione Energetica"],
-    isOnline: true,
-    services: { callPrice: 2.8, emailPrice: 30 },
-    joinedDate: new Date().toISOString(),
-  },
-  {
-    id: "6",
-    name: "Vespera Arcana",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Esperta di Rune",
-    rating: 4.6,
-    reviewsCount: 120,
-    description: "Interpreta i messaggi delle antiche rune per svelare i misteri del tuo destino.",
-    tags: ["Rune", "Divinazione", "Mistero"],
-    isOnline: false,
-    services: { chatPrice: 2.2, emailPrice: 25 },
-    joinedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "7",
-    name: "Orion Saggio",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Numerologo Intuitivo",
-    rating: 4.8,
-    reviewsCount: 142,
-    description: "Svela il potere dei numeri nella tua vita. Letture numerologiche per amore, carriera e destino.",
-    tags: ["Numerologia", "Destino", "Amore", "Carriera"],
-    isOnline: true,
-    services: { chatPrice: 2.7, callPrice: 2.7 },
-    joinedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "8",
-    name: "Lyra Celeste",
-    avatarUrl: "/placeholder.svg?width=96&height=96",
-    specialization: "Lettrice di Registri Akashici",
-    rating: 4.9,
-    reviewsCount: 115,
-    description: "Accedi alla saggezza della tua anima e scopri le lezioni delle vite passate.",
-    tags: ["Registri Akashici", "Anima", "Vite Passate", "Spiritualità"],
-    isOnline: false,
-    services: { callPrice: 3.5, emailPrice: 50 },
-    joinedDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-]
+// Funzione per recuperare gli operatori approvati dal database
+async function getApprovedOperators() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("operator_details")
+    .select(
+      `
+      stage_name,
+      bio,
+      specialties,
+      profiles (
+        id,
+        avatar_url
+      )
+    `,
+    )
+    .eq("status", "approved")
+    .limit(8) // Mostriamo fino a 8 operatori in homepage
 
-const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
-  const date = new Date()
-  if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
-  if (hoursAgo) date.setHours(date.getHours() - hoursAgo)
-  if (minutesAgo) date.setMinutes(date.getMinutes() - minutesAgo)
-  return date.toISOString()
+  if (error) {
+    console.error("Error fetching approved operators:", error)
+    return []
+  }
+
+  // Trasformiamo i dati per passarli al componente OperatorCard
+  return data.map((op) => ({
+    id: op.profiles.id,
+    name: op.stage_name,
+    avatarUrl: op.profiles.avatar_url,
+    specialization: op.specialties[0] || "Esperto", // Usiamo la prima specializzazione
+    rating: 4.9, // Placeholder, da implementare con le recensioni
+    reviewsCount: 123, // Placeholder
+    description: op.bio,
+    tags: op.specialties,
+    isOnline: true, // Placeholder, da implementare con lo stato di presenza
+    services: { chatPrice: 2.5, callPrice: 3.0 }, // Placeholder
+  }))
 }
 
-export const allMockReviews: ReviewCardType[] = [
+// Dati mock per le recensioni, per ora
+const allMockReviews: ReviewCardType[] = [
   {
     id: "r1",
     userName: "Giulia R.",
@@ -137,7 +63,7 @@ export const allMockReviews: ReviewCardType[] = [
     operatorName: "Luna Stellare",
     rating: 5,
     comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
-    date: generateTimeAgo(0, 0, 49),
+    date: new Date().toISOString(),
   },
   {
     id: "r2",
@@ -146,21 +72,14 @@ export const allMockReviews: ReviewCardType[] = [
     operatorName: "Maestro Cosmos",
     rating: 5,
     comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
-    date: generateTimeAgo(0, 0, 57),
-  },
-  {
-    id: "r3",
-    userName: "Sofia L.",
-    userType: "Vip",
-    operatorName: "Sage Aurora",
-    rating: 4,
-    comment:
-      "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
-    date: generateTimeAgo(0, 1),
+    date: new Date().toISOString(),
   },
 ]
 
-export default function UnveillyHomePage() {
+export default async function UnveillyHomePage() {
+  // Recuperiamo i dati reali all'interno del Server Component
+  const operators = await getApprovedOperators()
+
   const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -175,7 +94,7 @@ export default function UnveillyHomePage() {
     return () => clearInterval(intervalId)
   }, [])
 
-  const newTalents = mockOperators
+  const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
     .slice(0, 3)
@@ -313,15 +232,21 @@ export default function UnveillyHomePage() {
                 Trova la tua guida spirituale, disponibile ora per svelare i misteri del tuo destino.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {mockOperators.slice(0, 8).map((operator, index) => (
-                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <OperatorCard operator={operator} />
-                </div>
-              ))}
-            </div>
+            {operators.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+                {operators.map((operator, index) => (
+                  <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                    <OperatorCard operator={operator} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-slate-400">Nessun operatore disponibile al momento. Torna a trovarci presto!</p>
+              </div>
+            )}
             <div className="text-center mt-12">
-              <Link href="/esperti/cartomanzia" passHref>
+              <Link href="/esperti/tutti" passHref>
                 <Button
                   variant="default"
                   size="lg"
