@@ -62,20 +62,15 @@ export default function CreateOperatorPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   const [operator, setOperator] = useState({
-    // Dati personali
     name: "",
     surname: "",
     stageName: "",
     email: "",
     phone: "",
-
-    // Profilo pubblico
     bio: "",
     specialties: [] as string[],
     categories: [] as string[],
     avatarUrl: "",
-
-    // Servizi e prezzi
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -84,8 +79,6 @@ export default function CreateOperatorPage() {
       emailEnabled: true,
       emailPrice: "15.00",
     },
-
-    // Disponibilità
     availability: {
       monday: [] as string[],
       tuesday: [] as string[],
@@ -95,8 +88,6 @@ export default function CreateOperatorPage() {
       saturday: [] as string[],
       sunday: [] as string[],
     },
-
-    // Stato
     status: "Attivo" as "Attivo" | "In Attesa" | "Sospeso",
     isOnline: true,
     commission: "15",
@@ -110,7 +101,11 @@ export default function CreateOperatorPage() {
     setOperator((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleServiceChange = (service: string, field: string, value: string | boolean) => {
+  const handleServiceChange = (
+    service: "chat" | "call" | "email",
+    field: "Enabled" | "Price",
+    value: string | boolean,
+  ) => {
     setOperator((prev) => ({
       ...prev,
       services: {
@@ -178,11 +173,10 @@ export default function CreateOperatorPage() {
   }
 
   const handleSave = async () => {
-    // Validazione
     if (!operator.name || !operator.surname || !operator.stageName || !operator.email) {
       toast({
         title: "Campi obbligatori mancanti",
-        description: "Compila tutti i campi obbligatori.",
+        description: "Nome, cognome, nome d'arte ed email sono obbligatori.",
         variant: "destructive",
       })
       return
@@ -200,31 +194,14 @@ export default function CreateOperatorPage() {
     setIsSaving(true)
 
     try {
-      // Salva nel localStorage per simulare il database
-      const existingOperators = JSON.parse(localStorage.getItem("mock_operators") || "[]")
-      const newOperator = {
-        ...operator,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString().split("T")[0],
-      }
-
-      existingOperators.push(newOperator)
-      localStorage.setItem("mock_operators", JSON.stringify(existingOperators))
-
-      // Chiama anche la server action
-      const result = await createOperator(newOperator)
+      const result = await createOperator(operator)
 
       if (result.success) {
         toast({
           title: "✅ Operatore Creato!",
-          description: `${operator.stageName} è stato aggiunto con successo.`,
+          description: result.message,
           className: "bg-green-100 border-green-300 text-green-700",
         })
-
-        // Notifica aggiornamento
-        window.dispatchEvent(new CustomEvent("operatorsUpdated"))
-
-        // Redirect alla lista operatori
         setTimeout(() => {
           router.push("/admin/operators")
         }, 1500)
@@ -234,8 +211,8 @@ export default function CreateOperatorPage() {
     } catch (error) {
       console.error("Errore nel salvataggio:", error)
       toast({
-        title: "Errore",
-        description: "Errore nel salvataggio dell'operatore. Riprova.",
+        title: "Errore nel salvataggio",
+        description: (error as Error).message || "Si è verificato un errore. Riprova.",
         variant: "destructive",
       })
     }
@@ -316,7 +293,7 @@ export default function CreateOperatorPage() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/admin/operators">
@@ -324,7 +301,7 @@ export default function CreateOperatorPage() {
             <span className="sr-only">Torna alla lista operatori</span>
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Crea Nuovo Operatore</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-800">Crea Nuovo Operatore</h1>
         <div className="ml-auto flex gap-2">
           <Button
             variant="outline"
@@ -340,16 +317,18 @@ export default function CreateOperatorPage() {
       <div className={`grid gap-6 ${showPreview ? "lg:grid-cols-3" : "lg:grid-cols-1"}`}>
         <div className={showPreview ? "lg:col-span-2" : ""}>
           {/* Dati Personali */}
-          <Card className="shadow-xl rounded-2xl mb-6">
+          <Card className="shadow-lg rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
                 <User className="mr-2 h-5 w-5 text-sky-600" />
                 Dati Personali
               </CardTitle>
-              <CardDescription>Informazioni private dell'operatore.</CardDescription>
+              <CardDescription>
+                Informazioni private dell'operatore. Verrà inviata un'email di invito per impostare la password.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col md:flex-row items-center gap-6">
                 <div className="relative">
                   <Avatar className="w-20 h-20 border-4 border-sky-200 shadow-lg">
                     <AvatarImage
@@ -430,7 +409,7 @@ export default function CreateOperatorPage() {
           </Card>
 
           {/* Profilo Pubblico */}
-          <Card className="shadow-xl rounded-2xl mb-6">
+          <Card className="shadow-lg rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
                 <Sparkles className="mr-2 h-5 w-5 text-sky-600" />
@@ -472,7 +451,7 @@ export default function CreateOperatorPage() {
                         checked={operator.categories.includes(category)}
                         onCheckedChange={() => handleCategoryToggle(category)}
                       />
-                      <Label htmlFor={category} className="text-sm">
+                      <Label htmlFor={category} className="text-sm font-medium">
                         {category}
                       </Label>
                     </div>
@@ -505,7 +484,10 @@ export default function CreateOperatorPage() {
                     placeholder="Aggiungi specializzazione"
                     className="flex-grow"
                     onKeyPress={(e) => {
-                      if (e.key === "Enter") handleAddSpecialty()
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddSpecialty()
+                      }
                     }}
                   />
                   <Button onClick={handleAddSpecialty} variant="outline">
@@ -518,7 +500,7 @@ export default function CreateOperatorPage() {
           </Card>
 
           {/* Servizi e Prezzi */}
-          <Card className="shadow-xl rounded-2xl mb-6">
+          <Card className="shadow-lg rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
                 <Euro className="mr-2 h-5 w-5 text-sky-600" />
@@ -617,7 +599,7 @@ export default function CreateOperatorPage() {
           </Card>
 
           {/* Disponibilità */}
-          <Card className="shadow-xl rounded-2xl mb-6">
+          <Card className="shadow-lg rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700 flex items-center">
                 <Clock className="mr-2 h-5 w-5 text-sky-600" />
@@ -640,7 +622,7 @@ export default function CreateOperatorPage() {
                             )}
                             onCheckedChange={() => handleAvailabilityToggle(day.key, slot)}
                           />
-                          <Label htmlFor={`${day.key}-${slot}`} className="text-sm">
+                          <Label htmlFor={`${day.key}-${slot}`} className="text-sm font-medium">
                             {slot}
                           </Label>
                         </div>
@@ -653,18 +635,20 @@ export default function CreateOperatorPage() {
           </Card>
 
           {/* Configurazione */}
-          <Card className="shadow-xl rounded-2xl mb-6">
+          <Card className="shadow-lg rounded-2xl mb-6">
             <CardHeader>
               <CardTitle className="text-xl text-slate-700">Configurazione</CardTitle>
               <CardDescription>Stato e commissioni dell'operatore.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <div>
                   <Label htmlFor="status">Stato</Label>
                   <Select
                     value={operator.status}
-                    onValueChange={(value: any) => setOperator((prev) => ({ ...prev, status: value }))}
+                    onValueChange={(value: "Attivo" | "In Attesa" | "Sospeso") =>
+                      setOperator((prev) => ({ ...prev, status: value }))
+                    }
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -689,19 +673,19 @@ export default function CreateOperatorPage() {
                     className="mt-1"
                   />
                 </div>
-                <div className="flex items-center space-x-2 pt-6">
+                <div className="flex items-center space-x-2 pb-2">
                   <Switch
+                    id="isOnline"
                     checked={operator.isOnline}
                     onCheckedChange={(checked) => setOperator((prev) => ({ ...prev, isOnline: checked }))}
                   />
-                  <Label>Online</Label>
+                  <Label htmlFor="isOnline">Online</Label>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Anteprima */}
         {showPreview && (
           <div className="lg:col-span-1">
             <div className="sticky top-24">

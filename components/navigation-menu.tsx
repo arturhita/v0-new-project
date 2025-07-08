@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import Link from "next/link"
-
 import { cn } from "@/lib/utils"
 import {
   NavigationMenu,
@@ -13,28 +12,28 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { Sparkles } from "lucide-react"
+import { Sparkles, Users, BookOpen, Sun, Moon } from "lucide-react"
 
 const components: { title: string; href: string; description: string }[] = [
   {
-    title: "Tarocchi Online",
-    href: "/tarocchi-online",
-    description: "Scopri il tuo futuro con una lettura dei tarocchi personalizzata dai nostri esperti.",
+    title: "Tarocchi dell'Amore",
+    href: "/tarocchi-online/amore",
+    description: "Scopri cosa ti riserva il futuro in amore con una lettura personalizzata.",
   },
   {
-    title: "Oroscopo del Giorno",
-    href: "/oroscopo",
-    description: "Leggi le previsioni astrologiche per il tuo segno zodiacale, aggiornate quotidianamente.",
+    title: "Tarocchi del Lavoro",
+    href: "/tarocchi-online/lavoro",
+    description: "Ottieni chiarezza sulla tua carriera e le tue finanze.",
   },
   {
-    title: "Affinità di Coppia",
-    href: "/affinita-di-coppia",
-    description: "Calcola la compatibilità tra il tuo segno e quello del partner.",
+    title: "Tarocchi del Giorno",
+    href: "/tarocchi-online/giorno",
+    description: "Una carta per guidarti attraverso la giornata con consapevolezza.",
   },
   {
-    title: "AstroMag",
-    href: "/astromag",
-    description: "Il nostro magazine online con articoli, approfondimenti e curiosità astrologiche.",
+    title: "Sì o No",
+    href: "/tarocchi-online/si-no",
+    description: "Una risposta diretta e immediata a una tua domanda specifica.",
   },
 ]
 
@@ -43,70 +42,77 @@ export function NavigationMenuDemo() {
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="text-white bg-transparent hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10">
-            I Nostri Servizi
+          <Link href="/esperti" legacyBehavior passHref>
+            <NavigationMenuLink
+              className={cn(navigationMenuTriggerStyle(), "bg-transparent text-white hover:bg-white/10")}
+            >
+              <Users className="mr-2 h-4 w-4" /> Esperti
+            </NavigationMenuLink>
+          </Link>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <NavigationMenuTrigger className="bg-transparent text-white hover:bg-white/10">
+            <Sun className="mr-2 h-4 w-4" /> Oroscopo
           </NavigationMenuTrigger>
           <NavigationMenuContent>
-            <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
-              <li className="row-span-3">
-                <NavigationMenuLink asChild>
-                  <a
-                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                    href="/"
-                  >
-                    <Sparkles className="h-6 w-6 text-yellow-400" />
-                    <div className="mb-2 mt-4 text-lg font-medium text-slate-900">Moonthir</div>
-                    <p className="text-sm leading-tight text-muted-foreground">
-                      La tua guida nel mondo dell'astrologia e della cartomanzia.
-                    </p>
-                  </a>
-                </NavigationMenuLink>
-              </li>
-              <ListItem href="/tarocchi-online" title="Tarocchi Online">
-                Scopri il tuo futuro con una lettura personalizzata.
+            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
+              <ListItem href="/oroscopo/giornaliero" title="Oroscopo del Giorno">
+                Le previsioni astrologiche per oggi per tutti i segni zodiacali.
               </ListItem>
-              <ListItem href="/oroscopo" title="Oroscopo del Giorno">
-                Le previsioni astrologiche per il tuo segno zodiacale.
+              <ListItem href="/oroscopo/settimanale" title="Oroscopo della Settimana">
+                Uno sguardo agli astri per la settimana che sta per iniziare.
               </ListItem>
-              <ListItem href="/affinita-di-coppia" title="Affinità di Coppia">
-                Calcola la compatibilità con il tuo partner.
+              <ListItem href="/oroscopo/mensile" title="Oroscopo del Mese">
+                Le tendenze e i consigli delle stelle per il mese in corso.
+              </ListItem>
+              <ListItem href="/oroscopo/annuale" title="Oroscopo 2025">
+                Scopri cosa ti riserva il nuovo anno in amore, lavoro e benessere.
               </ListItem>
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <Link href="/esperti/cartomanti" legacyBehavior passHref>
+          <Link href="/affinita-di-coppia" legacyBehavior passHref>
             <NavigationMenuLink
-              className={cn(
-                navigationMenuTriggerStyle(),
-                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
-              )}
+              className={cn(navigationMenuTriggerStyle(), "bg-transparent text-white hover:bg-white/10")}
             >
-              Esperti
+              <Sparkles className="mr-2 h-4 w-4" /> Affinità di Coppia
             </NavigationMenuLink>
           </Link>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <NavigationMenuTrigger className="bg-transparent text-white hover:bg-white/10">
+            <Moon className="mr-2 h-4 w-4" /> Tarocchi Online
+          </NavigationMenuTrigger>
+          <NavigationMenuContent>
+            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
+              <li className="row-span-3">
+                <NavigationMenuLink asChild>
+                  <a
+                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
+                    href="/tarocchi-online"
+                  >
+                    <div className="mb-2 mt-4 text-lg font-medium">Lettura Tarocchi</div>
+                    <p className="text-sm leading-tight text-muted-foreground">
+                      Esplora i misteri dei tarocchi e trova le risposte che cerchi.
+                    </p>
+                  </a>
+                </NavigationMenuLink>
+              </li>
+              {components.map((component) => (
+                <ListItem key={component.title} title={component.title} href={component.href}>
+                  {component.description}
+                </ListItem>
+              ))}
+            </ul>
+          </NavigationMenuContent>
         </NavigationMenuItem>
         <NavigationMenuItem>
           <Link href="/astromag" legacyBehavior passHref>
             <NavigationMenuLink
-              className={cn(
-                navigationMenuTriggerStyle(),
-                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
-              )}
+              className={cn(navigationMenuTriggerStyle(), "bg-transparent text-white hover:bg-white/10")}
             >
-              AstroMag
-            </NavigationMenuLink>
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem>
-          <Link href="/diventa-esperto" legacyBehavior passHref>
-            <NavigationMenuLink
-              className={cn(
-                navigationMenuTriggerStyle(),
-                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
-              )}
-            >
-              Lavora con Noi
+              <BookOpen className="mr-2 h-4 w-4" /> Astromag
             </NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
