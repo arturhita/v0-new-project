@@ -1,99 +1,92 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
 
-const SiteFooter = () => {
-  const legalLinks = [
-    { href: "/legal/terms-and-conditions", label: "Termini e Condizioni" },
-    { href: "/legal/privacy-policy", label: "Privacy Policy" },
-    { href: "/legal/cookie-policy", label: "Cookie Policy" },
-  ]
-
-  const socialLinks = [
-    { href: "#", icon: Facebook, label: "Facebook" },
-    { href: "#", icon: Twitter, label: "Twitter" },
-    { href: "#", icon: Instagram, label: "Instagram" },
-    { href: "#", icon: Linkedin, label: "LinkedIn" },
-  ]
-
+export function SiteFooter() {
   return (
-    <footer className="bg-blue-900/50 text-slate-300 border-t border-blue-800/50">
-      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="space-y-4">
-            <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={150} height={40} />
-            <p className="text-sm">
-              Scopri il tuo futuro con i nostri esperti. Consulenze di cartomanzia e astrologia.
+    <footer className="bg-[#1E3C98] text-white">
+      <div className="container mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* About Section */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-1">
+            <Link href="/" className="flex items-center space-x-2 mb-4">
+              <Image
+                src="/images/moonthir-logo-white.png"
+                alt="Moonthir Logo"
+                width={140}
+                height={40}
+                className="object-contain"
+              />
+            </Link>
+            <p className="text-blue-200 text-sm">
+              La tua guida personale nel mondo della spiritualità. Connettiti con i migliori esperti per una consulenza
+              autentica.
             </p>
-            <div className="flex space-x-4">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  className="text-slate-400 hover:text-yellow-400 transition-colors"
-                >
-                  <social.icon className="h-6 w-6" />
-                  <span className="sr-only">{social.label}</span>
-                </a>
-              ))}
-            </div>
           </div>
+
+          {/* Piattaforma Links */}
           <div>
-            <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Servizi</h3>
-            <ul className="mt-4 space-y-2">
+            <h3 className="font-bold text-lg mb-4">Piattaforma</h3>
+            <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/esperti/cartomanzia" className="text-base text-slate-300 hover:text-white">
-                  Cartomanzia
+                <Link href="/esperti/cartomanti" className="text-blue-200 hover:text-white transition-colors">
+                  Esperti
                 </Link>
               </li>
               <li>
-                <Link href="/esperti/astrologia" className="text-base text-slate-300 hover:text-white">
-                  Astrologia
-                </Link>
-              </li>
-              <li>
-                <Link href="/oroscopo" className="text-base text-slate-300 hover:text-white">
+                <Link href="/oroscopo" className="text-blue-200 hover:text-white transition-colors">
                   Oroscopo
                 </Link>
               </li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Legale</h3>
-            <ul className="mt-4 space-y-2">
-              {legalLinks.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} className="text-base text-slate-300 hover:text-white">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Supporto</h3>
-            <ul className="mt-4 space-y-2">
               <li>
-                <Link href="/support" className="text-base text-slate-300 hover:text-white">
-                  Contattaci
+                <Link href="/astromag" className="text-blue-200 hover:text-white transition-colors">
+                  AstroMag
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Legale Links */}
+          <div>
+            <h3 className="font-bold text-lg mb-4">Legale</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link href="/legal/privacy-policy" className="text-blue-200 hover:text-white transition-colors">
+                  Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/faq" className="text-base text-slate-300 hover:text-white">
-                  FAQ
+                <Link href="/legal/cookie-policy" className="text-blue-200 hover:text-white transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/terms-and-conditions" className="text-blue-200 hover:text-white transition-colors">
+                  Termini e Condizioni
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Risorse Links */}
+          <div>
+            <h3 className="font-bold text-lg mb-4">Risorse</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link href="/diventa-esperto" className="text-blue-200 hover:text-white transition-colors">
+                  Diventa Esperto
                 </Link>
               </li>
             </ul>
           </div>
         </div>
-        <div className="mt-12 border-t border-blue-800/50 pt-8 text-center">
-          <p className="text-base text-slate-400">
+
+        <div className="mt-12 border-t border-blue-700 pt-8 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-sm text-blue-300">
             &copy; {new Date().getFullYear()} Moonthir. Tutti i diritti riservati.
           </p>
+          {/* Social links can be added here */}
         </div>
       </div>
     </footer>
   )
 }
-
-export default SiteFooter

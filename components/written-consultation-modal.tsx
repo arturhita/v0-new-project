@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useState, useTransition } from "react"
 import {
   Dialog,
   DialogContent,
@@ -12,92 +14,107 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
+import { Loader2, Send, Wallet } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { submitWrittenConsultation } from "@/lib/actions/written-consultation.actions"
-import { Loader2 } from "lucide-react"
 
-interface WrittenConsultationModalProps {
-  isOpen: boolean
-  onClose: () => void
-  operator: {
-    id: string
-    name: string
-    emailPrice: number
-  }
+interface OperatorInfo {
+  id: string
+  name: string
+  emailPrice: number
 }
 
-export function WrittenConsultationModal({ isOpen, onClose, operator }: WrittenConsultationModalProps) {
-  const [question, setQuestion] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
-  const { user } = useAuth()
+interface WrittenConsultationModalProps {
+  operator: OperatorInfo
+  isOpen: boolean
+  onClose: () => void
+}
 
-  const handleSubmit = async () => {
+export function WrittenConsultationModal({ operator, isOpen, onClose }: WrittenConsultationModalProps) {
+  const { user } = useAuth()
+  const [question, setQuestion] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
     if (!user) {
-      toast({ variant: "destructive", title: "Errore", description: "Devi essere loggato per inviare una domanda." })
+      setError("Devi essere loggato per inviare una domanda.")
       return
     }
     if (question.trim().length < 20) {
-      toast({ variant: "destructive", title: "Errore", description: "La domanda deve contenere almeno 20 caratteri." })
+      setError("La domanda deve contenere almeno 20 caratteri.")
       return
     }
 
-    setIsSubmitting(true)
-    try {
-      const result = await submitWrittenConsultation({
-        clientId: user.id,
-        operatorId: operator.id,
-        question: question,
-        price: operator.emailPrice,
-      })
+    const formData = new FormData()
+    formData.append("clientId", user.id)
+    formData.append("operatorId", operator.id)
+    formData.append("question", question)
 
+    startTransition(async () => {
+      const result = await submitWrittenConsultation(formData)
       if (result.success) {
-        toast({ title: "Successo!", description: "La tua domanda è stata inviata. Riceverai una risposta via email." })
+        alert(result.message)
         onClose()
-        setQuestion("")
       } else {
-        throw new Error(result.error || "Errore sconosciuto")
+        setError(result.error || "Si è verificato un errore.")
       }
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Invio fallito", description: error.message })
-    } finally {
-      setIsSubmitting(false)
-    }
+    })
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-slate-900 text-white border-slate-700">
+      <DialogContent className="sm:max-w-[425px] bg-slate-900 text-white border-blue-700">
         <DialogHeader>
-          <DialogTitle>Consulto Scritto con {operator.name}</DialogTitle>
+          <DialogTitle>Domanda Scritta a {operator.name}</DialogTitle>
           <DialogDescription>
-            Invia la tua domanda. Riceverai una risposta dettagliata via email. Il costo del consulto è di{" "}
-            {operator.emailPrice.toFixed(2)}€.
+            Invia la tua domanda. L'operatore risponderà il prima possibile. Il costo verrà addebitato dal tuo wallet.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid w-full gap-1.5">
-            <Label htmlFor="question">La tua domanda</Label>
-            <Textarea
-              id="question"
-              placeholder="Scrivi qui la tua domanda dettagliata..."
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              className="bg-slate-800 border-slate-600 focus:ring-yellow-500"
-              rows={6}
-            />
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="flex items-center justify-between bg-slate-800 p-3 rounded-md">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-cyan-400" />
+                <span className="font-medium">Costo della richiesta:</span>
+              </div>
+              <span className="font-bold text-lg text-cyan-400">{operator.emailPrice.toFixed(2)} €</span>
+            </div>
+            <div className="grid w-full gap-1.5">
+              <Label htmlFor="question">La tua domanda</Label>
+              <Textarea
+                id="question"
+                placeholder="Scrivi qui la tua domanda in modo dettagliato..."
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                rows={6}
+                className="bg-slate-800 border-slate-700 focus:ring-cyan-500"
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Annulla
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Invia e Paga {operator.emailPrice.toFixed(2)}€
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={isPending || question.trim().length < 20}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Invio in corso...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Invia Domanda
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

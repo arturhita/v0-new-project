@@ -1,55 +1,59 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-const ApplicationSchema = z.object({
-  userId: z.string().uuid(),
-  stageName: z.string().min(3, "Il nome d'arte deve essere di almeno 3 caratteri."),
-  bio: z.string().min(50, "La biografia deve essere di almeno 50 caratteri."),
-  specialties: z.string().min(1, "Inserisci almeno una specializzazione."),
+const applicationSchema = z.object({
+  name: z.string().min(3, { message: "Il nome deve contenere almeno 3 caratteri." }),
+  email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
+  phone: z.string().min(9, { message: "Inserisci un numero di telefono valido." }),
+  specializations: z.array(z.string()).min(1, { message: "Seleziona almeno una specializzazione." }),
+  bio: z.string().min(50, { message: "La biografia deve contenere almeno 50 caratteri." }),
 })
 
-export async function submitApplication(prevState: any, formData: FormData) {
-  const supabase = createClient()
+type ApplicationState = {
+  message: string
+  success: boolean
+  errors?: {
+    name?: string[]
+    email?: string[]
+    phone?: string[]
+    specializations?: string[]
+    bio?: string[]
+  } | null
+}
 
-  const validatedFields = ApplicationSchema.safeParse({
-    userId: formData.get("userId"),
-    stageName: formData.get("stageName"),
+export async function applyAsExpert(prevState: ApplicationState, formData: FormData): Promise<ApplicationState> {
+  const specializations = formData.getAll("specializations")
+  const validatedFields = applicationSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+    specializations: specializations,
     bio: formData.get("bio"),
-    specialties: formData.get("specialties"),
   })
 
   if (!validatedFields.success) {
     return {
+      message: "Errore di validazione. Controlla i campi e riprova.",
+      success: false,
       errors: validatedFields.error.flatten().fieldErrors,
-      message: "Errore di validazione. Controlla i campi.",
     }
   }
 
-  const { userId, stageName, bio, specialties } = validatedFields.data
-  const specialtiesArray = specialties.split(",").map((s) => s.trim())
+  // In una vera applicazione, qui gestiresti il caricamento del file CV
+  // e invieresti un'email formattata usando un servizio come Resend o SendGrid.
 
-  const { error } = await supabase.from("operator_details").insert({
-    user_id: userId,
-    stage_name: stageName,
-    bio: bio,
-    specialties: specialtiesArray,
-    status: "pending", // La candidatura è in attesa di approvazione
-  })
+  console.log("--- NUOVA CANDIDATURA ESPERTO ---")
+  console.log("Dati ricevuti:", validatedFields.data)
+  console.log("Email di destinazione: infomoonthir@gmail.com")
+  console.log("---------------------------------")
 
-  if (error) {
-    console.error("Errore invio candidatura:", error)
-    return {
-      message: "Si è verificato un errore nel database. Riprova.",
-      errors: {},
-    }
-  }
+  // Simula il tempo di invio di un'email
+  await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  revalidatePath("/diventa-esperto")
   return {
-    message: "Candidatura inviata con successo! Verrai ricontattato a breve.",
-    errors: {},
+    message: "Candidatura inviata con successo! Il nostro team ti contatterà al più presto.",
+    success: true,
+    errors: null,
   }
 }

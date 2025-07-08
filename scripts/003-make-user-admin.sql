@@ -1,1 +1,0 @@
--- Questo script è già stato eseguito e non necessita di modifiche.
