@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter } from 'next/font/google'
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SiteNavbar } from "@/components/site-navbar"
@@ -31,6 +31,7 @@ export default function RootLayout({
             <ChatRequestProvider>
               <div className="flex flex-col min-h-screen">
                 <SiteNavbar />
+                {/* La classe pt-16 è FONDAMENTALE per evitare la barra bianca sotto la navbar */}
                 <main className="flex-grow pt-16">{children}</main>
                 <SiteFooter />
               </div>
