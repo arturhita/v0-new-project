@@ -22,7 +22,6 @@ export function SiteNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
 
-  // Chiude il menu mobile quando la rotta cambia
   useEffect(() => {
     if (isMenuOpen) {
       setIsMenuOpen(false)
@@ -47,7 +46,6 @@ export function SiteNavbar() {
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
             <Image
               src="/images/moonthir-logo-white.png"
@@ -59,12 +57,10 @@ export function SiteNavbar() {
             />
           </Link>
 
-          {/* Desktop Navigation Menu */}
           <div className="hidden md:flex items-center">
             <NavigationMenuDemo />
           </div>
 
-          {/* Desktop Auth Section */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated && user ? (
               <DropdownMenu>
@@ -137,7 +133,6 @@ export function SiteNavbar() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <Button
               variant="ghost"
@@ -151,7 +146,6 @@ export function SiteNavbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
@@ -160,9 +154,9 @@ export function SiteNavbar() {
               {isAuthenticated && user ? (
                 <>
                   <Button
+                    asChild
                     variant="outline"
                     className="w-full justify-center text-white border-blue-600 bg-blue-700"
-                    asChild
                   >
                     <Link href={getDashboardLink()}>
                       <User className="mr-2 h-4 w-4" />
@@ -177,15 +171,15 @@ export function SiteNavbar() {
               ) : (
                 <>
                   <Button
+                    asChild
                     variant="outline"
                     className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] w-full justify-center font-semibold bg-transparent"
-                    asChild
                   >
                     <Link href="/login">Accedi</Link>
                   </Button>
                   <Button
-                    className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md w-full justify-center"
                     asChild
+                    className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md w-full justify-center"
                   >
                     <Link href="/register">Inizia Ora</Link>
                   </Button>
