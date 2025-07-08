@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser, Session, AuthChangeEvent } from "@supabase/supabase-js"
 import type { Database, Tables } from "@/types/database"
+import { useToast } from "@/components/ui/use-toast"
 
 // Un tipo composito per avere sempre a disposizione i dati del profilo insieme a quelli dell'utente
 export type UserProfile = SupabaseUser & Tables<"profiles">
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { toast } = useToast()
 
   const fetchUserProfile = useCallback(
     async (sessionUser: SupabaseUser): Promise<UserProfile | null> => {
@@ -34,26 +36,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error("Errore nel recupero del profilo:", error.message)
-        // Se non troviamo il profilo, forziamo il logout per evitare stati inconsistenti
         await supabase.auth.signOut()
         return null
       }
-      // Uniamo i dati di auth.user e public.profiles
       return { ...sessionUser, ...profile }
     },
     [supabase],
   )
 
   useEffect(() => {
-    setLoading(true)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    const handleAuthChange = async (event: AuthChangeEvent, session: Session | null) => {
+      setLoading(true)
       if (session?.user) {
         const fullUserProfile = await fetchUserProfile(session.user)
         setUser(fullUserProfile)
 
         if (event === "SIGNED_IN" && fullUserProfile) {
+          toast({
+            title: "Accesso effettuato",
+            description: `Bentornato, ${fullUserProfile.full_name}!`,
+          })
           switch (fullUserProfile.role) {
             case "admin":
               router.push("/admin/dashboard")
@@ -69,7 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
       }
       setLoading(false)
-    })
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(handleAuthChange)
 
     // Controlla la sessione iniziale al caricamento dell'app
     const getInitialSession = async () => {
@@ -88,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router, fetchUserProfile])
+  }, [supabase, router, fetchUserProfile, toast])
 
   const login = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
@@ -97,34 +103,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       return { success: false, error: "Credenziali non valide." }
     }
-    // Il redirect è gestito da onAuthStateChange
     return { success: true }
   }
 
   const register = async (data: any): Promise<{ success: boolean; error?: string }> => {
     setLoading(true)
-    const { email, password, name, role, acceptTerms } = data
-    if (!acceptTerms) {
-      setLoading(false)
-      return { success: false, error: "Devi accettare i termini e le condizioni." }
-    }
+    const { email, password, name } = data
 
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          name,
-          role: role || "client",
+          name: name,
+          role: "client", // Registra sempre come 'client'
         },
       },
     })
     setLoading(false)
     if (error) {
       console.error("Register error:", error.message)
-      return { success: false, error: error.message }
+      if (error.message.includes("User already registered")) {
+        return { success: false, error: "Un utente con questa email è già registrato." }
+      }
+      return { success: false, error: "Errore durante la registrazione. Riprova." }
     }
-    alert("Registrazione avvenuta con successo! Controlla la tua email per confermare l'account.")
+    toast({
+      title: "Registrazione quasi completata!",
+      description: "Controlla la tua email per confermare il tuo account.",
+      variant: "default",
+      duration: 10000,
+    })
     return { success: true }
   }
 
