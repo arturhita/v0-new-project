@@ -54,7 +54,7 @@ export async function createOperator(operatorData: OperatorData) {
       if (authError.message.includes("already registered")) {
         return { success: false, message: "Un utente con questa email è già registrato." }
       }
-      throw authError // Rilancia l'errore per essere catturato dal blocco catch principale
+      throw authError
     }
 
     if (!authData.user) {
@@ -65,8 +65,6 @@ export async function createOperator(operatorData: OperatorData) {
     console.log(`Utente Auth creato con successo. ID: ${userId}`)
 
     // 2. Creare il profilo nel database pubblico
-    // NOTA: L'avatar_url è stato temporaneamente rimosso per debug.
-    // Verrà gestito con un upload su Supabase Storage in un secondo momento.
     const profileData = {
       id: userId,
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
@@ -76,11 +74,24 @@ export async function createOperator(operatorData: OperatorData) {
       email: operatorData.email,
       phone: operatorData.phone,
       bio: operatorData.bio,
-      // avatar_url: operatorData.avatarUrl, // TEMPORANEAMENTE DISABILITATO PER DEBUG
+      avatar_url: operatorData.avatarUrl || null,
       role: "operator" as const,
       status: operatorData.status,
       commission_rate: Number.parseFloat(operatorData.commission),
-      services: operatorData.services,
+      services: {
+        chat: {
+          enabled: operatorData.services.chatEnabled,
+          price_per_minute: Number.parseFloat(operatorData.services.chatPrice),
+        },
+        call: {
+          enabled: operatorData.services.callEnabled,
+          price_per_minute: Number.parseFloat(operatorData.services.callPrice),
+        },
+        email: {
+          enabled: operatorData.services.emailEnabled,
+          price: Number.parseFloat(operatorData.services.emailPrice),
+        },
+      },
       availability: operatorData.availability,
       specialties: operatorData.specialties,
       categories: operatorData.categories,
@@ -88,17 +99,14 @@ export async function createOperator(operatorData: OperatorData) {
     }
 
     console.log("Passo 2: Inserimento profilo nel database...")
-    console.log("Dati profilo da inserire (senza avatar):", profileData)
-
     const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
 
     if (profileError) {
-      console.error("!!! ERRORE Inserimento Profilo DB:", profileError)
-      // Se l'inserimento del profilo fallisce, eseguiamo un rollback eliminando l'utente Auth
+      console.error("!!! ERRORE Inserimento Profilo DB:", profileError.message)
       console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
       await supabaseAdmin.auth.admin.deleteUser(userId)
       console.log("Rollback completato.")
-      throw profileError // Rilancia l'errore
+      throw profileError
     }
 
     console.log("Profilo inserito con successo nel database.")
@@ -125,9 +133,7 @@ export async function createOperator(operatorData: OperatorData) {
     }
 
     console.error("!!! ERRORE CRITICO nel processo di creazione operatore:", errorMessage)
-    console.error("Oggetto errore completo:", error)
 
-    // Se l'utente è stato creato ma il profilo no, assicurati che venga eliminato
     if (userId) {
       console.log(`Tentativo di rollback per utente ${userId} a causa di errore successivo...`)
       try {
