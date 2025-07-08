@@ -61,25 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Semplificato per gestire solo la sincronizzazione dello stato
+      if (_event === "SIGNED_OUT") {
+        setUser(null)
+        return
+      }
       if (session?.user) {
         const fullProfile = await fetchUserProfile(session.user)
         setUser(fullProfile)
-        if (_event === "SIGNED_IN" && fullProfile) {
-          switch (fullProfile.role) {
-            case "admin":
-              router.push("/admin")
-              break
-            case "operator":
-              router.push("/dashboard/operator")
-              break
-            case "client":
-              router.push("/dashboard/client")
-              break
-            default:
-              router.push("/")
-              break
-          }
-        }
       } else {
         setUser(null)
       }
@@ -87,11 +76,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase, router, fetchUserProfile])
+  }, [supabase, fetchUserProfile])
 
   const login = async (data: any) => {
-    const { error } = await supabase.auth.signInWithPassword(data)
-    return { success: !error, error: error || null }
+    const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword(data)
+
+    if (signInError) {
+      return { success: false, error: signInError }
+    }
+
+    if (sessionData.user) {
+      const fullProfile = await fetchUserProfile(sessionData.user)
+
+      if (fullProfile) {
+        setUser(fullProfile)
+        switch (fullProfile.role) {
+          case "admin":
+            router.push("/admin")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          case "client":
+            router.push("/dashboard/client")
+            break
+          default:
+            router.push("/")
+            break
+        }
+        return { success: true, error: null }
+      } else {
+        // Il profilo non è stato trovato, questo è un errore critico.
+        // fetchUserProfile ha già eseguito il signOut.
+        return {
+          success: false,
+          error: {
+            name: "ProfileNotFound",
+            message: "Login riuscito, ma non è stato possibile caricare il profilo utente. Contattare l'assistenza.",
+          } as AuthError,
+        }
+      }
+    }
+
+    return {
+      success: false,
+      error: { name: "UnknownLoginError", message: "Si è verificato un errore sconosciuto." } as AuthError,
+    }
   }
 
   const register = async (data: any) => {
