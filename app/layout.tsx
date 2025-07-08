@@ -3,8 +3,6 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
-import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
 import { Toaster } from "@/components/ui/toaster"
 import { CookieBanner } from "@/components/cookie-banner"
 import { OperatorStatusProvider } from "@/contexts/operator-status-context"
@@ -25,15 +23,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-gray-900`}>
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>
-              <div className="flex flex-col min-h-screen">
-                <SiteNavbar />
-                <main className="flex-grow pt-16">{children}</main>
-                <SiteFooter />
-              </div>
+              {children}
               <Toaster />
               <CookieBanner />
             </ChatRequestProvider>

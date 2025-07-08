@@ -39,13 +39,11 @@ export default function RegisterPage() {
         if (registrationError?.message.includes("User already registered")) {
           setError("Un utente con questa email esiste già.")
         } else {
-          setError("Errore durante la registrazione. Riprova più tardi.")
+          setError(registrationError?.message || "Errore durante la registrazione. Riprova più tardi.")
         }
-        console.error("Register error:", registrationError?.message)
       }
     } catch (err: any) {
       setError("Un errore imprevisto è accaduto.")
-      console.error("Submit handler error:", err)
     } finally {
       setIsSubmitting(false)
     }

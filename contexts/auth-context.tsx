@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser, AuthError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/use-toast"
 
-// Uniamo i dati di Supabase Auth con quelli della nostra tabella `profiles`
 export type UserProfile = SupabaseUser & {
   name: string
   role: "client" | "operator" | "admin"
@@ -41,7 +40,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut()
         return null
       }
-      // Combiniamo i dati dell'utente autenticato con i dati del profilo
       return { ...sessionUser, ...profile } as UserProfile
     },
     [supabase],
@@ -67,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const fullProfile = await fetchUserProfile(session.user)
         setUser(fullProfile)
         if (_event === "SIGNED_IN") {
-          // Qui puoi aggiungere logica per reindirizzare in base al ruolo
           router.push("/dashboard/client")
         }
       } else {
@@ -81,19 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (data: any) => {
     const { error } = await supabase.auth.signInWithPassword(data)
-    return { success: !error, error }
+    return { success: !error, error: error || null }
   }
 
   const register = async (data: any) => {
     const { name, email, password } = data
-    // Il trigger nel database userà i metadata qui sotto per popolare la tabella `profiles`.
     const { data: result, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           name: name,
-          role: "client", // Ruolo di default per ogni nuova registrazione
+          role: "client",
         },
       },
     })
@@ -104,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Controlla la tua email per confermare il tuo account.",
       })
     }
-    return { success: !error, error }
+    return { success: !error, error: error || null }
   }
 
   const logout = async () => {
