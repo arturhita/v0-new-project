@@ -7,20 +7,28 @@ import type { Review } from "@/components/review-card"
 export async function getApprovedOperators(): Promise<Operator[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("operator_details")
+    .from("operator_profiles")
     .select(
       `
-      stage_name,
-      bio,
-      specialties,
-      created_at,
+      id,
+      is_online,
+      tags,
+      chat_price_per_minute,
+      call_price_per_minute,
+      email_price,
+      average_rating,
+      reviews_count,
       profiles (
         id,
-        avatar_url
+        name,
+        avatar_url,
+        specialization,
+        description,
+        created_at
       )
     `,
     )
-    .eq("status", "approved")
+    .eq("application_status", "approved")
     .limit(8)
 
   if (error) {
@@ -28,60 +36,62 @@ export async function getApprovedOperators(): Promise<Operator[]> {
     return []
   }
 
-  return data.map((op: any) => ({
-    id: op.profiles.id,
-    name: op.stage_name,
-    avatarUrl: op.profiles.avatar_url || `/placeholder.svg?width=96&height=96&query=${op.stage_name}`,
-    specialization: op.specialties[0] || "Esperto",
-    rating: 4.9, // Placeholder
-    reviewsCount: 123, // Placeholder
-    description: op.bio,
-    tags: op.specialties,
-    isOnline: true, // Placeholder
-    services: { chatPrice: 2.5, callPrice: 3.0 }, // Placeholder
-    joinedDate: op.created_at,
-  }))
-}
-
-const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
-  const date = new Date()
-  if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
-  if (hoursAgo) date.setHours(date.getHours() - hoursAgo)
-  if (minutesAgo) date.setMinutes(date.getMinutes() - minutesAgo)
-  return date.toISOString()
+  return data.map((o) => {
+    const profile = Array.isArray(o.profiles) ? o.profiles[0] : o.profiles
+    return {
+      id: o.id,
+      name: profile?.name || "Operatore",
+      avatarUrl: profile?.avatar_url || null,
+      specialization: profile?.specialization || "N/A",
+      rating: o.average_rating || 0,
+      reviewsCount: o.reviews_count || 0,
+      description: profile?.description || "Nessuna descrizione.",
+      tags: o.tags || [],
+      isOnline: o.is_online || false,
+      services: {
+        chatPrice: o.chat_price_per_minute,
+        callPrice: o.call_price_per_minute,
+        emailPrice: o.email_price,
+      },
+      joinedDate: profile?.created_at,
+    }
+  })
 }
 
 export async function getRecentReviews(): Promise<Review[]> {
-  // In a real app, this would query the 'reviews' table.
-  // For now, returning mock data from the server.
-  return [
-    {
-      id: "r1",
-      userName: "Giulia R.",
-      userType: "Vip",
-      operatorName: "Luna Stellare",
-      rating: 5,
-      comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
-      date: generateTimeAgo(0, 0, 49),
-    },
-    {
-      id: "r2",
-      userName: "Marco B.",
-      userType: "Utente",
-      operatorName: "Maestro Cosmos",
-      rating: 5,
-      comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
-      date: generateTimeAgo(0, 0, 57),
-    },
-    {
-      id: "r3",
-      userName: "Sofia L.",
-      userType: "Vip",
-      operatorName: "Sage Aurora",
-      rating: 4,
-      comment:
-        "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
-      date: generateTimeAgo(0, 1),
-    },
-  ]
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(
+      `
+      id,
+      created_at,
+      rating,
+      comment,
+      client:client_id ( name, avatar_url ),
+      operator:operator_id ( profiles ( name ) )
+    `,
+    )
+    .order("created_at", { ascending: false })
+    .limit(10)
+
+  if (error) {
+    console.error("Error fetching recent reviews:", error)
+    return []
+  }
+
+  return data.map((r) => {
+    const clientProfile = Array.isArray(r.client) ? r.client[0] : r.client
+    const operatorProfile = Array.isArray(r.operator) ? r.operator[0] : r.operator
+    const operatorNestedProfile = operatorProfile?.profiles
+
+    return {
+      id: r.id,
+      date: r.created_at,
+      rating: r.rating,
+      text: r.comment,
+      author: clientProfile?.name || "Utente Anonimo",
+      operatorName: operatorNestedProfile?.name || "Operatore",
+    }
+  })
 }

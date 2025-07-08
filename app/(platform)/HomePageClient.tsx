@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperatorCard, type Operator } from "@/components/operator-card"
-import { ReviewCard, type Review } from "@/components/review-card"
+import OperatorCard, { type Operator } from "@/components/operator-card"
+import ReviewCard, { type Review } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 
 interface HomePageClientProps {
