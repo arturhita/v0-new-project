@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-900`}>
+      <body className={inter.className}>
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>

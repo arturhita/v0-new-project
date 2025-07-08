@@ -1,133 +1,131 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { notFound } from "next/navigation"
+import { revalidatePath } from "next/cache"
 
-// Recupera tutti gli operatori approvati per la visualizzazione pubblica
+// Mock data per operatori
+const mockOperators = [
+  {
+    id: "op_luna_stellare",
+    name: "Elara",
+    surname: "Luna",
+    stageName: "Luna Stellare",
+    email: "stella@unveilly.com",
+    phone: "+39 123 456 7890",
+    bio: "Esperta in tarocchi e astrologia con oltre 10 anni di esperienza.",
+    specialties: ["Tarocchi", "Amore", "Lavoro"],
+    categories: ["Tarocchi"],
+    avatarUrl: "/placeholder.svg?height=100&width=100",
+    services: {
+      chatEnabled: true,
+      chatPrice: 2.5,
+      callEnabled: true,
+      callPrice: 3.0,
+      emailEnabled: true,
+      emailPrice: 30.0,
+    },
+    availability: {
+      monday: ["09:00-12:00", "15:00-18:00"],
+      tuesday: ["09:00-12:00", "15:00-18:00"],
+      wednesday: ["09:00-12:00"],
+      thursday: ["15:00-18:00"],
+      friday: ["09:00-12:00", "15:00-18:00"],
+      saturday: ["10:00-16:00"],
+      sunday: [],
+    },
+    status: "Attivo" as const,
+    isOnline: true,
+    commission: "15",
+    createdAt: "2025-05-20",
+  },
+  {
+    id: "op_sol_divino",
+    name: "Orion",
+    surname: "Astro",
+    stageName: "Sol Divino",
+    email: "orion@unveilly.com",
+    phone: "+39 123 456 7891",
+    bio: "Specialista in astrologia e lettura delle stelle.",
+    specialties: ["Astrologia", "Futuro", "Destino"],
+    categories: ["Astrologia"],
+    avatarUrl: "/placeholder.svg?height=100&width=100",
+    services: {
+      chatEnabled: true,
+      chatPrice: 3.0,
+      callEnabled: true,
+      callPrice: 3.5,
+      emailEnabled: true,
+      emailPrice: 40.0,
+    },
+    availability: {
+      monday: ["09:00-12:00", "15:00-18:00"],
+      tuesday: ["09:00-12:00", "15:00-18:00"],
+      wednesday: ["09:00-12:00", "15:00-18:00"],
+      thursday: ["09:00-12:00", "15:00-18:00"],
+      friday: ["09:00-12:00", "15:00-18:00"],
+      saturday: ["10:00-16:00"],
+      sunday: ["10:00-16:00"],
+    },
+    status: "Attivo" as const,
+    isOnline: true,
+    commission: "15",
+    createdAt: "2025-04-10",
+  },
+]
+
+export async function createOperator(operatorData: any) {
+  try {
+    // Simula creazione operatore
+    const newOperator = {
+      ...operatorData,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString().split("T")[0],
+    }
+
+    // In un'app reale, salveresti nel database
+    console.log("Operatore creato:", newOperator)
+
+    revalidatePath("/admin/operators")
+
+    return {
+      success: true,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      operator: newOperator,
+    }
+  } catch (error) {
+    console.error("Errore creazione operatore:", error)
+    return {
+      success: false,
+      message: "Errore nella creazione dell'operatore",
+    }
+  }
+}
+
+export async function updateOperatorCommission(operatorId: string, commission: string) {
+  try {
+    // Simula aggiornamento commissione
+    console.log(`Aggiornamento commissione operatore ${operatorId}: ${commission}%`)
+
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+
+    return {
+      success: true,
+      message: "Commissione aggiornata con successo!",
+    }
+  } catch (error) {
+    console.error("Errore aggiornamento commissione:", error)
+    return {
+      success: false,
+      message: "Errore nell'aggiornamento della commissione",
+    }
+  }
+}
+
 export async function getAllOperators() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("operator_details")
-    .select(
-      `
-      stage_name,
-      bio,
-      specialties,
-      profiles (
-        id,
-        full_name,
-        avatar_url
-      )
-    `,
-    )
-    .eq("status", "approved")
-
-  if (error) {
-    console.error("Error fetching operators:", error)
-    return []
-  }
-
-  return data.map((op) => ({
-    id: op.profiles.id,
-    stageName: op.stage_name,
-    bio: op.bio,
-    specialties: op.specialties,
-    avatarUrl: op.profiles.avatar_url,
-    isOnline: true, // Placeholder
-  }))
+  // Simula fetch operatori
+  return mockOperators
 }
 
-// Recupera un singolo operatore tramite il suo nome d'arte per la pagina profilo
-export async function getOperatorByStageName(stageName: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("operator_details")
-    .select(
-      `
-      stage_name,
-      bio,
-      specialties,
-      profiles (
-        id,
-        full_name,
-        avatar_url
-      ),
-      services (
-        service_type,
-        price,
-        is_enabled
-      )
-    `,
-    )
-    .eq("stage_name", stageName)
-    .eq("status", "approved")
-    .single()
-
-  if (error || !data) {
-    console.error(`Error fetching operator by stage name "${stageName}":`, error)
-    notFound()
-  }
-
-  return {
-    id: data.profiles.id,
-    stageName: data.stage_name,
-    fullName: data.profiles.full_name,
-    bio: data.bio,
-    specialties: data.specialties,
-    avatarUrl: data.profiles.avatar_url,
-    services: data.services,
-    isOnline: true, // Placeholder
-  }
-}
-
-// Recupera un singolo operatore tramite il suo ID per i pannelli di amministrazione
 export async function getOperatorById(id: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      id,
-      full_name,
-      email,
-      avatar_url,
-      role,
-      operator_details (
-        stage_name,
-        bio,
-        specialties,
-        status,
-        commission_rate
-      ),
-      services (
-        service_type,
-        price,
-        is_enabled
-      )
-    `,
-    )
-    .eq("id", id)
-    .eq("role", "operator")
-    .single()
-
-  if (error || !data) {
-    console.error(`Error fetching operator with ID ${id}:`, error)
-    notFound()
-  }
-
-  // Appiattisce i dati per un uso più semplice nei form
-  const operatorDetails = data.operator_details[0] || {}
-  return {
-    id: data.id,
-    fullName: data.full_name,
-    email: data.email,
-    avatarUrl: data.avatar_url,
-    role: data.role,
-    stageName: operatorDetails.stage_name,
-    bio: operatorDetails.bio,
-    specialties: operatorDetails.specialties,
-    status: operatorDetails.status,
-    commissionRate: operatorDetails.commission_rate,
-    services: data.services,
-  }
+  return mockOperators.find((op) => op.id === id) || null
 }

@@ -7,9 +7,9 @@ import { createClient } from "@/lib/supabase/client"
 import type { SupabaseClient, User as SupabaseUser, AuthError } from "@supabase/supabase-js"
 import { useToast } from "@/components/ui/use-toast"
 
-// Combine Supabase user with our custom profile data
+// Uniamo i dati di Supabase Auth con quelli della nostra tabella `profiles`
 export type UserProfile = SupabaseUser & {
-  full_name: string
+  name: string
   role: "client" | "operator" | "admin"
   avatar_url: string | null
 }
@@ -37,10 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (sessionUser: SupabaseUser): Promise<UserProfile | null> => {
       const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", sessionUser.id).single()
       if (error) {
-        console.error("Error fetching profile, signing out:", error.message)
+        console.error("Errore nel recuperare il profilo, logout in corso:", error.message)
         await supabase.auth.signOut()
         return null
       }
+      // Combiniamo i dati dell'utente autenticato con i dati del profilo
       return { ...sessionUser, ...profile } as UserProfile
     },
     [supabase],
@@ -62,16 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setLoading(true)
       if (session?.user) {
         const fullProfile = await fetchUserProfile(session.user)
         setUser(fullProfile)
         if (_event === "SIGNED_IN") {
-          router.push("/dashboard/client") // Or role-based redirect
+          // Qui puoi aggiungere logica per reindirizzare in base al ruolo
+          router.push("/dashboard/client")
         }
       } else {
         setUser(null)
-        router.push("/login")
       }
       setLoading(false)
     })
@@ -86,14 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: any) => {
     const { name, email, password } = data
-    // The new database trigger will use this metadata.
+    // Il trigger nel database userà i metadata qui sotto per popolare la tabella `profiles`.
     const { data: result, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          full_name: name,
-          role: "client", // Default role
+          name: name,
+          role: "client", // Ruolo di default per ogni nuova registrazione
         },
       },
     })
@@ -109,7 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut()
-    setUser(null)
     router.push("/")
   }
 
@@ -129,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth deve essere usato all'interno di un AuthProvider")
   }
   return context
 }
