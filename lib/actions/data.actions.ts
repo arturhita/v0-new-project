@@ -6,29 +6,36 @@ import type { Review } from "@/components/review-card"
 
 export async function getApprovedOperators(): Promise<Operator[]> {
   const supabase = createClient()
+
+  // The correct approach is to query from the central 'profiles' table
+  // and join the related data, filtering on the joined table.
   const { data, error } = await supabase
-    .from("operator_profiles")
+    .from("profiles")
     .select(
       `
       id,
-      is_online,
-      tags,
-      chat_price_per_minute,
-      call_price_per_minute,
-      email_price,
-      average_rating,
-      reviews_count,
-      profiles (
-        id,
-        name,
-        avatar_url,
-        specialization,
-        description,
-        created_at
+      name,
+      avatar_url,
+      created_at,
+      operator_profiles!inner (
+          id,
+          is_online,
+          tags,
+          chat_price_per_minute,
+          call_price_per_minute,
+          email_price,
+          average_rating,
+          reviews_count,
+          application_status
+      ),
+      operator_details!inner (
+          stage_name,
+          bio,
+          specialties
       )
     `,
     )
-    .eq("application_status", "approved")
+    .eq("operator_profiles.application_status", "approved")
     .limit(8)
 
   if (error) {
@@ -36,24 +43,26 @@ export async function getApprovedOperators(): Promise<Operator[]> {
     return []
   }
 
-  return data.map((o) => {
-    const profile = Array.isArray(o.profiles) ? o.profiles[0] : o.profiles
+  return data.map((p: any) => {
+    const op = p.operator_profiles
+    const od = p.operator_details
+
     return {
-      id: o.id,
-      name: profile?.name || "Operatore",
-      avatarUrl: profile?.avatar_url || null,
-      specialization: profile?.specialization || "N/A",
-      rating: o.average_rating || 0,
-      reviewsCount: o.reviews_count || 0,
-      description: profile?.description || "Nessuna descrizione.",
-      tags: o.tags || [],
-      isOnline: o.is_online || false,
+      id: op.id, // Use operator_profiles.id as the main ID for operator-related things
+      name: od.stage_name || p.name,
+      avatarUrl: p.avatar_url || null,
+      specialization: od.specialties?.[0] || "N/A",
+      rating: op.average_rating || 0,
+      reviewsCount: op.reviews_count || 0,
+      description: od.bio || "Nessuna descrizione.",
+      tags: op.tags || [],
+      isOnline: op.is_online || false,
       services: {
-        chatPrice: o.chat_price_per_minute,
-        callPrice: o.call_price_per_minute,
-        emailPrice: o.email_price,
+        chatPrice: op.chat_price_per_minute,
+        callPrice: op.call_price_per_minute,
+        emailPrice: op.email_price,
       },
-      joinedDate: profile?.created_at,
+      joinedDate: p.created_at,
     }
   })
 }
@@ -68,8 +77,14 @@ export async function getRecentReviews(): Promise<Review[]> {
       created_at,
       rating,
       comment,
-      client:client_id ( name, avatar_url ),
-      operator:operator_id ( profiles ( name ) )
+      client:client_id ( name ),
+      operator:operator_id (
+        profiles:user_id (
+          operator_details:user_id (
+            stage_name
+          )
+        )
+      )
     `,
     )
     .order("created_at", { ascending: false })
@@ -80,18 +95,18 @@ export async function getRecentReviews(): Promise<Review[]> {
     return []
   }
 
-  return data.map((r) => {
-    const clientProfile = Array.isArray(r.client) ? r.client[0] : r.client
-    const operatorProfile = Array.isArray(r.operator) ? r.operator[0] : r.operator
-    const operatorNestedProfile = operatorProfile?.profiles
+  return data.map((r: any) => {
+    const clientProfile = r.client
+    const operatorDetails = r.operator?.profiles?.operator_details
 
     return {
       id: r.id,
       date: r.created_at,
       rating: r.rating,
-      text: r.comment,
-      author: clientProfile?.name || "Utente Anonimo",
-      operatorName: operatorNestedProfile?.name || "Operatore",
+      comment: r.comment,
+      userName: clientProfile?.name || "Utente Anonimo",
+      operatorName: operatorDetails?.stage_name || "Operatore",
+      userType: "Utente", // Placeholder
     }
   })
 }

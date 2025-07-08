@@ -22,7 +22,7 @@ export function HomePageClient({ operators, allReviews }: HomePageClientProps) {
     const updateReviews = () => {
       if (allReviews.length > 0) {
         const shuffled = [...allReviews].sort(() => 0.5 - Math.random())
-        setDisplayedReviews(shuffled.slice(0, 3))
+        setDisplayedReviews(shuffled.slice(0, Math.min(3, shuffled.length)))
       }
     }
     updateReviews()
