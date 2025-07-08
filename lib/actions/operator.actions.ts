@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import type { PostgrestError } from "@supabase/supabase-js"
 
 interface OperatorData {
   name: string
@@ -31,37 +30,43 @@ interface OperatorData {
 
 export async function createOperator(operatorData: OperatorData) {
   const supabaseAdmin = createAdminClient()
-  // Genera una password casuale sicura senza dipendenze esterne
   const temporaryPassword = Math.random().toString(36).slice(-12)
+  let userId: string | undefined = undefined
 
   try {
-    console.log("Inizio creazione operatore:", operatorData.email)
-    // 1. Creare l'utente in Supabase Auth usando il client admin e la password temporanea
+    console.log("--- Inizio Processo Creazione Operatore ---")
+    console.log("Dati ricevuti:", { email: operatorData.email, stageName: operatorData.stageName })
+
+    // 1. Creare l'utente in Supabase Auth
+    console.log("Passo 1: Creazione utente in Supabase Auth...")
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
-      email_confirm: true, // L'utente dovrà comunque confermare l'email per attivare l'account
+      email_confirm: true,
+      user_metadata: {
+        full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
+        stage_name: operatorData.stageName,
+      },
     })
 
     if (authError) {
-      console.error("Errore creazione utente in Supabase Auth:", authError.message)
+      console.error("!!! ERRORE in Supabase Auth:", authError)
       if (authError.message.includes("already registered")) {
-        return {
-          success: false,
-          message: "Un utente con questa email è già registrato.",
-        }
+        return { success: false, message: "Un utente con questa email è già registrato." }
       }
-      throw authError
+      throw authError // Rilancia l'errore per essere catturato dal blocco catch principale
     }
 
     if (!authData.user) {
-      throw new Error("Creazione utente fallita, nessun utente restituito.")
+      throw new Error("Creazione utente in Auth fallita, nessun utente restituito.")
     }
 
-    const userId = authData.user.id
-    console.log("Utente Auth creato con ID:", userId)
+    userId = authData.user.id
+    console.log(`Utente Auth creato con successo. ID: ${userId}`)
 
     // 2. Creare il profilo nel database pubblico
+    // NOTA: L'avatar_url è stato temporaneamente rimosso per debug.
+    // Verrà gestito con un upload su Supabase Storage in un secondo momento.
     const profileData = {
       id: userId,
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
@@ -71,56 +76,68 @@ export async function createOperator(operatorData: OperatorData) {
       email: operatorData.email,
       phone: operatorData.phone,
       bio: operatorData.bio,
-      avatar_url: operatorData.avatarUrl,
+      // avatar_url: operatorData.avatarUrl, // TEMPORANEAMENTE DISABILITATO PER DEBUG
       role: "operator" as const,
       status: operatorData.status,
       commission_rate: Number.parseFloat(operatorData.commission),
-      services: {
-        chat: {
-          enabled: operatorData.services.chatEnabled,
-          price_per_minute: Number.parseFloat(operatorData.services.chatPrice),
-        },
-        call: {
-          enabled: operatorData.services.callEnabled,
-          price_per_minute: Number.parseFloat(operatorData.services.callPrice),
-        },
-        email: {
-          enabled: operatorData.services.emailEnabled,
-          price: Number.parseFloat(operatorData.services.emailPrice),
-        },
-      },
+      services: operatorData.services,
       availability: operatorData.availability,
       specialties: operatorData.specialties,
       categories: operatorData.categories,
       is_online: operatorData.isOnline,
     }
 
-    console.log("Tentativo inserimento profilo per utente:", userId)
+    console.log("Passo 2: Inserimento profilo nel database...")
+    console.log("Dati profilo da inserire (senza avatar):", profileData)
+
     const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
 
     if (profileError) {
-      console.error("Errore inserimento profilo in DB:", profileError)
-      // Se l'inserimento del profilo fallisce, eliminiamo l'utente per consistenza
+      console.error("!!! ERRORE Inserimento Profilo DB:", profileError)
+      // Se l'inserimento del profilo fallisce, eseguiamo un rollback eliminando l'utente Auth
+      console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      console.log("Utente Auth di fallback eliminato:", userId)
-      throw profileError
+      console.log("Rollback completato.")
+      throw profileError // Rilancia l'errore
     }
 
-    console.log("Profilo inserito con successo per utente:", userId)
+    console.log("Profilo inserito con successo nel database.")
 
-    // 3. Riconvalida le pagine per mostrare i nuovi dati
+    // 3. Riconvalida le pagine
+    console.log("Passo 3: Riconvalida percorsi...")
     revalidatePath("/admin/operators")
     revalidatePath("/")
+    console.log("--- Processo Creazione Operatore Completato con Successo ---")
 
     return {
       success: true,
       message: `Operatore ${operatorData.stageName} creato con successo!`,
-      operator: { id: userId, ...profileData },
       temporaryPassword: temporaryPassword,
     }
   } catch (error) {
-    const errorMessage = (error as Error | PostgrestError).message
-    console.error("Errore nel processo di creazione operatore:", errorMessage)
+    let errorMessage: string
+    if (error instanceof Error) {
+      errorMessage = error.message
+    } else if (typeof error === "string") {
+      errorMessage = error
+    } else {
+      errorMessage = "Errore sconosciuto. Controlla i log del server."
+    }
+
+    console.error("!!! ERRORE CRITICO nel processo di creazione operatore:", errorMessage)
+    console.error("Oggetto errore completo:", error)
+
+    // Se l'utente è stato creato ma il profilo no, assicurati che venga eliminato
+    if (userId) {
+      console.log(`Tentativo di rollback per utente ${userId} a causa di errore successivo...`)
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(userId)
+        console.log(`Rollback per utente ${userId} completato.`)
+      } catch (rollbackError) {
+        console.error(`!!! FALLIMENTO ROLLBACK per utente ${userId}:`, rollbackError)
+      }
+    }
+
     return {
       success: false,
       message: `Errore nella creazione dell'operatore: ${errorMessage}`,
