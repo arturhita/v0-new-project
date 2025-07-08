@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { OperatorCard, type Operator as OperatorCardType } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { getAllOperators } from "@/lib/actions/operator.actions"
 
 const today = new Date()
 const fiveDaysAgo = new Date(today)
@@ -160,7 +161,9 @@ export const allMockReviews: ReviewCardType[] = [
   },
 ]
 
-export default function UnveillyHomePage() {
+export default async function HomePage() {
+  const operators = await getAllOperators()
+
   const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -175,13 +178,13 @@ export default function UnveillyHomePage() {
     return () => clearInterval(intervalId)
   }, [])
 
-  const newTalents = mockOperators
+  const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
     .slice(0, 3)
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-gray-900 text-white overflow-x-hidden">
       <style jsx>{`
       @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
@@ -276,9 +279,7 @@ export default function UnveillyHomePage() {
             <div className="absolute inset-0 bg-black/40"></div>
           </div>
 
-          <div
-            className={`relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 ${isLoaded ? "animate-fadeInUp" : "opacity-0"}`}
-          >
+          <div className={`relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32`}>
             <h1
               className="font-playfair font-bold text-white text-6xl md:text-8xl"
               style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
@@ -314,7 +315,7 @@ export default function UnveillyHomePage() {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {mockOperators.slice(0, 8).map((operator, index) => (
+              {operators.slice(0, 8).map((operator, index) => (
                 <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
                   <OperatorCard operator={operator} />
                 </div>

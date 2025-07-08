@@ -1,47 +1,44 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import { notFound } from "next/navigation"
 
-// This action fetches all approved operators from the database.
+// Questa action recupera tutti gli operatori approvati dal database.
 export async function getAllOperators() {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("profiles")
+    .from("operator_details")
     .select(
       `
-      id,
-      full_name,
-      avatar_url,
-      operator_details (
-        stage_name,
-        bio,
-        specialties
+      stage_name,
+      bio,
+      specialties,
+      profiles (
+        id,
+        full_name,
+        avatar_url
       )
     `,
     )
-    .eq("role", "operator")
-    .eq("operator_details.status", "approved")
+    .eq("status", "approved")
 
   if (error) {
     console.error("Error fetching operators:", error)
     return []
   }
 
-  // We need to flatten the data structure for easier use in components
-  return data.map((profile) => ({
-    id: profile.id,
-    name: profile.full_name,
-    stageName: profile.operator_details[0]?.stage_name,
-    bio: profile.operator_details[0]?.bio,
-    specialties: profile.operator_details[0]?.specialties,
-    avatarUrl: profile.avatar_url,
-    // You can add more fields here as needed, like isOnline status
-    isOnline: true, // Placeholder
+  // Trasformiamo i dati per un uso più semplice nei componenti
+  return data.map((op) => ({
+    id: op.profiles.id,
+    stageName: op.stage_name,
+    bio: op.bio,
+    specialties: op.specialties,
+    avatarUrl: op.profiles.avatar_url,
+    isOnline: true, // Placeholder per ora
   }))
 }
 
-// This action fetches a single operator by their public stage name.
+// Questa action recupera un singolo operatore tramite il suo nome d'arte.
 export async function getOperatorByStageName(stageName: string) {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -51,7 +48,7 @@ export async function getOperatorByStageName(stageName: string) {
       stage_name,
       bio,
       specialties,
-      profile:profiles (
+      profiles (
         id,
         full_name,
         avatar_url
@@ -67,33 +64,20 @@ export async function getOperatorByStageName(stageName: string) {
     .eq("status", "approved")
     .single()
 
-  if (error) {
+  if (error || !data) {
     console.error("Error fetching operator by stage name:", error)
-    return null
+    notFound() // Se l'operatore non viene trovato, mostra una pagina 404
   }
 
-  // Flatten the data for the component
+  // Trasformiamo i dati per il componente della pagina dettaglio
   return {
-    id: data.profile.id,
+    id: data.profiles.id,
     stageName: data.stage_name,
+    fullName: data.profiles.full_name,
     bio: data.bio,
     specialties: data.specialties,
-    avatarUrl: data.profile.avatar_url,
+    avatarUrl: data.profiles.avatar_url,
     services: data.services,
     isOnline: true, // Placeholder
   }
-}
-
-// Placeholder functions for create/update to be implemented later
-export async function createOperator(operatorData: any) {
-  console.log("Creating operator:", operatorData)
-  // Logic to insert into profiles and operator_details
-  return { success: true, message: "Operator created successfully." }
-}
-
-export async function updateOperatorCommission(operatorId: string, commission: string) {
-  console.log(`Updating commission for ${operatorId} to ${commission}%`)
-  // Logic to update operator_details table
-  revalidatePath("/admin/operators")
-  return { success: true, message: "Commission updated." }
 }

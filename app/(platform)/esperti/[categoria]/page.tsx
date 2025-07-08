@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { OperatorCard } from "@/components/operator-card"
-import { mockOperators, type Operator } from "@/app/(platform)/page"
+import { getAllOperators } from "@/lib/actions/operator.actions"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search } from "lucide-react"
@@ -21,19 +21,19 @@ const getCategoryDetails = (slug: string) => {
     astrologia: {
       title: "Esperti di Astrologia",
       description:
-        "Interpreta il linguaggio delle stelle. I nostri astrologi creano carte natali, analizzano transiti e svelano l'influenza dei pianeti sulla tua vita.",
+        "Interpreta il linguaggio delle stelle. I nostre astrologi creano carte natali, analizzano transiti e svelano l'influenza dei pianeti sulla tua vita.",
       searchKeywords: ["astrologia", "astrologo", "oroscopi", "tema natale"],
     },
     numerologia: {
       title: "Esperti di Numerologia",
       description:
-        "Scopri il potere nascosto nei numeri. I nostri numerologi analizzano le vibrazioni numeriche legate al tuo nome e alla tua data di nascita.",
+        "Scopri il potere nascosto nei numeri. I nostre numerologi analizzano le vibrazioni numeriche legate al tuo nome e alla tua data di nascita.",
       searchKeywords: ["numerologia", "numerologo"],
     },
     canalizzazione: {
       title: "Esperti di Canalizzazione",
       description:
-        "Connettiti con guide spirituali e energie superiori. I nostri canalizzatori fungono da ponte per ricevere messaggi illuminanti per il tuo cammino.",
+        "Connettiti con guide spirituali e energie superiori. I nostre canalizzatori fungono da ponte per ricevere messaggi illuminanti per il tuo cammino.",
       searchKeywords: ["canalizzazione", "canalizzatrice", "angeli", "spirituale"],
     },
     "guarigione-energetica": {
@@ -45,13 +45,13 @@ const getCategoryDetails = (slug: string) => {
     rune: {
       title: "Esperti di Rune",
       description:
-        "Interroga gli antichi simboli nordici. I nostri esperti di rune ti guideranno attraverso la saggezza e i misteri delle rune.",
+        "Interroga gli antichi simboli nordici. I nostre esperti di rune ti guideranno attraverso la saggezza e i misteri delle rune.",
       searchKeywords: ["rune"],
     },
     cristalloterapia: {
       title: "Esperti di Cristalloterapia",
       description:
-        "Sfrutta il potere curativo di cristalli e pietre. I nostri esperti ti aiuteranno a scegliere e utilizzare i cristalli per il tuo benessere.",
+        "Sfrutta il potere curativo di cristalli e pietre. I nostre esperti ti aiuteranno a scegliere e utilizzare i cristalli per il tuo benessere.",
       searchKeywords: ["cristalloterapia", "cristalli"],
     },
     medianita: {
@@ -59,6 +59,11 @@ const getCategoryDetails = (slug: string) => {
       description:
         "Comunica con il mondo spirituale in un ambiente sicuro e protetto. I nostri medium offrono conforto e messaggi dai tuoi cari.",
       searchKeywords: ["medianità", "medium"],
+    },
+    tutti: {
+      title: "Tutti gli Esperti",
+      description: "Trova il consulente perfetto per te.",
+      searchKeywords: [],
     },
   }
   return (
@@ -70,8 +75,9 @@ const getCategoryDetails = (slug: string) => {
   )
 }
 
-export default function CategoriaPage({ params }: { params: { categoria: string } }) {
-  const { categoria } = params
+export default async function EspertiCategoriaPage({ params }: { params: { categoria: string } }) {
+  const operators = await getAllOperators()
+  const categoria = decodeURIComponent(params.categoria)
   const categoryDetails = getCategoryDetails(categoria)
 
   const [searchTerm, setSearchTerm] = useState("")
@@ -80,7 +86,7 @@ export default function CategoriaPage({ params }: { params: { categoria: string 
 
   const filteredOperators = useMemo(() => {
     // 1. Filtra per categoria
-    const operatorsInCategory = mockOperators.filter((op) => {
+    const operatorsInCategory = operators.filter((op) => {
       const lowerCaseSpecialization = op.specialization.toLowerCase()
       const lowerCaseTags = op.tags.map((t) => t.toLowerCase())
       return categoryDetails.searchKeywords.some(
@@ -107,7 +113,7 @@ export default function CategoriaPage({ params }: { params: { categoria: string 
     // 4. Ordina per prezzo
     const sortedOperators = [...statusFilteredOperators]
     if (priceSort !== "default") {
-      const getPrice = (op: Operator) => {
+      const getPrice = (op: any) => {
         const priceString = op.services.chatPrice || op.services.callPrice || "999"
         return Number.parseFloat(priceString.replace("€", "").replace("/min", "").trim())
       }
@@ -123,14 +129,14 @@ export default function CategoriaPage({ params }: { params: { categoria: string 
   }, [categoria, searchTerm, onlineStatusFilter, priceSort, categoryDetails.searchKeywords])
 
   return (
-    <div className="bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 text-white min-h-screen pt-16">
+    <div className="bg-gray-900 min-h-screen">
       <div className="relative overflow-hidden">
         <ConstellationBackground goldVisible={true} />
         <div className="container mx-auto px-4 md:px-6 pt-8 md:pt-16 pb-16 md:pb-24 relative z-10">
           {/* Sezione Titolo */}
           <div className="text-center mb-12 md:mb-16 animate-fadeInUp" style={{ animationDelay: "100ms" }}>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">{categoryDetails.title}</h1>
-            <p className="text-lg text-white/80 max-w-3xl mx-auto">{categoryDetails.description}</p>
+            <p className="text-lg text-gray-400 max-w-3xl mx-auto">{categoryDetails.description}</p>
           </div>
 
           {/* Sezione Filtri e Ricerca */}
