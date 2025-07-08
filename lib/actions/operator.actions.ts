@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-// Helper function to safely parse strings into floats.
-// Handles empty strings, null, undefined, and non-numeric strings by returning 0.
+// Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
+// Gestisce stringhe vuote, null, undefined e non numeriche restituendo 0.
 const safeParseFloat = (value: string | number | undefined | null): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
   const num = Number.parseFloat(String(value))
@@ -42,11 +42,12 @@ export async function createOperator(operatorData: OperatorData) {
   let userId: string | undefined = undefined
 
   try {
-    // 1. Creare l'utente in Supabase Auth
+    // 1. Creare l'utente in Supabase Auth.
+    //    Il nuovo trigger 'on_auth_user_created' creerà automaticamente un profilo di base.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
-      email_confirm: true,
+      email_confirm: true, // L'utente non dovrà confermare l'email
       user_metadata: {
         full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
         stage_name: operatorData.stageName,
@@ -67,18 +68,16 @@ export async function createOperator(operatorData: OperatorData) {
 
     userId = authData.user.id
 
-    // 2. Creare il profilo nel database pubblico con dati sanificati
-    const profileData = {
-      id: userId,
+    // 2. AGGIORNARE il profilo appena creato dal trigger con i dati completi dell'operatore.
+    const profileDataToUpdate = {
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
       name: operatorData.name,
       surname: operatorData.surname,
       stage_name: operatorData.stageName,
-      email: operatorData.email,
       phone: operatorData.phone,
       bio: operatorData.bio,
       avatar_url: operatorData.avatarUrl || null,
-      role: "operator" as const,
+      role: "operator" as const, // Aggiorna il ruolo da 'client' (default) a 'operator'
       status: operatorData.status,
       commission_rate: safeParseFloat(operatorData.commission),
       services: {
@@ -101,10 +100,14 @@ export async function createOperator(operatorData: OperatorData) {
       is_online: operatorData.isOnline,
     }
 
-    const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
+    const { error: profileUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update(profileDataToUpdate)
+      .eq("id", userId) // Specifica quale profilo aggiornare
 
-    if (profileError) {
-      throw profileError
+    if (profileUpdateError) {
+      // Se l'aggiornamento fallisce, lancia l'errore per il blocco catch
+      throw profileUpdateError
     }
 
     // 3. Riconvalida i percorsi per mostrare i dati aggiornati
@@ -122,18 +125,10 @@ export async function createOperator(operatorData: OperatorData) {
 
     if (error && typeof error === "object" && "message" in error) {
       const dbError = error as { message: string; details?: string; hint?: string; code?: string }
-
-      if (/[^\x20-\x7E]/.test(dbError.message)) {
-        errorMessage = "Errore di comunicazione con il database."
-        errorDetails =
-          "I dati inviati potrebbero essere in un formato non valido (es. campi numerici vuoti o non validi). Controllare i dati e riprovare."
-        console.error("!!! ERRORE DATABASE (messaggio corrotto):", error)
-      } else {
-        errorMessage = `Errore Database: ${dbError.message}`
-        if (dbError.details) errorDetails += ` Dettagli: ${dbError.details}`
-        if (dbError.hint) errorDetails += ` Suggerimento: ${dbError.hint}`
-        console.error("!!! ERRORE DATABASE CATTURATO:", JSON.stringify(dbError, null, 2))
-      }
+      errorMessage = `Errore Database: ${dbError.message}`
+      if (dbError.details) errorDetails += ` Dettagli: ${dbError.details}`
+      if (dbError.hint) errorDetails += ` Suggerimento: ${dbError.hint}`
+      console.error("!!! ERRORE DATABASE CATTURATO:", JSON.stringify(dbError, null, 2))
     } else if (error instanceof Error) {
       errorMessage = `Errore Applicazione: ${error.message}`
       console.error("!!! ERRORE GENERICO CATTURATO:", error)
@@ -142,6 +137,8 @@ export async function createOperator(operatorData: OperatorData) {
       console.error("!!! ERRORE SCONOSCIUTO CATTURATO:", error)
     }
 
+    // Rollback: se l'utente è stato creato in Auth ma l'aggiornamento del profilo è fallito,
+    // eliminiamo l'utente per mantenere la consistenza dei dati.
     if (userId) {
       console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
       await supabaseAdmin.auth.admin.deleteUser(userId)
