@@ -7,68 +7,73 @@ import type { Review } from "@/components/review-card"
 export async function getApprovedOperators(): Promise<Operator[]> {
   const supabase = createClient()
 
-  // The correct approach is to query from the central 'profiles' table
-  // and join the related data, filtering on the joined table.
+  // Corrected Query: Start from operator_profiles and explicitly join related tables.
   const { data, error } = await supabase
-    .from("profiles")
+    .from("operator_profiles")
     .select(
       `
       id,
-      name,
-      avatar_url,
-      created_at,
-      operator_profiles!inner (
-          id,
-          is_online,
-          tags,
-          chat_price_per_minute,
-          call_price_per_minute,
-          email_price,
-          average_rating,
-          reviews_count,
-          application_status
-      ),
-      operator_details!inner (
+      is_online,
+      tags,
+      chat_price_per_minute,
+      call_price_per_minute,
+      email_price,
+      average_rating,
+      reviews_count,
+      profiles:user_id (
+        id,
+        name,
+        avatar_url,
+        created_at,
+        operator_details:user_id (
           stage_name,
           bio,
           specialties
+        )
       )
     `,
     )
-    .eq("operator_profiles.application_status", "approved")
+    .eq("application_status", "approved")
     .limit(8)
 
   if (error) {
-    console.error("Error fetching approved operators:", error)
+    console.error("Error fetching approved operators:", error.message)
     return []
   }
 
-  return data.map((p: any) => {
-    const op = p.operator_profiles
-    const od = p.operator_details
+  return data
+    .map((op: any) => {
+      const profile = op.profiles
+      if (!profile) return null
 
-    return {
-      id: op.id, // Use operator_profiles.id as the main ID for operator-related things
-      name: od.stage_name || p.name,
-      avatarUrl: p.avatar_url || null,
-      specialization: od.specialties?.[0] || "N/A",
-      rating: op.average_rating || 0,
-      reviewsCount: op.reviews_count || 0,
-      description: od.bio || "Nessuna descrizione.",
-      tags: op.tags || [],
-      isOnline: op.is_online || false,
-      services: {
-        chatPrice: op.chat_price_per_minute,
-        callPrice: op.call_price_per_minute,
-        emailPrice: op.email_price,
-      },
-      joinedDate: p.created_at,
-    }
-  })
+      // Supabase returns one-to-one joins as an array, so we take the first element.
+      const details = profile.operator_details?.[0]
+
+      return {
+        id: op.id,
+        name: details?.stage_name || profile.name,
+        avatarUrl: profile.avatar_url || null,
+        specialization: details?.specialties?.[0] || "Esperto",
+        rating: op.average_rating || 0,
+        reviewsCount: op.reviews_count || 0,
+        description: details?.bio || "Nessuna descrizione.",
+        tags: op.tags || [],
+        isOnline: op.is_online || false,
+        services: {
+          chatPrice: op.chat_price_per_minute,
+          callPrice: op.call_price_per_minute,
+          emailPrice: op.email_price,
+        },
+        joinedDate: profile.created_at,
+      }
+    })
+    .filter((p): p is Operator => p !== null)
 }
 
 export async function getRecentReviews(): Promise<Review[]> {
   const supabase = createClient()
+
+  // Corrected Query: Use explicit joins following the foreign key relationships.
   const { data, error } = await supabase
     .from("reviews")
     .select(
@@ -80,7 +85,7 @@ export async function getRecentReviews(): Promise<Review[]> {
       client:client_id ( name ),
       operator:operator_id (
         profiles:user_id (
-          operator_details:user_id (
+          operator_details (
             stage_name
           )
         )
@@ -91,13 +96,13 @@ export async function getRecentReviews(): Promise<Review[]> {
     .limit(10)
 
   if (error) {
-    console.error("Error fetching recent reviews:", error)
+    console.error("Error fetching recent reviews:", error.message)
     return []
   }
 
   return data.map((r: any) => {
     const clientProfile = r.client
-    const operatorDetails = r.operator?.profiles?.operator_details
+    const operatorDetails = r.operator?.profiles?.operator_details?.[0]
 
     return {
       id: r.id,
@@ -106,7 +111,7 @@ export async function getRecentReviews(): Promise<Review[]> {
       comment: r.comment,
       userName: clientProfile?.name || "Utente Anonimo",
       operatorName: operatorDetails?.stage_name || "Operatore",
-      userType: "Utente", // Placeholder
+      userType: "Utente", // Placeholder, can be enhanced later
     }
   })
 }
