@@ -15,26 +15,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, loading } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setLoading(true)
-    try {
-      const { error } = await login({ email, password })
-      if (error) {
-        setError("Credenziali non valide. Riprova.")
-      } else {
-        router.push("/dashboard/client") // Redirect on successful login
-      }
-    } catch (err: any) {
-      setError("Si è verificato un errore. Riprova più tardi.")
-      console.error("Login error:", err)
-    } finally {
-      setLoading(false)
+    const { success, error: loginError } = await login({ email, password })
+    if (!success) {
+      setError(loginError?.message || "Credenziali non valide. Riprova.")
+    } else {
+      router.push("/dashboard/client") // Redirect handled by context, but can be explicit
     }
   }
 

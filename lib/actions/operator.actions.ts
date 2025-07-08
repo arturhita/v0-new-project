@@ -1,131 +1,99 @@
 "use server"
 
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-// Mock data per operatori
-const mockOperators = [
-  {
-    id: "op_luna_stellare",
-    name: "Elara",
-    surname: "Luna",
-    stageName: "Luna Stellare",
-    email: "stella@unveilly.com",
-    phone: "+39 123 456 7890",
-    bio: "Esperta in tarocchi e astrologia con oltre 10 anni di esperienza.",
-    specialties: ["Tarocchi", "Amore", "Lavoro"],
-    categories: ["Tarocchi"],
-    avatarUrl: "/placeholder.svg?height=100&width=100",
-    services: {
-      chatEnabled: true,
-      chatPrice: 2.5,
-      callEnabled: true,
-      callPrice: 3.0,
-      emailEnabled: true,
-      emailPrice: 30.0,
-    },
-    availability: {
-      monday: ["09:00-12:00", "15:00-18:00"],
-      tuesday: ["09:00-12:00", "15:00-18:00"],
-      wednesday: ["09:00-12:00"],
-      thursday: ["15:00-18:00"],
-      friday: ["09:00-12:00", "15:00-18:00"],
-      saturday: ["10:00-16:00"],
-      sunday: [],
-    },
-    status: "Attivo" as const,
-    isOnline: true,
-    commission: "15",
-    createdAt: "2025-05-20",
-  },
-  {
-    id: "op_sol_divino",
-    name: "Orion",
-    surname: "Astro",
-    stageName: "Sol Divino",
-    email: "orion@unveilly.com",
-    phone: "+39 123 456 7891",
-    bio: "Specialista in astrologia e lettura delle stelle.",
-    specialties: ["Astrologia", "Futuro", "Destino"],
-    categories: ["Astrologia"],
-    avatarUrl: "/placeholder.svg?height=100&width=100",
-    services: {
-      chatEnabled: true,
-      chatPrice: 3.0,
-      callEnabled: true,
-      callPrice: 3.5,
-      emailEnabled: true,
-      emailPrice: 40.0,
-    },
-    availability: {
-      monday: ["09:00-12:00", "15:00-18:00"],
-      tuesday: ["09:00-12:00", "15:00-18:00"],
-      wednesday: ["09:00-12:00", "15:00-18:00"],
-      thursday: ["09:00-12:00", "15:00-18:00"],
-      friday: ["09:00-12:00", "15:00-18:00"],
-      saturday: ["10:00-16:00"],
-      sunday: ["10:00-16:00"],
-    },
-    status: "Attivo" as const,
-    isOnline: true,
-    commission: "15",
-    createdAt: "2025-04-10",
-  },
-]
+// This action fetches all approved operators from the database.
+export async function getAllOperators() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      id,
+      full_name,
+      avatar_url,
+      operator_details (
+        stage_name,
+        bio,
+        specialties
+      )
+    `,
+    )
+    .eq("role", "operator")
+    .eq("operator_details.status", "approved")
 
-export async function createOperator(operatorData: any) {
-  try {
-    // Simula creazione operatore
-    const newOperator = {
-      ...operatorData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString().split("T")[0],
-    }
-
-    // In un'app reale, salveresti nel database
-    console.log("Operatore creato:", newOperator)
-
-    revalidatePath("/admin/operators")
-
-    return {
-      success: true,
-      message: `Operatore ${operatorData.stageName} creato con successo!`,
-      operator: newOperator,
-    }
-  } catch (error) {
-    console.error("Errore creazione operatore:", error)
-    return {
-      success: false,
-      message: "Errore nella creazione dell'operatore",
-    }
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
   }
+
+  // We need to flatten the data structure for easier use in components
+  return data.map((profile) => ({
+    id: profile.id,
+    name: profile.full_name,
+    stageName: profile.operator_details[0]?.stage_name,
+    bio: profile.operator_details[0]?.bio,
+    specialties: profile.operator_details[0]?.specialties,
+    avatarUrl: profile.avatar_url,
+    // You can add more fields here as needed, like isOnline status
+    isOnline: true, // Placeholder
+  }))
+}
+
+// This action fetches a single operator by their public stage name.
+export async function getOperatorByStageName(stageName: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("operator_details")
+    .select(
+      `
+      stage_name,
+      bio,
+      specialties,
+      profile:profiles (
+        id,
+        full_name,
+        avatar_url
+      ),
+      services (
+        service_type,
+        price,
+        is_enabled
+      )
+    `,
+    )
+    .eq("stage_name", stageName)
+    .eq("status", "approved")
+    .single()
+
+  if (error) {
+    console.error("Error fetching operator by stage name:", error)
+    return null
+  }
+
+  // Flatten the data for the component
+  return {
+    id: data.profile.id,
+    stageName: data.stage_name,
+    bio: data.bio,
+    specialties: data.specialties,
+    avatarUrl: data.profile.avatar_url,
+    services: data.services,
+    isOnline: true, // Placeholder
+  }
+}
+
+// Placeholder functions for create/update to be implemented later
+export async function createOperator(operatorData: any) {
+  console.log("Creating operator:", operatorData)
+  // Logic to insert into profiles and operator_details
+  return { success: true, message: "Operator created successfully." }
 }
 
 export async function updateOperatorCommission(operatorId: string, commission: string) {
-  try {
-    // Simula aggiornamento commissione
-    console.log(`Aggiornamento commissione operatore ${operatorId}: ${commission}%`)
-
-    revalidatePath("/admin/operators")
-    revalidatePath(`/admin/operators/${operatorId}/edit`)
-
-    return {
-      success: true,
-      message: "Commissione aggiornata con successo!",
-    }
-  } catch (error) {
-    console.error("Errore aggiornamento commissione:", error)
-    return {
-      success: false,
-      message: "Errore nell'aggiornamento della commissione",
-    }
-  }
-}
-
-export async function getAllOperators() {
-  // Simula fetch operatori
-  return mockOperators
-}
-
-export async function getOperatorById(id: string) {
-  return mockOperators.find((op) => op.id === id) || null
+  console.log(`Updating commission for ${operatorId} to ${commission}%`)
+  // Logic to update operator_details table
+  revalidatePath("/admin/operators")
+  return { success: true, message: "Commission updated." }
 }

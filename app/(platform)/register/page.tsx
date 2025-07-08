@@ -17,9 +17,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
-  const { register } = useAuth()
+  const { register, loading } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,26 +27,17 @@ export default function RegisterPage() {
       return
     }
     setError(null)
-    setIsSubmitting(true)
     setSuccess(false)
 
-    try {
-      const { success, error: registrationError } = await register({ name, email, password })
-      if (success) {
-        setSuccess(true)
+    const { success: registrationSuccess, error: registrationError } = await register({ name, email, password })
+    if (registrationSuccess) {
+      setSuccess(true)
+    } else {
+      if (registrationError?.message.includes("User already registered")) {
+        setError("Un utente con questa email esiste già.")
       } else {
-        if (registrationError?.message.includes("User already registered")) {
-          setError("Un utente con questa email esiste già.")
-        } else {
-          setError("Errore durante la registrazione. Riprova più tardi.")
-        }
-        console.error("Register error:", registrationError?.message)
+        setError(registrationError?.message || "Errore durante la registrazione. Riprova più tardi.")
       }
-    } catch (err: any) {
-      setError("Un errore imprevisto è accaduto.")
-      console.error("Submit handler error:", err)
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -100,7 +90,7 @@ export default function RegisterPage() {
               required
               className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="Mario Rossi"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
           <div className="space-y-2">
@@ -115,7 +105,7 @@ export default function RegisterPage() {
               required
               className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="mario.rossi@email.com"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
           <div className="space-y-2">
@@ -131,7 +121,7 @@ export default function RegisterPage() {
               minLength={6}
               className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="••••••••"
-              disabled={isSubmitting}
+              disabled={loading}
             />
           </div>
           <div className="flex items-center space-x-2">
@@ -140,7 +130,7 @@ export default function RegisterPage() {
               checked={agreed}
               onCheckedChange={(checked) => setAgreed(checked as boolean)}
               className="border-indigo-400 data-[state=checked]:bg-indigo-500"
-              disabled={isSubmitting}
+              disabled={loading}
             />
             <label
               htmlFor="terms"
@@ -157,8 +147,8 @@ export default function RegisterPage() {
               .
             </label>
           </div>
-          <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={isSubmitting}>
-            {isSubmitting ? "Creazione in corso..." : "Crea Account"}
+          <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={loading}>
+            {loading ? "Creazione in corso..." : "Crea Account"}
           </Button>
         </form>
 

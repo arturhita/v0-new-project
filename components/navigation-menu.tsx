@@ -15,7 +15,7 @@ import {
 import { blogCategories } from "@/lib/blog-data"
 
 const triggerStyles =
-  "bg-transparent text-white hover:bg-slate-800 focus:bg-slate-800 data-[active]:bg-slate-800 data-[state=open]:bg-slate-800 font-medium text-sm"
+  "bg-transparent text-white hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10 font-medium text-sm"
 
 const espertiLinks: { title: string; href: string; description: string }[] = [
   {
@@ -53,7 +53,7 @@ export function NavigationMenuDemo() {
         <NavigationMenuItem>
           <NavigationMenuTrigger className={triggerStyles}>Esperti</NavigationMenuTrigger>
           <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-lg">
+            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-slate-50 rounded-lg shadow-lg border border-slate-100">
               {espertiLinks.map((component) => (
                 <ListItem key={component.title} href={component.href} title={component.title}>
                   {component.description}
@@ -74,15 +74,15 @@ export function NavigationMenuDemo() {
         <NavigationMenuItem>
           <NavigationMenuTrigger className={triggerStyles}>AstroMag</NavigationMenuTrigger>
           <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-lg">
+            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] bg-slate-50 rounded-lg shadow-lg border border-slate-100">
               <li className="row-span-3">
                 <NavigationMenuLink asChild>
                   <a
-                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-slate-800/50 to-slate-900/80 p-6 no-underline outline-none focus:shadow-md"
+                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-blue-50 to-blue-100 p-6 no-underline outline-none focus:shadow-md"
                     href="/astromag"
                   >
-                    <div className="mb-2 mt-4 text-lg font-medium text-white">AstroMag Blog</div>
-                    <p className="text-sm leading-tight text-slate-400">
+                    <div className="mb-2 mt-4 text-lg font-medium text-slate-800">AstroMag Blog</div>
+                    <p className="text-sm leading-tight text-slate-600">
                       Esplora i nostri articoli su astrologia, numerologia e spiritualità.
                     </p>
                   </a>
@@ -109,13 +109,13 @@ const ListItem = React.forwardRef<React.ElementRef<"a">, React.ComponentPropsWit
           <a
             ref={ref}
             className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-slate-800 focus:bg-slate-800",
+              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-blue-100/50 focus:bg-blue-100/50",
               className,
             )}
             {...props}
           >
-            <div className="text-sm font-medium leading-none text-white">{title}</div>
-            <p className="line-clamp-2 text-sm leading-snug text-slate-400">{children}</p>
+            <div className="text-sm font-medium leading-none text-slate-800">{title}</div>
+            <p className="line-clamp-2 text-sm leading-snug text-slate-500">{children}</p>
           </a>
         </NavigationMenuLink>
       </li>
