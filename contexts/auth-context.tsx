@@ -1,14 +1,16 @@
 "use client"
 
+import type React from "react"
+
 import { createContext, useContext, useEffect, useState } from "react"
 import type { User, AuthChangeEvent, Session } from "@supabase/supabase-js"
-import { createSupabaseClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 import type { AuthContextType, UserProfile, RegisterCredentials, LoginCredentials } from "@/types/auth.types"
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const supabase = createSupabaseClient()
+  const supabase = createClient()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
@@ -16,11 +18,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const fetchUser = async (sessionUser: User | null) => {
       if (sessionUser) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", sessionUser.id)
-          .single()
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", sessionUser.id).single()
 
         if (profile) {
           setUser({
@@ -29,7 +27,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           })
           setIsAuthenticated(true)
         } else {
-          // This case might happen if the profile creation fails, though the new trigger should prevent it.
           setUser(null)
           setIsAuthenticated(false)
         }
@@ -44,12 +41,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (event: AuthChangeEvent, session: Session | null) => {
         setLoading(true)
         await fetchUser(session?.user ?? null)
-      }
+      },
     )
 
-    // Initial check
     const checkInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       await fetchUser(session?.user ?? null)
     }
     checkInitialSession()
