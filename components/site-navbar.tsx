@@ -27,7 +27,7 @@ export function SiteNavbar() {
     if (isMenuOpen) {
       setIsMenuOpen(false)
     }
-  }, [pathname])
+  }, [pathname, isMenuOpen])
 
   const getDashboardLink = () => {
     if (!user) return "/login"
@@ -71,9 +71,9 @@ export function SiteNavbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
                     <Avatar className="h-10 w-10 border-2 border-white/20">
-                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                      <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.name || user.email} />
                       <AvatarFallback className="bg-blue-700 text-white">
-                        {user.name.charAt(0).toUpperCase()}
+                        {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "A"}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -85,7 +85,7 @@ export function SiteNavbar() {
                 >
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium text-slate-900">{user.name}</p>
+                      <p className="font-medium text-slate-900">{user.name || user.email}</p>
                       <p className="w-[200px] truncate text-sm text-slate-500">{user.email}</p>
                     </div>
                   </div>

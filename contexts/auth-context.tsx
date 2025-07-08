@@ -64,8 +64,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const fullProfile = await fetchUserProfile(session.user)
         setUser(fullProfile)
-        if (_event === "SIGNED_IN") {
-          router.push("/dashboard/client")
+        if (_event === "SIGNED_IN" && fullProfile) {
+          switch (fullProfile.role) {
+            case "admin":
+              router.push("/admin")
+              break
+            case "operator":
+              router.push("/dashboard/operator")
+              break
+            case "client":
+              router.push("/dashboard/client")
+              break
+            default:
+              router.push("/")
+              break
+          }
         }
       } else {
         setUser(null)
