@@ -46,7 +46,6 @@ export async function createOperator(operatorData: OperatorData) {
     })
 
     if (authError) {
-      // L'errore di Auth è specifico, lo gestiamo e lo lanciamo per il blocco catch
       console.error("!!! ERRORE in Supabase Auth:", authError)
       if (authError.message.includes("already registered")) {
         return { success: false, message: "Un utente con questa email è già registrato." }
@@ -73,19 +72,19 @@ export async function createOperator(operatorData: OperatorData) {
       avatar_url: operatorData.avatarUrl || null,
       role: "operator" as const,
       status: operatorData.status,
-      commission_rate: Number.parseFloat(operatorData.commission),
+      commission_rate: Number.parseFloat(operatorData.commission) || 0,
       services: {
         chat: {
           enabled: operatorData.services.chatEnabled,
-          price_per_minute: Number.parseFloat(operatorData.services.chatPrice),
+          price_per_minute: Number.parseFloat(operatorData.services.chatPrice) || 0,
         },
         call: {
           enabled: operatorData.services.callEnabled,
-          price_per_minute: Number.parseFloat(operatorData.services.callPrice),
+          price_per_minute: Number.parseFloat(operatorData.services.callPrice) || 0,
         },
         email: {
           enabled: operatorData.services.emailEnabled,
-          price: Number.parseFloat(operatorData.services.emailPrice),
+          price: Number.parseFloat(operatorData.services.emailPrice) || 0,
         },
       },
       availability: operatorData.availability,
@@ -97,8 +96,6 @@ export async function createOperator(operatorData: OperatorData) {
     const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
 
     if (profileError) {
-      // Se l'inserimento del profilo fallisce, lancia l'errore per il blocco catch
-      // che gestirà il rollback dell'utente Auth.
       throw profileError
     }
 
@@ -115,13 +112,21 @@ export async function createOperator(operatorData: OperatorData) {
     let errorMessage = "Si è verificato un errore imprevisto."
     let errorDetails = ""
 
-    // Gestione migliorata per errori Supabase (PostgrestError)
-    if (typeof error === "object" && error !== null && "message" in error) {
+    if (error && typeof error === "object" && "message" in error) {
       const dbError = error as { message: string; details?: string; hint?: string; code?: string }
-      errorMessage = `Errore Database: ${dbError.message}`
-      if (dbError.details) errorDetails += ` Dettagli: ${dbError.details}`
-      if (dbError.hint) errorDetails += ` Suggerimento: ${dbError.hint}`
-      console.error("!!! ERRORE DATABASE CATTURATO:", JSON.stringify(dbError, null, 2))
+
+      // Controlla se il messaggio di errore è illeggibile (caratteri non-ASCII)
+      if (/[^\x20-\x7E]/.test(dbError.message)) {
+        errorMessage = "Errore di comunicazione con il database."
+        errorDetails =
+          "I dati inviati potrebbero essere in un formato non valido (es. campi numerici vuoti). Controllare i dati e riprovare."
+        console.error("!!! ERRORE DATABASE (messaggio corrotto):", error)
+      } else {
+        errorMessage = `Errore Database: ${dbError.message}`
+        if (dbError.details) errorDetails += ` Dettagli: ${dbError.details}`
+        if (dbError.hint) errorDetails += ` Suggerimento: ${dbError.hint}`
+        console.error("!!! ERRORE DATABASE CATTURATO:", JSON.stringify(dbError, null, 2))
+      }
     } else if (error instanceof Error) {
       errorMessage = `Errore Applicazione: ${error.message}`
       console.error("!!! ERRORE GENERICO CATTURATO:", error)
@@ -149,7 +154,7 @@ export async function updateOperatorCommission(operatorId: string, commission: s
   try {
     const { error } = await supabase
       .from("profiles")
-      .update({ commission_rate: Number.parseFloat(commission) })
+      .update({ commission_rate: Number.parseFloat(commission) || 0 })
       .eq("id", operatorId)
 
     if (error) throw error
