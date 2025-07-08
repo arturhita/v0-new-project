@@ -43,7 +43,7 @@ export async function createOperator(operatorData: OperatorData) {
 
   try {
     // 1. Creare l'utente in Supabase Auth.
-    //    Il nuovo trigger 'on_auth_user_created' creerà automaticamente un profilo di base.
+    //    Il trigger 'on_auth_user_created' creerà automaticamente un profilo di base.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: temporaryPassword,
@@ -68,16 +68,16 @@ export async function createOperator(operatorData: OperatorData) {
 
     userId = authData.user.id
 
-    // 2. AGGIORNARE il profilo appena creato dal trigger con i dati completi dell'operatore.
+    // 2. Costruire in modo difensivo l'oggetto di aggiornamento per garantire l'integrità dei dati.
     const profileDataToUpdate = {
-      full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
-      name: operatorData.name,
-      surname: operatorData.surname,
-      stage_name: operatorData.stageName,
-      phone: operatorData.phone,
-      bio: operatorData.bio,
+      full_name: `${operatorData.name || ""} ${operatorData.surname || ""}`.trim(),
+      name: operatorData.name || "",
+      surname: operatorData.surname || "",
+      stage_name: operatorData.stageName || "",
+      phone: operatorData.phone || null,
+      bio: operatorData.bio || null,
       avatar_url: operatorData.avatarUrl || null,
-      role: "operator" as const, // Aggiorna il ruolo da 'client' (default) a 'operator'
+      role: "operator" as const,
       status: operatorData.status,
       commission_rate: safeParseFloat(operatorData.commission),
       services: {
@@ -94,23 +94,26 @@ export async function createOperator(operatorData: OperatorData) {
           price: safeParseFloat(operatorData.services.emailPrice),
         },
       },
-      availability: operatorData.availability,
-      specialties: operatorData.specialties,
-      categories: operatorData.categories,
+      availability: operatorData.availability || {},
+      specialties: operatorData.specialties || [],
+      categories: operatorData.categories || [],
       is_online: operatorData.isOnline,
     }
 
+    // Log di diagnostica per ispezionare i dati prima dell'invio
+    console.log("Attempting to update profile with this data:", JSON.stringify(profileDataToUpdate, null, 2))
+
+    // 3. AGGIORNARE il profilo appena creato dal trigger.
     const { error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
       .update(profileDataToUpdate)
-      .eq("id", userId) // Specifica quale profilo aggiornare
+      .eq("id", userId)
 
     if (profileUpdateError) {
-      // Se l'aggiornamento fallisce, lancia l'errore per il blocco catch
       throw profileUpdateError
     }
 
-    // 3. Riconvalida i percorsi per mostrare i dati aggiornati
+    // 4. Riconvalida i percorsi per mostrare i dati aggiornati
     revalidatePath("/admin/operators")
     revalidatePath("/")
 
@@ -137,8 +140,7 @@ export async function createOperator(operatorData: OperatorData) {
       console.error("!!! ERRORE SCONOSCIUTO CATTURATO:", error)
     }
 
-    // Rollback: se l'utente è stato creato in Auth ma l'aggiornamento del profilo è fallito,
-    // eliminiamo l'utente per mantenere la consistenza dei dati.
+    // Rollback: se l'utente è stato creato ma l'aggiornamento è fallito, eliminiamolo.
     if (userId) {
       console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
       await supabaseAdmin.auth.admin.deleteUser(userId)
