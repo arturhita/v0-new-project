@@ -39,12 +39,14 @@ export default function RegisterPage() {
         if (registrationError?.message.includes("User already registered")) {
           setError("Un utente con questa email esiste già.")
         } else {
-          setError(registrationError?.message || "Errore durante la registrazione.")
+          // Use a more generic error message for the user, but log the specific one.
+          setError("Errore durante la registrazione. Riprova più tardi.")
         }
-        console.error("Register error:", registrationError)
+        console.error("Register error:", registrationError?.message)
       }
     } catch (err: any) {
-      setError(err.message || "Un errore imprevisto è accaduto.")
+      setError("Un errore imprevisto è accaduto.")
+      console.error("Submit handler error:", err)
     } finally {
       setIsSubmitting(false)
     }
@@ -60,7 +62,7 @@ export default function RegisterPage() {
             Abbiamo inviato un link di conferma alla tua email. Per favore, controlla la tua casella di posta (anche la
             cartella spam) per completare la registrazione.
           </p>
-          <Button asChild className="mt-6">
+          <Button asChild className="mt-6 bg-indigo-600 hover:bg-indigo-700">
             <Link href="/login">Torna al Login</Link>
           </Button>
         </div>
@@ -99,6 +101,7 @@ export default function RegisterPage() {
               required
               className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="Mario Rossi"
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-2">
@@ -113,6 +116,7 @@ export default function RegisterPage() {
               required
               className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="mario.rossi@email.com"
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-2">
@@ -128,6 +132,7 @@ export default function RegisterPage() {
               minLength={6}
               className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
               placeholder="••••••••"
+              disabled={isSubmitting}
             />
           </div>
           <div className="flex items-center space-x-2">
@@ -136,6 +141,7 @@ export default function RegisterPage() {
               checked={agreed}
               onCheckedChange={(checked) => setAgreed(checked as boolean)}
               className="border-indigo-400 data-[state=checked]:bg-indigo-500"
+              disabled={isSubmitting}
             />
             <label
               htmlFor="terms"

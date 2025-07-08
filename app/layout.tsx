@@ -4,17 +4,13 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
 import { Toaster } from "@/components/ui/toaster"
-import { CookieBanner } from "@/components/cookie-banner"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenti del benessere",
-  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
+  title: "Moonthir - Consulenza Mistica",
+  description: "La tua guida nel mondo della consulenza mistica e spirituale.",
     generator: 'v0.dev'
 }
 
@@ -24,21 +20,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="it">
+      <body className={`${inter.className} bg-gray-900 text-white`}>
         <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>
-              <div className="flex flex-col min-h-screen">
-                <SiteNavbar />
-                {/* This pt-16 class is crucial. It adds top padding equal to the navbar's height (h-16), removing the gap. */}
-                <main className="flex-grow pt-16">{children}</main>
-                <SiteFooter />
-              </div>
-              <Toaster />
-              <CookieBanner />
-            </ChatRequestProvider>
-          </OperatorStatusProvider>
+          <SiteNavbar />
+          <main className="pt-16">{children}</main>
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

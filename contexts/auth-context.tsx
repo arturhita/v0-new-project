@@ -80,14 +80,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: any) => {
     const { name, email, password } = data
-    // This options.data object is what the new SQL trigger will use.
+    // This options.data object is still useful, and the new SQL trigger will
+    // safely use it if it's available.
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           name: name,
-          role: "client",
         },
       },
     })
