@@ -25,12 +25,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-[#000020]`}>
+      <body className={inter.className}>
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>
               <div className="flex flex-col min-h-screen">
                 <SiteNavbar />
+                {/* This pt-16 class is crucial. It adds top padding equal to the navbar's height (h-16), removing the gap. */}
                 <main className="flex-grow pt-16">{children}</main>
                 <SiteFooter />
               </div>
