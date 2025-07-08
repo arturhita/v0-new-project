@@ -33,7 +33,7 @@ export function SiteNavbar() {
     if (!user) return "/login"
     switch (user.role) {
       case "admin":
-        return "/admin"
+        return "/admin/dashboard"
       case "operator":
         return "/dashboard/operator"
       case "client":
