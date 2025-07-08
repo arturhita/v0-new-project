@@ -118,45 +118,6 @@ export async function createOperator(operatorData: OperatorData) {
   }
 }
 
-// Manteniamo le altre funzioni per compatibilità, ma andrebbero anch'esse aggiornate
-// per usare Supabase invece dei dati mock.
-
-const mockOperators = [
-  {
-    id: "op_luna_stellare",
-    name: "Elara",
-    surname: "Luna",
-    stageName: "Luna Stellare",
-    email: "stella@unveilly.com",
-    phone: "+39 123 456 7890",
-    bio: "Esperta in tarocchi e astrologia con oltre 10 anni di esperienza.",
-    specialties: ["Tarocchi", "Amore", "Lavoro"],
-    categories: ["Tarocchi"],
-    avatarUrl: "/placeholder.svg?height=100&width=100",
-    services: {
-      chatEnabled: true,
-      chatPrice: 2.5,
-      callEnabled: true,
-      callPrice: 3.0,
-      emailEnabled: true,
-      emailPrice: 30.0,
-    },
-    availability: {
-      monday: ["09:00-12:00", "15:00-18:00"],
-      tuesday: ["09:00-12:00", "15:00-18:00"],
-      wednesday: ["09:00-12:00"],
-      thursday: ["15:00-18:00"],
-      friday: ["09:00-12:00", "15:00-18:00"],
-      saturday: ["10:00-16:00"],
-      sunday: [],
-    },
-    status: "Attivo" as const,
-    isOnline: true,
-    commission: "15",
-    createdAt: "2025-05-20",
-  },
-]
-
 export async function updateOperatorCommission(operatorId: string, commission: string) {
   const supabase = createClient()
   try {

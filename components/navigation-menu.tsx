@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+
 import { cn } from "@/lib/utils"
 import {
   NavigationMenu,
@@ -12,28 +13,28 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { Sparkles, Users, BookOpen, Sun, Moon } from "lucide-react"
+import { BookOpen, Users, Sparkles } from "lucide-react"
 
-const components: { title: string; href: string; description: string }[] = [
+const expertCategories: { title: string; href: string; description: string }[] = [
   {
-    title: "Tarocchi dell'Amore",
-    href: "/tarocchi-online/amore",
-    description: "Scopri cosa ti riserva il futuro in amore con una lettura personalizzata.",
+    title: "Cartomanti",
+    href: "/esperti/cartomanti",
+    description: "Lettura delle carte per svelare passato, presente e futuro.",
   },
   {
-    title: "Tarocchi del Lavoro",
-    href: "/tarocchi-online/lavoro",
-    description: "Ottieni chiarezza sulla tua carriera e le tue finanze.",
+    title: "Astrologi",
+    href: "/esperti/astrologi",
+    description: "Interpretazione del tema natale e dei transiti planetari.",
   },
   {
-    title: "Tarocchi del Giorno",
-    href: "/tarocchi-online/giorno",
-    description: "Una carta per guidarti attraverso la giornata con consapevolezza.",
+    title: "Tarologi",
+    href: "/esperti/tarologi",
+    description: "Approfondimenti e guida attraverso la saggezza dei Tarocchi.",
   },
   {
-    title: "Sì o No",
-    href: "/tarocchi-online/si-no",
-    description: "Una risposta diretta e immediata a una tua domanda specifica.",
+    title: "Sensitivi",
+    href: "/esperti/sensitivi",
+    description: "Connessioni e percezioni per offrirti una guida spirituale.",
   },
 ]
 
@@ -42,47 +43,9 @@ export function NavigationMenuDemo() {
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <Link href="/esperti" legacyBehavior passHref>
-            <NavigationMenuLink
-              className={cn(navigationMenuTriggerStyle(), "bg-transparent text-white hover:bg-white/10")}
-            >
-              <Users className="mr-2 h-4 w-4" /> Esperti
-            </NavigationMenuLink>
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger className="bg-transparent text-white hover:bg-white/10">
-            <Sun className="mr-2 h-4 w-4" /> Oroscopo
-          </NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-              <ListItem href="/oroscopo/giornaliero" title="Oroscopo del Giorno">
-                Le previsioni astrologiche per oggi per tutti i segni zodiacali.
-              </ListItem>
-              <ListItem href="/oroscopo/settimanale" title="Oroscopo della Settimana">
-                Uno sguardo agli astri per la settimana che sta per iniziare.
-              </ListItem>
-              <ListItem href="/oroscopo/mensile" title="Oroscopo del Mese">
-                Le tendenze e i consigli delle stelle per il mese in corso.
-              </ListItem>
-              <ListItem href="/oroscopo/annuale" title="Oroscopo 2025">
-                Scopri cosa ti riserva il nuovo anno in amore, lavoro e benessere.
-              </ListItem>
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-        <NavigationMenuItem>
-          <Link href="/affinita-di-coppia" legacyBehavior passHref>
-            <NavigationMenuLink
-              className={cn(navigationMenuTriggerStyle(), "bg-transparent text-white hover:bg-white/10")}
-            >
-              <Sparkles className="mr-2 h-4 w-4" /> Affinità di Coppia
-            </NavigationMenuLink>
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger className="bg-transparent text-white hover:bg-white/10">
-            <Moon className="mr-2 h-4 w-4" /> Tarocchi Online
+          <NavigationMenuTrigger className="text-white bg-transparent hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10">
+            <Users className="mr-2 h-4 w-4" />
+            Esperti
           </NavigationMenuTrigger>
           <NavigationMenuContent>
             <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
@@ -90,16 +53,17 @@ export function NavigationMenuDemo() {
                 <NavigationMenuLink asChild>
                   <a
                     className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                    href="/tarocchi-online"
+                    href="/esperti"
                   >
-                    <div className="mb-2 mt-4 text-lg font-medium">Lettura Tarocchi</div>
+                    <Sparkles className="h-6 w-6 text-yellow-400" />
+                    <div className="mb-2 mt-4 text-lg font-medium text-slate-900">Trova il tuo Esperto</div>
                     <p className="text-sm leading-tight text-muted-foreground">
-                      Esplora i misteri dei tarocchi e trova le risposte che cerchi.
+                      Connettiti con i migliori professionisti del settore esoterico.
                     </p>
                   </a>
                 </NavigationMenuLink>
               </li>
-              {components.map((component) => (
+              {expertCategories.map((component) => (
                 <ListItem key={component.title} title={component.title} href={component.href}>
                   {component.description}
                 </ListItem>
@@ -110,9 +74,13 @@ export function NavigationMenuDemo() {
         <NavigationMenuItem>
           <Link href="/astromag" legacyBehavior passHref>
             <NavigationMenuLink
-              className={cn(navigationMenuTriggerStyle(), "bg-transparent text-white hover:bg-white/10")}
+              className={cn(
+                navigationMenuTriggerStyle(),
+                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
+              )}
             >
-              <BookOpen className="mr-2 h-4 w-4" /> Astromag
+              <BookOpen className="mr-2 h-4 w-4" />
+              AstroMag
             </NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
