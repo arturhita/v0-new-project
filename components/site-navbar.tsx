@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { NavigationMenuDemo } from "@/components/navigation-menu" // Corrected import
+import { NavigationMenuDemo } from "@/components/navigation-menu"
 import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {

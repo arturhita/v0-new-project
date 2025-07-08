@@ -1,6 +1,5 @@
 -- Rimuovi la vecchia funzione e il trigger per una pulizia completa
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.create_user_profile;
 DROP FUNCTION IF EXISTS public.handle_new_user;
 
 -- Crea la nuova funzione, a prova di errore

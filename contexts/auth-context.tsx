@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const fullProfile = await fetchUserProfile(session.user)
         setUser(fullProfile)
         if (_event === "SIGNED_IN") {
-          router.push("/dashboard/client") // Or role-based redirect
+          router.push("/dashboard/client")
         }
       } else {
         setUser(null)
@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: any) => {
     const { name, email, password } = data
+    // This options.data object is what the new SQL trigger will use.
     const { error } = await supabase.auth.signUp({
       email,
       password,
