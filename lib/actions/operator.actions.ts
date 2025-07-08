@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import type { PostgrestError } from "@supabase/supabase-js"
 
 interface OperatorData {
@@ -29,7 +29,7 @@ interface OperatorData {
 }
 
 export async function createOperator(operatorData: OperatorData) {
-  const supabase = createServerClient()
+  const supabase = createClient()
 
   try {
     // 1. Creare l'utente in Supabase Auth e inviare l'invito
@@ -158,7 +158,7 @@ const mockOperators = [
 ]
 
 export async function updateOperatorCommission(operatorId: string, commission: string) {
-  const supabase = createServerClient()
+  const supabase = createClient()
   try {
     const { error } = await supabase
       .from("profiles")
@@ -184,7 +184,7 @@ export async function updateOperatorCommission(operatorId: string, commission: s
 }
 
 export async function getAllOperators() {
-  const supabase = createServerClient()
+  const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
   if (error) {
     console.error("Error fetching operators:", error)
@@ -194,7 +194,7 @@ export async function getAllOperators() {
 }
 
 export async function getOperatorById(id: string) {
-  const supabase = createServerClient()
+  const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
   if (error) {
     console.error(`Error fetching operator ${id}:`, error)
