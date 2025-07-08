@@ -71,7 +71,7 @@ export function SiteNavbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
                     <Avatar className="h-10 w-10 border-2 border-white/20">
-                      <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.name || user.email} />
+                      <AvatarImage src={user.avatar_url || ""} alt={user.name || user.email || ""} />
                       <AvatarFallback className="bg-blue-700 text-white">
                         {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "A"}
                       </AvatarFallback>
