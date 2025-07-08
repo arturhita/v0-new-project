@@ -68,8 +68,10 @@ export async function createOperator(operatorData: OperatorData) {
 
     userId = authData.user.id
 
-    // 2. Costruire in modo difensivo l'oggetto di aggiornamento per garantire l'integrità dei dati.
-    const profileDataToUpdate = {
+    // Strategia di aggiornamento in due fasi per isolare l'errore
+
+    // FASE 1: Aggiornamento dei dati "semplici" e sicuri
+    const simpleDataToUpdate = {
       full_name: `${operatorData.name || ""} ${operatorData.surname || ""}`.trim(),
       name: operatorData.name || "",
       surname: operatorData.surname || "",
@@ -79,6 +81,23 @@ export async function createOperator(operatorData: OperatorData) {
       avatar_url: operatorData.avatarUrl || null,
       role: "operator" as const,
       status: operatorData.status,
+      is_online: operatorData.isOnline,
+    }
+
+    console.log("FASE 1: Tentativo di aggiornamento con dati semplici:", JSON.stringify(simpleDataToUpdate, null, 2))
+    const { error: simpleUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update(simpleDataToUpdate)
+      .eq("id", userId)
+
+    if (simpleUpdateError) {
+      console.error("!!! ERRORE durante l'aggiornamento dei dati semplici:", simpleUpdateError)
+      throw simpleUpdateError
+    }
+    console.log("FASE 1: Aggiornamento dati semplici riuscito.")
+
+    // FASE 2: Aggiornamento dei dati "complessi" (JSONB, array, numeri)
+    const complexDataToUpdate = {
       commission_rate: safeParseFloat(operatorData.commission),
       services: {
         chat: {
@@ -97,23 +116,21 @@ export async function createOperator(operatorData: OperatorData) {
       availability: operatorData.availability || {},
       specialties: operatorData.specialties || [],
       categories: operatorData.categories || [],
-      is_online: operatorData.isOnline,
     }
 
-    // Log di diagnostica per ispezionare i dati prima dell'invio
-    console.log("Attempting to update profile with this data:", JSON.stringify(profileDataToUpdate, null, 2))
-
-    // 3. AGGIORNARE il profilo appena creato dal trigger.
-    const { error: profileUpdateError } = await supabaseAdmin
+    console.log("FASE 2: Tentativo di aggiornamento con dati complessi:", JSON.stringify(complexDataToUpdate, null, 2))
+    const { error: complexUpdateError } = await supabaseAdmin
       .from("profiles")
-      .update(profileDataToUpdate)
+      .update(complexDataToUpdate)
       .eq("id", userId)
 
-    if (profileUpdateError) {
-      throw profileUpdateError
+    if (complexUpdateError) {
+      console.error("!!! ERRORE durante l'aggiornamento dei dati complessi:", complexUpdateError)
+      throw complexUpdateError
     }
+    console.log("FASE 2: Aggiornamento dati complessi riuscito.")
 
-    // 4. Riconvalida i percorsi per mostrare i dati aggiornati
+    // 3. Riconvalida i percorsi
     revalidatePath("/admin/operators")
     revalidatePath("/")
 
