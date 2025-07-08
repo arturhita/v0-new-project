@@ -1,75 +1,103 @@
 "use client"
 
+import type React from "react"
+import { useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
+import Image from "next/image"
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const { login } = useAuth()
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const { error } = await login({ email, password })
+      if (error) {
+        setError("Credenziali non valide. Riprova.")
+      } else {
+        router.push("/dashboard/client") // Redirect on successful login
+      }
+    } catch (err: any) {
+      setError("Si è verificato un errore. Riprova più tardi.")
+      console.error("Login error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
-      <ConstellationBackground goldVisible={true} />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="relative w-full min-h-screen flex items-center justify-center p-4 text-white">
+      <ConstellationBackground />
+      <div className="relative z-10 w-full max-w-md p-8 space-y-6 bg-gray-800 bg-opacity-80 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/30">
+        <div className="text-center">
           <Image
             src="/images/moonthir-logo-white.png"
             alt="Moonthir Logo"
-            width={180}
+            width={150}
             height={50}
-            className="mx-auto"
+            className="mx-auto mb-4"
           />
+          <h1 className="text-3xl font-bold text-indigo-300">Bentornato</h1>
+          <p className="text-gray-400">Accedi al tuo account per continuare.</p>
         </div>
 
-        <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
-          <div className="grid gap-2 text-center mb-6">
-            <h1 className="text-3xl font-bold text-white">Bentornato</h1>
-            <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
+        {error && <p className="text-red-400 bg-red-900/50 p-3 rounded-md text-center text-sm">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-indigo-300">
+              Email
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
+              placeholder="mario.rossi@email.com"
+              disabled={loading}
+            />
           </div>
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email" className="text-slate-200">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="mario@esempio.com"
-                required
-                className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password" className="text-slate-200">
-                  Password
-                </Label>
-                <Link href="#" className="ml-auto inline-block text-sm text-blue-400 hover:text-blue-300 underline">
-                  Password dimenticata?
-                </Link>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                required
-                className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg"
-            >
-              Accedi
-            </Button>
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-indigo-300">
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="bg-gray-900/70 border-indigo-500/50 focus:border-indigo-400 focus:ring-indigo-400"
+              placeholder="••••••••"
+              disabled={loading}
+            />
           </div>
-          <div className="mt-6 text-center text-sm text-slate-300">
-            Non hai un account?{" "}
-            <Link href="/register" className="underline text-blue-400 hover:text-blue-300 font-semibold">
-              Registrati
-            </Link>
-          </div>
-        </div>
+          <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={loading}>
+            {loading ? "Accesso in corso..." : "Accedi"}
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-gray-400">
+          Non hai un account?{" "}
+          <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300 hover:underline">
+            Registrati
+          </Link>
+        </p>
       </div>
     </div>
   )

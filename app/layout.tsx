@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from 'next/font/google'
+import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SiteNavbar } from "@/components/site-navbar"
@@ -29,7 +29,7 @@ export default function RootLayout({
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>
-              <div className="flex flex-col min-h-screen">
+              <div className="flex flex-col min-h-screen bg-gray-900">
                 <SiteNavbar />
                 {/* This pt-16 class is crucial. It adds top padding equal to the navbar's height (h-16), removing the gap. */}
                 <main className="flex-grow pt-16">{children}</main>

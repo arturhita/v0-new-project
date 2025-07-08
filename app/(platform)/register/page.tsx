@@ -53,7 +53,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="relative w-full min-h-screen flex items-center justify-center p-4 bg-gray-900 text-white">
+      <div className="relative w-full min-h-screen flex items-center justify-center p-4 text-white">
         <ConstellationBackground />
         <div className="relative z-10 w-full max-w-md p-8 text-center bg-gray-800 bg-opacity-80 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/30">
           <h1 className="text-2xl font-bold text-green-400">Registrazione Inviata!</h1>
@@ -70,7 +70,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="relative w-full min-h-screen flex items-center justify-center p-4 bg-gray-900 text-white">
+    <div className="relative w-full min-h-screen flex items-center justify-center p-4 text-white">
       <ConstellationBackground />
       <div className="relative z-10 w-full max-w-md p-8 space-y-6 bg-gray-800 bg-opacity-80 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/30">
         <div className="text-center">
