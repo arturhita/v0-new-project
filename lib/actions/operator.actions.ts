@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 
-// Questa action recupera tutti gli operatori approvati dal database.
+// Recupera tutti gli operatori approvati per la visualizzazione pubblica
 export async function getAllOperators() {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -27,18 +27,17 @@ export async function getAllOperators() {
     return []
   }
 
-  // Trasformiamo i dati per un uso più semplice nei componenti
   return data.map((op) => ({
     id: op.profiles.id,
     stageName: op.stage_name,
     bio: op.bio,
     specialties: op.specialties,
     avatarUrl: op.profiles.avatar_url,
-    isOnline: true, // Placeholder per ora
+    isOnline: true, // Placeholder
   }))
 }
 
-// Questa action recupera un singolo operatore tramite il suo nome d'arte.
+// Recupera un singolo operatore tramite il suo nome d'arte per la pagina profilo
 export async function getOperatorByStageName(stageName: string) {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -65,11 +64,10 @@ export async function getOperatorByStageName(stageName: string) {
     .single()
 
   if (error || !data) {
-    console.error("Error fetching operator by stage name:", error)
-    notFound() // Se l'operatore non viene trovato, mostra una pagina 404
+    console.error(`Error fetching operator by stage name "${stageName}":`, error)
+    notFound()
   }
 
-  // Trasformiamo i dati per il componente della pagina dettaglio
   return {
     id: data.profiles.id,
     stageName: data.stage_name,
@@ -79,5 +77,57 @@ export async function getOperatorByStageName(stageName: string) {
     avatarUrl: data.profiles.avatar_url,
     services: data.services,
     isOnline: true, // Placeholder
+  }
+}
+
+// Recupera un singolo operatore tramite il suo ID per i pannelli di amministrazione
+export async function getOperatorById(id: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      id,
+      full_name,
+      email,
+      avatar_url,
+      role,
+      operator_details (
+        stage_name,
+        bio,
+        specialties,
+        status,
+        commission_rate
+      ),
+      services (
+        service_type,
+        price,
+        is_enabled
+      )
+    `,
+    )
+    .eq("id", id)
+    .eq("role", "operator")
+    .single()
+
+  if (error || !data) {
+    console.error(`Error fetching operator with ID ${id}:`, error)
+    notFound()
+  }
+
+  // Appiattisce i dati per un uso più semplice nei form
+  const operatorDetails = data.operator_details[0] || {}
+  return {
+    id: data.id,
+    fullName: data.full_name,
+    email: data.email,
+    avatarUrl: data.avatar_url,
+    role: data.role,
+    stageName: operatorDetails.stage_name,
+    bio: operatorDetails.bio,
+    specialties: operatorDetails.specialties,
+    status: operatorDetails.status,
+    commissionRate: operatorDetails.commission_rate,
+    services: data.services,
   }
 }
