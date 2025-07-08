@@ -31,7 +31,6 @@ export default function RootLayout({
             <ChatRequestProvider>
               <div className="flex flex-col min-h-screen">
                 <SiteNavbar />
-                {/* Questa classe è FONDAMENTALE. Spinge il contenuto giù dell'altezza della navbar (16 * 0.25rem = 4rem = 64px) */}
                 <main className="flex-grow pt-16">{children}</main>
                 <SiteFooter />
               </div>
