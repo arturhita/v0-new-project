@@ -12,7 +12,6 @@ const safeParseFloat = (value: any): number => {
 }
 
 export async function createOperator(operatorData: any) {
-  // Changed from formData: FormData
   const supabaseAdmin = createAdminClient()
 
   const {
@@ -32,11 +31,10 @@ export async function createOperator(operatorData: any) {
     categories,
   } = operatorData
 
-  const password = Math.random().toString(36).slice(-12) // Genera una password sicura
+  const password = Math.random().toString(36).slice(-12)
   let userId: string | undefined = undefined
 
   try {
-    // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -58,8 +56,6 @@ export async function createOperator(operatorData: any) {
 
     userId = authData.user.id
 
-    // Il trigger di Supabase ha già creato un profilo di base.
-    // Ora lo aggiorniamo con i dati del form.
     const profileUpdate = {
       full_name: `${name || ""} ${surname || ""}`.trim(),
       name: name || "",
@@ -105,7 +101,6 @@ export async function createOperator(operatorData: any) {
     }
   } catch (error: any) {
     if (userId) {
-      // Cleanup failed user creation
       await supabaseAdmin.auth.admin.deleteUser(userId)
     }
     console.error("Errore completo nella creazione dell'operatore:", error)
@@ -116,30 +111,60 @@ export async function createOperator(operatorData: any) {
   }
 }
 
-export async function updateOperatorCommission(operatorId: string, commission: string) {
+export async function getMyOperatorProfile() {
   const supabase = createClient()
-  try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ commission_rate: safeParseFloat(commission) })
-      .eq("id", operatorId)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-    if (error) throw error
+  if (!user) {
+    return { error: { message: "Utente non autenticato." } }
+  }
 
-    revalidatePath("/admin/operators")
-    revalidatePath(`/admin/operators/${operatorId}/edit`)
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).eq("role", "operator").single()
 
-    return {
-      success: true,
-      message: "Commissione aggiornata con successo!",
-    }
-  } catch (error) {
-    console.error("Errore aggiornamento commissione:", error)
-    return {
-      success: false,
-      message: "Errore nell'aggiornamento della commissione",
+  if (error) {
+    console.error("Error fetching operator profile:", error)
+    return { error: { message: "Profilo operatore non trovato." } }
+  }
+
+  return { data }
+}
+
+export async function updateMyOperatorProfile(profileData: any) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const { newPassword, ...profileFields } = profileData
+
+  const { error: profileError } = await supabase.from("profiles").update(profileFields).eq("id", user.id)
+
+  if (profileError) {
+    console.error("Error updating profile:", profileError)
+    return { success: false, message: `Errore nell'aggiornamento del profilo: ${profileError.message}` }
+  }
+
+  if (newPassword) {
+    const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword })
+    if (passwordError) {
+      console.error("Error updating password:", passwordError)
+      revalidatePath("/profile/operator")
+      return { success: true, message: "Profilo aggiornato, ma la password non è stata cambiata. Riprova." }
     }
   }
+
+  revalidatePath("/profile/operator")
+  if (profileFields.stage_name) {
+    revalidatePath(`/operator/${encodeURIComponent(profileFields.stage_name)}`)
+  }
+
+  return { success: true, message: "Profilo aggiornato con successo!" }
 }
 
 export async function getAllOperators() {

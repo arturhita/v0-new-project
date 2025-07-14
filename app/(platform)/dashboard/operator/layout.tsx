@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -34,14 +34,15 @@ import {
   Moon,
   Sun,
   Coffee,
-  AlertTriangle,
   ChevronDown,
+  UserIcon,
+  View,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type React from "react"
-import { Suspense, useEffect } from "react"
+import { Suspense } from "react"
 import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-status-context"
-import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
@@ -84,23 +85,8 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
 
 function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
-  const { showRequest } = useChatRequest()
-  const { logout } = useAuth()
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      console.log("Simulazione: Ricevuta una richiesta di chat...")
-      showRequest({
-        sessionId: `session_sim_${Date.now()}`,
-        fromUserId: "user_sim_123",
-        fromUserName: "Mario Simulato",
-      })
-    }, 10000)
-
-    return () => clearTimeout(timeoutId)
-  }, [showRequest])
+  const { logout, profile } = useAuth()
 
   const handleSetStatusManually = (newStatus: "online" | "offline" | "paused") => {
     setStatus(newStatus, true)
@@ -109,40 +95,18 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
   const getStatusIndicator = () => {
     switch (status) {
       case "online":
-        return {
-          icon: <Sun className="h-4 w-4 text-green-500" />,
-          text: "Online",
-          buttonClass: "border-green-300 text-green-700 hover:bg-green-50",
-          dotClass: "bg-green-500",
-        }
+        return { text: "Online", dotClass: "bg-green-500" }
       case "offline":
-        return {
-          icon: <Moon className="h-4 w-4 text-gray-500" />,
-          text: "Offline",
-          buttonClass: "border-gray-300 text-gray-700 hover:bg-gray-50",
-          dotClass: "bg-gray-500",
-        }
+        return { text: "Offline", dotClass: "bg-gray-500" }
       case "occupied":
-        return {
-          icon: <AlertTriangle className="h-4 w-4 text-red-500" />,
-          text: "Occupato",
-          buttonClass: "border-red-300 text-red-700 hover:bg-red-50 animate-pulse",
-          dotClass: "bg-red-500",
-        }
+        return { text: "Occupato", dotClass: "bg-red-500 animate-pulse" }
       case "paused":
         return {
-          icon: <Coffee className="h-4 w-4 text-amber-500" />,
           text: `In Pausa (${Math.floor(pauseTimer / 60)}:${(pauseTimer % 60).toString().padStart(2, "0")})`,
-          buttonClass: "border-amber-300 text-amber-700 hover:bg-amber-50",
           dotClass: "bg-amber-500",
         }
       default:
-        return {
-          icon: <Moon className="h-4 w-4 text-gray-500" />,
-          text: "Offline",
-          buttonClass: "border-gray-300 text-gray-700 hover:bg-gray-50",
-          dotClass: "bg-gray-500",
-        }
+        return { text: "Offline", dotClass: "bg-gray-500" }
     }
   }
   const currentStatusInfo = getStatusIndicator()
@@ -155,17 +119,9 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
     </nav>
   )
 
-  const handleLogout = () => {
-    // Implement your logout logic here, e.g., clearing cookies, local storage, etc.
-    // After logging out, redirect the user to the home page or login page.
-    router.push("/")
-  }
-
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Site Navbar */}
       <SiteNavbar />
-
       <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
         <aside className="hidden border-r border-blue-700 bg-blue-800 md:block shadow-xl rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden relative z-10">
           <div className="flex h-full max-h-screen flex-col">
@@ -195,11 +151,7 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
             <Suspense fallback={<div>Loading...</div>}>
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 md:hidden rounded-lg border-2 border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent"
-                  >
+                  <Button variant="outline" size="icon" className="shrink-0 md:hidden bg-transparent">
                     <MenuIcon className="h-6 w-6" />
                     <span className="sr-only">Apri menu</span>
                   </Button>
@@ -226,63 +178,68 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
             <div className="flex items-center gap-3 ml-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm border-2 bg-white",
-                      currentStatusInfo.buttonClass,
-                    )}
-                  >
+                  <Button variant="outline" className="flex items-center gap-2 rounded-full bg-transparent">
                     <span className={cn("h-2.5 w-2.5 rounded-full", currentStatusInfo.dotClass)} />
                     <span className="font-medium">{currentStatusInfo.text}</span>
                     <ChevronDown className="h-4 w-4 opacity-80" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white border-gray-200">
-                  <DropdownMenuLabel className="text-gray-700">Imposta il tuo stato</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-gray-200" />
-                  <DropdownMenuItem
-                    onClick={() => handleSetStatusManually("online")}
-                    disabled={status === "online" && !currentStatusInfo.text.startsWith("In Pausa")}
-                    className="text-gray-800 focus:bg-blue-100"
-                  >
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Imposta il tuo stato</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleSetStatusManually("online")}>
                     <Sun className="mr-2 h-4 w-4 text-green-500" />
                     <span>Online</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSetStatusManually("paused")}
-                    disabled={status === "paused"}
-                    className="text-gray-800 focus:bg-blue-100"
-                  >
+                  <DropdownMenuItem onClick={() => handleSetStatusManually("paused")}>
                     <Coffee className="mr-2 h-4 w-4 text-amber-500" />
                     <span>Pausa (20 min)</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSetStatusManually("offline")}
-                    disabled={status === "offline" && !currentStatusInfo.text.startsWith("In Pausa")}
-                    className="text-gray-800 focus:bg-blue-100"
-                  >
+                  <DropdownMenuItem onClick={() => handleSetStatusManually("offline")}>
                     <Moon className="mr-2 h-4 w-4 text-gray-500" />
                     <span>Offline</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100"
-              >
+              <Button variant="ghost" size="icon" className="rounded-full">
                 <Bell className="h-5 w-5" />
                 <span className="sr-only">Notifiche</span>
               </Button>
-              <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
-                <AvatarImage src="/placeholder.svg?height=38&width=38" alt={operatorName} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {operatorName?.substring(0, 1).toUpperCase()}
-                </AvatarFallback>
-                <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
-              </Avatar>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm cursor-pointer">
+                    <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} alt={profile?.stage_name || "User"} />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
+                      {profile?.stage_name?.substring(0, 1).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>{profile?.stage_name || profile?.full_name}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile/operator" className="flex items-center">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      <span>Modifica Profilo</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  {profile?.stage_name && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/operator/${encodeURIComponent(profile.stage_name)}`} className="flex items-center">
+                        <View className="mr-2 h-4 w-4" />
+                        <span>Vedi Profilo Pubblico</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="flex items-center">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Disconnetti</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
           <main className="flex-1 overflow-x-hidden p-4 sm:p-6 md:p-8">
