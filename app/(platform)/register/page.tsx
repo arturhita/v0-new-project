@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { signup } from "@/lib/actions/auth.actions"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,6 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
-  const { register } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,22 +40,15 @@ export default function RegisterPage() {
     setIsSubmitting(true)
     setSuccess(false)
 
-    try {
-      const { success, error: registrationError } = await register({ name, email, password })
-      if (success) {
-        setSuccess(true)
-      } else {
-        if (registrationError?.message.includes("User already registered")) {
-          setError("Un utente con questa email esiste già.")
-        } else {
-          setError(registrationError?.message || "Errore durante la registrazione. Riprova più tardi.")
-        }
-      }
-    } catch (err: any) {
-      setError("Un errore imprevisto è accaduto.")
-    } finally {
-      setIsSubmitting(false)
+    const result = await signup({ name, email, password })
+
+    if (result?.error) {
+      setError(result.error)
+    } else if (result?.success) {
+      setSuccess(true)
     }
+
+    setIsSubmitting(false)
   }
 
   if (success) {

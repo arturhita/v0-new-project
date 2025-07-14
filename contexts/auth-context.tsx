@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { User, Session } from "@supabase/supabase-js"
 import LoadingSpinner from "@/components/loading-spinner"
@@ -30,42 +30,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-
-      if (session?.user) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(userProfile)
-      }
-      setIsLoading(false)
-    }
-
-    fetchSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
       if (currentUser) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
-        setProfile(userProfile)
+        const { data: userProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
+
+        if (error) {
+          console.error("Error fetching profile on auth change:", error)
+          setProfile(null)
+        } else {
+          setProfile(userProfile)
+          // Redirect on login/state change
+          if (_event === "SIGNED_IN") {
+            switch (userProfile.role) {
+              case "admin":
+                router.push("/admin/dashboard")
+                break
+              case "operator":
+                router.push("/dashboard/operator")
+                break
+              case "client":
+              default:
+                router.push("/dashboard/client")
+                break
+            }
+          }
+        }
       } else {
         setProfile(null)
       }
+      setIsLoading(false)
     })
 
-    return () => {
-      authListener.subscription.unsubscribe()
+    // Esegui un controllo iniziale per la sessione esistente al caricamento
+    const checkInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setSession(session)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
+        const { data: userProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
+        if (!error) setProfile(userProfile)
+      }
+      setIsLoading(false)
     }
-  }, [supabase])
+
+    checkInitialSession()
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase, router])
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -80,8 +115,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }
 
+  const protectedRoutes = ["/admin", "/dashboard", "/profile"]
+  const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
+
   if (isLoading) {
     return <LoadingSpinner fullScreen={true} />
+  }
+
+  if (!user && isProtectedRoute) {
+    if (typeof window !== "undefined") {
+      router.push("/login")
+    }
+    return <LoadingSpinner fullScreen={true} />
+  }
+
+  if (user && profile) {
+    if (pathname.startsWith("/admin") && profile.role !== "admin") {
+      router.push("/")
+      return <LoadingSpinner fullScreen={true} />
+    }
+    if (pathname.startsWith("/dashboard/operator") && profile.role !== "operator") {
+      router.push("/")
+      return <LoadingSpinner fullScreen={true} />
+    }
+    if (pathname.startsWith("/dashboard/client") && profile.role !== "client") {
+      router.push("/")
+      return <LoadingSpinner fullScreen={true} />
+    }
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
