@@ -3,151 +3,154 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
-import LoadingSpinner from "@/components/loading-spinner"
+import type { SupabaseClient, User, Session } from "@supabase/supabase-js"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
-interface Profile {
+type Profile = {
   id: string
-  full_name: string | null
-  avatar_url: string | null
-  role: "client" | "operator" | "admin"
+  role: "admin" | "operator" | "client"
+  stage_name?: string
+  full_name?: string
+  avatar_url?: string
 }
 
-interface AuthContextType {
+type AuthContextType = {
+  supabase: SupabaseClient
   user: User | null
   profile: Profile | null
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  session: Session | null
+  isLoading: boolean
+  login: (credentials: { email: string; password: string }) => Promise<{
+    success: boolean
+    error: { message: string } | null
+  }>
+  register: (credentials: { name: string; email: string; password: string }) => Promise<{
+    success: boolean
+    error: { message: string } | null
+  }>
   logout: () => Promise<void>
-  loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const getSession = async () => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
+        const { data: userProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
+
+        if (error) {
+          console.error("Error fetching profile on auth change:", error)
+          setProfile(null)
+        } else {
+          setProfile(userProfile)
+        }
+      } else {
+        setProfile(null)
+      }
+      setIsLoading(false)
+    })
+
+    // Esegui un controllo iniziale per la sessione esistente al caricamento
+    const checkInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      if (session?.user) {
-        setUser(session.user)
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(userProfile)
+      setSession(session)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
+        const { data: userProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
+        if (!error) setProfile(userProfile)
       }
-      setLoading(false)
+      setIsLoading(false)
     }
 
-    getSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setLoading(true)
-      if (session?.user) {
-        setUser(session.user)
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(userProfile)
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-      setLoading(false)
-    })
+    checkInitialSession()
 
     return () => {
-      authListener.subscription.unsubscribe()
+      subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [supabase])
 
-  const login = async (email: string, password: string) => {
-    setLoading(true)
+  const login = async ({ email, password }: { email: string; password: string }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      setLoading(false)
-      return { success: false, error: error.message }
+      return { success: false, error: { message: error.message } }
     }
     if (data.user) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", data.user.id)
-        .single()
+      const { data: userProfile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
 
-      if (profileError || !userProfile) {
-        await supabase.auth.signOut()
-        setLoading(false)
-        return { success: false, error: "Profilo utente non trovato o errore nel recupero." }
-      }
-
-      setUser(data.user)
-      setProfile(userProfile)
-
-      switch (userProfile.role) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/dashboard/operator")
-          break
-        case "client":
-        default:
-          router.push("/dashboard/client")
-          break
+      if (userProfile) {
+        switch (userProfile.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          default:
+            router.push("/dashboard/client")
+            break
+        }
+      } else {
+        router.push("/") // Fallback
       }
     }
-    setLoading(false)
-    return { success: true }
+    return { success: true, error: null }
+  }
+
+  const register = async ({ name, email, password }: { name: string; email: string; password: string }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+          role: "client",
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) {
+      return { success: false, error: { message: error.message } }
+    }
+    return { success: true, error: null }
   }
 
   const logout = async () => {
-    setLoading(true)
     await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push("/login")
-    setLoading(false)
+    router.push("/")
   }
 
-  const value = {
-    user,
-    profile,
-    login,
-    logout,
-    loading,
-  }
+  const value = { supabase, user, profile, session, isLoading, login, register, logout }
 
-  const protectedRoutes = ["/admin", "/dashboard"]
-  const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
-
-  if (loading) {
-    return <LoadingSpinner />
-  }
-
-  if (!user && isProtectedRoute) {
-    if (typeof window !== "undefined") {
-      router.push("/login")
-    }
-    return <LoadingSpinner />
-  }
-
-  if (user && profile) {
-    if (pathname.startsWith("/admin") && profile.role !== "admin") {
-      router.push("/")
-      return <LoadingSpinner />
-    }
-    if (pathname.startsWith("/dashboard/operator") && profile.role !== "operator") {
-      router.push("/")
-      return <LoadingSpinner />
-    }
-    if (pathname.startsWith("/dashboard/client") && profile.role !== "client") {
-      router.push("/")
-      return <LoadingSpinner />
-    }
+  // Mostra lo spinner solo al caricamento iniziale, non durante la navigazione
+  if (isLoading && !user) {
+    return <LoadingSpinner fullScreen={true} />
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

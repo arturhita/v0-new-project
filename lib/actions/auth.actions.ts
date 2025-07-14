@@ -1,13 +1,11 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { headers } from "next/headers"
 
 export async function registerOperator(prevState: any, formData: FormData) {
-  const supabase = createClient()
-  const origin = headers().get("origin")
+  const supabaseAdmin = createAdminClient()
 
   const email = formData.get("email") as string
   const password = formData.get("password") as string
@@ -32,47 +30,46 @@ export async function registerOperator(prevState: any, formData: FormData) {
     return { success: false, message: "Seleziona almeno una categoria." }
   }
 
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+  const {
+    data: { user },
+    error: signUpError,
+  } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-      data: {
-        stage_name: stageName,
-        full_name: stageName, // Placeholder, can be updated later
-        role: "operator",
-      },
+    email_confirm: true, // L'utente viene creato come già verificato
+    user_metadata: {
+      stage_name: stageName,
+      full_name: stageName,
+      role: "operator",
     },
   })
 
   if (signUpError) {
-    console.error("SignUp Error:", signUpError)
-    if (signUpError.message.includes("User already registered")) {
+    console.error("Operator SignUp Error:", signUpError)
+    if (signUpError.message.includes("User already exists")) {
       return { success: false, message: "Un utente con questa email è già registrato." }
     }
     return { success: false, message: `Errore durante la registrazione: ${signUpError.message}` }
   }
 
-  if (!signUpData.user) {
+  if (!user) {
     return { success: false, message: "Impossibile creare l'utente. Riprova." }
   }
 
-  // The trigger should have created a profile. Now we update it.
-  const { error: profileError } = await supabase
+  // Il trigger su auth.users ha creato un profilo. Ora lo aggiorniamo.
+  const { error: profileError } = await supabaseAdmin
     .from("profiles")
     .update({
       stage_name: stageName,
       bio: bio,
       categories: categories,
-      status: "Attivo", // Make them visible immediately as requested
-      is_online: false, // Default to offline
-      // Set some default services and prices
+      status: "Attivo",
+      is_online: false,
       services: {
         chat: { enabled: true, price_per_minute: 2.0 },
         call: { enabled: false, price_per_minute: 2.5 },
         email: { enabled: false, price: 20.0 },
       },
-      // Set default empty availability
       availability: {
         monday: [],
         tuesday: [],
@@ -83,20 +80,18 @@ export async function registerOperator(prevState: any, formData: FormData) {
         sunday: [],
       },
     })
-    .eq("id", signUpData.user.id)
+    .eq("id", user.id)
 
   if (profileError) {
-    console.error("Profile Update Error:", profileError)
-    // In a real app, you might want to delete the auth user here if the profile update fails.
+    console.error("Operator Profile Update Error:", profileError)
+    // Se l'aggiornamento del profilo fallisce, eliminiamo l'utente per evitare dati orfani.
+    await supabaseAdmin.auth.admin.deleteUser(user.id)
     return {
       success: false,
-      message: `Utente creato, ma errore nell'aggiornamento del profilo: ${profileError.message}`,
+      message: `Errore nell'aggiornamento del profilo: ${profileError.message}. Registrazione annullata.`,
     }
   }
 
-  revalidatePath("/(platform)/operator") // Revalidate the operators list page
-  revalidatePath("/(platform)/esperti") // Revalidate the experts list page
-
-  // Redirect to a page that tells them to check their email
-  redirect("/registrazione-operatore/conferma")
+  revalidatePath("/(platform)/esperti", "layout")
+  redirect("/login?registration=success") // Reindirizza alla pagina di login
 }

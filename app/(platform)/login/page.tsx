@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import Image from "next/image"
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { useSearchParams } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -16,6 +18,19 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { login } = useAuth()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (searchParams.get("registration") === "success") {
+      toast({
+        title: "Registrazione completata!",
+        description: "Ora puoi accedere con le tue nuove credenziali.",
+        variant: "default",
+        className: "bg-green-500 text-white border-green-600",
+      })
+    }
+  }, [searchParams, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
