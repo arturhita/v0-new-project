@@ -2,38 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
-// Gestisce stringhe vuote, null, undefined e non numeriche restituendo 0.
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
-}
-
-// Questa interfaccia è solo per riferimento, l'azione ora usa FormData
-interface OperatorData {
-  name: string
-  surname: string
-  stageName: string
-  email: string
-  phone: string
-  bio: string
-  specialties: string[]
-  categories: string[]
-  avatarUrl: string
-  services: {
-    chatEnabled: boolean
-    chatPrice: string
-    callEnabled: boolean
-    callPrice: string
-    emailEnabled: boolean
-    emailPrice: string
-  }
-  availability: object
-  status: "Attivo" | "In Attesa" | "Sospeso"
-  isOnline: boolean
-  commission: string
 }
 
 export async function createOperator(formData: FormData) {
@@ -47,11 +22,11 @@ export async function createOperator(formData: FormData) {
   let userId: string | undefined = undefined
 
   try {
-    // 1. Creazione dell'utente nel sistema di autenticazione di Supabase
+    // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // L'utente è già verificato dall'admin
+      email_confirm: true,
       user_metadata: {
         full_name: `${name} ${surname}`.trim(),
         stage_name: stageName,
@@ -71,7 +46,7 @@ export async function createOperator(formData: FormData) {
     // Il trigger di Supabase ha già creato un profilo di base.
     // Ora lo aggiorniamo con i dati del form.
 
-    // FASE 1: Aggiornamento dei dati "semplici" e sicuri
+    // FASE 1: Aggiornamento dati semplici
     const simpleDataToUpdate = {
       full_name: `${name || ""} ${surname || ""}`.trim(),
       name: name || "",
@@ -85,19 +60,16 @@ export async function createOperator(formData: FormData) {
       is_online: formData.get("isOnline") === "on",
     }
 
-    console.log("FASE 1: Tentativo di aggiornamento con dati semplici:", JSON.stringify(simpleDataToUpdate, null, 2))
     const { error: simpleUpdateError } = await supabaseAdmin
       .from("profiles")
       .update(simpleDataToUpdate)
       .eq("id", userId)
 
     if (simpleUpdateError) {
-      console.error("!!! ERRORE DATABASE (AGGIORNAMENTO SEMPLICE):", simpleUpdateError)
       throw simpleUpdateError
     }
-    console.log("FASE 1: Aggiornamento dati semplici riuscito.")
 
-    // FASE 2: Aggiornamento dei dati "complessi" (JSONB, array, numeri)
+    // FASE 2: Aggiornamento dati complessi
     const complexDataToUpdate = {
       commission_rate: safeParseFloat(formData.get("commission")),
       services: {
@@ -127,17 +99,14 @@ export async function createOperator(formData: FormData) {
           .filter(Boolean) || [],
     }
 
-    console.log("FASE 2: Tentativo di aggiornamento con dati complessi:", JSON.stringify(complexDataToUpdate, null, 2))
     const { error: complexUpdateError } = await supabaseAdmin
       .from("profiles")
       .update(complexDataToUpdate)
       .eq("id", userId)
 
     if (complexUpdateError) {
-      console.error("!!! ERRORE DATABASE (AGGIORNAMENTO COMPLESSO):", complexUpdateError)
       throw complexUpdateError
     }
-    console.log("FASE 2: Aggiornamento dati complessi riuscito.")
 
     revalidatePath("/admin/operators")
     return {
@@ -146,15 +115,58 @@ export async function createOperator(formData: FormData) {
       temporaryPassword: password,
     }
   } catch (error: any) {
-    // Rollback
     if (userId) {
-      console.log(`Rollback: tentativo di eliminazione utente Auth con ID: ${userId}`)
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      console.log("Rollback completato.")
     }
     return {
       success: false,
       message: `Errore durante la creazione dell'operatore: ${error.message}`,
     }
   }
+}
+
+export async function updateOperatorCommission(operatorId: string, commission: string) {
+  const supabase = createClient()
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ commission_rate: safeParseFloat(commission) })
+      .eq("id", operatorId)
+
+    if (error) throw error
+
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+
+    return {
+      success: true,
+      message: "Commissione aggiornata con successo!",
+    }
+  } catch (error) {
+    console.error("Errore aggiornamento commissione:", error)
+    return {
+      success: false,
+      message: "Errore nell'aggiornamento della commissione",
+    }
+  }
+}
+
+export async function getAllOperators() {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
+  }
+  return data
+}
+
+export async function getOperatorById(id: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+  if (error) {
+    console.error(`Error fetching operator ${id}:`, error)
+    return null
+  }
+  return data
 }
