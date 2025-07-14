@@ -1,7 +1,7 @@
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function LoadingSpinner({
+export default function LoadingSpinner({
   className,
   fullScreen = false,
 }: {

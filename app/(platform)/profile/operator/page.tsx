@@ -2,44 +2,41 @@
 
 import { useState, useEffect, useRef, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
-import { getMyOperatorProfile, updateMyOperatorProfile } from "@/lib/actions/operator.actions"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { getOperatorProfile, updateOperatorProfile } from "@/lib/actions/operator.actions"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Camera, Save, XCircle, EyeOff, Eye, Loader2 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Camera } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import LoadingSpinner from "@/components/loading-spinner"
+import { SubmitButton } from "@/components/submit-button"
 
 type ProfileState = {
-  name: string
-  surname: string
+  full_name: string
   stage_name: string
-  email: string
-  phone: string
+  phone_number: string
   bio: string
-  specialties: string[]
+  services: string[]
   avatar_url: string
 }
 
 const initialProfileState: ProfileState = {
-  name: "",
-  surname: "",
+  full_name: "",
   stage_name: "",
-  email: "",
-  phone: "",
+  phone_number: "",
   bio: "",
-  specialties: [],
+  services: [],
   avatar_url: "",
 }
 
-export default function OperatorProfilePage() {
+export default async function OperatorProfilePage() {
   const router = useRouter()
-  const [profile, setProfile] = useState<ProfileState>(initialProfileState)
-  const [isLoading, setIsLoading] = useState(true)
+  const { profile } = await getOperatorProfile()
+  const [profileState, setProfileState] = useState<ProfileState>(initialProfileState)
+  const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [newSpecialty, setNewSpecialty] = useState("")
   const [storyFile, setStoryFile] = useState<File | null>(null)
@@ -49,38 +46,25 @@ export default function OperatorProfilePage() {
   const [showPasswordFields, setShowPasswordFields] = useState(false)
   const [passwords, setPasswords] = useState({ newPassword: "", confirmPassword: "" })
 
+  const allServices = ["Cartomanzia", "Astrologia", "Tarocchi", "Amore", "Lavoro", "Fortuna", "Sogni"]
+
   useEffect(() => {
-    const fetchProfile = async () => {
-      setIsLoading(true)
-      const result = await getMyOperatorProfile()
-      if (result.data) {
-        const dbProfile = result.data
-        setProfile({
-          name: dbProfile.name || "",
-          surname: dbProfile.surname || "",
-          stage_name: dbProfile.stage_name || "",
-          email: dbProfile.email || "",
-          phone: dbProfile.phone || "",
-          bio: dbProfile.bio || "",
-          specialties: dbProfile.specialties || [],
-          avatar_url: dbProfile.avatar_url || "",
-        })
-      } else {
-        toast({
-          title: "Errore",
-          description: result.error?.message || "Impossibile caricare il profilo.",
-          variant: "destructive",
-        })
-        router.push("/dashboard/operator")
-      }
-      setIsLoading(false)
+    if (profile) {
+      setProfileState({
+        full_name: profile.full_name || "",
+        stage_name: profile.stage_name || "",
+        phone_number: profile.phone_number || "",
+        bio: profile.bio || "",
+        services: profile.services || [],
+        avatar_url: profile.avatar_url || "",
+      })
     }
-    fetchProfile()
-  }, [router])
+    setIsLoading(false)
+  }, [profile])
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setProfile((prev) => ({ ...prev, [name]: value }))
+    setProfileState((prev) => ({ ...prev, [name]: value }))
   }
 
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -89,8 +73,8 @@ export default function OperatorProfilePage() {
   }
 
   const handleAddSpecialty = () => {
-    if (newSpecialty.trim() && !profile.specialties.includes(newSpecialty.trim())) {
-      setProfile((prev) => ({ ...prev, specialties: [...prev.specialties, newSpecialty.trim()] }))
+    if (newSpecialty.trim() && !profileState.services.includes(newSpecialty.trim())) {
+      setProfileState((prev) => ({ ...prev, services: [...prev.services, newSpecialty.trim()] }))
       setNewSpecialty("")
     } else {
       toast({ title: "Attenzione", description: "Specializzazione vuota o già presente.", variant: "default" })
@@ -98,7 +82,7 @@ export default function OperatorProfilePage() {
   }
 
   const handleRemoveSpecialty = (specToRemove: string) => {
-    setProfile((prev) => ({ ...prev, specialties: prev.specialties.filter((spec) => spec !== specToRemove) }))
+    setProfileState((prev) => ({ ...prev, services: prev.services.filter((spec) => spec !== specToRemove) }))
   }
 
   const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +98,7 @@ export default function OperatorProfilePage() {
       }
       const reader = new FileReader()
       reader.onloadend = () => {
-        setProfile((prev) => ({ ...prev, avatar_url: reader.result as string }))
+        setProfileState((prev) => ({ ...prev, avatar_url: reader.result as string }))
       }
       reader.readAsDataURL(file)
     }
@@ -122,7 +106,7 @@ export default function OperatorProfilePage() {
 
   const handleSaveProfile = async () => {
     setIsSaving(true)
-    const dataToUpdate: any = { ...profile }
+    const dataToUpdate: any = { ...profileState }
 
     if (showPasswordFields && passwords.newPassword) {
       if (passwords.newPassword !== passwords.confirmPassword) {
@@ -133,11 +117,11 @@ export default function OperatorProfilePage() {
       dataToUpdate.newPassword = passwords.newPassword
     }
 
-    const result = await updateMyOperatorProfile(dataToUpdate)
+    const result = await updateOperatorProfile(dataToUpdate)
 
     if (result.success) {
       toast({
-        title: "Altare Aggiornato!",
+        title: "Profilo Aggiornato!",
         description: result.message,
         className: "bg-green-100 border-green-300 text-green-700",
       })
@@ -155,6 +139,10 @@ export default function OperatorProfilePage() {
     return <LoadingSpinner fullScreen={true} />
   }
 
+  if (!profile) {
+    return <div>Profilo non trovato</div>
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900">
       <div className="container mx-auto max-w-4xl py-8 px-4">
@@ -170,11 +158,11 @@ export default function OperatorProfilePage() {
               <div className="relative group">
                 <Avatar className="w-28 h-28 sm:w-32 sm:h-32 border-4 border-indigo-400/50 shadow-xl">
                   <AvatarImage
-                    src={profile.avatar_url || "/placeholder.svg?height=120&width=120&query=mystic+woman+portrait"}
-                    alt={profile.stage_name || `${profile.name} ${profile.surname}`}
+                    src={profileState.avatar_url || "/placeholder.svg?height=120&width=120&query=mystic+woman+portrait"}
+                    alt={profileState.stage_name || profileState.full_name}
                   />
                   <AvatarFallback className="text-4xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
-                    {(profile.stage_name || profile.name).substring(0, 1).toUpperCase()}
+                    {(profileState.stage_name || profileState.full_name).substring(0, 1).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <Button
@@ -198,7 +186,7 @@ export default function OperatorProfilePage() {
               </div>
               <div className="text-center md:text-left">
                 <CardTitle className="text-3xl lg:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200 font-bold">
-                  {profile.stage_name || `${profile.name} ${profile.surname}`}
+                  {profileState.stage_name || profileState.full_name}
                 </CardTitle>
                 <CardDescription className="text-slate-300 text-base lg:text-lg mt-1">
                   Modifica il tuo profilo pubblico e privato.
@@ -207,191 +195,73 @@ export default function OperatorProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="p-6 sm:p-8 space-y-8">
-            <section>
-              <h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200 mb-4">
-                Dati Personali (Privati)
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                <div>
-                  <Label htmlFor="name" className="text-slate-300">
-                    Nome Reale
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={profile.name}
-                    onChange={handleInputChange}
-                    className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="surname" className="text-slate-300">
-                    Cognome Reale
-                  </Label>
-                  <Input
-                    id="surname"
-                    name="surname"
-                    value={profile.surname}
-                    onChange={handleInputChange}
-                    className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email" className="text-slate-300">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={profile.email}
-                    className="mt-1 bg-slate-700/50 cursor-not-allowed text-slate-400 border-slate-600"
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone" className="text-slate-300">
-                    Telefono
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={profile.phone}
-                    onChange={handleInputChange}
-                    className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                  />
-                </div>
+            <form action={updateOperatorProfile} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Nome Completo</Label>
+                <Input
+                  id="full_name"
+                  name="full_name"
+                  defaultValue={profileState.full_name}
+                  required
+                  onChange={handleInputChange}
+                  className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
+                />
               </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200 mb-4">
-                Profilo Pubblico
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="stage_name" className="text-slate-300">
-                    Nome d'Arte (Pubblico)
-                  </Label>
-                  <Input
-                    id="stage_name"
-                    name="stage_name"
-                    value={profile.stage_name}
-                    onChange={handleInputChange}
-                    className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="bio" className="text-slate-300">
-                    La Tua Essenza (Bio Pubblica)
-                  </Label>
-                  <Textarea
-                    id="bio"
-                    name="bio"
-                    value={profile.bio}
-                    onChange={handleInputChange}
-                    className="mt-1 min-h-[120px] bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                    rows={4}
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300">Le Tue Specializzazioni</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {profile.specialties.map((spec) => (
-                      <Badge
-                        key={spec}
-                        variant="secondary"
-                        className="text-sm py-1 px-3 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/30"
-                      >
-                        {spec}
-                        <button
-                          onClick={() => handleRemoveSpecialty(spec)}
-                          className="ml-1.5 text-purple-400 hover:text-indigo-300"
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <Input
-                      value={newSpecialty}
-                      onChange={(e) => setNewSpecialty(e.target.value)}
-                      placeholder="Aggiungi specializzazione"
-                      className="flex-grow bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                      onKeyPress={(e) => e.key === "Enter" && handleAddSpecialty()}
-                    />
-                    <Button
-                      onClick={handleAddSpecialty}
-                      variant="outline"
-                      className="border-indigo-500/50 text-indigo-400 hover:bg-indigo-500 hover:text-white bg-transparent"
-                    >
-                      Aggiungi
-                    </Button>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="stage_name">Nome d'Arte</Label>
+                <Input
+                  id="stage_name"
+                  name="stage_name"
+                  defaultValue={profileState.stage_name}
+                  required
+                  onChange={handleInputChange}
+                  className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
+                />
               </div>
-            </section>
-
-            <section className="border-t border-indigo-500/20 pt-8">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-purple-200">
-                  Cambia Parola d'Accesso
-                </h3>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowPasswordFields(!showPasswordFields)}
-                  size="sm"
-                  className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10"
-                >
-                  {showPasswordFields ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                  {showPasswordFields ? "Nascondi" : "Mostra Campi"}
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="phone_number">Numero di Telefono</Label>
+                <Input
+                  id="phone_number"
+                  name="phone_number"
+                  defaultValue={profileState.phone_number}
+                  onChange={handleInputChange}
+                  className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
+                />
               </div>
-              {showPasswordFields && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                    <div>
-                      <Label htmlFor="newPassword" className="text-slate-300">
-                        Nuova Parola d'Accesso
-                      </Label>
-                      <Input
-                        id="newPassword"
-                        name="newPassword"
-                        type="password"
-                        value={passwords.newPassword}
-                        onChange={handlePasswordChange}
-                        className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
+              <div className="space-y-2">
+                <Label htmlFor="bio">Biografia</Label>
+                <Textarea
+                  id="bio"
+                  name="bio"
+                  defaultValue={profileState.bio}
+                  rows={5}
+                  placeholder="Descrivi te stesso, le tue abilità e cosa offri ai tuoi clienti..."
+                  onChange={handleInputChange}
+                  className="mt-1 min-h-[120px] bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
+                />
+              </div>
+              <div className="space-y-3">
+                <Label>Servizi Offerti</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {allServices.map((service) => (
+                    <div key={service} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`service-${service}`}
+                        name="services"
+                        value={service}
+                        defaultChecked={(profileState.services as string[])?.includes(service)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="confirmPassword" className="text-slate-300">
-                        Conferma Nuova Parola
+                      <Label htmlFor={`service-${service}`} className="font-normal">
+                        {service}
                       </Label>
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        value={passwords.confirmPassword}
-                        onChange={handlePasswordChange}
-                        className="mt-1 bg-indigo-800/50 border-indigo-500/30 focus:border-indigo-400 text-white"
-                      />
                     </div>
-                  </div>
+                  ))}
                 </div>
-              )}
-            </section>
-
-            <Button
-              size="lg"
-              onClick={handleSaveProfile}
-              disabled={isSaving}
-              className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 py-3 text-base mt-4"
-            >
-              {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-              {isSaving ? "Salvataggio in corso..." : "Salva Modifiche all'Altare"}
-            </Button>
+              </div>
+              <SubmitButton />
+            </form>
           </CardContent>
         </Card>
       </div>
