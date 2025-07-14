@@ -11,13 +11,27 @@ const safeParseFloat = (value: any): number => {
   return isNaN(num) ? 0 : num
 }
 
-export async function createOperator(formData: FormData) {
+export async function createOperator(operatorData: any) {
+  // Changed from formData: FormData
   const supabaseAdmin = createAdminClient()
 
-  const email = formData.get("email") as string
-  const name = formData.get("name") as string
-  const surname = formData.get("surname") as string
-  const stageName = formData.get("stageName") as string
+  const {
+    email,
+    name,
+    surname,
+    stageName,
+    phone,
+    bio,
+    avatarUrl,
+    status,
+    isOnline,
+    commission,
+    services,
+    availability,
+    specialties,
+    categories,
+  } = operatorData
+
   const password = Math.random().toString(36).slice(-12) // Genera una password sicura
   let userId: string | undefined = undefined
 
@@ -30,6 +44,7 @@ export async function createOperator(formData: FormData) {
       user_metadata: {
         full_name: `${name} ${surname}`.trim(),
         stage_name: stageName,
+        role: "operator",
       },
     })
 
@@ -45,67 +60,41 @@ export async function createOperator(formData: FormData) {
 
     // Il trigger di Supabase ha già creato un profilo di base.
     // Ora lo aggiorniamo con i dati del form.
-
-    // FASE 1: Aggiornamento dati semplici
-    const simpleDataToUpdate = {
+    const profileUpdate = {
       full_name: `${name || ""} ${surname || ""}`.trim(),
       name: name || "",
       surname: surname || "",
       stage_name: stageName || "",
-      phone: formData.get("phone") as string | null,
-      bio: formData.get("bio") as string | null,
-      avatar_url: formData.get("avatarUrl") as string | null,
+      phone: phone || null,
+      bio: bio || null,
+      avatar_url: avatarUrl || null,
       role: "operator" as const,
-      status: formData.get("status") as "Attivo" | "In Attesa" | "Sospeso",
-      is_online: formData.get("isOnline") === "on",
-    }
-
-    const { error: simpleUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update(simpleDataToUpdate)
-      .eq("id", userId)
-
-    if (simpleUpdateError) {
-      throw simpleUpdateError
-    }
-
-    // FASE 2: Aggiornamento dati complessi
-    const complexDataToUpdate = {
-      commission_rate: safeParseFloat(formData.get("commission")),
+      status: status || "In Attesa",
+      is_online: isOnline,
+      commission_rate: safeParseFloat(commission),
       services: {
         chat: {
-          enabled: formData.get("services.chatEnabled") === "on",
-          price_per_minute: safeParseFloat(formData.get("services.chatPrice")),
+          enabled: services.chatEnabled,
+          price_per_minute: safeParseFloat(services.chatPrice),
         },
         call: {
-          enabled: formData.get("services.callEnabled") === "on",
-          price_per_minute: safeParseFloat(formData.get("services.callPrice")),
+          enabled: services.callEnabled,
+          price_per_minute: safeParseFloat(services.callPrice),
         },
         email: {
-          enabled: formData.get("services.emailEnabled") === "on",
-          price: safeParseFloat(formData.get("services.emailPrice")),
+          enabled: services.emailEnabled,
+          price: safeParseFloat(services.emailPrice),
         },
       },
-      availability: JSON.parse((formData.get("availability") as string) || "{}"),
-      specialties:
-        (formData.get("specialties") as string)
-          ?.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean) || [],
-      categories:
-        (formData.get("categories") as string)
-          ?.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean) || [],
+      availability: availability || {},
+      specialties: specialties || [],
+      categories: categories || [],
     }
 
-    const { error: complexUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update(complexDataToUpdate)
-      .eq("id", userId)
+    const { error: updateError } = await supabaseAdmin.from("profiles").update(profileUpdate).eq("id", userId)
 
-    if (complexUpdateError) {
-      throw complexUpdateError
+    if (updateError) {
+      throw updateError
     }
 
     revalidatePath("/admin/operators")
@@ -116,8 +105,10 @@ export async function createOperator(formData: FormData) {
     }
   } catch (error: any) {
     if (userId) {
+      // Cleanup failed user creation
       await supabaseAdmin.auth.admin.deleteUser(userId)
     }
+    console.error("Errore completo nella creazione dell'operatore:", error)
     return {
       success: false,
       message: `Errore durante la creazione dell'operatore: ${error.message}`,
