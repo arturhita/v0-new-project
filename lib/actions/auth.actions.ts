@@ -1,22 +1,51 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import type { z } from "zod"
+import { createServerClient } from "@/lib/supabase/server"
+import { LoginSchema, RegisterSchema } from "@/lib/schemas"
+import { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
-import type { SignupState, LoginState } from "@/lib/schemas"
 
-export async function signup(prevState: SignupState, formData: FormData): Promise<SignupState> {
-  const supabase = createClient()
+export async function login(values: z.infer<typeof LoginSchema>) {
+  const supabase = createServerClient()
 
-  const name = formData.get("name") as string
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+  const validatedFields = LoginSchema.safeParse(values)
 
-  if (!name || !email || !password) {
-    return { success: false, message: "Tutti i campi sono obbligatori." }
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { email, password } = validatedFields.data
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error) {
+    if (error instanceof AuthError) {
+      if (error.message.includes("Invalid login credentials")) {
+        return { error: "Credenziali di accesso non valide." }
+      }
+    }
+    return { error: "Si è verificato un errore imprevisto." }
+  }
+
+  return { success: "Login effettuato con successo!" }
+}
+
+export async function register(values: z.infer<typeof RegisterSchema>) {
+  const supabase = createServerClient()
+
+  const validatedFields = RegisterSchema.safeParse(values)
+
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
+  }
+
+  const { email, password, name } = validatedFields.data
+
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -24,61 +53,28 @@ export async function signup(prevState: SignupState, formData: FormData): Promis
         full_name: name,
         role: "client", // Default role for standard registration
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
-    console.error("Signup Error:", error)
-    if (error.message.includes("User already registered")) {
-      return { success: false, message: "Un utente con questa email esiste già." }
-    }
-    return { success: false, message: `Errore di registrazione: ${error.message}` }
-  }
-
-  return {
-    success: true,
-    message: "Registrazione completata! Controlla la tua email per il link di conferma.",
-  }
-}
-
-export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
-  const supabase = createClient()
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
-
-  if (!email || !password) {
-    return { success: false, error: "Email e password sono obbligatori." }
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  if (error) {
-    console.error("Login Error:", error)
-    if (error.message === "Invalid login credentials") {
-      return { success: false, error: "Credenziali non valide. Riprova." }
-    }
-    if (error.message === "Email not confirmed") {
-      return {
-        success: false,
-        error: "Devi confermare la tua email. Controlla la tua casella di posta per il link di attivazione.",
+    if (error instanceof AuthError) {
+      if (error.message.includes("User already registered")) {
+        return { error: "Utente già registrato con questa email." }
       }
     }
-    return { success: false, error: `Errore di accesso: ${error.message}` }
+    console.error("Registration Error:", error.message)
+    return { error: "Si è verificato un errore durante la registrazione." }
   }
 
-  // Revalidate the entire app to update UI and redirect based on AuthProvider
-  revalidatePath("/", "layout")
-  // The redirect will be handled by the AuthProvider on the client side
-  // after the state is updated.
-  return { success: true, error: null }
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return { error: "Questo utente esiste già ma non è confermato." }
+  }
+
+  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
 }
 
 export async function logout() {
-  const supabase = createClient()
+  const supabase = createServerClient()
   await supabase.auth.signOut()
-  redirect("/login")
+  redirect("/")
 }
