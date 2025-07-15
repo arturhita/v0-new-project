@@ -1,11 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
+import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+  let supabaseResponse = NextResponse.next({
+    request,
   })
 
   const supabase = createServerClient(
@@ -13,43 +11,36 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
+        getAll() {
+          return request.cookies.getAll()
         },
-        set(name: string, value: string, options) {
-          response.cookies.set({
-            name,
-            value,
-            ...options,
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request,
           })
-        },
-        remove(name: string, options) {
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
+          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
         },
       },
     },
   )
 
-  // Rinfresca la sessione utente se necessario.
+  // refreshing the user's session
   await supabase.auth.getUser()
 
-  return response
+  return supabaseResponse
 }
 
 export const config = {
   matcher: [
     /*
-     * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
-     * - _next/static (file statici)
-     * - _next/image (file di ottimizzazione delle immagini)
-     * - favicon.ico (file favicon)
-     * - /images/
-     * - /sounds/
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - api (API routes)
+     * - auth (auth routes)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images|sounds).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api|auth).*)",
   ],
 }
