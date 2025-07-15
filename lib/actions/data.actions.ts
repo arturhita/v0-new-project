@@ -93,7 +93,7 @@ export async function getRecentReviews(limit = 3) {
       rating,
       comment,
       created_at,
-      client:profiles!client_id (
+      client:profiles!reviews_client_id_fkey (
         full_name,
         avatar_url
       )
@@ -107,7 +107,7 @@ export async function getRecentReviews(limit = 3) {
     return []
   }
 
-  return data.map((review) => ({
+  return data.map((review: any) => ({
     id: review.id,
     rating: review.rating,
     comment: review.comment,
