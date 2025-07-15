@@ -1,40 +1,48 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { headers } from "next/headers"
-import { redirect } from "next/navigation"
 import type { z } from "zod"
-import type { loginSchema, signupSchema } from "@/lib/schemas"
+import { loginSchema, type signupSchema } from "@/lib/schemas"
+import { headers } from "next/headers"
 
-export async function login(values: z.infer<typeof loginSchema>) {
+export interface LoginState {
+  success: boolean
+  error?: string | null
+  role?: "admin" | "operator" | "client" | null
+}
+
+export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
+  const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return { success: false, error: "Dati inseriti non validi." }
+  }
+
+  const { email, password } = validatedFields.data
   const supabase = createClient()
-  const { data, error } = await supabase.auth.signInWithPassword(values)
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     console.error("Login Error:", error.message)
-    return { success: false, error: "Credenziali di accesso non valide. Riprova." }
+    return { success: false, error: "Credenziali di accesso non valide." }
   }
 
   if (data.user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
-    if (profile) {
-      switch (profile.role) {
-        case "admin":
-          redirect("/admin/dashboard")
-          break
-        case "operator":
-          redirect("/dashboard/operator")
-          break
-        case "client":
-        default:
-          redirect("/dashboard/client")
-          break
-      }
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single()
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut()
+      return { success: false, error: "Profilo utente non trovato." }
     }
+
+    return { success: true, role: profile.role }
   }
 
-  // Fallback redirect in case profile is not found, though this shouldn't happen
-  redirect("/")
+  return { success: false, error: "Si è verificato un errore imprevisto." }
 }
 
 export async function signup(values: z.infer<typeof signupSchema>) {
