@@ -3,6 +3,53 @@
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 
+export async function getOperators(options: {
+  category?: string
+  limit?: number
+  sortBy?: string
+  ascending?: boolean
+  onlineOnly?: boolean
+  searchTerm?: string
+}) {
+  noStore()
+  const { category, limit, sortBy = "created_at", ascending = false, onlineOnly = false, searchTerm } = options
+  const supabase = createClient()
+  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo")
+
+  if (category && category !== "all") {
+    query = query.contains("categories", [decodeURIComponent(category)])
+  }
+
+  if (onlineOnly) {
+    query = query.eq("is_online", true)
+  }
+
+  if (searchTerm) {
+    query = query.or(`stage_name.ilike.%${searchTerm}%,bio.ilike.%${searchTerm}%`)
+  }
+
+  if (sortBy) {
+    if (sortBy === "rating") {
+      query = query.order("created_at", { ascending: false }) // Fallback sort
+    } else {
+      query = query.order(sortBy, { ascending })
+    }
+  }
+
+  if (limit) {
+    query = query.limit(limit)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
+  }
+
+  return data
+}
+
 export async function getOperatorByStageName(stageName: string) {
   noStore()
   const supabase = createClient()
