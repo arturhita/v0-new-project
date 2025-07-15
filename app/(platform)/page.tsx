@@ -8,7 +8,7 @@ import { OperatorCard } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { getOperators, getRecentReviews, getFeaturedOperators } from "@/lib/actions/data.actions"
-import { LoadingSpinner } from "@/components/loading-spinner"
+import LoadingSpinner from "@/components/loading-spinner"
 
 async function FeaturedOperators() {
   const operators = await getFeaturedOperators(4)
