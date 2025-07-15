@@ -92,7 +92,7 @@ export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
     console.error(
       "--> This likely means the 'reviews' table does not exist or is misconfigured. Please run the '009-create-reviews-table.sql' script.",
     )
-    return [] // Return an empty array to prevent the page from crashing.
+    return []
   }
 
   if (!data) {
@@ -116,12 +116,17 @@ export async function getOperatorByStageName(stageName: string) {
     .from("profiles")
     .select("*")
     .eq("role", "operator")
-    .eq("stage_name", decodeURIComponent(stageName))
+    // FIX: Use .ilike for case-insensitive matching instead of .eq
+    .ilike("stage_name", decodeURIComponent(stageName))
     .single()
 
-  if (error) {
+  // The .single() method throws an error if no row is found or more than one is found.
+  // We can catch this specific error to return null without logging a console error for a simple "not found" case.
+  if (error && error.code !== "PGRST116") {
+    // PGRST116 = "The result contains 0 rows"
     console.error("Error fetching operator by stage name:", error)
     return null
   }
+
   return data
 }
