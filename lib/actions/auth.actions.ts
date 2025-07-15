@@ -35,14 +35,16 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
       .single()
 
     if (profileError || !profile) {
+      // Sign out the user if their profile is missing to prevent a broken state
       await supabase.auth.signOut()
-      return { success: false, error: "Profilo utente non trovato." }
+      return { success: false, error: "Profilo utente non trovato. Contatta l'assistenza." }
     }
 
+    // On success, return the role. The client will handle the redirect.
     return { success: true, role: profile.role }
   }
 
-  return { success: false, error: "Si è verificato un errore imprevisto." }
+  return { success: false, error: "Si è verificato un errore imprevisto durante il login." }
 }
 
 export async function signup(values: z.infer<typeof signupSchema>) {
