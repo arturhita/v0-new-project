@@ -75,9 +75,6 @@ export async function getOperators(options: {
 export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
   const supabase = createClient()
 
-  // The primary fix for the error is the new SQL script (008-fix-reviews-relationship.sql).
-  // This updated query explicitly uses the foreign key names for robustness.
-  // The error handling prevents the entire page from crashing if the DB schema is still incorrect.
   const { data, error } = await supabase
     .from("reviews")
     .select(
@@ -93,7 +90,7 @@ export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
   if (error) {
     console.error("CRITICAL: Error fetching recent reviews:", error.message)
     console.error(
-      "--> This likely means the database schema is incorrect. Please run the '008-fix-reviews-relationship.sql' script.",
+      "--> This likely means the 'reviews' table does not exist or is misconfigured. Please run the '009-create-reviews-table.sql' script.",
     )
     return [] // Return an empty array to prevent the page from crashing.
   }
