@@ -42,22 +42,20 @@ function SubmitButton() {
 export default function LoginPage() {
   const router = useRouter()
   const { profile, isLoading } = useAuth()
-  const initialState: LoginState = { success: false, error: null, role: null }
+  const initialState: LoginState = { error: null }
   const [state, formAction] = useActionState(login, initialState)
 
+  // This useEffect is now only for redirecting users who are ALREADY logged in
+  // when they visit the /login page. The post-login redirect is handled by the server action.
   useEffect(() => {
-    // The middleware now handles redirecting logged-in users.
-    // This useEffect is a fallback and ensures client-side consistency.
     if (!isLoading && profile) {
       const url = getDashboardUrl(profile.role)
       router.replace(url)
     }
   }, [profile, isLoading, router])
 
-  // While the AuthProvider is checking the session, show a loading spinner.
-  // This prevents the login form from flashing for users who are already logged in
-  // and being redirected by the middleware.
-  if (isLoading) {
+  // Show a spinner while checking auth state or if user is already logged in
+  if (isLoading || profile) {
     return (
       <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
         <ConstellationBackground goldVisible={true} />
@@ -66,7 +64,6 @@ export default function LoginPage() {
     )
   }
 
-  // If we are not loading and not logged in, show the login form.
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground goldVisible={true} />

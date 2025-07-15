@@ -3,18 +3,17 @@
 import { createClient } from "@/lib/supabase/server"
 import { loginSchema, signupSchema } from "@/lib/schemas"
 import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 
 export interface LoginState {
-  success: boolean
   error?: string | null
-  role?: "admin" | "operator" | "client" | null
 }
 
 export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { success: false, error: "Dati inseriti non validi." }
+    return { error: "Dati inseriti non validi." }
   }
 
   const { email, password } = validatedFields.data
@@ -23,7 +22,7 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
 
   if (error) {
     console.error("Login Error:", error.message)
-    return { success: false, error: "Credenziali di accesso non valide." }
+    return { error: "Credenziali di accesso non valide." }
   }
 
   if (data.user) {
@@ -34,16 +33,26 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
       .single()
 
     if (profileError || !profile) {
-      // Sign out the user if their profile is missing to prevent a broken state
       await supabase.auth.signOut()
-      return { success: false, error: "Profilo utente non trovato. Contatta l'assistenza." }
+      return { error: "Profilo utente non trovato. Contatta l'assistenza." }
     }
 
-    // On success, return the role. The client will handle the redirect.
-    return { success: true, role: profile.role }
+    // On success, redirect from the server. This is the key fix.
+    let dashboardUrl = "/dashboard/client" // Default
+    switch (profile.role) {
+      case "admin":
+        dashboardUrl = "/admin/dashboard"
+        break
+      case "operator":
+        dashboardUrl = "/dashboard/operator"
+        break
+    }
+    // This will throw a NEXT_REDIRECT error and stop execution,
+    // which is the intended way to handle redirects in Server Actions.
+    redirect(dashboardUrl)
   }
 
-  return { success: false, error: "Si è verificato un errore imprevisto durante il login." }
+  return { error: "Si è verificato un errore imprevisto durante il login." }
 }
 
 export interface SignupState {

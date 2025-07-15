@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut()
-    // No need to push here, the onAuthStateChange listener will handle the state update,
-    // and protected route components will handle the redirect.
+    // The middleware will catch the user on protected pages and redirect to login.
+    // We can also push here to make the transition immediate.
     router.push("/login")
   }
 
