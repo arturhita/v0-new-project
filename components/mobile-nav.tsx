@@ -1,15 +1,15 @@
 "use client"
 
+import type { User } from "@supabase/supabase-js"
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NavigationMenuDemo } from "@/components/navigation-menu"
+import { UserIcon, LogOut, Menu, X } from "lucide-react"
 import { logout } from "@/lib/actions/auth.actions"
-import type { User } from "@supabase/supabase-js"
-import { Menu, X, UserIcon, LogOut } from "lucide-react"
 
-type MobileNavProps = {
+interface MobileNavProps {
   user: User | null
 }
 
@@ -18,23 +18,20 @@ export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Close menu on route change
     if (isMenuOpen) {
       setIsMenuOpen(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   const getDashboardLink = () => {
     if (!user) return "/login"
-    const role = user.user_metadata?.role || "client"
+    const role = user.user_metadata.role
     switch (role) {
       case "admin":
-        return "/admin"
+        return "/admin/dashboard"
       case "operator":
         return "/dashboard/operator"
       case "client":
-        return "/dashboard/client"
       default:
         return "/dashboard/client"
     }
@@ -47,20 +44,12 @@ export function MobileNav({ user }: MobileNavProps) {
         size="icon"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         className="text-white hover:bg-white/10"
-        aria-label="Open menu"
       >
         {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </Button>
 
       {isMenuOpen && (
-        <div
-          className="absolute top-full left-0 right-0 md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsMenuOpen(false)
-            }
-          }}
-        >
+        <div className="absolute top-16 left-0 right-0 md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
             <NavigationMenuDemo />
             <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">

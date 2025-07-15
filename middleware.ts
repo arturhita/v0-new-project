@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // refreshing the user's session
+  // Rinfresca la sessione utente se è scaduta.
   await supabase.auth.getUser()
 
   return supabaseResponse
@@ -34,13 +34,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - api (API routes)
-     * - auth (auth routes)
+     * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
+     * - _next/static (file statici)
+     * - _next/image (file di ottimizzazione delle immagini)
+     * - favicon.ico (file favicon)
+     * - api/ (route API)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api|auth).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api).*)",
   ],
 }

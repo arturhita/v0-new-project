@@ -1,50 +1,102 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
-import type { LoginSchema, RegisterSchema } from "../schemas"
+import { createClient } from "@/lib/supabase/server"
+import { LoginSchema, RegisterSchema } from "@/lib/schemas"
+import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
-  const { data, error } = await supabase.auth.signInWithPassword(values)
-
-  if (error) {
-    return { error: error.message }
+  const validatedFields = LoginSchema.safeParse(values)
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
+  const { email, password } = validatedFields.data
 
-  if (!profile) {
-    return { error: "Impossibile recuperare i dati utente dopo il login." }
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (signInError) {
+    switch (signInError.message) {
+      case "Invalid login credentials":
+        return { error: "Credenziali di accesso non valide." }
+      case "Email not confirmed":
+        return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
+      default:
+        console.error("Login Error:", signInError.message)
+        return { error: "Si è verificato un errore imprevisto." }
+    }
   }
 
-  revalidatePath("/", "layout")
-  return { success: true, role: profile.role }
+  if (!signInData.user) {
+    return { error: "Utente non trovato dopo il login." }
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    console.error("Profile fetch error after login:", profileError?.message)
+    await supabase.auth.signOut()
+    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+  }
+
+  // Reindirizzamento gestito interamente dal server
+  switch (profile.role) {
+    case "admin":
+      redirect("/admin/dashboard")
+    case "operator":
+      redirect("/dashboard/operator")
+    case "client":
+      redirect("/dashboard/client")
+    default:
+      redirect("/")
+  }
 }
 
-export async function signup(values: z.infer<typeof RegisterSchema>) {
+export async function register(values: z.infer<typeof RegisterSchema>) {
   const supabase = createClient()
 
-  const { error } = await supabase.auth.signUp({
-    email: values.email,
-    password: values.password,
+  const validatedFields = RegisterSchema.safeParse(values)
+
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
+  }
+
+  const { email, password, name } = validatedFields.data
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
     options: {
       data: {
-        full_name: values.fullName,
-        role: values.role,
+        full_name: name,
+        role: "client",
       },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
-    return { error: error.message }
+    if (error.message.includes("User already registered")) {
+      return { error: "Utente già registrato con questa email." }
+    }
+    console.error("Registration Error:", error.message)
+    return { error: "Si è verificato un errore durante la registrazione." }
   }
 
-  revalidatePath("/", "layout")
-  return { success: true }
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return { error: "Questo utente esiste già ma non è confermato." }
+  }
+
+  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
 }
 
 export async function logout() {

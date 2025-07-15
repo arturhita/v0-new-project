@@ -1,53 +1,46 @@
 "use client"
 
+import type { User } from "@supabase/supabase-js"
 import Link from "next/link"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { UserIcon, Settings, LogOut } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
 import { logout } from "@/lib/actions/auth.actions"
 
-type UserNavProps = {
+interface UserNavProps {
   user: User
 }
 
 export function UserNav({ user }: UserNavProps) {
   const getDashboardLink = () => {
-    if (!user) return "/login"
-    const role = user.user_metadata?.role || "client"
+    const role = user.user_metadata.role
     switch (role) {
       case "admin":
-        return "/admin"
+        return "/admin/dashboard"
       case "operator":
         return "/dashboard/operator"
       case "client":
-        return "/dashboard/client"
       default:
         return "/dashboard/client"
     }
   }
-
-  const userEmail = user.email || ""
-  const userAvatarUrl = user.user_metadata?.avatar_url || ""
-  const userName = user.user_metadata?.name || userEmail.split("@")[0]
-  const fallback = userName?.charAt(0).toUpperCase() || "U"
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
           <Avatar className="h-10 w-10 border-2 border-white/20">
-            <AvatarImage src={userAvatarUrl || "/placeholder.svg"} alt={userName} />
-            <AvatarFallback className="bg-blue-700 text-white">{fallback}</AvatarFallback>
+            <AvatarImage src={user.user_metadata.avatar_url || ""} alt={user.user_metadata.name || user.email || ""} />
+            <AvatarFallback className="bg-blue-700 text-white">
+              {user.user_metadata.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "A"}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -56,39 +49,37 @@ export function UserNav({ user }: UserNavProps) {
         align="end"
         forceMount
       >
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none text-slate-900">{userName}</p>
-            <p className="text-xs leading-none text-slate-500">{userEmail}</p>
+        <div className="flex items-center justify-start gap-2 p-2">
+          <div className="flex flex-col space-y-1 leading-none">
+            <p className="font-medium text-slate-900">{user.user_metadata.name || user.email}</p>
+            <p className="w-[200px] truncate text-sm text-slate-500">{user.email}</p>
           </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href={getDashboardLink()} className="cursor-pointer w-full">
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Dashboard</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/profile" className="cursor-pointer w-full">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Profilo</span>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="p-0">
-          <form action={logout} className="w-full">
-            <button
-              type="submit"
-              className="flex items-center w-full cursor-pointer px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-sm"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Esci</span>
-            </button>
-          </form>
+        </div>
+        <DropdownMenuSeparator className="bg-slate-200" />
+        <DropdownMenuItem asChild>
+          <Link
+            href={getDashboardLink()}
+            className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+          >
+            <UserIcon className="mr-2 h-4 w-4" />
+            Dashboard
+          </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/profile" className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50">
+            <Settings className="mr-2 h-4 w-4" />
+            Profilo
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-slate-200" />
+        <form action={logout}>
+          <button type="submit" className="w-full">
+            <DropdownMenuItem className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer">
+              <LogOut className="mr-2 h-4 w-4" />
+              Esci
+            </DropdownMenuItem>
+          </button>
+        </form>
       </DropdownMenuContent>
     </DropdownMenu>
   )

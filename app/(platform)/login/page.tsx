@@ -4,7 +4,6 @@ import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -18,7 +17,6 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | undefined>("")
   const [isPending, startTransition] = useTransition()
 
@@ -34,18 +32,11 @@ export default function LoginPage() {
     setError("")
     startTransition(async () => {
       const result = await login(values)
-
-      if (result.error) {
+      if (result?.error) {
         setError(result.error)
-        return
       }
-
-      // La soluzione più robusta: reindirizza alla radice e forza un refresh.
-      // Il middleware e i layout protetti gestiranno il reindirizzamento finale
-      // alla dashboard corretta in base al ruolo dell'utente.
-      // Questo elimina ogni race condition.
-      router.push("/")
-      router.refresh()
+      // Nessuna gestione del successo qui. Il server reindirizzerà.
+      // Se il reindirizzamento avviene, questo componente verrà smontato.
     })
   }
 
