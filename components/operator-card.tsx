@@ -8,9 +8,9 @@ import { Star, MessageCircle, Phone, Mail, Users, Sparkles, Loader2 } from "luci
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "./written-consultation-modal"
+import type { User } from "@supabase/supabase-js"
 
 export interface Operator {
   id: string
@@ -33,15 +33,15 @@ export interface Operator {
 
 interface OperatorCardProps {
   operator: Operator
+  currentUser: User | null
   showNewBadge?: boolean
 }
 
-export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
+export function OperatorCard({ operator, currentUser, showNewBadge = false }: OperatorCardProps) {
   const [imageError, setImageError] = useState(false)
   const [isStartingChat, setIsStartingChat] = useState(false)
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const router = useRouter()
-  const { user } = useAuth()
 
   const isNewOperator =
     showNewBadge && operator.joinedDate
@@ -54,7 +54,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
     e.preventDefault()
     e.stopPropagation()
 
-    if (!user) {
+    if (!currentUser) {
       alert("Devi effettuare l'accesso per avviare una chat.")
       router.push("/login")
       return
@@ -67,7 +67,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
 
     setIsStartingChat(true)
     try {
-      const result = await initiateChatRequest(user.id, operator.id)
+      const result = await initiateChatRequest(currentUser.id, operator.id)
       if (result.success && result.sessionId) {
         router.push(`/chat/${result.sessionId}`)
       } else {
@@ -84,7 +84,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
   const handleOpenEmailModal = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!user) {
+    if (!currentUser) {
       alert("Devi effettuare l'accesso per inviare una domanda.")
       router.push("/login")
       return
