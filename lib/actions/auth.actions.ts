@@ -3,18 +3,19 @@
 import { createClient } from "@/lib/supabase/server"
 import { loginSchema, signupSchema } from "@/lib/schemas"
 import { headers } from "next/headers"
-import { redirect } from "next/navigation"
 
 export interface LoginState {
+  success: boolean
   error?: string | null
   message?: string | null
+  dashboardUrl?: string
 }
 
 export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { error: "Dati inseriti non validi." }
+    return { success: false, error: "Dati inseriti non validi." }
   }
 
   const { email, password } = validatedFields.data
@@ -23,7 +24,7 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
 
   if (error) {
     console.error("Login Error:", error.message)
-    return { error: "Credenziali di accesso non valide." }
+    return { success: false, error: "Credenziali di accesso non valide." }
   }
 
   if (data.user) {
@@ -35,7 +36,7 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
 
     if (profileError || !profile) {
       await supabase.auth.signOut()
-      return { error: "Profilo utente non trovato. Contatta l'assistenza." }
+      return { success: false, error: "Profilo utente non trovato. Contatta l'assistenza." }
     }
 
     let dashboardUrl = "/dashboard/client" // Default
@@ -47,12 +48,12 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
         dashboardUrl = "/dashboard/operator"
         break
     }
-    // This will throw a NEXT_REDIRECT error and stop execution,
-    // which is the intended way to handle redirects in Server Actions.
-    redirect(dashboardUrl)
+
+    // CRITICAL CHANGE: Return success state instead of redirecting
+    return { success: true, dashboardUrl: dashboardUrl }
   }
 
-  return { error: "Si è verificato un errore imprevisto durante il login." }
+  return { success: false, error: "Si è verificato un errore imprevisto durante il login." }
 }
 
 export interface SignupState {

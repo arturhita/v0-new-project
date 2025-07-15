@@ -43,11 +43,19 @@ function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { profile, isLoading } = useAuth()
-  const initialState: LoginState = { error: null, message: null }
+  const initialState: LoginState = { success: false, error: null, message: null }
   const [state, formAction] = useActionState(login, initialState)
 
   const urlMessage = searchParams.get("message")
 
+  // CRITICAL CHANGE: Handle redirect on the client after successful login
+  useEffect(() => {
+    if (state.success && state.dashboardUrl) {
+      router.push(state.dashboardUrl)
+    }
+  }, [state, router])
+
+  // This useEffect is for users who are ALREADY logged in when they visit the page
   useEffect(() => {
     if (!isLoading && profile) {
       const url = getDashboardUrl(profile.role)
