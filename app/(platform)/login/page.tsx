@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -17,6 +18,7 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [error, setError] = useState<string | undefined>("")
   const [isPending, startTransition] = useTransition()
 
@@ -38,27 +40,12 @@ export default function LoginPage() {
         return
       }
 
-      if (result.success && result.role) {
-        let destination = "/"
-        switch (result.role) {
-          case "admin":
-            destination = "/admin/dashboard"
-            break
-          case "operator":
-            destination = "/dashboard/operator"
-            break
-          case "client":
-            destination = "/dashboard/client"
-            break
-        }
-
-        // CHIAVE DELLA SOLUZIONE: Reindirizzamento "Hard".
-        // Forza un ricaricamento completo della pagina, eliminando
-        // ogni stato obsoleto del client e la race condition.
-        window.location.assign(destination)
-      } else {
-        setError("Login riuscito, ma impossibile determinare il ruolo dell'utente.")
-      }
+      // La soluzione più robusta: reindirizza alla radice e forza un refresh.
+      // Il middleware e i layout protetti gestiranno il reindirizzamento finale
+      // alla dashboard corretta in base al ruolo dell'utente.
+      // Questo elimina ogni race condition.
+      router.push("/")
+      router.refresh()
     })
   }
 

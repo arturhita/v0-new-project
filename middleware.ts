@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -16,35 +16,30 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+        set(name: string, value: string, options) {
+          response.cookies.set({
+            name,
+            value,
+            ...options,
           })
-          response.cookies.set({ name, value, ...options })
         },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+        remove(name: string, options) {
+          response.cookies.set({
+            name,
+            value: "",
+            ...options,
           })
-          response.cookies.set({ name, value: "", ...options })
         },
       },
     },
   )
 
-  // Rinfresca la sessione utente ad ogni richiesta.
+  // Rinfresca la sessione utente se necessario.
   await supabase.auth.getUser()
 
   return response
 }
 
-// Assicura che il middleware si attivi sui percorsi corretti.
 export const config = {
   matcher: [
     /*
@@ -52,8 +47,8 @@ export const config = {
      * - _next/static (file statici)
      * - _next/image (file di ottimizzazione delle immagini)
      * - favicon.ico (file favicon)
-     * - /images/ (le tue immagini)
-     * - /sounds/ (i tuoi suoni)
+     * - /images/
+     * - /sounds/
      */
     "/((?!_next/static|_next/image|favicon.ico|images|sounds).*)",
   ],
