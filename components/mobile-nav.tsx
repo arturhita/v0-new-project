@@ -18,9 +18,11 @@ export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname()
 
   useEffect(() => {
+    // Close menu on route change
     if (isMenuOpen) {
       setIsMenuOpen(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   const getDashboardLink = () => {
@@ -45,6 +47,7 @@ export function MobileNav({ user }: MobileNavProps) {
         size="icon"
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         className="text-white hover:bg-white/10"
+        aria-label="Open menu"
       >
         {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </Button>
@@ -52,7 +55,11 @@ export function MobileNav({ user }: MobileNavProps) {
       {isMenuOpen && (
         <div
           className="absolute top-full left-0 right-0 md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8"
-          onClick={() => setIsMenuOpen(false)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsMenuOpen(false)
+            }
+          }}
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
             <NavigationMenuDemo />
@@ -69,7 +76,7 @@ export function MobileNav({ user }: MobileNavProps) {
                       Dashboard
                     </Link>
                   </Button>
-                  <form action={logout} className="w-full">
+                  <form action={logout}>
                     <Button type="submit" variant="ghost" className="w-full justify-center text-slate-300">
                       <LogOut className="mr-2 h-4 w-4" />
                       Logout
