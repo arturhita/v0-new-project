@@ -120,8 +120,13 @@ export async function getRecentReviews(limit = 3) {
 export async function getOperatorStats(operatorId: string) {
   const supabase = createClient()
 
-  // Questo è un esempio. Le query esatte dipendono dalla struttura del tuo DB
-  // (es. tabelle per transazioni, consultazioni, etc.)
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("average_rating, reviews_count")
+    .eq("id", operatorId)
+    .single()
+
+  // Placeholder for other stats until their tables are created
   const { data: earningsData, error: earningsError } = await supabase.rpc("calculate_monthly_earnings", {
     p_operator_id: operatorId,
   })
@@ -130,21 +135,23 @@ export async function getOperatorStats(operatorId: string) {
     .select("*", { count: "exact", head: true })
     .eq("operator_id", operatorId)
     .eq("status", "pending")
-  const { data: profileData, error: profileError } = await supabase
-    .from("profiles")
-    .select("average_rating, reviews_count")
-    .eq("id", operatorId)
-    .single()
 
-  if (earningsError || pendingError || profileError) {
-    console.error({ earningsError, pendingError, profileError })
+  if (profileError || earningsError || pendingError) {
+    console.error({ profileError, earningsError, pendingError })
   }
 
   return {
     totalEarningsMonth: earningsData || 0,
     pendingConsultations: pendingCount || 0,
     averageRating: profileData?.average_rating || 0,
-    totalConsultationsMonth: 0, // Da implementare con una query apposita
-    newClientsMonth: 0, // Da implementare
+    totalConsultationsMonth: profileData?.reviews_count || 0, // Using reviews_count as a proxy
+    newClientsMonth: 0, // Placeholder
   }
+}
+
+export async function getUnreadMessagesCount(userId: string): Promise<number> {
+  // Placeholder implementation
+  // In a real scenario, you would query your messages table
+  // e.g., SELECT count(*) FROM messages WHERE recipient_id = userId AND is_read = false
+  return 3
 }

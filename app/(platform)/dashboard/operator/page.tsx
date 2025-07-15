@@ -1,8 +1,7 @@
 import type React from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
-  BarChart,
   Users,
   MessageSquare,
   Star,
@@ -16,7 +15,7 @@ import {
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
 import { createClient } from "@/lib/supabase/server"
-import { getOperatorStats } from "@/lib/actions/data.actions"
+import { getOperatorStats, getUnreadMessagesCount } from "@/lib/actions/data.actions"
 import { redirect } from "next/navigation"
 
 const StatCard = ({
@@ -78,7 +77,11 @@ export default async function OperatorDashboardPage() {
     redirect("/login")
   }
 
-  const operatorStats = await getOperatorStats(user.id)
+  const [operatorStats, unreadMessagesCount] = await Promise.all([
+    getOperatorStats(user.id),
+    getUnreadMessagesCount(user.id),
+  ])
+
   const operatorName = user.user_metadata.stage_name || user.user_metadata.full_name || "Operatore"
 
   return (
@@ -150,7 +153,7 @@ export default async function OperatorDashboardPage() {
           />
           <StatCard
             title="Messaggi Non Letti"
-            value={3} // Placeholder
+            value={unreadMessagesCount}
             icon={MessageSquare}
             description="Dalla piattaforma e utenti"
             link="/dashboard/operator/platform-messages"
@@ -159,44 +162,6 @@ export default async function OperatorDashboardPage() {
         </div>
 
         {user && <GamificationWidget userId={user.id} />}
-
-        <Card className="backdrop-blur-xl bg-gradient-to-r from-sky-500/20 via-teal-500/20 to-indigo-500/20 border border-white/20 shadow-2xl rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-2xl text-white flex items-center">
-              <SparklesIcon className="h-6 w-6 mr-3 text-yellow-400" />
-              Configura le Tue Arti
-            </CardTitle>
-            <CardDescription className="text-white/80 text-base">
-              Definisci come desideri offrire i tuoi doni: chat, chiamate, o messaggi scritti.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm w-full sm:w-auto px-6 py-3 rounded-xl shadow-lg"
-              asChild
-            >
-              <Link href="/dashboard/operator/services">Gestisci Modalità Consulto</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Chart Placeholder */}
-        <Card className="backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-2xl text-white flex items-center">
-              <BarChart className="w-6 h-6 mr-3 text-sky-400" />
-              Andamento Consulti (Ultimi 30 Giorni)
-            </CardTitle>
-            <CardDescription className="text-white/70 text-base">
-              Visualizzazione grafica delle tue sessioni.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
-              <p className="text-white/60">Grafico Andamento Consulti (Placeholder)</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
