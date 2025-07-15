@@ -44,7 +44,10 @@ import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-s
 import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-context"
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
-import { useAuth } from "@/contexts/auth-context"
+import DashboardLayout from "@/components/dashboard-layout"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context" // Import useAuth hook
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -82,12 +85,52 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
   )
 }
 
+async function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+  if (profile?.role !== "operator") {
+    redirect("/")
+  }
+
+  const menuItems = [
+    { label: "Dashboard", href: "/dashboard/operator" },
+    { label: "Disponibilità", href: "/dashboard/operator/availability" },
+    { label: "Servizi", href: "/dashboard/operator/services" },
+    { label: "Guadagni", href: "/dashboard/operator/earnings" },
+    { label: "Messaggi", href: "/dashboard/operator/platform-messages" },
+    { label: "Consulti Scritti", href: "/dashboard/operator/written-consultations" },
+    { label: "Storico Consulti", href: "/dashboard/operator/consultations-history" },
+    { label: "Note Clienti", href: "/dashboard/operator/client-notes" },
+    { label: "Profilo Pubblico", href: `/operator/${user.id}` }, // Assumendo che l'ID utente sia l'identificativo
+  ]
+
+  return (
+    <OperatorStatusProvider>
+      <ChatRequestProvider>
+        <DashboardLayout menuItems={menuItems}>
+          <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
+        </DashboardLayout>
+      </ChatRequestProvider>
+    </OperatorStatusProvider>
+  )
+}
+
 function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
   const { showRequest } = useChatRequest()
-  const { logout } = useAuth()
+  const { logout } = useAuth() // Declare useAuth hook
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -295,12 +338,4 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
   )
 }
 
-export default function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <OperatorStatusProvider>
-      <ChatRequestProvider>
-        <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
-      </ChatRequestProvider>
-    </OperatorStatusProvider>
-  )
-}
+export default OperatorDashboardLayout

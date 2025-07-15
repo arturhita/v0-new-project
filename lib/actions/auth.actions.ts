@@ -43,22 +43,11 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     .single()
 
   if (profileError || !profile) {
-    console.error("Profile fetch error after login:", profileError?.message)
     await supabase.auth.signOut()
     return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
   }
 
-  // Reindirizzamento gestito interamente dal server
-  switch (profile.role) {
-    case "admin":
-      redirect("/admin/dashboard")
-    case "operator":
-      redirect("/dashboard/operator")
-    case "client":
-      redirect("/dashboard/client")
-    default:
-      redirect("/")
-  }
+  return { success: true, role: profile.role as "admin" | "operator" | "client" }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
