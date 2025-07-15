@@ -10,6 +10,7 @@ import Image from "next/image"
 
 import { LoginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
+import { createClient } from "@/lib/supabase/client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,25 +35,39 @@ export default function LoginPage() {
     setError("")
     startTransition(async () => {
       const result = await login(values)
-      if ("error" in result) {
+      if (result?.error) {
         setError(result.error)
-      } else if ("success" in result) {
-        router.refresh() // Sincronizza lo stato del client con il server
-
-        let destination = "/"
-        switch (result.role) {
-          case "admin":
-            destination = "/admin/dashboard"
-            break
-          case "operator":
-            destination = "/dashboard/operator"
-            break
-          case "client":
-            destination = "/dashboard/client"
-            break
-        }
-        router.push(destination)
+        return
       }
+
+      // Dopo il login, chiediamo a Supabase chi è l'utente per ottenere il ruolo
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setError("Impossibile recuperare i dati utente dopo il login.")
+        return
+      }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+      // Sincronizza lo stato del client con il server
+      router.refresh()
+
+      // Reindirizza in base al ruolo
+      let destination = "/"
+      switch (profile?.role) {
+        case "admin":
+          destination = "/admin/dashboard"
+          break
+        case "operator":
+          destination = "/dashboard/operator"
+          break
+        case "client":
+          destination = "/dashboard/client"
+          break
+      }
+      router.push(destination)
     })
   }
 

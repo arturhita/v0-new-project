@@ -1,8 +1,8 @@
 "use client"
 
-import type { ReactNode } from "react"
-import Link from "next/link"
+import type React from "react"
 import DashboardLayout from "@/components/dashboard-layout"
+import Link from "next/link"
 import {
   LayoutDashboard,
   CalendarClock,
@@ -21,7 +21,6 @@ import {
   Moon,
   Sun,
   Coffee,
-  AlertTriangle,
   ChevronDown,
 } from "lucide-react"
 import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-status-context"
@@ -37,8 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
 
 const operatorNavItems = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -57,20 +54,6 @@ const operatorNavItems = [
   { href: "/profile/operator", label: "Il Mio Altare (Profilo)", icon: Settings },
 ]
 
-const sidebarHeader = (
-  <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
-    <span>Dashboard Operatore</span>
-  </Link>
-)
-
-const linkClasses = {
-  base: "text-blue-200 hover:bg-blue-700 hover:text-white",
-  active: "bg-blue-600 text-white shadow-md font-semibold",
-  inactive: "",
-  icon: "text-blue-300",
-  iconActive: "text-white",
-}
-
 function OperatorStatusDropdown() {
   const { status, setStatus, pauseTimer } = useOperatorStatus()
 
@@ -82,35 +65,30 @@ function OperatorStatusDropdown() {
     switch (status) {
       case "online":
         return {
-          icon: Sun,
           text: "Online",
           buttonClass: "border-green-300 text-green-700 hover:bg-green-50",
           dotClass: "bg-green-500",
         }
       case "offline":
         return {
-          icon: Moon,
           text: "Offline",
           buttonClass: "border-gray-300 text-gray-700 hover:bg-gray-50",
           dotClass: "bg-gray-500",
         }
       case "occupied":
         return {
-          icon: AlertTriangle,
           text: "Occupato",
           buttonClass: "border-red-300 text-red-700 hover:bg-red-50 animate-pulse",
           dotClass: "bg-red-500",
         }
       case "paused":
         return {
-          icon: Coffee,
           text: `In Pausa (${Math.floor(pauseTimer / 60)}:${(pauseTimer % 60).toString().padStart(2, "0")})`,
           buttonClass: "border-amber-300 text-amber-700 hover:bg-amber-50",
           dotClass: "bg-amber-500",
         }
       default:
         return {
-          icon: Moon,
           text: "Offline",
           buttonClass: "border-gray-300 text-gray-700 hover:bg-gray-50",
           dotClass: "bg-gray-500",
@@ -166,21 +144,19 @@ function OperatorStatusDropdown() {
   )
 }
 
-async function OperatorLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient()
+export default function OperatorDashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
+  const sidebarHeader = (
+    <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
+      <span>Dashboard Operatore</span>
+    </Link>
+  )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-  if (profile?.role !== "operator") {
-    redirect("/")
+  const linkClasses = {
+    base: "text-blue-200 hover:bg-blue-700 hover:text-white",
+    active: "bg-blue-600 text-white shadow-md font-semibold",
+    inactive: "",
+    icon: "text-blue-300",
+    iconActive: "text-white",
   }
 
   return (
@@ -201,5 +177,3 @@ async function OperatorLayout({ children }: { children: ReactNode }) {
     </OperatorStatusProvider>
   )
 }
-
-export default OperatorLayout

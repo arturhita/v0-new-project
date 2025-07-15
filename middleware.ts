@@ -38,12 +38,13 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // Rinfresca la sessione se è scaduta. Questo si applica a tutte le rotte.
+  // Rinfresca la sessione utente ad ogni richiesta.
   await supabase.auth.getUser()
 
   return response
 }
 
+// Assicura che il middleware si attivi sui percorsi corretti.
 export const config = {
   matcher: [
     /*
@@ -52,7 +53,8 @@ export const config = {
      * - _next/image (file di ottimizzazione delle immagini)
      * - favicon.ico (file favicon)
      * - /images/ (le tue immagini)
+     * - /sounds/ (i tuoi suoni)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|sounds).*)",
   ],
 }

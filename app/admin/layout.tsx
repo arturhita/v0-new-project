@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import DashboardLayout from "@/components/dashboard-layout"
+import Link from "next/link"
 import {
   LayoutDashboard,
   Sparkles,
@@ -27,7 +27,7 @@ const adminNavItems = [
   {
     label: "Operatori",
     icon: Sparkles,
-    href: "#", // Placeholder href for collapsible items
+    href: "#",
     subItems: [
       { href: "/admin/operator-approvals", label: "Approvazioni", icon: CheckCircle },
       { href: "/admin/operators", label: "Elenco Operatori", icon: Users },
@@ -69,20 +69,6 @@ const adminNavItems = [
   },
 ]
 
-const sidebarHeader = (
-  <Link href="/admin" className="flex items-center gap-3 font-bold text-white text-xl">
-    <span>Admin Panel</span>
-  </Link>
-)
-
-const linkClasses = {
-  base: "text-gray-600 hover:bg-blue-100 hover:text-blue-700",
-  active: "bg-blue-600 text-white shadow-md scale-[1.02] font-semibold",
-  inactive: "",
-  icon: "text-gray-400 group-hover:text-blue-600",
-  iconActive: "text-white",
-}
-
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
 
@@ -98,6 +84,20 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   if (profile?.role !== "admin") {
     redirect("/")
+  }
+
+  const sidebarHeader = (
+    <Link href="/admin" className="flex items-center gap-3 font-bold text-white text-xl">
+      <span>Admin Panel</span>
+    </Link>
+  )
+
+  const linkClasses = {
+    base: "text-gray-600 hover:bg-blue-100 hover:text-blue-700",
+    active: "bg-blue-600 text-white shadow-md scale-[1.02] font-semibold",
+    inactive: "",
+    icon: "text-gray-400 group-hover:text-blue-600",
+    iconActive: "text-white",
   }
 
   return (
