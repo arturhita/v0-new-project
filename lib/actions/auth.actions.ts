@@ -1,13 +1,13 @@
 "use server"
 
 import type { z } from "zod"
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server" // Corrected import
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
-  const supabase = createServerClient()
+  const supabase = createClient() // Corrected function call
 
   const validatedFields = LoginSchema.safeParse(values)
 
@@ -27,6 +27,11 @@ export async function login(values: z.infer<typeof LoginSchema>) {
       if (error.message.includes("Invalid login credentials")) {
         return { error: "Credenziali di accesso non valide." }
       }
+      if (error.message === "Email not confirmed") {
+        return {
+          error: "Devi confermare la tua email. Controlla la tua casella di posta per il link di attivazione.",
+        }
+      }
     }
     return { error: "Si è verificato un errore imprevisto." }
   }
@@ -35,7 +40,7 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
-  const supabase = createServerClient()
+  const supabase = createClient() // Corrected function call
 
   const validatedFields = RegisterSchema.safeParse(values)
 
@@ -53,6 +58,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
         full_name: name,
         role: "client", // Default role for standard registration
       },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
@@ -74,7 +80,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
 }
 
 export async function logout() {
-  const supabase = createServerClient()
+  const supabase = createClient() // Corrected function call
   await supabase.auth.signOut()
   redirect("/")
 }
