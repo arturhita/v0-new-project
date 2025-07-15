@@ -36,7 +36,7 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import OperatorDashboardWrapper from "./OperatorDashboardWrapper"
+import OperatorDashboardClientLayout from "./OperatorDashboardClientLayout"
 
 const operatorNavItems = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -164,7 +164,7 @@ function OperatorStatusDropdown() {
   )
 }
 
-async function OperatorLayout({ children }: { children: ReactNode }) {
+export default async function OperatorLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
 
   const {
@@ -181,8 +181,6 @@ async function OperatorLayout({ children }: { children: ReactNode }) {
     redirect("/")
   }
 
-  // Se i controlli passano, renderizza il wrapper client con i provider
-  return <OperatorDashboardWrapper>{children}</OperatorDashboardWrapper>
+  // Se tutti i controlli passano, renderizza il wrapper client che contiene i provider e la UI.
+  return <OperatorDashboardClientLayout>{children}</OperatorDashboardClientLayout>
 }
-
-export default OperatorLayout

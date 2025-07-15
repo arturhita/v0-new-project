@@ -164,7 +164,7 @@ function OperatorStatusDropdown() {
   )
 }
 
-export default function OperatorDashboardWrapper({ children }: { children: React.ReactNode }) {
+export default function OperatorDashboardClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <OperatorStatusProvider>
       <ChatRequestProvider>

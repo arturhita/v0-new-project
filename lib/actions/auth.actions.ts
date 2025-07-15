@@ -91,5 +91,6 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
+  // Usiamo un redirect hard anche qui per massima sicurezza
   redirect("/login")
 }
