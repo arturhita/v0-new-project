@@ -1,13 +1,13 @@
 "use server"
 
 import type { z } from "zod"
-import { createClient } from "@/lib/supabase/server" // Corrected import
+import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
-  const supabase = createClient() // Corrected function call
+  const supabase = createClient()
 
   const validatedFields = LoginSchema.safeParse(values)
 
@@ -40,7 +40,7 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
-  const supabase = createClient() // Corrected function call
+  const supabase = createClient()
 
   const validatedFields = RegisterSchema.safeParse(values)
 
@@ -80,7 +80,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
 }
 
 export async function logout() {
-  const supabase = createClient() // Corrected function call
+  const supabase = createClient()
   await supabase.auth.signOut()
   redirect("/")
 }

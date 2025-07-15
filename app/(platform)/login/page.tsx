@@ -10,6 +10,7 @@ import Image from "next/image"
 
 import { LoginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
+import { useAuth } from "@/contexts/auth-context"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 
 export default function LoginPage() {
   const router = useRouter()
+  const { checkUser } = useAuth()
   const [error, setError] = useState<string | undefined>("")
   const [isPending, startTransition] = useTransition()
 
@@ -33,13 +35,14 @@ export default function LoginPage() {
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     setError("")
     startTransition(() => {
-      login(values).then((data) => {
+      login(values).then(async (data) => {
         if (data?.error) {
           setError(data.error)
         }
         if (data?.success) {
-          // On success, refresh the router to allow the AuthProvider
-          // to detect the session and handle the redirect.
+          // Explicitly update the auth context
+          await checkUser()
+          // The redirect is now handled by the AuthProvider's useEffect
           router.refresh()
         }
       })

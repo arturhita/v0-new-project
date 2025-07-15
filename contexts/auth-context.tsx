@@ -1,16 +1,22 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { useRouter, usePathname } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 
+interface Profile {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  role: "client" | "operator" | "admin"
+}
+
 type AuthContextType = {
   user: User | null
-  profile: any | null
+  profile: Profile | null
   isLoading: boolean
   checkUser: () => Promise<void>
 }
@@ -19,13 +25,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<any | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
 
   const checkUser = useCallback(async () => {
+    setIsLoading(true)
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -64,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkUser, supabase])
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (!isLoading && user && profile) {
       const role = profile?.role
       const isAuthPage = pathname === "/login" || pathname === "/register"
 
