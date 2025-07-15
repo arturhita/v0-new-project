@@ -30,13 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const checkUser = useCallback(async () => {
+  const checkSession = useCallback(async () => {
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-
-      if (session?.user) {
+      if (session) {
         const { data: userProfile, error } = await supabase
           .from("profiles")
           .select("*")
@@ -44,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single()
 
         if (error) {
-          console.error("Error fetching profile, signing out:", error)
+          console.error("Error fetching profile, signing out.", error)
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
@@ -57,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null)
       }
     } catch (e) {
-      console.error("Critical error in checkUser:", e)
+      console.error("Error in checkSession:", e)
       setUser(null)
       setProfile(null)
     } finally {
@@ -66,45 +65,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   useEffect(() => {
-    checkUser()
+    checkSession()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      checkUser()
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null)
+        setProfile(null)
+        router.push("/login")
+      } else if (event === "SIGNED_IN") {
+        checkSession()
+      }
     })
 
-    return () => subscription.unsubscribe()
-  }, [checkUser, supabase])
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [checkSession, supabase, router])
 
   useEffect(() => {
-    if (isLoading) return
-
-    const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isAdminRoute = pathname.startsWith("/admin")
-    const isOperatorRoute = pathname.startsWith("/dashboard/operator")
-    const isClientRoute = pathname.startsWith("/dashboard/client")
-    const isProtectedRoute = isAdminRoute || isOperatorRoute || isClientRoute
-
-    if (!user) {
-      if (isProtectedRoute) {
-        router.push("/login")
-      }
-      return
+    if (isLoading) {
+      return // Don't run route protection until session is checked
     }
 
-    if (profile) {
-      const role = profile.role
-      if (isAuthPage) {
-        if (role === "admin") router.push("/admin/dashboard")
-        else if (role === "operator") router.push("/dashboard/operator")
-        else router.push("/dashboard/client")
-        return
-      }
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-      if (isAdminRoute && role !== "admin") router.push("/")
-      else if (isOperatorRoute && role !== "operator") router.push("/")
-      else if (isClientRoute && role !== "client") router.push("/")
+    if (!user && isProtectedRoute) {
+      router.push("/login")
+    }
+
+    if (user && isAuthPage) {
+      const role = profile?.role
+      let destination = "/"
+      if (role === "admin") destination = "/admin/dashboard"
+      else if (role === "operator") destination = "/dashboard/operator"
+      else if (role === "client") destination = "/dashboard/client"
+      router.push(destination)
     }
   }, [user, profile, isLoading, pathname, router])
 

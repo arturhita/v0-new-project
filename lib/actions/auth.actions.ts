@@ -6,34 +6,36 @@ import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 
-export async function login(values: z.infer<typeof LoginSchema>) {
+type LoginResult = { success: true; role: "admin" | "operator" | "client" } | { error: string }
+
+export async function login(values: z.infer<typeof LoginSchema>): Promise<LoginResult> {
   const supabase = createClient()
 
   const validatedFields = LoginSchema.safeParse(values)
-
   if (!validatedFields.success) {
     return { error: "Campi non validi!" }
   }
 
   const { email, password } = validatedFields.data
 
-  const { data: authData, error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error) {
-    if (error instanceof AuthError) {
-      if (error.message.includes("Invalid login credentials")) {
+  if (authError) {
+    if (authError instanceof AuthError) {
+      if (authError.message.includes("Invalid login credentials")) {
         return { error: "Credenziali di accesso non valide." }
       }
-      if (error.message === "Email not confirmed") {
+      if (authError.message === "Email not confirmed") {
         return {
           error: "Devi confermare la tua email. Controlla la tua casella di posta per il link di attivazione.",
         }
       }
     }
-    return { error: "Si è verificato un errore imprevisto." }
+    console.error("Login Auth Error:", authError.message)
+    return { error: "Si è verificato un errore imprevisto durante l'accesso." }
   }
 
   if (authData.user) {
@@ -44,17 +46,15 @@ export async function login(values: z.infer<typeof LoginSchema>) {
       .single()
 
     if (profileError || !profile) {
-      // This is a critical error, user exists in auth but not in profiles.
-      // Sign them out and return an error.
-      await supabase.auth.signOut()
-      return { error: "Errore nel recupero del profilo utente. Contattare l'assistenza." }
+      await supabase.auth.signOut() // Clean up inconsistent state
+      console.error("Login Profile Error:", profileError?.message)
+      return { error: "Errore nel recupero del profilo utente. L'accesso è stato annullato." }
     }
 
-    // **MODIFICA CHIAVE**: Ritorna il ruolo al client invece di reindirizzare
     return { success: true, role: profile.role as "admin" | "operator" | "client" }
   }
 
-  return { error: "Utente non trovato dopo il login." }
+  return { error: "Utente non trovato dopo il tentativo di login." }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {

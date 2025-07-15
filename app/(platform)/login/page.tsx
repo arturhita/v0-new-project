@@ -4,7 +4,6 @@ import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -18,7 +17,6 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | undefined>("")
   const [isPending, startTransition] = useTransition()
 
@@ -34,25 +32,23 @@ export default function LoginPage() {
     setError("")
     startTransition(() => {
       login(values).then((data) => {
-        if (data?.error) {
+        if ("error" in data) {
           setError(data.error)
-        }
-        // **MODIFICA CHIAVE**: Il client gestisce il reindirizzamento
-        if (data?.success && data.role) {
+        } else if ("success" in data) {
+          // Hard redirect using window.location to ensure session is picked up
+          let destination = "/"
           switch (data.role) {
             case "admin":
-              router.push("/admin/dashboard")
+              destination = "/admin/dashboard"
               break
             case "operator":
-              router.push("/dashboard/operator")
+              destination = "/dashboard/operator"
               break
             case "client":
-              router.push("/dashboard/client")
-              break
-            default:
-              router.push("/") // Fallback
+              destination = "/dashboard/client"
               break
           }
+          window.location.assign(destination)
         }
       })
     })
