@@ -37,7 +37,6 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
       return { error: "Profilo utente non trovato. Contatta l'assistenza." }
     }
 
-    // On success, redirect from the server. This is the key fix.
     let dashboardUrl = "/dashboard/client" // Default
     switch (profile.role) {
       case "admin":
