@@ -121,7 +121,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
               {!imageError && operator.avatarUrl ? (
                 <img
                   src={operator.avatarUrl || "/placeholder.svg"}
-                  alt={operator.name}
+                  alt={operator.name || "Operatore"}
                   className="w-full h-full object-cover"
                   onError={() => setImageError(true)}
                 />
@@ -135,7 +135,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
           </div>
 
           <h3 className="text-lg font-bold mb-2 text-white group-hover:text-yellow-100 transition-colors duration-500">
-            {operator.name}
+            {operator.name || "Operatore"}
           </h3>
           <p className="text-sm text-white/80 mb-3 font-medium group-hover:text-white/90 transition-colors duration-500">
             {operator.specialization}
