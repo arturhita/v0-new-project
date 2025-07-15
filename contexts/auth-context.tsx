@@ -50,31 +50,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      await fetchProfile(currentUser)
-      setIsLoading(false)
-    }
-
-    getInitialSession()
-
+    // This is the single source of truth for auth state.
+    // It fires on initial load, on login, and on logout.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
       await fetchProfile(currentUser)
-      if (isLoading) setIsLoading(false)
+      // Set loading to false only after the first check is complete.
+      setIsLoading(false)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, fetchProfile, isLoading])
+  }, [supabase, fetchProfile])
 
   const refreshProfile = useCallback(async () => {
     const {
@@ -90,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshProfile,
   }
 
+  // Render a loading spinner until the initial auth check is complete
   return <AuthContext.Provider value={value}>{isLoading ? <LoadingSpinner /> : children}</AuthContext.Provider>
 }
 

@@ -1,9 +1,23 @@
+import { createServerClient } from "@supabase/ssr"
 import { updateSession } from "@/lib/supabase/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  // This function will create a Supabase client and refresh the session cookie.
-  const { supabase, response } = await updateSession(request)
+  // First, refresh the session cookie
+  const response = await updateSession(request)
+
+  // Now, create a new client to read the user from the (potentially updated) request cookies
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+      },
+    },
+  )
 
   const {
     data: { user },
@@ -53,14 +67,11 @@ export async function middleware(request: NextRequest) {
     const unauthorizedRedirect = () => {
       const url = new URL("/login", request.url)
       url.searchParams.set("message", "Accesso non autorizzato a questa risorsa.")
-      // In a real-world scenario, you might want to log this event.
       return NextResponse.redirect(url)
     }
 
     if (isAdminRoute && userRole !== "admin") return unauthorizedRedirect()
     if (isOperatorRoute && userRole !== "operator") return unauthorizedRedirect()
-    // Note: This logic assumes clients can't access operator/admin dashboards.
-    // The redirects for those cases are handled by the unauthorizedRedirect.
   }
 
   // If no redirects are needed, pass the response along.
@@ -75,7 +86,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public assets
-     * Feel free to modify this pattern to include more paths.
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

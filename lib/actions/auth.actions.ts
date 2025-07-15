@@ -1,82 +1,72 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { z } from "zod"
-
-const loginSchema = z.object({
-  email: z.string().email("Email non valida."),
-  password: z.string().min(6, "La password deve essere di almeno 6 caratteri."),
-})
+import { loginSchema, signupSchema } from "@/lib/schemas"
+import { headers } from "next/headers"
 
 export interface LoginState {
   success: boolean
   error?: string | null
-  message?: string | null
-  dashboardUrl?: string | null
-}
-
-function getDashboardUrl(role: "admin" | "operator" | "client"): string {
-  switch (role) {
-    case "admin":
-      return "/admin/dashboard"
-    case "operator":
-      return "/dashboard/operator"
-    case "client":
-    default:
-      return "/dashboard/client"
-  }
 }
 
 export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
-  const supabase = createClient()
   const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return { success: false, error: "Dati inseriti non validi." }
+  }
+
+  const { email, password } = validatedFields.data
+  const supabase = createClient()
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+  if (error) {
+    console.error("Login Error:", error.message)
+    return { success: false, error: "Credenziali di accesso non valide." }
+  }
+
+  // On success, just return success. The client will react to the auth state change.
+  return { success: true }
+}
+
+export interface SignupState {
+  success: boolean
+  message: string
+}
+
+export async function signup(prevState: SignupState, formData: FormData): Promise<SignupState> {
+  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
     return {
       success: false,
-      error:
-        validatedFields.error.flatten().fieldErrors.email?.[0] ||
-        validatedFields.error.flatten().fieldErrors.password?.[0],
+      message: "Dati inseriti non validi. Assicurati che la password sia di almeno 6 caratteri.",
     }
   }
 
-  const { email, password } = validatedFields.data
+  const { name, email, password } = validatedFields.data
+  const origin = headers().get("origin")
+  const supabase = createClient()
 
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        full_name: name,
+        role: "client",
+      },
+      emailRedirectTo: `${origin}/auth/callback`,
+    },
   })
 
-  if (signInError) {
-    console.error("SignIn Error:", signInError.message)
-    return { success: false, error: "Credenziali non valide." }
+  if (error) {
+    if (error.message.includes("User already registered")) {
+      return { success: false, message: "Un utente con questa email è già registrato." }
+    }
+    console.error("Signup Error:", error)
+    return { success: false, message: "Si è verificato un errore durante la registrazione. Riprova." }
   }
 
-  // After successful sign-in, get the user to determine their role
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, error: "Utente non trovato dopo il login." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (profileError || !profile) {
-    return { success: false, error: "Impossibile recuperare il profilo utente." }
-  }
-
-  const dashboardUrl = getDashboardUrl(profile.role as "admin" | "operator" | "client")
-
-  // This is the robust pattern: return success and the URL to the client.
-  // The client will handle the redirection.
-  return {
-    success: true,
-    dashboardUrl: dashboardUrl,
-  }
+  return { success: true, message: "Registrazione completata! Controlla la tua email per verificare il tuo account." }
 }

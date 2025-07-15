@@ -42,23 +42,14 @@ function SubmitButton() {
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { profile, isLoading, refreshProfile } = useAuth()
-  const initialState: LoginState = { success: false, error: null, message: null }
+  const { profile, isLoading } = useAuth()
+  const initialState: LoginState = { success: false, error: null }
   const [state, formAction] = useActionState(login, initialState)
 
   const urlMessage = searchParams.get("message")
 
-  // Handle redirect on the client after successful login from the server action
-  useEffect(() => {
-    if (state.success && state.dashboardUrl) {
-      // Manually refresh the auth context to ensure it has the latest user profile
-      refreshProfile().then(() => {
-        router.push(state.dashboardUrl!)
-      })
-    }
-  }, [state, router, refreshProfile])
-
-  // Redirect users who are already logged in
+  // This useEffect now ONLY handles redirecting users who are ALREADY logged in.
+  // The post-login redirect is triggered by the AuthContext updating the profile.
   useEffect(() => {
     if (!isLoading && profile) {
       const url = getDashboardUrl(profile.role)
@@ -66,6 +57,7 @@ function LoginContent() {
     }
   }, [profile, isLoading, router])
 
+  // Show a spinner while checking auth state or if user is already logged in
   if (isLoading || profile) {
     return (
       <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
