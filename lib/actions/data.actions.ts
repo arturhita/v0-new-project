@@ -82,7 +82,7 @@ export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
     .from("reviews")
     .select(
       `
-      *,
+      id, rating, comment, created_at,
       client:profiles!reviews_client_id_fkey ( stage_name, avatar_url ),
       operator:profiles!reviews_operator_id_fkey ( stage_name )
     `,
