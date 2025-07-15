@@ -17,6 +17,11 @@ interface AuthContextType {
   user: User | null
   profile: Profile | null
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  register: (credentials: {
+    name: string
+    email: string
+    password: string
+  }) => Promise<{ success: boolean; error?: { message: string } | null }>
   logout: () => Promise<void>
   loading: boolean
 }
@@ -104,6 +109,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  const register = async ({ name, email, password }: { name: string; email: string; password: string }) => {
+    setLoading(true)
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    setLoading(false)
+
+    if (error) {
+      return { success: false, error: { message: error.message } }
+    }
+
+    return { success: true, error: null }
+  }
+
   const logout = async () => {
     setLoading(true)
     await supabase.auth.signOut()
@@ -117,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     login,
+    register,
     logout,
     loading,
   }

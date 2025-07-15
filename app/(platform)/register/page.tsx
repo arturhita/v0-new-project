@@ -53,6 +53,7 @@ export default function RegisterPage() {
         }
       }
     } catch (err: any) {
+      console.error("Registration error:", err)
       setError("Un errore imprevisto è accaduto.")
     } finally {
       setIsSubmitting(false)

@@ -27,8 +27,6 @@ export default function LoginPage() {
       if (!success) {
         if (loginError?.message === "Invalid login credentials") {
           setError("Email o password non validi. Riprova.")
-        } else if (loginError?.message === "Email not confirmed") {
-          setError("Devi confermare la tua email. Controlla la tua casella di posta per il link di attivazione.")
         } else {
           setError(loginError?.message || "Si è verificato un errore.")
         }

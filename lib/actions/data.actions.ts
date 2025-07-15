@@ -1,89 +1,48 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import type { Operator } from "@/components/operator-card"
+import { createServerClient } from "@/lib/supabase/server"
 
-// Funzione helper per mappare in modo sicuro i dati del profilo DB al tipo Operator del componente
-function mapProfileToOperator(profile: any): Operator {
-  if (!profile) {
-    return {} as Operator // Ritorna un oggetto vuoto se il profilo è nullo
-  }
-
-  const services = profile.services || {}
-  const chatService = services.chat || {}
-  const callService = services.call || {}
-  const emailService = services.email || {}
-
-  return {
-    id: profile.id,
-    name: profile.stage_name || "N/D",
-    avatarUrl: profile.avatar_url,
-    specialization: (profile.categories || []).join(", ") || "Nessuna specializzazione",
-    rating: profile.average_rating || 0,
-    reviewsCount: profile.reviews_count || 0,
-    description: profile.bio || "Nessuna biografia disponibile.",
-    tags: profile.specialties || [],
-    isOnline: profile.is_online || false,
-    services: {
-      chatPrice: chatService.enabled ? chatService.price_per_minute : undefined,
-      callPrice: callService.enabled ? callService.price_per_minute : undefined,
-      emailPrice: emailService.enabled ? emailService.price : undefined,
-    },
-    joinedDate: profile.created_at,
-  }
-}
-
-interface GetOperatorsOptions {
-  category?: string
-  onlineOnly?: boolean
-  searchTerm?: string
-  limit?: number
-  sortBy?: string
-  ascending?: boolean
-}
-
-export async function getOperators(options: GetOperatorsOptions = {}): Promise<Operator[]> {
-  const supabase = createClient()
-  const { category, onlineOnly, searchTerm, limit, sortBy = "average_rating", ascending = false } = options
-
-  let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo")
-
-  if (category && category !== "all" && category !== "tutti") {
-    query = query.contains("categories", [decodeURIComponent(category)])
-  }
-
-  if (onlineOnly) {
-    query = query.eq("is_online", true)
-  }
-
-  if (searchTerm) {
-    query = query.or(`stage_name.ilike.%${searchTerm}%,specialties.cs.{${searchTerm}}`)
-  }
-
-  if (sortBy) {
-    query = query.order(sortBy, { ascending })
-  }
-
-  if (limit) {
-    query = query.limit(limit)
-  }
-
-  const { data: profiles, error } = await query
+export async function getFeaturedOperators() {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `
+      id,
+      stage_name,
+      avatar_url,
+      bio,
+      categories,
+      services,
+      is_online
+    `,
+    )
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+    .limit(4)
 
   if (error) {
-    console.error("Error fetching operators:", error)
+    console.error("Error fetching featured operators:", error)
     return []
   }
 
-  return profiles.map(mapProfileToOperator)
+  return data.map((op) => ({
+    id: op.id,
+    name: op.stage_name,
+    avatarUrl: op.avatar_url,
+    description: op.bio,
+    tags: op.categories,
+    isOnline: op.is_online,
+    services: op.services,
+    profileLink: `/operator/${op.stage_name}`,
+    specialization: op.categories?.[0] || "Esperto",
+    rating: 5, // Placeholder, da implementare con le recensioni
+    reviewsCount: 0, // Placeholder
+  }))
 }
 
-export async function getFeaturedOperators(limit = 4): Promise<Operator[]> {
-  return getOperators({ limit, sortBy: "average_rating", ascending: false })
-}
-
-export async function getRecentReviews(limit = 3) {
-  const supabase = createClient()
+export async function getRecentReviews() {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from("reviews")
     .select(
@@ -93,60 +52,29 @@ export async function getRecentReviews(limit = 3) {
       comment,
       created_at,
       client:profiles!reviews_client_id_fkey (
-        full_name,
+        name,
         avatar_url
+      ),
+      operator:profiles!reviews_operator_id_fkey (
+        stage_name
       )
     `,
     )
     .order("created_at", { ascending: false })
-    .limit(limit)
+    .limit(5)
 
   if (error) {
     console.error("Error fetching recent reviews:", error)
     return []
   }
 
-  return data.map((review: any) => ({
+  return data.map((review) => ({
     id: review.id,
+    userName: review.client?.name || "Utente Anonimo",
+    userAvatar: review.client?.avatar_url,
+    operatorName: review.operator?.stage_name || "Operatore",
     rating: review.rating,
     comment: review.comment,
     date: review.created_at,
-    userName: review.client?.full_name || "Utente Anonimo",
-    userAvatar: review.client?.avatar_url,
   }))
-}
-
-export async function getOperatorStats(operatorId: string) {
-  const supabase = createClient()
-
-  const { data: profileData, error: profileError } = await supabase
-    .from("profiles")
-    .select("average_rating, reviews_count")
-    .eq("id", operatorId)
-    .single()
-
-  const { data: earningsData, error: earningsError } = await supabase.rpc("calculate_monthly_earnings", {
-    p_operator_id: operatorId,
-  })
-  const { count: pendingCount, error: pendingError } = await supabase
-    .from("written_consultations")
-    .select("*", { count: "exact", head: true })
-    .eq("operator_id", operatorId)
-    .eq("status", "pending")
-
-  if (profileError || earningsError || pendingError) {
-    console.error({ profileError, earningsError, pendingError })
-  }
-
-  return {
-    totalEarningsMonth: earningsData || 0,
-    pendingConsultations: pendingCount || 0,
-    averageRating: profileData?.average_rating || 0,
-    totalConsultationsMonth: profileData?.reviews_count || 0,
-    newClientsMonth: 0, // Placeholder
-  }
-}
-
-export async function getUnreadMessagesCount(userId: string): Promise<number> {
-  return 3 // Placeholder
 }

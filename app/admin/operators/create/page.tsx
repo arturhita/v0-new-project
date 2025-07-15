@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { useFormState, useFormStatus } from "react-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,34 +57,22 @@ const weekDays = [
   { key: "sunday", label: "Domenica" },
 ]
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button
-      size="lg"
-      type="submit"
-      disabled={pending}
-      className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
-    >
-      <Save className="mr-2 h-5 w-5" />
-      {pending ? "Salvataggio..." : "Crea Operatore"}
-    </Button>
-  )
-}
-
 export default function CreateOperatorPage() {
   const router = useRouter()
   const { toast } = useToast()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const [formState, formAction] = useFormState(createOperator, { success: false, message: null })
+  const [isSaving, setIsSaving] = useState(false)
 
-  const [previewData, setPreviewData] = useState({
+  const [operator, setOperator] = useState({
+    name: "",
+    surname: "",
     stageName: "",
-    avatarUrl: "",
+    email: "",
+    phone: "",
     bio: "",
-    categories: [] as string[],
     specialties: [] as string[],
-    isOnline: true,
+    categories: [] as string[],
+    avatarUrl: "",
     services: {
       chatEnabled: true,
       chatPrice: "2.50",
@@ -94,13 +81,26 @@ export default function CreateOperatorPage() {
       emailEnabled: true,
       emailPrice: "15.00",
     },
+    availability: {
+      monday: [] as string[],
+      tuesday: [] as string[],
+      wednesday: [] as string[],
+      thursday: [] as string[],
+      friday: [] as string[],
+      saturday: [] as string[],
+      sunday: [] as string[],
+    },
+    status: "Attivo" as "Attivo" | "In Attesa" | "Sospeso",
+    isOnline: true,
+    commission: "15",
   })
-  const [newSpecialty, setNewSpecialty] = useState("")
-  const [showPreview, setShowPreview] = useState(true)
 
-  const handlePreviewChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const [newSpecialty, setNewSpecialty] = useState("")
+  const [showPreview, setShowPreview] = useState(false)
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setPreviewData((prev) => ({ ...prev, [name]: value }))
+    setOperator((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleServiceChange = (
@@ -108,7 +108,7 @@ export default function CreateOperatorPage() {
     field: "Enabled" | "Price",
     value: string | boolean,
   ) => {
-    setPreviewData((prev) => ({
+    setOperator((prev) => ({
       ...prev,
       services: {
         ...prev.services,
@@ -118,7 +118,7 @@ export default function CreateOperatorPage() {
   }
 
   const handleCategoryToggle = (category: string) => {
-    setPreviewData((prev) => ({
+    setOperator((prev) => ({
       ...prev,
       categories: prev.categories.includes(category)
         ? prev.categories.filter((c) => c !== category)
@@ -126,9 +126,21 @@ export default function CreateOperatorPage() {
     }))
   }
 
+  const handleAvailabilityToggle = (day: string, slot: string) => {
+    setOperator((prev) => ({
+      ...prev,
+      availability: {
+        ...prev.availability,
+        [day]: prev.availability[day as keyof typeof prev.availability].includes(slot)
+          ? prev.availability[day as keyof typeof prev.availability].filter((s) => s !== slot)
+          : [...prev.availability[day as keyof typeof prev.availability], slot],
+      },
+    }))
+  }
+
   const handleAddSpecialty = () => {
-    if (newSpecialty.trim() && !previewData.specialties.includes(newSpecialty.trim())) {
-      setPreviewData((prev) => ({
+    if (newSpecialty.trim() && !operator.specialties.includes(newSpecialty.trim())) {
+      setOperator((prev) => ({
         ...prev,
         specialties: [...prev.specialties, newSpecialty.trim()],
       }))
@@ -137,7 +149,7 @@ export default function CreateOperatorPage() {
   }
 
   const handleRemoveSpecialty = (specialty: string) => {
-    setPreviewData((prev) => ({
+    setOperator((prev) => ({
       ...prev,
       specialties: prev.specialties.filter((s) => s !== specialty),
     }))
@@ -146,115 +158,160 @@ export default function CreateOperatorPage() {
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File troppo grande",
+          description: "L'immagine non deve superare i 5MB.",
+          variant: "destructive",
+        })
+        return
+      }
       const reader = new FileReader()
       reader.onloadend = () => {
-        setPreviewData((prev) => ({ ...prev, avatarUrl: reader.result as string }))
+        setOperator((prev) => ({ ...prev, avatarUrl: reader.result as string }))
       }
       reader.readAsDataURL(file)
     }
   }
 
-  useEffect(() => {
-    if (formState.message) {
-      if (formState.success) {
+  const handleSave = async () => {
+    if (!operator.name || !operator.surname || !operator.stageName || !operator.email) {
+      toast({
+        title: "Campi obbligatori mancanti",
+        description: "Nome, cognome, nome d'arte ed email sono obbligatori.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (operator.categories.length === 0) {
+      toast({
+        title: "Categoria richiesta",
+        description: "Seleziona almeno una categoria.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const result = await createOperator(operator)
+
+      if (result.success && result.temporaryPassword) {
         toast({
           title: "✅ Operatore Creato!",
           description: (
             <div>
-              <p>{formState.message}</p>
-              {formState.temporaryPassword && (
-                <>
-                  <p className="mt-2 font-semibold">Password Temporanea:</p>
-                  <div className="flex items-center gap-2 mt-1 p-2 bg-slate-100 rounded-md">
-                    <span className="font-mono text-sm">{formState.temporaryPassword}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => {
-                        navigator.clipboard.writeText(formState.temporaryPassword!)
-                        toast({ title: "Copiato!", description: "Password copiata negli appunti." })
-                      }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </>
-              )}
+              <p>{`L'operatore ${operator.stageName} è stato creato.`}</p>
+              <p className="mt-2 font-semibold">Password Temporanea:</p>
+              <div className="flex items-center gap-2 mt-1 p-2 bg-slate-100 rounded-md">
+                <span className="font-mono text-sm">{result.temporaryPassword}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    navigator.clipboard.writeText(result.temporaryPassword!)
+                    toast({ title: "Copiato!", description: "Password copiata negli appunti." })
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs mt-2 text-slate-500">
+                Comunicare questa password all'operatore. Dovrà confermare l'email e potrà cambiare la password in
+                seguito.
+              </p>
             </div>
           ),
           duration: 15000,
         })
-        router.push("/admin/operators")
+        setTimeout(() => {
+          router.push("/admin/operators")
+        }, 15000)
       } else {
         toast({
           title: "Errore nella creazione",
-          description: formState.message,
+          description: result.message || "Si è verificato un errore sconosciuto.",
           variant: "destructive",
         })
       }
+    } catch (error) {
+      console.error("Errore imprevisto nel salvataggio:", error)
+      toast({
+        title: "Errore di Sistema",
+        description: "Impossibile comunicare con il server. Riprova più tardi.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
     }
-  }, [formState, toast, router])
+  }
 
   const PreviewCard = () => (
     <Card className="group relative flex flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-sky-500/20 shadow-xl h-full">
       <div className="absolute top-3 right-3 flex items-center space-x-2 z-10">
-        {previewData.isOnline && (
+        {operator.isOnline && (
           <div className="relative">
             <div className="h-3 w-3 rounded-full bg-green-400 shadow-md border-2 border-white/50" />
             <div className="absolute inset-0 h-3 w-3 rounded-full bg-green-400 animate-ping opacity-75" />
           </div>
         )}
       </div>
+
       <div className="relative flex flex-col items-center p-6 space-y-4 h-full">
         <div className="relative mt-2">
           <Avatar className="w-24 h-24 border-4 border-sky-400/50 shadow-lg">
             <AvatarImage
-              src={previewData.avatarUrl || "/placeholder.svg?width=96&height=96&query=avatar"}
-              alt={previewData.stageName}
+              src={operator.avatarUrl || "/placeholder.svg?width=96&height=96&query=avatar"}
+              alt={operator.stageName}
             />
             <AvatarFallback className="text-2xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white">
-              {previewData.stageName.substring(0, 1).toUpperCase()}
+              {operator.stageName.substring(0, 1).toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </div>
+
         <h3 className="text-xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-400">
-          {previewData.stageName || "Nome d'Arte"}
+          {operator.stageName || "Nome d'Arte"}
         </h3>
-        <p className="text-sm font-medium text-cyan-300 text-center">
-          {previewData.categories.join(", ") || "Categorie"}
-        </p>
+
+        <p className="text-sm font-medium text-cyan-300 text-center">{operator.categories.join(", ") || "Categorie"}</p>
+
         <div className="flex items-center space-x-1 text-sm">
           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
           <span className="font-semibold text-white">5.0</span>
           <span className="text-slate-400">(Nuovo)</span>
         </div>
+
         <p className="text-xs text-slate-300 text-center leading-relaxed h-12 overflow-hidden line-clamp-3">
-          {previewData.bio || "Descrizione del profilo..."}
+          {operator.bio || "Descrizione del profilo..."}
         </p>
+
         <div className="flex flex-wrap justify-center gap-1.5 py-2">
-          {previewData.specialties.slice(0, 3).map((tag) => (
+          {operator.specialties.slice(0, 3).map((tag) => (
             <Badge key={tag} variant="outline" className="text-xs bg-sky-500/20 border-sky-400/50 text-sky-200">
               {tag}
             </Badge>
           ))}
         </div>
+
         <div className="w-full pt-2 space-y-2">
           <p className="text-xs font-semibold text-slate-300 text-center">Servizi disponibili:</p>
           <div className="flex flex-wrap justify-center gap-1.5 text-xs">
-            {previewData.services.chatEnabled && (
+            {operator.services.chatEnabled && (
               <Badge className="bg-gradient-to-r from-sky-500/20 to-cyan-500/20 text-sky-200 border-sky-400/30">
-                <MessageSquare className="h-3 w-3 mr-1" /> Chat €{previewData.services.chatPrice}/min
+                <MessageSquare className="h-3 w-3 mr-1" /> Chat €{operator.services.chatPrice}/min
               </Badge>
             )}
-            {previewData.services.callEnabled && (
+            {operator.services.callEnabled && (
               <Badge className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-200 border-cyan-400/30">
-                <Phone className="h-3 w-3 mr-1" /> Call €{previewData.services.callPrice}/min
+                <Phone className="h-3 w-3 mr-1" /> Call €{operator.services.callPrice}/min
               </Badge>
             )}
-            {previewData.services.emailEnabled && (
+            {operator.services.emailEnabled && (
               <Badge className="bg-gradient-to-r from-blue-500/20 to-sky-500/20 text-blue-200 border-blue-400/30">
-                <Mail className="h-3 w-3 mr-1" /> Email €{previewData.services.emailPrice}
+                <Mail className="h-3 w-3 mr-1" /> Email €{operator.services.emailPrice}
               </Badge>
             )}
           </div>
@@ -264,7 +321,7 @@ export default function CreateOperatorPage() {
   )
 
   return (
-    <form action={formAction} className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/admin/operators">
@@ -275,7 +332,6 @@ export default function CreateOperatorPage() {
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-800">Crea Nuovo Operatore</h1>
         <div className="ml-auto flex gap-2">
           <Button
-            type="button"
             variant="outline"
             onClick={() => setShowPreview(!showPreview)}
             className="border-sky-300 text-sky-600 hover:bg-sky-100"
@@ -285,11 +341,7 @@ export default function CreateOperatorPage() {
           </Button>
         </div>
       </div>
-      {/* Campi nascosti per dati complessi */}
-      <input type="hidden" name="avatarUrl" value={previewData.avatarUrl} />
-      <input type="hidden" name="specialties" value={previewData.specialties.join(",")} />
-      <input type="hidden" name="categories" value={previewData.categories.join(",")} />
-      <input type="hidden" name="availability" value={JSON.stringify({})} /> {/* Placeholder, da implementare */}
+
       <div className={`grid gap-6 ${showPreview ? "lg:grid-cols-3" : "lg:grid-cols-1"}`}>
         <div className={showPreview ? "lg:col-span-2" : ""}>
           {/* Dati Personali */}
@@ -308,15 +360,14 @@ export default function CreateOperatorPage() {
                 <div className="relative">
                   <Avatar className="w-20 h-20 border-4 border-sky-200 shadow-lg">
                     <AvatarImage
-                      src={previewData.avatarUrl || "/placeholder.svg?width=80&height=80&query=avatar"}
+                      src={operator.avatarUrl || "/placeholder.svg?width=80&height=80&query=avatar"}
                       alt="Avatar"
                     />
                     <AvatarFallback className="text-2xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white">
-                      {previewData.stageName.substring(0, 1).toUpperCase() || "?"}
+                      {operator.stageName.substring(0, 1).toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
                   <Button
-                    type="button"
                     variant="outline"
                     size="icon"
                     className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-white border-2 border-sky-300 text-sky-600 hover:bg-sky-100"
@@ -335,22 +386,51 @@ export default function CreateOperatorPage() {
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Nome Reale *</Label>
-                    <Input id="name" name="name" className="mt-1" required />
+                    <Input
+                      id="name"
+                      name="name"
+                      value={operator.name}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      required
+                    />
                   </div>
                   <div>
                     <Label htmlFor="surname">Cognome Reale *</Label>
-                    <Input id="surname" name="surname" className="mt-1" required />
+                    <Input
+                      id="surname"
+                      name="surname"
+                      value={operator.surname}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      required
+                    />
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="email">Email *</Label>
-                  <Input id="email" name="email" type="email" className="mt-1" required />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={operator.email}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="phone">Telefono</Label>
-                  <Input id="phone" name="phone" type="tel" className="mt-1" />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={operator.phone}
+                    onChange={handleInputChange}
+                    className="mt-1"
+                  />
                 </div>
               </div>
             </CardContent>
@@ -371,8 +451,8 @@ export default function CreateOperatorPage() {
                 <Input
                   id="stageName"
                   name="stageName"
-                  value={previewData.stageName}
-                  onChange={handlePreviewChange}
+                  value={operator.stageName}
+                  onChange={handleInputChange}
                   className="mt-1"
                   placeholder="Es. Stella Divina"
                   required
@@ -383,8 +463,8 @@ export default function CreateOperatorPage() {
                 <Textarea
                   id="bio"
                   name="bio"
-                  value={previewData.bio}
-                  onChange={handlePreviewChange}
+                  value={operator.bio}
+                  onChange={handleInputChange}
                   className="mt-1 min-h-[120px]"
                   placeholder="Descrivi l'esperienza e le competenze dell'operatore..."
                 />
@@ -396,7 +476,7 @@ export default function CreateOperatorPage() {
                     <div key={category} className="flex items-center space-x-2">
                       <Checkbox
                         id={category}
-                        checked={previewData.categories.includes(category)}
+                        checked={operator.categories.includes(category)}
                         onCheckedChange={() => handleCategoryToggle(category)}
                       />
                       <Label htmlFor={category} className="text-sm font-medium">
@@ -409,7 +489,7 @@ export default function CreateOperatorPage() {
               <div>
                 <Label>Specializzazioni</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {previewData.specialties.map((spec) => (
+                  {operator.specialties.map((spec) => (
                     <Badge
                       key={spec}
                       variant="secondary"
@@ -417,7 +497,6 @@ export default function CreateOperatorPage() {
                     >
                       {spec}
                       <button
-                        type="button"
                         onClick={() => handleRemoveSpecialty(spec)}
                         className="ml-1.5 text-sky-500 hover:text-sky-700"
                       >
@@ -439,7 +518,7 @@ export default function CreateOperatorPage() {
                       }
                     }}
                   />
-                  <Button type="button" onClick={handleAddSpecialty} variant="outline">
+                  <Button onClick={handleAddSpecialty} variant="outline">
                     <Tags className="h-4 w-4 mr-1" />
                     Aggiungi
                   </Button>
@@ -458,86 +537,88 @@ export default function CreateOperatorPage() {
               <CardDescription>Configura i servizi offerti e i relativi prezzi.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Chat */}
               <div className="flex items-center justify-between p-4 border border-sky-200 rounded-lg">
                 <div className="flex items-center gap-3">
                   <MessageSquare className="h-5 w-5 text-sky-600" />
                   <div>
                     <Label className="text-base font-medium">Chat</Label>
+                    <p className="text-sm text-slate-500">Consulenza via chat testuale</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Input
-                      name="services.chatPrice"
                       type="number"
                       step="0.10"
                       min="0"
-                      value={previewData.services.chatPrice}
+                      value={operator.services.chatPrice}
                       onChange={(e) => handleServiceChange("chat", "Price", e.target.value)}
                       className="w-20"
-                      disabled={!previewData.services.chatEnabled}
+                      disabled={!operator.services.chatEnabled}
                     />
                     <span className="text-sm text-slate-500">€/min</span>
                   </div>
                   <Switch
-                    name="services.chatEnabled"
-                    checked={previewData.services.chatEnabled}
+                    checked={operator.services.chatEnabled}
                     onCheckedChange={(checked) => handleServiceChange("chat", "Enabled", checked)}
                   />
                 </div>
               </div>
+
+              {/* Chiamata */}
               <div className="flex items-center justify-between p-4 border border-sky-200 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-sky-600" />
                   <div>
                     <Label className="text-base font-medium">Chiamata</Label>
+                    <p className="text-sm text-slate-500">Consulenza telefonica</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Input
-                      name="services.callPrice"
                       type="number"
                       step="0.10"
                       min="0"
-                      value={previewData.services.callPrice}
+                      value={operator.services.callPrice}
                       onChange={(e) => handleServiceChange("call", "Price", e.target.value)}
                       className="w-20"
-                      disabled={!previewData.services.callEnabled}
+                      disabled={!operator.services.callEnabled}
                     />
                     <span className="text-sm text-slate-500">€/min</span>
                   </div>
                   <Switch
-                    name="services.callEnabled"
-                    checked={previewData.services.callEnabled}
+                    checked={operator.services.callEnabled}
                     onCheckedChange={(checked) => handleServiceChange("call", "Enabled", checked)}
                   />
                 </div>
               </div>
+
+              {/* Email */}
               <div className="flex items-center justify-between p-4 border border-sky-200 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Mail className="h-5 w-5 text-sky-600" />
                   <div>
                     <Label className="text-base font-medium">Email</Label>
+                    <p className="text-sm text-slate-500">Consulenza via email</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Input
-                      name="services.emailPrice"
                       type="number"
                       step="0.50"
                       min="0"
-                      value={previewData.services.emailPrice}
+                      value={operator.services.emailPrice}
                       onChange={(e) => handleServiceChange("email", "Price", e.target.value)}
                       className="w-20"
-                      disabled={!previewData.services.emailEnabled}
+                      disabled={!operator.services.emailEnabled}
                     />
                     <span className="text-sm text-slate-500">€</span>
                   </div>
                   <Switch
-                    name="services.emailEnabled"
-                    checked={previewData.services.emailEnabled}
+                    checked={operator.services.emailEnabled}
                     onCheckedChange={(checked) => handleServiceChange("email", "Enabled", checked)}
                   />
                 </div>
@@ -562,7 +643,13 @@ export default function CreateOperatorPage() {
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                       {availabilitySlots.map((slot) => (
                         <div key={slot} className="flex items-center space-x-2">
-                          <Checkbox id={`${day.key}-${slot}`} name={`availability.${day.key}.${slot}`} />
+                          <Checkbox
+                            id={`${day.key}-${slot}`}
+                            checked={operator.availability[day.key as keyof typeof operator.availability].includes(
+                              slot,
+                            )}
+                            onCheckedChange={() => handleAvailabilityToggle(day.key, slot)}
+                          />
                           <Label htmlFor={`${day.key}-${slot}`} className="text-sm font-medium">
                             {slot}
                           </Label>
@@ -585,7 +672,12 @@ export default function CreateOperatorPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <div>
                   <Label htmlFor="status">Stato</Label>
-                  <Select name="status" defaultValue="Attivo">
+                  <Select
+                    value={operator.status}
+                    onValueChange={(value: "Attivo" | "In Attesa" | "Sospeso") =>
+                      setOperator((prev) => ({ ...prev, status: value }))
+                    }
+                  >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -604,16 +696,16 @@ export default function CreateOperatorPage() {
                     type="number"
                     min="0"
                     max="100"
-                    defaultValue="15"
+                    value={operator.commission}
+                    onChange={handleInputChange}
                     className="mt-1"
                   />
                 </div>
                 <div className="flex items-center space-x-2 pb-2">
                   <Switch
                     id="isOnline"
-                    name="isOnline"
-                    checked={previewData.isOnline}
-                    onCheckedChange={(checked) => setPreviewData((p) => ({ ...p, isOnline: checked }))}
+                    checked={operator.isOnline}
+                    onCheckedChange={(checked) => setOperator((prev) => ({ ...prev, isOnline: checked }))}
                   />
                   <Label htmlFor="isOnline">Online</Label>
                 </div>
@@ -631,12 +723,21 @@ export default function CreateOperatorPage() {
           </div>
         )}
       </div>
+
       <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" asChild>
+        <Button variant="outline" asChild>
           <Link href="/admin/operators">Annulla</Link>
         </Button>
-        <SubmitButton />
+        <Button
+          size="lg"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90"
+        >
+          <Save className="mr-2 h-5 w-5" />
+          {isSaving ? "Salvataggio..." : "Crea Operatore"}
+        </Button>
       </div>
-    </form>
+    </div>
   )
 }

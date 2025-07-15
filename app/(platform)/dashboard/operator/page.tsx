@@ -1,7 +1,10 @@
+"use client"
+
 import type React from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
+  BarChart,
   Users,
   MessageSquare,
   Star,
@@ -14,9 +17,16 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
-import { createClient } from "@/lib/supabase/server"
-import { getOperatorStats, getUnreadMessagesCount } from "@/lib/actions/data.actions"
-import { redirect } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+
+// Mock data for stats - will be replaced with real data later
+const operatorStats = {
+  totalEarningsMonth: 1250.75,
+  pendingConsultations: 3,
+  averageRating: 4.8,
+  totalConsultationsMonth: 42,
+  newClientsMonth: 7,
+}
 
 const StatCard = ({
   title,
@@ -67,22 +77,8 @@ const StatCard = ({
   </Card>
 )
 
-export default async function OperatorDashboardPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  const [operatorStats, unreadMessagesCount] = await Promise.all([
-    getOperatorStats(user.id),
-    getUnreadMessagesCount(user.id),
-  ])
-
-  const operatorName = user.user_metadata.stage_name || user.user_metadata.full_name || "Operatore"
+export default function OperatorDashboardPage() {
+  const { user } = useAuth()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -97,7 +93,7 @@ export default async function OperatorDashboardPage() {
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <SparklesIcon className="w-8 h-8 mr-3 text-yellow-400" />
-              Benvenuto nel tuo Santuario, {operatorName}!
+              Benvenuto nel tuo Santuario, {user?.name || "Operatore"}!
             </h1>
             <p className="text-white/70 text-lg">Ecco una panoramica della tua attività mistica.</p>
           </div>
@@ -153,7 +149,7 @@ export default async function OperatorDashboardPage() {
           />
           <StatCard
             title="Messaggi Non Letti"
-            value={unreadMessagesCount}
+            value={3}
             icon={MessageSquare}
             description="Dalla piattaforma e utenti"
             link="/dashboard/operator/platform-messages"
@@ -162,6 +158,44 @@ export default async function OperatorDashboardPage() {
         </div>
 
         {user && <GamificationWidget userId={user.id} />}
+
+        <Card className="backdrop-blur-xl bg-gradient-to-r from-sky-500/20 via-teal-500/20 to-indigo-500/20 border border-white/20 shadow-2xl rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white flex items-center">
+              <SparklesIcon className="h-6 w-6 mr-3 text-yellow-400" />
+              Configura le Tue Arti
+            </CardTitle>
+            <CardDescription className="text-white/80 text-base">
+              Definisci come desideri offrire i tuoi doni: chat, chiamate, o messaggi scritti.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm w-full sm:w-auto px-6 py-3 rounded-xl shadow-lg"
+              asChild
+            >
+              <Link href="/dashboard/operator/services">Gestisci Modalità Consulto</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Chart Placeholder */}
+        <Card className="backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white flex items-center">
+              <BarChart className="w-6 h-6 mr-3 text-sky-400" />
+              Andamento Consulti (Ultimi 30 Giorni)
+            </CardTitle>
+            <CardDescription className="text-white/70 text-base">
+              Visualizzazione grafica delle tue sessioni.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
+              <p className="text-white/60">Grafico Andamento Consulti (Placeholder)</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
