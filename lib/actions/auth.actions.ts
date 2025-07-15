@@ -1,8 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import type { z } from "zod"
-import { loginSchema, type signupSchema } from "@/lib/schemas"
+import { loginSchema, signupSchema } from "@/lib/schemas"
 import { headers } from "next/headers"
 
 export interface LoginState {
@@ -47,16 +46,31 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
   return { success: false, error: "Si è verificato un errore imprevisto durante il login." }
 }
 
-export async function signup(values: z.infer<typeof signupSchema>) {
+export interface SignupState {
+  success: boolean
+  message: string
+}
+
+export async function signup(prevState: SignupState, formData: FormData): Promise<SignupState> {
+  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Dati inseriti non validi. Assicurati che la password sia di almeno 6 caratteri.",
+    }
+  }
+
+  const { name, email, password } = validatedFields.data
   const origin = headers().get("origin")
   const supabase = createClient()
 
   const { error } = await supabase.auth.signUp({
-    email: values.email,
-    password: values.password,
+    email,
+    password,
     options: {
       data: {
-        full_name: values.name,
+        full_name: name,
         role: "client",
       },
       emailRedirectTo: `${origin}/auth/callback`,
@@ -65,11 +79,11 @@ export async function signup(values: z.infer<typeof signupSchema>) {
 
   if (error) {
     if (error.message.includes("User already registered")) {
-      return { success: false, error: "Un utente con questa email è già registrato." }
+      return { success: false, message: "Un utente con questa email è già registrato." }
     }
     console.error("Signup Error:", error)
-    return { success: false, error: "Si è verificato un errore durante la registrazione. Riprova." }
+    return { success: false, message: "Si è verificato un errore durante la registrazione. Riprova." }
   }
 
-  return { success: true, error: null }
+  return { success: true, message: "Registrazione completata! Controlla la tua email per verificare il tuo account." }
 }
