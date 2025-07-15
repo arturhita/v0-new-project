@@ -5,7 +5,7 @@ import { Star, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import ReviewCard from "@/components/review-card"
+import { ReviewCard } from "@/components/review-card"
 import StartChatButton from "@/components/start-chat-button"
 
 export default async function OperatorProfilePage({ params }: { params: { operatorName: string } }) {

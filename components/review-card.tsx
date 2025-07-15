@@ -26,7 +26,7 @@ const RatingStars = ({ rating }: { rating: number }) => {
   )
 }
 
-export default function ReviewCard({ review }: ReviewCardProps) {
+export function ReviewCard({ review }: ReviewCardProps) {
   const timeAgo = formatDistanceToNow(new Date(review.created_at), { addSuffix: true, locale: it })
 
   return (
