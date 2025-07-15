@@ -44,7 +44,7 @@ interface GetOperatorsOptions {
 
 export async function getOperators(options: GetOperatorsOptions = {}): Promise<Operator[]> {
   const supabase = createClient()
-  const { category, onlineOnly, searchTerm, limit, sortBy = "created_at", ascending = false } = options
+  const { category, onlineOnly, searchTerm, limit, sortBy = "average_rating", ascending = false } = options
 
   let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo")
 
@@ -79,7 +79,6 @@ export async function getOperators(options: GetOperatorsOptions = {}): Promise<O
 }
 
 export async function getFeaturedOperators(limit = 4): Promise<Operator[]> {
-  // Per ora, prendiamo gli operatori con rating più alto
   return getOperators({ limit, sortBy: "average_rating", ascending: false })
 }
 
@@ -126,7 +125,6 @@ export async function getOperatorStats(operatorId: string) {
     .eq("id", operatorId)
     .single()
 
-  // Placeholder for other stats until their tables are created
   const { data: earningsData, error: earningsError } = await supabase.rpc("calculate_monthly_earnings", {
     p_operator_id: operatorId,
   })
@@ -144,14 +142,11 @@ export async function getOperatorStats(operatorId: string) {
     totalEarningsMonth: earningsData || 0,
     pendingConsultations: pendingCount || 0,
     averageRating: profileData?.average_rating || 0,
-    totalConsultationsMonth: profileData?.reviews_count || 0, // Using reviews_count as a proxy
+    totalConsultationsMonth: profileData?.reviews_count || 0,
     newClientsMonth: 0, // Placeholder
   }
 }
 
 export async function getUnreadMessagesCount(userId: string): Promise<number> {
-  // Placeholder implementation
-  // In a real scenario, you would query your messages table
-  // e.g., SELECT count(*) FROM messages WHERE recipient_id = userId AND is_read = false
-  return 3
+  return 3 // Placeholder
 }

@@ -55,7 +55,7 @@ export async function registerOperator(prevState: SignupState, formData: FormDat
     return { success: false, message: "Tutti i campi sono obbligatori." }
   }
 
-  // Step 1: Sign up the user normally. Email confirmation will be required by default.
+  // Step 1: Sign up the user.
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -80,26 +80,24 @@ export async function registerOperator(prevState: SignupState, formData: FormDat
     return { success: false, message: "Impossibile creare l'utente operatore." }
   }
 
-  // Step 2: Use the admin client to manually confirm the user's email, bypassing the email verification step.
+  // Step 2: Use the admin client to manually confirm the user's email.
   const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(signUpData.user.id, {
     email_confirm: true,
   })
 
   if (updateUserError) {
     console.error("Error confirming operator email:", updateUserError)
-    // This is a critical error, but the user is already created.
-    // We should inform them to try logging in or contact support.
     return {
       success: false,
       message: `L'utente è stato creato ma si è verificato un errore durante l'attivazione. Prova ad accedere o contatta il supporto.`,
     }
   }
 
-  // Automatically sign in the user after successful registration and activation
+  // Step 3: Automatically sign in the user.
   await supabase.auth.signInWithPassword({ email, password })
 
   revalidatePath("/", "layout")
-  redirect("/dashboard/operator") // Redirect directly to the operator dashboard
+  redirect("/dashboard/operator")
 }
 
 export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
@@ -130,8 +128,6 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
     return { success: false, error: `Errore di accesso: ${error.message}` }
   }
 
-  // La logica di redirect è gestita dal client tramite AuthContext
-  // ma possiamo forzare un revalidate per aggiornare le pagine server
   revalidatePath("/", "layout")
   return { success: true, error: null }
 }

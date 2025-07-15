@@ -1,45 +1,88 @@
 "use client"
+
 import Link from "next/link"
+import { Suspense } from "react"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { getOperators, getRecentReviews, getFeaturedOperators } from "@/lib/actions/data.actions"
-import { useEffect, useState } from "react"
-import type { Operator } from "@/components/operator-card"
-import type { Review } from "@/components/review-card"
+import { LoadingSpinner } from "@/components/loading-spinner"
+
+async function FeaturedOperators() {
+  const operators = await getFeaturedOperators(4)
+  if (operators.length === 0) {
+    return <p className="text-center text-white/70">Nessun operatore in primo piano al momento.</p>
+  }
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      {operators.map((operator) => (
+        <OperatorCard key={operator.id} operator={operator} />
+      ))}
+    </div>
+  )
+}
+
+async function TopOperators() {
+  const operators = await getOperators({ limit: 8, sortBy: "average_rating", ascending: false })
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+      {operators.map((operator, index) => (
+        <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+          <OperatorCard operator={operator} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+async function RecentReviews() {
+  const reviews = await getRecentReviews(3)
+  if (reviews.length === 0) {
+    return <div className="text-center text-slate-400">Ancora nessuna recensione.</div>
+  }
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+      {reviews.map((review: any, index) => (
+        <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+          <ReviewCard review={review} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+async function NewTalents() {
+  const operators = await getOperators({ limit: 3, sortBy: "created_at", ascending: false })
+  if (operators.length === 0) return null
+  return (
+    <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
+      <ConstellationBackground goldVisible={true} />
+      <div className="container px-4 md:px-6 relative z-10">
+        <div className="text-center mb-12 md:mb-16">
+          <h2 className="text-3xl font-bold md:text-4xl text-white">Nuovi talenti Moonthir</h2>
+          <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
+            Scopri i maestri spirituali che si sono uniti di recente alla nostra comunità mistica.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {operators.map((operator, index) => (
+            <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+              <OperatorCard operator={operator} showNewBadge={true} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
 export default function UnveillyHomePage() {
-  const [topOperators, setTopOperators] = useState<Operator[]>([])
-  const [newTalents, setNewTalents] = useState<Operator[]>([])
-  const [recentReviews, setRecentReviews] = useState<Review[]>([])
-  const [featuredOperators, setFeaturedOperators] = useState<Operator[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      const [topOperatorsData, newTalentsData, recentReviewsData, featuredOperatorsData] = await Promise.all([
-        getOperators({ limit: 8, sortBy: "average_rating", ascending: false }),
-        getOperators({ limit: 3, sortBy: "created_at", ascending: false }),
-        getRecentReviews(3),
-        getFeaturedOperators(4),
-      ])
-      setTopOperators(topOperatorsData)
-      setNewTalents(newTalentsData)
-      setRecentReviews(recentReviewsData as Review[])
-      setFeaturedOperators(featuredOperatorsData)
-      setLoading(false)
-    }
-    fetchData()
-  }, [])
-
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
         @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
-
         .font-playfair {
           font-family: "Playfair Display", serif;
         }
@@ -63,23 +106,11 @@ export default function UnveillyHomePage() {
             transform: scale(1);
           }
         }
-        @keyframes float {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
         .animate-fadeInUp {
           animation: fadeInUp 1s ease-out forwards;
         }
         .animate-scaleIn {
           animation: scaleIn 0.6s ease-out forwards;
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
         }
       `}</style>
 
@@ -92,7 +123,6 @@ export default function UnveillyHomePage() {
           >
             <div className="absolute inset-0 bg-black/40"></div>
           </div>
-
           <div className="relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 animate-fadeInUp">
             <h1
               className="font-playfair font-bold text-white text-6xl md:text-8xl"
@@ -125,17 +155,9 @@ export default function UnveillyHomePage() {
               <h2 className="text-3xl md:text-4xl font-bold">I nostri Esperti in Primo Piano</h2>
               <p className="text-white/70 mt-2">Professionisti pronti ad ascoltarti e guidarti.</p>
             </div>
-            {loading ? (
-              <div className="text-center">Caricamento...</div>
-            ) : featuredOperators.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {featuredOperators.map((operator) => (
-                  <OperatorCard key={operator.id} operator={operator} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-white/70">Nessun operatore in primo piano al momento.</p>
-            )}
+            <Suspense fallback={<LoadingSpinner />}>
+              <FeaturedOperators />
+            </Suspense>
           </div>
         </section>
 
@@ -149,17 +171,9 @@ export default function UnveillyHomePage() {
                 Trova la tua guida spirituale, disponibile ora per svelare i misteri del tuo destino.
               </p>
             </div>
-            {loading ? (
-              <div className="text-center">Caricamento...</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-                {topOperators.map((operator, index) => (
-                  <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                    <OperatorCard operator={operator} />
-                  </div>
-                ))}
-              </div>
-            )}
+            <Suspense fallback={<LoadingSpinner />}>
+              <TopOperators />
+            </Suspense>
             <div className="text-center mt-12">
               <Link href="/esperti/cartomanzia" passHref>
                 <Button
@@ -186,21 +200,15 @@ export default function UnveillyHomePage() {
                 Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
               </p>
             </div>
-            {loading ? (
-              <div className="text-center">Caricamento...</div>
-            ) : recentReviews.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                {recentReviews.map((review, index) => (
-                  <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                    <ReviewCard review={review} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-slate-400">Ancora nessuna recensione.</div>
-            )}
+            <Suspense fallback={<LoadingSpinner />}>
+              <RecentReviews />
+            </Suspense>
           </div>
         </section>
+
+        <Suspense>
+          <NewTalents />
+        </Suspense>
       </main>
     </div>
   )
