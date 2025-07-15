@@ -2,7 +2,9 @@
 
 import type React from "react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { login } from "@/lib/actions/auth.actions"
+import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -15,6 +17,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,11 +27,41 @@ export default function LoginPage() {
 
     const result = await login({ email, password })
 
-    if (result?.error) {
+    if (result.error) {
       setError(result.error)
+      setIsSubmitting(false)
+      return
     }
-    // Il redirect in caso di successo è gestito dal AuthContext
-    setIsSubmitting(false)
+
+    // Dopo il login, recuperiamo l'utente e il suo profilo per decidere dove reindirizzare
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (user) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+      if (profile) {
+        switch (profile.role) {
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          case "operator":
+            router.push("/dashboard/operator")
+            break
+          case "client":
+          default:
+            router.push("/dashboard/client")
+            break
+        }
+      } else {
+        // Fallback se il profilo non viene trovato
+        router.push("/")
+      }
+    } else {
+      setError("Impossibile recuperare i dati utente dopo il login.")
+      setIsSubmitting(false)
+    }
   }
 
   return (

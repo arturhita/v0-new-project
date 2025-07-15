@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { headers } from "next/headers"
+import { revalidatePath } from "next/cache"
 import type { z } from "zod"
 import type { loginSchema, signupSchema } from "@/lib/schemas"
 
@@ -10,11 +11,12 @@ export async function login(values: z.infer<typeof loginSchema>) {
   const { error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
-    return { error: "Credenziali di accesso non valide. Riprova." }
+    console.error("Login Error:", error.message)
+    return { success: false, error: "Credenziali di accesso non valide. Riprova." }
   }
 
-  // Il redirect viene gestito dal middleware o dal client dopo la modifica dello stato auth
-  return { success: true }
+  revalidatePath("/", "layout")
+  return { success: true, error: null }
 }
 
 export async function signup(values: z.infer<typeof signupSchema>) {
@@ -35,11 +37,11 @@ export async function signup(values: z.infer<typeof signupSchema>) {
 
   if (error) {
     if (error.message.includes("User already registered")) {
-      return { error: "Un utente con questa email è già registrato." }
+      return { success: false, error: "Un utente con questa email è già registrato." }
     }
     console.error("Signup Error:", error)
-    return { error: "Si è verificato un errore durante la registrazione. Riprova." }
+    return { success: false, error: "Si è verificato un errore durante la registrazione. Riprova." }
   }
 
-  return { success: true }
+  return { success: true, error: null }
 }
