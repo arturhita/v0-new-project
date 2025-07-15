@@ -12,8 +12,8 @@ const mapProfileToOperator = (profile: any): OperatorCardType => {
     name: profile.stage_name || "Operatore",
     avatarUrl: profile.avatar_url,
     specialization: (profile.categories && profile.categories[0]) || "Nessuna specializzazione",
-    rating: profile.rating || 0, // Assuming a rating column exists or will be added
-    reviewsCount: profile.reviews_count || 0, // Assuming a reviews_count column exists
+    rating: profile.rating || 0,
+    reviewsCount: profile.reviews_count || 0,
     description: profile.bio || "Nessuna biografia disponibile.",
     tags: profile.specialties || [],
     isOnline: profile.is_online || false,
@@ -39,7 +39,6 @@ export async function getOperators(options: {
   let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo")
 
   if (category && category !== "all") {
-    // Assuming categories are stored in an array field
     query = query.contains("categories", [decodeURIComponent(category)])
   }
 
@@ -52,8 +51,6 @@ export async function getOperators(options: {
   }
 
   if (sortBy) {
-    // Aggiungiamo un campo di rating fittizio se non esiste per l'ordinamento
-    // In un'app reale, questo dovrebbe essere un campo calcolato o una vista DB
     if (sortBy === "rating") {
       query = query.order("created_at", { ascending: false }) // Fallback sort
     } else {
@@ -77,20 +74,31 @@ export async function getOperators(options: {
 
 export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
   const supabase = createClient()
+
+  // The primary fix for the error is the new SQL script (008-fix-reviews-relationship.sql).
+  // This updated query explicitly uses the foreign key names for robustness.
+  // The error handling prevents the entire page from crashing if the DB schema is still incorrect.
   const { data, error } = await supabase
     .from("reviews")
     .select(
       `
       *,
-      client:profiles!client_id ( stage_name, avatar_url ),
-      operator:profiles!operator_id ( stage_name )
+      client:profiles!reviews_client_id_fkey ( stage_name, avatar_url ),
+      operator:profiles!reviews_operator_id_fkey ( stage_name )
     `,
     )
     .order("created_at", { ascending: false })
     .limit(limit)
 
   if (error) {
-    console.error("Error fetching recent reviews:", error)
+    console.error("CRITICAL: Error fetching recent reviews:", error.message)
+    console.error(
+      "--> This likely means the database schema is incorrect. Please run the '008-fix-reviews-relationship.sql' script.",
+    )
+    return [] // Return an empty array to prevent the page from crashing.
+  }
+
+  if (!data) {
     return []
   }
 

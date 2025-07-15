@@ -49,7 +49,8 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
         break
     }
 
-    // CRITICAL CHANGE: Return success state instead of redirecting
+    // Return success state and the correct URL. The client will handle the redirect.
+    // This avoids race conditions between server redirect and cookie setting.
     return { success: true, dashboardUrl: dashboardUrl }
   }
 
