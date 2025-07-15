@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { getOperators } from "@/lib/actions/data.actions"
-import OperatorCard from "@/components/operator-card"
+import { OperatorCard } from "@/components/operator-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
