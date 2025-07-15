@@ -1,43 +1,33 @@
 "use client"
-
-import type React from "react"
-import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { useEffect } from "react"
+import { useActionState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { login } from "@/lib/actions/auth.actions"
+import type { LoginState } from "@/lib/schemas"
+
+const initialState: LoginState = {
+  success: false,
+  error: null,
+}
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { login } = useAuth()
+  const [state, formAction, isPending] = useActionState(login, initialState)
+  const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
-
-    try {
-      const { success, error: loginError } = await login({ email, password })
-      if (!success) {
-        if (loginError?.message === "Invalid login credentials") {
-          setError("Email o password non validi. Riprova.")
-        } else {
-          setError(loginError?.message || "Si è verificato un errore.")
-        }
-      }
-      // Il redirect in caso di successo è gestito dal AuthContext
-    } catch (err) {
-      setError("Un errore imprevisto è accaduto.")
-    } finally {
-      setIsSubmitting(false)
+  useEffect(() => {
+    if (state.success) {
+      // The redirect logic is now handled by the AuthProvider,
+      // which detects the new user session and redirects accordingly.
+      // We just need to refresh the page to trigger the provider.
+      router.refresh()
     }
-  }
+  }, [state.success, router])
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
@@ -59,25 +49,24 @@ export default function LoginPage() {
             <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
           </div>
 
-          {error && (
+          {state.error && (
             <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm mb-4 text-center">
-              {error}
+              {state.error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form action={formAction} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email" className="text-slate-200">
                 Email
               </Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="mario@esempio.com"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
+                disabled={isPending}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
@@ -92,20 +81,19 @@ export default function LoginPage() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isSubmitting}
+                disabled={isPending}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isPending}
               className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
             >
-              {isSubmitting ? "Accesso in corso..." : "Accedi"}
+              {isPending ? "Accesso in corso..." : "Accedi"}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm text-slate-300">

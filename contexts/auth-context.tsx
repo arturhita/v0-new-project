@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import LoadingSpinner from "@/components/loading-spinner"
+import { logout as logoutAction } from "@/lib/actions/auth.actions"
 
 interface Profile {
   id: string
@@ -16,12 +17,6 @@ interface Profile {
 interface AuthContextType {
   user: User | null
   profile: Profile | null
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  register: (credentials: {
-    name: string
-    email: string
-    password: string
-  }) => Promise<{ success: boolean; error?: { message: string } | null }>
   logout: () => Promise<void>
   loading: boolean
 }
@@ -53,12 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setLoading(true)
-      if (session?.user) {
-        setUser(session.user)
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+      const currentUser = session?.user
+      setUser(currentUser ?? null)
+      if (currentUser) {
+        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
         setProfile(userProfile)
       } else {
-        setUser(null)
         setProfile(null)
       }
       setLoading(false)
@@ -69,87 +64,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supabase, router])
 
-  const login = async (email: string, password: string) => {
-    setLoading(true)
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setLoading(false)
-      return { success: false, error: error.message }
-    }
-    if (data.user) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", data.user.id)
-        .single()
-
-      if (profileError || !userProfile) {
-        await supabase.auth.signOut()
-        setLoading(false)
-        return { success: false, error: "Profilo utente non trovato o errore nel recupero." }
-      }
-
-      setUser(data.user)
-      setProfile(userProfile)
-
-      switch (userProfile.role) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/dashboard/operator")
-          break
-        case "client":
-        default:
-          router.push("/dashboard/client")
-          break
-      }
-    }
-    setLoading(false)
-    return { success: true }
-  }
-
-  const register = async ({ name, email, password }: { name: string; email: string; password: string }) => {
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    setLoading(false)
-
-    if (error) {
-      return { success: false, error: { message: error.message } }
-    }
-
-    return { success: true, error: null }
-  }
-
   const logout = async () => {
-    setLoading(true)
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push("/login")
-    setLoading(false)
+    await logoutAction()
+    router.refresh()
   }
 
   const value = {
     user,
     profile,
-    login,
-    register,
     logout,
     loading,
   }
 
   const protectedRoutes = ["/admin", "/dashboard"]
   const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
+  const isAuthPage = pathname === "/login" || pathname === "/register"
 
   if (loading) {
     return <LoadingSpinner />
@@ -163,6 +92,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   if (user && profile) {
+    if (isAuthPage) {
+      switch (profile.role) {
+        case "admin":
+          router.push("/admin/dashboard")
+          break
+        case "operator":
+          router.push("/dashboard/operator")
+          break
+        case "client":
+        default:
+          router.push("/dashboard/client")
+          break
+      }
+      return <LoadingSpinner />
+    }
+
     if (pathname.startsWith("/admin") && profile.role !== "admin") {
       router.push("/")
       return <LoadingSpinner />

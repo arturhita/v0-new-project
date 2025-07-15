@@ -1,35 +1,84 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
-import { headers } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import type { SignupState, LoginState } from "@/lib/schemas"
 
-export async function signUpAsOperator(formData: FormData) {
-  const origin = headers().get("origin")
+export async function signup(prevState: SignupState, formData: FormData): Promise<SignupState> {
+  const supabase = createClient()
+
+  const name = formData.get("name") as string
   const email = formData.get("email") as string
   const password = formData.get("password") as string
-  const fullName = formData.get("fullName") as string
-  const supabase = createServerClient()
+
+  if (!name || !email || !password) {
+    return { success: false, message: "Tutti i campi sono obbligatori." }
+  }
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      // Pass user metadata to the server
       data: {
-        full_name: fullName,
-        role: "operator",
+        full_name: name,
+        role: "client", // Default role for standard registration
       },
-      // Operators do not need to confirm their email to start
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
-    console.error("Operator SignUp Error:", error.message)
-    return redirect("/diventa-esperto?message=Could not authenticate user")
+    console.error("Signup Error:", error)
+    if (error.message.includes("User already registered")) {
+      return { success: false, message: "Un utente con questa email esiste già." }
+    }
+    return { success: false, message: `Errore di registrazione: ${error.message}` }
   }
 
-  // Redirect to a page that informs the operator their application is under review
-  return redirect("/diventa-esperto?message=Registrazione completata. Il tuo profilo è in attesa di approvazione.")
+  return {
+    success: true,
+    message: "Registrazione completata! Controlla la tua email per il link di conferma.",
+  }
+}
+
+export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
+  const supabase = createClient()
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+
+  if (!email || !password) {
+    return { success: false, error: "Email e password sono obbligatori." }
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error) {
+    console.error("Login Error:", error)
+    if (error.message === "Invalid login credentials") {
+      return { success: false, error: "Credenziali non valide. Riprova." }
+    }
+    if (error.message === "Email not confirmed") {
+      return {
+        success: false,
+        error: "Devi confermare la tua email. Controlla la tua casella di posta per il link di attivazione.",
+      }
+    }
+    return { success: false, error: `Errore di accesso: ${error.message}` }
+  }
+
+  // Revalidate the entire app to update UI and redirect based on AuthProvider
+  revalidatePath("/", "layout")
+  // The redirect will be handled by the AuthProvider on the client side
+  // after the state is updated.
+  return { success: true, error: null }
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }
