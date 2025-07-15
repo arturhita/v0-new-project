@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setIsLoading(true)
       setSession(session)
       const currentUser = session?.user ?? null
       setUser(currentUser)
@@ -73,10 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null)
       }
-      setIsLoading(false)
+      // This listener handles ongoing changes, but the initial load is what matters for the flicker
     })
 
-    // Initial session check
+    // Initial session check - THIS IS CRUCIAL
     const checkInitialSession = async () => {
       const {
         data: { session },
@@ -93,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .single()
         if (!error) setProfile(userProfile)
       }
+      // Only set loading to false after the initial check is complete
       setIsLoading(false)
     }
 
@@ -119,15 +119,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const protectedRoutes = ["/admin", "/dashboard", "/profile"]
   const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
 
+  // THE KEY FIX: Do not render children or run protection logic until the initial load is complete.
   if (isLoading) {
     return <LoadingSpinner fullScreen={true} />
   }
 
+  // This logic now only runs AFTER isLoading is false and we know the true auth state.
   if (!user && isProtectedRoute) {
-    // This check now runs only after isLoading is false and user state is confirmed
     if (typeof window !== "undefined") {
       router.push("/login")
     }
+    // Return a loader while redirecting to prevent rendering the protected page.
     return <LoadingSpinner fullScreen={true} />
   }
 

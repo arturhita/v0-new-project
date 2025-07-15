@@ -27,6 +27,7 @@ export default function LoginPage() {
       setError(result.error)
     }
     // Redirection is now handled by AuthContext, no need for logic here.
+    // The page will just wait for the AuthContext to redirect.
     setIsSubmitting(false)
   }
 
