@@ -11,6 +11,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PasswordInput } from "@/components/ui/password-input"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { useAuth } from "@/contexts/auth-context"
+import LoadingSpinner from "@/components/loading-spinner"
+
+function getDashboardUrl(role: "admin" | "operator" | "client" | null): string {
+  switch (role) {
+    case "admin":
+      return "/admin/dashboard"
+    case "operator":
+      return "/dashboard/operator"
+    case "client":
+    default:
+      return "/dashboard/client"
+  }
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -27,28 +41,31 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { profile, isLoading } = useAuth()
   const initialState: LoginState = { success: false, error: null, role: null }
   const [state, formAction] = useActionState(login, initialState)
 
   useEffect(() => {
-    if (state.success && state.role) {
-      // The redirect is now handled on the client-side after the action completes.
-      // This avoids the race condition with the middleware.
-      switch (state.role) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/dashboard/operator")
-          break
-        case "client":
-        default:
-          router.push("/dashboard/client")
-          break
-      }
+    // Redirect if the user is already logged in (e.g. they navigate to /login manually)
+    // or after a successful login action has updated the AuthContext.
+    if (!isLoading && profile) {
+      const url = getDashboardUrl(profile.role)
+      router.replace(url)
     }
-  }, [state, router])
+  }, [profile, isLoading, router])
 
+  // While the AuthProvider is checking the session, or if the user is already logged in,
+  // show a loading spinner. This prevents the login form from flashing for logged-in users.
+  if (isLoading || profile) {
+    return (
+      <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
+        <ConstellationBackground goldVisible={true} />
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // If we are not loading and not logged in, show the login form.
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground goldVisible={true} />
