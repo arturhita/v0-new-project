@@ -13,24 +13,24 @@ import {
   MessageSquare,
   Star,
   LifeBuoy,
-  Briefcase,
   LogOut,
-  Mail,
   UserCircle,
+  History,
+  Phone,
+  FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type React from "react"
-import { Suspense } from "react"
-import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 
 const navItemsClient = [
   { href: "/dashboard/client", label: "Panoramica", icon: Home },
-  { href: "/dashboard/client/wallet", label: "Il Mio Wallet", icon: Wallet },
-  { href: "/dashboard/client/consultations", label: "Storico Consulenze", icon: Briefcase },
-  { href: "/dashboard/client/written-consultations", label: "Consulti Scritti", icon: Mail },
+  { href: "/dashboard/client/consultations", label: "Storico Consulenze", icon: History },
+  { href: "/dashboard/client/written-consultations", label: "Consulti Scritti", icon: FileText },
+  { href: "/dashboard/client/calls", label: "Chiamate", icon: Phone },
   { href: "/dashboard/client/messages", label: "Messaggi", icon: MessageSquare },
   { href: "/dashboard/client/reviews", label: "Le Mie Recensioni", icon: Star },
+  { href: "/dashboard/client/wallet", label: "Il Mio Wallet", icon: Wallet },
   { href: "/dashboard/client/support", label: "Supporto", icon: LifeBuoy },
   { href: "/profile", label: "Il Mio Profilo", icon: UserCircle },
 ]
@@ -68,8 +68,7 @@ export default function ClientDashboardLayoutClient({ children }: { children: Re
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <SiteNavbar />
-      <div className="grid w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr] pt-16">
+      <div className="grid w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr]">
         <aside className="hidden border-r border-gray-200 bg-white md:block shadow-lg rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden">
           <div className="flex h-full max-h-screen flex-col">
             <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
@@ -92,33 +91,34 @@ export default function ClientDashboardLayoutClient({ children }: { children: Re
             </div>
           </div>
         </aside>
+
         <div className="flex flex-col">
-          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
-            <Suspense fallback={<div>Loading...</div>}>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 md:hidden rounded-lg border-2 border-blue-300 text-blue-600 hover:bg-blue-100 bg-transparent"
-                  >
-                    <MenuIcon className="h-6 w-6" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px] border-gray-200">
-                  <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
-                    <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                      <span>Dashboard</span>
-                    </Link>
-                  </div>
-                  <div className="py-5 flex-1 overflow-auto">
-                    <SidebarNavClient />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </Suspense>
+          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 md:hidden rounded-lg border-2 border-blue-300 text-blue-600 hover:bg-blue-100 bg-transparent"
+                >
+                  <MenuIcon className="h-6 w-6" />
+                  <span className="sr-only">Apri menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px] border-gray-200">
+                <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
+                  <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
+                    <span>Dashboard</span>
+                  </Link>
+                </div>
+                <div className="py-5 flex-1 overflow-auto">
+                  <SidebarNavClient />
+                </div>
+              </SheetContent>
+            </Sheet>
+
             <div className="flex-1"></div>
+
             <div className="flex items-center gap-3 ml-auto">
               <Button
                 variant="ghost"

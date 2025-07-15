@@ -1,4 +1,3 @@
-"use client"
 import type { ReactNode } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
@@ -11,18 +10,16 @@ export default async function OperatorDashboardLayout({ children }: { children: 
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login")
+    return redirect("/login?message=Devi effettuare l'accesso per visualizzare questa pagina.")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  // Redirect if not an operator
   if (profile?.role !== "operator") {
     if (profile?.role === "admin") {
-      redirect("/admin/dashboard")
-    } else {
-      redirect("/dashboard/client")
+      return redirect("/admin/dashboard")
     }
+    return redirect("/dashboard/client")
   }
 
   return <OperatorDashboardLayoutClient>{children}</OperatorDashboardLayoutClient>

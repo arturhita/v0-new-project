@@ -120,15 +120,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login")
+    return redirect("/login?message=Devi effettuare l'accesso per visualizzare questa pagina.")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
   if (profile?.role !== "admin") {
-    // If not an admin, redirect them away.
-    // You can decide where to send them, e.g., their own dashboard or login.
-    redirect("/login")
+    return redirect("/login?message=Accesso non autorizzato.")
   }
 
   return <AdminLayoutClient>{children}</AdminLayoutClient>
