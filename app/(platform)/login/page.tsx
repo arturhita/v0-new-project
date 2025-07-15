@@ -10,7 +10,6 @@ import Image from "next/image"
 
 import { LoginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
-import { createClient } from "@/lib/supabase/client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,39 +34,34 @@ export default function LoginPage() {
     setError("")
     startTransition(async () => {
       const result = await login(values)
-      if (result?.error) {
+
+      if (result.error) {
         setError(result.error)
         return
       }
 
-      // Dopo il login, chiediamo a Supabase chi è l'utente per ottenere il ruolo
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        setError("Impossibile recuperare i dati utente dopo il login.")
-        return
+      if (result.success && result.role) {
+        // Il server ha confermato il login e il ruolo.
+        // Ora possiamo reindirizzare con certezza.
+        let destination = "/"
+        switch (result.role) {
+          case "admin":
+            destination = "/admin/dashboard"
+            break
+          case "operator":
+            destination = "/dashboard/operator"
+            break
+          case "client":
+            destination = "/dashboard/client"
+            break
+        }
+        // La navigazione alla nuova rotta attiverà i controlli di sicurezza
+        // nel layout corrispondente, che ora funzioneranno correttamente.
+        router.push(destination)
+      } else {
+        // Errore di fallback nel caso in cui l'azione abbia successo ma non restituisca un ruolo
+        setError("Login riuscito, ma impossibile determinare il ruolo dell'utente.")
       }
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-      // Sincronizza lo stato del client con il server
-      router.refresh()
-
-      // Reindirizza in base al ruolo
-      let destination = "/"
-      switch (profile?.role) {
-        case "admin":
-          destination = "/admin/dashboard"
-          break
-        case "operator":
-          destination = "/dashboard/operator"
-          break
-        case "client":
-          destination = "/dashboard/client"
-          break
-      }
-      router.push(destination)
     })
   }
 

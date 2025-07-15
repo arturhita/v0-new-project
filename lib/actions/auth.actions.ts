@@ -15,24 +15,39 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error) {
-    switch (error.message) {
+  if (signInError) {
+    switch (signInError.message) {
       case "Invalid login credentials":
         return { error: "Credenziali di accesso non valide." }
       case "Email not confirmed":
         return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
       default:
-        console.error("Login Error:", error.message)
+        console.error("Login Error:", signInError.message)
         return { error: "Si è verificato un errore imprevisto." }
     }
   }
 
-  return { success: true }
+  if (!signInData.user) {
+    return { error: "Login riuscito, ma impossibile recuperare i dati utente." }
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut()
+    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+  }
+
+  return { success: true, role: profile.role as "admin" | "operator" | "client" }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
