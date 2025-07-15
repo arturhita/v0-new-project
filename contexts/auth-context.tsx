@@ -36,7 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setIsLoading(true)
       setSession(session)
       const currentUser = session?.user ?? null
       setUser(currentUser)
@@ -53,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null)
         } else {
           setProfile(userProfile)
-          // Redirect on login/state change
-          if (_event === "SIGNED_IN") {
+          // Centralized redirection logic
+          if (event === "SIGNED_IN") {
             switch (userProfile.role) {
               case "admin":
                 router.push("/admin/dashboard")
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    // Esegui un controllo iniziale per la sessione esistente al caricamento
+    // Initial session check
     const checkInitialSession = async () => {
       const {
         data: { session },
@@ -123,25 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   if (!user && isProtectedRoute) {
+    // This check now runs only after isLoading is false and user state is confirmed
     if (typeof window !== "undefined") {
       router.push("/login")
     }
     return <LoadingSpinner fullScreen={true} />
-  }
-
-  if (user && profile) {
-    if (pathname.startsWith("/admin") && profile.role !== "admin") {
-      router.push("/")
-      return <LoadingSpinner fullScreen={true} />
-    }
-    if (pathname.startsWith("/dashboard/operator") && profile.role !== "operator") {
-      router.push("/")
-      return <LoadingSpinner fullScreen={true} />
-    }
-    if (pathname.startsWith("/dashboard/client") && profile.role !== "client") {
-      router.push("/")
-      return <LoadingSpinner fullScreen={true} />
-    }
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
