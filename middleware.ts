@@ -2,10 +2,9 @@ import { createClient } from "@/lib/supabase/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  // Create a Supabase client and a response object.
   const { supabase, response } = createClient(request)
 
-  // Refresh the session cookie if it's expired.
+  // Refresh session if expired - this will refresh the cookie
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -42,7 +41,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardUrl, request.url))
   }
 
-  // Return the original response with updated cookies
   return response
 }
 
