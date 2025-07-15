@@ -14,9 +14,9 @@ export default async function HomePage() {
   const operators = await getOperators({ limit: 8 })
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center bg-slate-900 text-white">
       {/* Hero Section */}
-      <section className="relative w-full h-[60vh] md:h-[70vh] flex items-center justify-center text-center text-white overflow-hidden">
+      <section className="relative w-full h-[60vh] md:h-[70vh] flex items-center justify-center text-center overflow-hidden">
         <ConstellationBackground />
         <div className="z-10 flex flex-col items-center p-4">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-shadow-lg">Il Tuo Futuro, Svelato.</h1>
@@ -45,48 +45,53 @@ export default async function HomePage() {
 
       {/* Featured Operators Section */}
       <section className="w-full max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-center text-slate-800 mb-8">I Nostri Esperti in Evidenza</h2>
+        <h2 className="text-3xl font-bold text-center text-white mb-8">I Nostri Esperti in Evidenza</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {operators.map((operator) => (
             <OperatorCard key={operator.id} operator={operator} currentUser={user} />
           ))}
         </div>
         <div className="text-center mt-12">
-          <Button asChild size="lg" variant="outline">
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="text-white border-white/60 hover:bg-white/10 bg-transparent"
+          >
             <Link href="/esperti/cartomanzia">Vedi Tutti gli Esperti</Link>
           </Button>
         </div>
       </section>
 
       {/* How it Works Section */}
-      <section className="w-full bg-slate-50 py-16">
+      <section className="w-full bg-slate-800/50 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center text-slate-800 mb-12">Come Funziona</h2>
+          <h2 className="text-3xl font-bold text-center text-white mb-12">Come Funziona</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
             <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-500/20 text-yellow-400 mb-4 border border-blue-400/50">
                 <span className="text-2xl font-bold">1</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Scegli il Tuo Esperto</h3>
-              <p className="text-slate-600">
+              <h3 className="text-xl font-semibold mb-2 text-white">Scegli il Tuo Esperto</h3>
+              <p className="text-slate-300">
                 Naviga tra i profili, leggi le recensioni e trova il consulente perfetto per te.
               </p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-500/20 text-yellow-400 mb-4 border border-blue-400/50">
                 <span className="text-2xl font-bold">2</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Ricarica e Chiama</h3>
-              <p className="text-slate-600">
+              <h3 className="text-xl font-semibold mb-2 text-white">Ricarica e Chiama</h3>
+              <p className="text-slate-300">
                 Aggiungi credito al tuo account in modo sicuro e avvia la tua consulenza via chat o telefono.
               </p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-500/20 text-yellow-400 mb-4 border border-blue-400/50">
                 <span className="text-2xl font-bold">3</span>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Ottieni le Tue Risposte</h3>
-              <p className="text-slate-600">
+              <h3 className="text-xl font-semibold mb-2 text-white">Ottieni le Tue Risposte</h3>
+              <p className="text-slate-300">
                 Ricevi una lettura chiara e approfondita per fare luce sui tuoi dubbi e sul tuo futuro.
               </p>
             </div>

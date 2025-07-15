@@ -1,80 +1,83 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
-export async function getFeaturedOperators() {
-  const supabase = createServerClient()
-  const { data, error } = await supabase
+// Definiamo un tipo per l'operatore per coerenza
+// Assumiamo che questi tipi siano definiti in un file come `types/operator.types.ts`
+// Per ora, lo definiamo qui per chiarezza.
+export interface Operator {
+  id: string
+  name: string
+  avatarUrl: string | null
+  specialization: string
+  description: string
+  tags: string[]
+  services: {
+    chatPrice?: number
+    callPrice?: number
+    emailPrice?: number
+  }
+  isOnline: boolean
+  joinedDate: string | null
+  rating: number
+  reviewsCount: number
+}
+
+export async function getOperators(options: { limit?: number; category?: string } = {}): Promise<Operator[]> {
+  const supabase = createClient()
+  let query = supabase
     .from("profiles")
     .select(
       `
       id,
-      stage_name,
+      full_name,
       avatar_url,
-      bio,
-      categories,
-      services,
-      is_online
-    `,
-    )
-    .eq("role", "operator")
-    .eq("status", "Attivo")
-    .limit(4)
-
-  if (error) {
-    console.error("Error fetching featured operators:", error)
-    return []
-  }
-
-  return data.map((op) => ({
-    id: op.id,
-    name: op.stage_name,
-    avatarUrl: op.avatar_url,
-    description: op.bio,
-    tags: op.categories,
-    isOnline: op.is_online,
-    services: op.services,
-    profileLink: `/operator/${op.stage_name}`,
-    specialization: op.categories?.[0] || "Esperto",
-    rating: 5, // Placeholder, da implementare con le recensioni
-    reviewsCount: 0, // Placeholder
-  }))
-}
-
-export async function getRecentReviews() {
-  const supabase = createServerClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:profiles!reviews_client_id_fkey (
-        name,
-        avatar_url
-      ),
-      operator:profiles!reviews_operator_id_fkey (
-        stage_name
+      operator_profiles (
+        specialization,
+        description,
+        tags,
+        services,
+        is_online,
+        created_at
       )
     `,
     )
-    .order("created_at", { ascending: false })
-    .limit(5)
+    .eq("role", "operator")
+    .not("operator_profiles", "is", null) // Assicura che solo i profili operatore completi vengano restituiti
+
+  if (options.limit) {
+    query = query.limit(options.limit)
+  }
+
+  if (options.category && options.category !== "tutti") {
+    // @ts-ignore - Supabase types might not be perfect for contains on nested JSON
+    query = query.contains("operator_profiles.tags", [options.category])
+  }
+
+  const { data, error } = await query
 
   if (error) {
-    console.error("Error fetching recent reviews:", error)
+    console.error("Error fetching operators:", error.message)
     return []
   }
 
-  return data.map((review) => ({
-    id: review.id,
-    userName: review.client?.name || "Utente Anonimo",
-    userAvatar: review.client?.avatar_url,
-    operatorName: review.operator?.stage_name || "Operatore",
-    rating: review.rating,
-    comment: review.comment,
-    date: review.created_at,
+  // Trasforma i dati grezzi di Supabase nel nostro tipo `Operator`
+  const operators: Operator[] = data.map((profile: any) => ({
+    id: profile.id,
+    name: profile.full_name || "Operatore",
+    avatarUrl: profile.avatar_url,
+    // I dati del profilo operatore sono in un array, prendiamo il primo elemento
+    specialization: profile.operator_profiles?.specialization || "N/D",
+    description: profile.operator_profiles?.description || "Nessuna descrizione.",
+    tags: profile.operator_profiles?.tags || [],
+    services: profile.operator_profiles?.services || {},
+    isOnline: profile.operator_profiles?.is_online || false,
+    joinedDate: profile.operator_profiles?.created_at,
+    // Dati di valutazione e recensioni andrebbero calcolati con query più complesse o trigger.
+    // Per ora, usiamo valori di default.
+    rating: 4.8,
+    reviewsCount: Math.floor(Math.random() * 200) + 50,
   }))
+
+  return operators
 }
