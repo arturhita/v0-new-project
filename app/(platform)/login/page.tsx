@@ -1,5 +1,6 @@
 "use client"
 
+import { useActionState, useFormStatus } from "react"
 import { login } from "@/lib/actions/auth.actions"
 import Link from "next/link"
 import Image from "next/image"
@@ -7,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { useFormState, useFormStatus } from "react-dom"
 import { loginSchema } from "@/lib/schemas"
 import { PasswordInput } from "@/components/ui/password-input"
 
@@ -30,7 +30,8 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useFormState(handleLogin, initialState)
+  // Correctly using useActionState from React
+  const [state, formAction] = useActionState(handleLogin, initialState)
 
   async function handleLogin(prevState: any, formData: FormData) {
     const email = formData.get("email") as string
@@ -45,6 +46,7 @@ export default function LoginPage() {
       }
     }
 
+    // The login action will handle the redirect on success
     const result = await login(validatedFields.data)
     return result
   }

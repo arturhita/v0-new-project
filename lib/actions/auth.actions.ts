@@ -21,16 +21,20 @@ export async function login(values: z.infer<typeof loginSchema>) {
       switch (profile.role) {
         case "admin":
           redirect("/admin/dashboard")
+          break
         case "operator":
           redirect("/dashboard/operator")
+          break
         case "client":
         default:
           redirect("/dashboard/client")
+          break
       }
     }
   }
 
-  redirect("/") // Fallback redirect
+  // Fallback redirect in case profile is not found, though this shouldn't happen
+  redirect("/")
 }
 
 export async function signup(values: z.infer<typeof signupSchema>) {

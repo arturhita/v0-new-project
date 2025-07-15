@@ -1,5 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -61,10 +61,8 @@ export async function updateSession(request: NextRequest) {
   const protectedRoutes = ["/dashboard", "/admin", "/profile"]
   const isProtectedRoute = protectedRoutes.some((path) => request.nextUrl.pathname.startsWith(path))
 
-  if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    return NextResponse.redirect(url)
+  if (isProtectedRoute && !user) {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
   return response
