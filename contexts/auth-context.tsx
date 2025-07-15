@@ -45,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
           console.error("Error fetching profile, signing out:", error)
-          // If profile is missing for a logged-in user, something is wrong. Sign out.
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
@@ -79,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkUser, supabase])
 
   useEffect(() => {
-    if (isLoading) return // Don't do anything while loading
+    if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isAdminRoute = pathname.startsWith("/admin")
@@ -87,7 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isClientRoute = pathname.startsWith("/dashboard/client")
     const isProtectedRoute = isAdminRoute || isOperatorRoute || isClientRoute
 
-    // Case 1: User is not logged in
     if (!user) {
       if (isProtectedRoute) {
         router.push("/login")
@@ -95,11 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Case 2: User is logged in
     if (profile) {
       const role = profile.role
-
-      // If on an auth page, redirect to their dashboard
       if (isAuthPage) {
         if (role === "admin") router.push("/admin/dashboard")
         else if (role === "operator") router.push("/dashboard/operator")
@@ -107,14 +102,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Check for role mismatch on protected routes
-      if (isAdminRoute && role !== "admin") {
-        router.push("/")
-      } else if (isOperatorRoute && role !== "operator") {
-        router.push("/")
-      } else if (isClientRoute && role !== "client") {
-        router.push("/")
-      }
+      if (isAdminRoute && role !== "admin") router.push("/")
+      else if (isOperatorRoute && role !== "operator") router.push("/")
+      else if (isClientRoute && role !== "client") router.push("/")
     }
   }, [user, profile, isLoading, pathname, router])
 
