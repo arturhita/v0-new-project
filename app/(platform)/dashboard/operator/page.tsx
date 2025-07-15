@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,16 +15,9 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
-import { useAuth } from "@/contexts/auth-context"
-
-// Mock data for stats - will be replaced with real data later
-const operatorStats = {
-  totalEarningsMonth: 1250.75,
-  pendingConsultations: 3,
-  averageRating: 4.8,
-  totalConsultationsMonth: 42,
-  newClientsMonth: 7,
-}
+import { createClient } from "@/lib/supabase/server"
+import { getOperatorStats } from "@/lib/actions/data.actions"
+import { redirect } from "next/navigation"
 
 const StatCard = ({
   title,
@@ -77,8 +68,18 @@ const StatCard = ({
   </Card>
 )
 
-export default function OperatorDashboardPage() {
-  const { user } = useAuth()
+export default async function OperatorDashboardPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const operatorStats = await getOperatorStats(user.id)
+  const operatorName = user.user_metadata.stage_name || user.user_metadata.full_name || "Operatore"
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -93,7 +94,7 @@ export default function OperatorDashboardPage() {
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <SparklesIcon className="w-8 h-8 mr-3 text-yellow-400" />
-              Benvenuto nel tuo Santuario, {user?.name || "Operatore"}!
+              Benvenuto nel tuo Santuario, {operatorName}!
             </h1>
             <p className="text-white/70 text-lg">Ecco una panoramica della tua attività mistica.</p>
           </div>
@@ -149,7 +150,7 @@ export default function OperatorDashboardPage() {
           />
           <StatCard
             title="Messaggi Non Letti"
-            value={3}
+            value={3} // Placeholder
             icon={MessageSquare}
             description="Dalla piattaforma e utenti"
             link="/dashboard/operator/platform-messages"

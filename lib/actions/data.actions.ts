@@ -1,46 +1,54 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
 import type { Operator } from "@/components/operator-card"
 
-// Helper function to map Supabase profile to the Operator type expected by components
-const mapProfileToOperator = (profile: any): Operator => {
+// Funzione helper per mappare in modo sicuro i dati del profilo DB al tipo Operator del componente
+function mapProfileToOperator(profile: any): Operator {
+  if (!profile) {
+    return {} as Operator // Ritorna un oggetto vuoto se il profilo è nullo
+  }
+
   const services = profile.services || {}
+  const chatService = services.chat || {}
+  const callService = services.call || {}
+  const emailService = services.email || {}
+
   return {
     id: profile.id,
-    name: profile.stage_name || "Operatore",
+    name: profile.stage_name || "N/D",
     avatarUrl: profile.avatar_url,
-    specialization: (profile.categories && profile.categories[0]) || "Nessuna specializzazione",
-    rating: profile.rating || 0,
+    specialization: (profile.categories || []).join(", ") || "Nessuna specializzazione",
+    rating: profile.average_rating || 0,
     reviewsCount: profile.reviews_count || 0,
     description: profile.bio || "Nessuna biografia disponibile.",
     tags: profile.specialties || [],
     isOnline: profile.is_online || false,
     services: {
-      chatPrice: services.chat?.price_per_minute,
-      callPrice: services.call?.price_per_minute,
-      emailPrice: services.email?.price,
+      chatPrice: chatService.enabled ? chatService.price_per_minute : undefined,
+      callPrice: callService.enabled ? callService.price_per_minute : undefined,
+      emailPrice: emailService.enabled ? emailService.price : undefined,
     },
     joinedDate: profile.created_at,
-    profileLink: `/operator/${(profile.stage_name || "operatore").toLowerCase().replace(/ /g, "-")}`,
   }
 }
 
-export async function getOperators(options: {
+interface GetOperatorsOptions {
   category?: string
+  onlineOnly?: boolean
+  searchTerm?: string
   limit?: number
   sortBy?: string
   ascending?: boolean
-  onlineOnly?: boolean
-  searchTerm?: string
-}): Promise<Operator[]> {
-  noStore()
-  const { category, limit, sortBy = "created_at", ascending = false, onlineOnly = false, searchTerm } = options
+}
+
+export async function getOperators(options: GetOperatorsOptions = {}): Promise<Operator[]> {
   const supabase = createClient()
+  const { category, onlineOnly, searchTerm, limit, sortBy = "created_at", ascending = false } = options
+
   let query = supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo")
 
-  if (category && category !== "all") {
+  if (category && category !== "all" && category !== "tutti") {
     query = query.contains("categories", [decodeURIComponent(category)])
   }
 
@@ -49,51 +57,33 @@ export async function getOperators(options: {
   }
 
   if (searchTerm) {
-    query = query.or(`stage_name.ilike.%${searchTerm}%,bio.ilike.%${searchTerm}%`)
+    query = query.or(`stage_name.ilike.%${searchTerm}%,specialties.cs.{${searchTerm}}`)
   }
 
   if (sortBy) {
-    if (sortBy === "rating") {
-      query = query.order("created_at", { ascending: false }) // Fallback sort
-    } else {
-      query = query.order(sortBy, { ascending })
-    }
+    query = query.order(sortBy, { ascending })
   }
 
   if (limit) {
     query = query.limit(limit)
   }
 
-  const { data, error } = await query
+  const { data: profiles, error } = await query
 
   if (error) {
     console.error("Error fetching operators:", error)
     return []
   }
 
-  return data.map(mapProfileToOperator)
+  return profiles.map(mapProfileToOperator)
 }
 
-export async function getOperatorByStageName(stageName: string) {
-  noStore()
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .ilike("stage_name", stageName)
-    .eq("role", "operator")
-    .single()
-
-  if (error) {
-    console.error("Error fetching operator by stage name:", error.message)
-    return null
-  }
-
-  return data
+export async function getFeaturedOperators(limit = 4): Promise<Operator[]> {
+  // Per ora, prendiamo gli operatori con rating più alto
+  return getOperators({ limit, sortBy: "average_rating", ascending: false })
 }
 
-export async function getReviewsForOperator(operatorId: string) {
-  noStore()
+export async function getRecentReviews(limit = 3) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("reviews")
@@ -103,44 +93,9 @@ export async function getReviewsForOperator(operatorId: string) {
       rating,
       comment,
       created_at,
-      profiles (
-        stage_name,
+      client:profiles!client_id (
+        full_name,
         avatar_url
-      )
-    `,
-    )
-    .eq("operator_id", operatorId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching reviews for operator:", error.message)
-    return []
-  }
-
-  return data.map((review) => ({
-    ...review,
-    client_name: (review.profiles as any)?.stage_name || "Anonimo",
-    client_avatar_url: (review.profiles as any)?.avatar_url,
-  }))
-}
-
-export async function getRecentReviews(limit = 5) {
-  noStore()
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:profiles!reviews_client_id_fkey (
-        stage_name,
-        avatar_url
-      ),
-      operator:profiles!reviews_operator_id_fkey (
-        stage_name
       )
     `,
     )
@@ -148,7 +103,7 @@ export async function getRecentReviews(limit = 5) {
     .limit(limit)
 
   if (error) {
-    console.error("Error fetching recent reviews:", error.message)
+    console.error("Error fetching recent reviews:", error)
     return []
   }
 
@@ -157,26 +112,39 @@ export async function getRecentReviews(limit = 5) {
     rating: review.rating,
     comment: review.comment,
     date: review.created_at,
-    userName: (review.client as any)?.stage_name || "Cliente",
-    userAvatar: (review.client as any)?.avatar_url,
-    operatorName: (review.operator as any)?.stage_name || "Operatore",
+    userName: review.client?.full_name || "Utente Anonimo",
+    userAvatar: review.client?.avatar_url,
   }))
 }
 
-export async function getFeaturedOperators(limit = 4): Promise<Operator[]> {
-  noStore()
+export async function getOperatorStats(operatorId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "operator")
-    .eq("is_online", true) // Prefer online operators
-    .limit(limit)
 
-  if (error) {
-    console.error("Error fetching featured operators:", error.message)
-    return []
+  // Questo è un esempio. Le query esatte dipendono dalla struttura del tuo DB
+  // (es. tabelle per transazioni, consultazioni, etc.)
+  const { data: earningsData, error: earningsError } = await supabase.rpc("calculate_monthly_earnings", {
+    p_operator_id: operatorId,
+  })
+  const { count: pendingCount, error: pendingError } = await supabase
+    .from("written_consultations")
+    .select("*", { count: "exact", head: true })
+    .eq("operator_id", operatorId)
+    .eq("status", "pending")
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("average_rating, reviews_count")
+    .eq("id", operatorId)
+    .single()
+
+  if (earningsError || pendingError || profileError) {
+    console.error({ earningsError, pendingError, profileError })
   }
 
-  return data.map(mapProfileToOperator)
+  return {
+    totalEarningsMonth: earningsData || 0,
+    pendingConsultations: pendingCount || 0,
+    averageRating: profileData?.average_rating || 0,
+    totalConsultationsMonth: 0, // Da implementare con una query apposita
+    newClientsMonth: 0, // Da implementare
+  }
 }

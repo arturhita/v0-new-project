@@ -2,15 +2,17 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/contexts/auth-context"
+import { Toaster } from "@/components/ui/toaster"
+import { CookieBanner } from "@/components/cookie-banner"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenza Mistica",
-  description: "La tua guida nel mondo dell'astrologia e della cartomanzia.",
+  title: "Moonthir - Consulenti del benessere",
+  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
     generator: 'v0.dev'
 }
 
@@ -21,13 +23,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
+      <body className={`${inter.className} bg-gray-900`}>
+        <AuthProvider>
+          <OperatorStatusProvider>
+            <ChatRequestProvider>
+              {children}
+              <Toaster />
+              <CookieBanner />
+            </ChatRequestProvider>
+          </OperatorStatusProvider>
+        </AuthProvider>
       </body>
     </html>
   )

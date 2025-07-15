@@ -1,43 +1,172 @@
 "use client"
-
 import Link from "next/link"
 import { ArrowRight, Sparkles, Users, MessageSquareQuote } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperatorCard, type Operator } from "@/components/operator-card"
-import { ReviewCard } from "@/components/review-card"
+import { OperatorCard, type Operator as OperatorCardType } from "@/components/operator-card"
+import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { getOperators, getRecentReviews, getFeaturedOperators } from "@/lib/actions/data.actions"
-import { useEffect, useState } from "react"
 
-export default function UnveillyHomePage() {
-  const [topOperators, setTopOperators] = useState<Operator[]>([])
-  const [newTalents, setNewTalents] = useState<Operator[]>([])
-  const [recentReviews, setRecentReviews] = useState<any[]>([])
-  const [featuredOperators, setFeaturedOperators] = useState<Operator[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+const today = new Date()
+const fiveDaysAgo = new Date(today)
+fiveDaysAgo.setDate(today.getDate() - 5)
+const twelveDaysAgo = new Date(today)
+twelveDaysAgo.setDate(today.getDate() - 12)
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true)
-      try {
-        const [topOperatorsData, newTalentsData, recentReviewsData, featuredOperatorsData] = await Promise.all([
-          getOperators({ limit: 8, sortBy: "created_at", ascending: false }),
-          getOperators({ limit: 3, sortBy: "created_at", ascending: true }),
-          getRecentReviews(3),
-          getFeaturedOperators(4),
-        ])
-        setTopOperators(topOperatorsData)
-        setNewTalents(newTalentsData)
-        setRecentReviews(recentReviewsData)
-        setFeaturedOperators(featuredOperatorsData)
-      } catch (error) {
-        console.error("Failed to load homepage data:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadData()
-  }, [])
+export const mockOperators: OperatorCardType[] = [
+  {
+    id: "1",
+    name: "Luna Stellare",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Cartomante & Tarocchi",
+    rating: 4.9,
+    reviewsCount: 256,
+    description: "Esperta in letture di tarocchi con 15 anni di esperienza, ti guiderà con chiarezza.",
+    tags: ["Tarocchi", "Amore", "Lavoro", "Cartomante", "Cartomanzia"],
+    isOnline: true,
+    services: { chatPrice: 2.5, callPrice: 2.5 },
+    joinedDate: twelveDaysAgo.toISOString(),
+  },
+  {
+    id: "2",
+    name: "Maestro Cosmos",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Astrologo",
+    rating: 4.8,
+    reviewsCount: 189,
+    description: "Astrologo professionista specializzato in carte natali e transiti planetari.",
+    tags: ["Oroscopi", "Tema Natale", "Transiti", "Astrologia"],
+    isOnline: true,
+    services: { chatPrice: 3.2, callPrice: 3.2, emailPrice: 35 },
+    joinedDate: "2024-05-10T10:00:00.000Z",
+  },
+  {
+    id: "3",
+    name: "Sage Aurora",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Cartomante Sibilla",
+    rating: 4.8,
+    reviewsCount: 203,
+    description: "Specialista in carte Sibille e previsioni future, con un tocco di intuizione.",
+    tags: ["Sibille", "Futuro", "Amore", "Cartomante", "Cartomanzia"],
+    isOnline: false,
+    services: { chatPrice: 2.6, callPrice: 2.6, emailPrice: 26 },
+    joinedDate: "2024-05-15T10:00:00.000Z",
+  },
+  {
+    id: "4",
+    name: "Elara Mistica",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Canalizzatrice Spirituale",
+    rating: 4.7,
+    reviewsCount: 155,
+    description: "Connettiti con le energie superiori e ricevi messaggi illuminanti per il tuo cammino.",
+    tags: ["Canalizzazione", "Spiritualità", "Angeli"],
+    isOnline: true,
+    services: { callPrice: 3.0, emailPrice: 40 },
+    joinedDate: fiveDaysAgo.toISOString(),
+  },
+  {
+    id: "5",
+    name: "Sirius Lumen",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Guaritore Energetico",
+    rating: 4.9,
+    reviewsCount: 98,
+    description: "Armonizza i tuoi chakra e ritrova il benessere interiore con sessioni di guarigione energetica.",
+    tags: ["Energia", "Chakra", "Benessere", "Guarigione Energetica"],
+    isOnline: true,
+    services: { callPrice: 2.8, emailPrice: 30 },
+    joinedDate: new Date().toISOString(),
+  },
+  {
+    id: "6",
+    name: "Vespera Arcana",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Esperta di Rune",
+    rating: 4.6,
+    reviewsCount: 120,
+    description: "Interpreta i messaggi delle antiche rune per svelare i misteri del tuo destino.",
+    tags: ["Rune", "Divinazione", "Mistero"],
+    isOnline: false,
+    services: { chatPrice: 2.2, emailPrice: 25 },
+    joinedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "7",
+    name: "Orion Saggio",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Numerologo Intuitivo",
+    rating: 4.8,
+    reviewsCount: 142,
+    description: "Svela il potere dei numeri nella tua vita. Letture numerologiche per amore, carriera e destino.",
+    tags: ["Numerologia", "Destino", "Amore", "Carriera"],
+    isOnline: true,
+    services: { chatPrice: 2.7, callPrice: 2.7 },
+    joinedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "8",
+    name: "Lyra Celeste",
+    avatarUrl: "/placeholder.svg?width=96&height=96",
+    specialization: "Lettrice di Registri Akashici",
+    rating: 4.9,
+    reviewsCount: 115,
+    description: "Accedi alla saggezza della tua anima e scopri le lezioni delle vite passate.",
+    tags: ["Registri Akashici", "Anima", "Vite Passate", "Spiritualità"],
+    isOnline: false,
+    services: { callPrice: 3.5, emailPrice: 50 },
+    joinedDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+]
+
+const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
+  const date = new Date()
+  if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
+  if (hoursAgo) date.setHours(date.getHours() - hoursAgo)
+  if (minutesAgo) date.setMinutes(date.getMinutes() - minutesAgo)
+  return date.toISOString()
+}
+
+export const allMockReviews: ReviewCardType[] = [
+  {
+    id: "r1",
+    userName: "Giulia R.",
+    userType: "Vip",
+    operatorName: "Luna Stellare",
+    rating: 5,
+    comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
+    date: generateTimeAgo(0, 0, 49),
+  },
+  {
+    id: "r2",
+    userName: "Marco B.",
+    userType: "Utente",
+    operatorName: "Maestro Cosmos",
+    rating: 5,
+    comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
+    date: generateTimeAgo(0, 0, 57),
+  },
+  {
+    id: "r3",
+    userName: "Sofia L.",
+    userType: "Vip",
+    operatorName: "Sage Aurora",
+    rating: 4,
+    comment:
+      "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
+    date: generateTimeAgo(0, 1),
+  },
+]
+
+export default async function UnveillyHomePage() {
+  // Caricamento dati in parallelo sul server
+  const [topOperators, newTalents, recentReviews, featuredOperators] = await Promise.all([
+    getOperators({ limit: 8, sortBy: "created_at", ascending: false }),
+    getOperators({ limit: 3, sortBy: "average_rating", ascending: false }), // Nuovi talenti come i più votati
+    getRecentReviews(3),
+    getFeaturedOperators(4),
+  ])
 
   return (
     <div className="bg-gradient-to-b from-[#0a1a5c] via-[#1E3C98] to-[#3a5fcf] text-white">
@@ -83,9 +212,7 @@ export default function UnveillyHomePage() {
             </h2>
             <p className="text-blue-200 mt-2">Professionisti pronti ad ascoltarti e guidarti.</p>
           </div>
-          {isLoading ? (
-            <div className="text-center">Caricamento esperti...</div>
-          ) : featuredOperators.length > 0 ? (
+          {featuredOperators.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {featuredOperators.map((operator) => (
                 <OperatorCard key={operator.id} operator={operator} />
@@ -94,6 +221,26 @@ export default function UnveillyHomePage() {
           ) : (
             <p className="text-center text-blue-300">Nessun operatore in primo piano al momento. Riprova più tardi.</p>
           )}
+        </div>
+      </section>
+
+      {/* Recent Reviews Section */}
+      <section className="py-16 md:py-24 bg-blue-900/20">
+        <div className="container">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold flex items-center justify-center gap-3">
+              <MessageSquareQuote className="w-8 h-8 text-cyan-400" />
+              Le Voci dei Nostri Clienti
+            </h2>
+            <p className="text-blue-200 mt-2">Scopri cosa dicono di noi e dei nostri esperti.</p>
+          </div>
+          <div className="max-w-4xl mx-auto space-y-6">
+            {recentReviews.length > 0 ? (
+              recentReviews.map((review: any) => <ReviewCard key={review.id} review={review} />)
+            ) : (
+              <p className="text-center text-blue-300">Ancora nessuna recensione. Sii il primo!</p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -107,19 +254,15 @@ export default function UnveillyHomePage() {
               Trova la tua guida spirituale, disponibile ora per svelare i misteri del tuo destino.
             </p>
           </div>
-          {isLoading ? (
-            <div className="text-center">Caricamento esperti...</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {topOperators.map((operator, index) => (
-                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <OperatorCard operator={operator} />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            {topOperators.slice(0, 8).map((operator, index) => (
+              <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                <OperatorCard operator={operator} />
+              </div>
+            ))}
+          </div>
           <div className="text-center mt-12">
-            <Link href="/esperti/all" passHref>
+            <Link href="/esperti/cartomanzia" passHref>
               <Button
                 variant="default"
                 size="lg"
@@ -198,114 +341,6 @@ export default function UnveillyHomePage() {
         </div>
       </section>
 
-      {/* Recent Reviews Section */}
-      <section className="py-16 md:py-24 bg-blue-900/20">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold flex items-center justify-center gap-3">
-              <MessageSquareQuote className="w-8 h-8 text-cyan-400" />
-              Le Voci dei Nostri Clienti
-            </h2>
-            <p className="text-blue-200 mt-2">Scopri cosa dicono di noi e dei nostri esperti.</p>
-          </div>
-          {isLoading ? (
-            <div className="text-center">Caricamento recensioni...</div>
-          ) : (
-            <div className="max-w-4xl mx-auto space-y-6">
-              {recentReviews.map((review: any) => (
-                <ReviewCard
-                  key={review.id}
-                  review={{
-                    id: review.id,
-                    rating: review.rating,
-                    comment: review.comment,
-                    created_at: review.date,
-                    client_name: review.userName,
-                    client_avatar_url: review.userAvatar,
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Why Trust Us Section */}
-      <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-        <ConstellationBackground goldVisible={false} />
-        <div className="container px-4 md:px-6 relative z-10">
-          <div className="text-center mb-16 md:mb-20">
-            <h2 className="text-3xl font-bold md:text-4xl lg:text-5xl text-white mb-6">La Magia di Moonthir</h2>
-            <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-              Scopri perché migliaia di anime si affidano alla nostra guida spirituale per illuminare il loro cammino
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <div className="space-y-8 animate-fadeInLeft">
-              {[
-                {
-                  number: "01",
-                  title: "Esperti Certificati",
-                  description:
-                    "I nostri maestri spirituali sono selezionati attraverso rigorosi test di competenza e sensibilità. Ogni consulente porta anni di esperienza e una connessione autentica con le energie universali.",
-                  icon: "✨",
-                },
-                {
-                  number: "02",
-                  title: "Disponibilità 24/7",
-                  description:
-                    "L'universo non dorme mai, e nemmeno noi. I nostri esperti sono disponibili in ogni momento per guidarti attraverso le sfide della vita, quando ne hai più bisogno.",
-                  icon: "🌙",
-                },
-                {
-                  number: "03",
-                  title: "Letture Personalizzate",
-                  description:
-                    "Ogni consulenza è unica come la tua anima. Utilizziamo tecniche antiche e moderne per offrirti insight profondi e consigli su misura per il tuo percorso spirituale.",
-                  icon: "🔮",
-                },
-              ].map((item) => (
-                <div key={item.title} className="group flex items-start space-x-6">
-                  <div className="flex-shrink-0">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-800 to-slate-800 flex items-center justify-center text-xl font-bold text-yellow-400 shadow-lg group-hover:scale-110 transition-transform duration-300 border-2 border-blue-700">
-                      {item.number}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-white mb-2">
-                      {item.icon} {item.title}
-                    </h3>
-                    <p className="text-slate-300 leading-relaxed">{item.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="relative animate-fadeInRight">
-              <div className="relative bg-gradient-to-br from-blue-900/50 to-slate-800/50 backdrop-blur-md rounded-2xl p-8 border border-blue-700/50 shadow-2xl">
-                <div className="text-center space-y-8">
-                  <div>
-                    <div className="text-7xl font-black text-white">98%</div>
-                    <p className="text-xl text-slate-300">Clienti Soddisfatti</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="text-center p-4 rounded-xl bg-slate-800/50 border border-blue-800">
-                      <div className="text-4xl font-black text-white mb-2">15K+</div>
-                      <p className="text-sm text-slate-400">Consulenze</p>
-                    </div>
-                    <div className="text-center p-4 rounded-xl bg-slate-800/50 border border-blue-800">
-                      <div className="text-4xl font-black text-white mb-2">24/7</div>
-                      <p className="text-sm text-slate-400">Supporto</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* New Talents Section */}
       {newTalents.length > 0 && (
         <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
@@ -349,7 +384,7 @@ export default function UnveillyHomePage() {
                 size="lg"
                 className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
               >
-                <Link href="/esperti/all">
+                <Link href="/esperti/cartomanzia">
                   Inizia la Tua Prima Lettura
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
@@ -360,7 +395,7 @@ export default function UnveillyHomePage() {
                 size="lg"
                 className="text-white border-2 border-yellow-400/60 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:border-yellow-400 text-lg px-8 py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
               >
-                <Link href="/esperti/all">Esplora i Nostri Esperti</Link>
+                <Link href="/esperti/cartomanzia">Esplora i Nostri Esperti</Link>
               </Button>
             </div>
           </div>

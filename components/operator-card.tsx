@@ -15,7 +15,7 @@ import { WrittenConsultationModal } from "./written-consultation-modal"
 export interface Operator {
   id: string
   name: string
-  avatarUrl: string | null
+  avatarUrl: string
   specialization: string
   rating: number
   reviewsCount: number
@@ -27,7 +27,7 @@ export interface Operator {
     callPrice?: number
     emailPrice?: number
   }
-  profileLink: string
+  profileLink?: string
   joinedDate?: string
 }
 
@@ -47,6 +47,8 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
     showNewBadge && operator.joinedDate
       ? new Date(operator.joinedDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       : false
+
+  const profileLink = operator.profileLink || `/operator/${operator.name.toLowerCase().replace(/ /g, "-")}`
 
   const handleStartChat = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -118,16 +120,16 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
         <div className="relative p-6 text-center flex-1 flex flex-col">
           <div className="relative mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
             <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-600/30 group-hover:ring-yellow-600/50 transition-all duration-500">
-              {!imageError && operator.avatarUrl ? (
+              {!imageError ? (
                 <img
                   src={operator.avatarUrl || "/placeholder.svg"}
-                  alt={operator.name || "Operatore"}
+                  alt={operator.name}
                   className="w-full h-full object-cover"
                   onError={() => setImageError(true)}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-blue-600 to-yellow-600 flex items-center justify-center text-white text-2xl font-bold">
-                  {(operator.name || "O").charAt(0)}
+                  {operator.name.charAt(0)}
                 </div>
               )}
             </div>
@@ -135,7 +137,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
           </div>
 
           <h3 className="text-lg font-bold mb-2 text-white group-hover:text-yellow-100 transition-colors duration-500">
-            {operator.name || "Operatore"}
+            {operator.name}
           </h3>
           <p className="text-sm text-white/80 mb-3 font-medium group-hover:text-white/90 transition-colors duration-500">
             {operator.specialization}
@@ -154,7 +156,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
               ))}
             </div>
             <span className="text-sm font-medium text-white/90">
-              {operator.rating.toFixed(1)} ({operator.reviewsCount})
+              {operator.rating} ({operator.reviewsCount})
             </span>
           </div>
 
@@ -243,7 +245,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
                 </Button>
               )}
             </div>
-            <Link href={operator.profileLink} className="block">
+            <Link href={profileLink} className="block">
               <Button
                 variant="outline"
                 size="sm"

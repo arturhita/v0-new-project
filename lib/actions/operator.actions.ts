@@ -11,39 +11,25 @@ const safeParseFloat = (value: any): number => {
   return isNaN(num) ? 0 : num
 }
 
-// Funzione per l'admin per creare un operatore
-export async function createOperator(operatorData: any) {
+export async function createOperator(formData: FormData) {
   const supabaseAdmin = createAdminClient()
 
-  const {
-    email,
-    name,
-    surname,
-    stageName,
-    phone,
-    bio,
-    avatarUrl,
-    status,
-    isOnline,
-    commission,
-    services,
-    availability,
-    specialties,
-    categories,
-  } = operatorData
-
+  const email = formData.get("email") as string
+  const name = formData.get("name") as string
+  const surname = formData.get("surname") as string
+  const stageName = formData.get("stageName") as string
   const password = Math.random().toString(36).slice(-12) // Genera una password sicura
   let userId: string | undefined = undefined
 
   try {
+    // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // L'admin crea utenti già confermati
+      email_confirm: true,
       user_metadata: {
         full_name: `${name} ${surname}`.trim(),
         stage_name: stageName,
-        role: "operator",
       },
     })
 
@@ -57,28 +43,69 @@ export async function createOperator(operatorData: any) {
 
     userId = authData.user.id
 
-    const profileUpdate = {
+    // Il trigger di Supabase ha già creato un profilo di base.
+    // Ora lo aggiorniamo con i dati del form.
+
+    // FASE 1: Aggiornamento dati semplici
+    const simpleDataToUpdate = {
       full_name: `${name || ""} ${surname || ""}`.trim(),
       name: name || "",
       surname: surname || "",
       stage_name: stageName || "",
-      phone: phone || null,
-      bio: bio || null,
-      avatar_url: avatarUrl || null,
+      phone: formData.get("phone") as string | null,
+      bio: formData.get("bio") as string | null,
+      avatar_url: formData.get("avatarUrl") as string | null,
       role: "operator" as const,
-      status: status || "In Attesa",
-      is_online: isOnline || false,
-      commission_rate: safeParseFloat(commission),
-      services: services || {},
-      availability: availability || {},
-      specialties: specialties || [],
-      categories: categories || [],
+      status: formData.get("status") as "Attivo" | "In Attesa" | "Sospeso",
+      is_online: formData.get("isOnline") === "on",
     }
 
-    const { error: updateError } = await supabaseAdmin.from("profiles").update(profileUpdate).eq("id", userId)
+    const { error: simpleUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update(simpleDataToUpdate)
+      .eq("id", userId)
 
-    if (updateError) {
-      throw updateError
+    if (simpleUpdateError) {
+      throw simpleUpdateError
+    }
+
+    // FASE 2: Aggiornamento dati complessi
+    const complexDataToUpdate = {
+      commission_rate: safeParseFloat(formData.get("commission")),
+      services: {
+        chat: {
+          enabled: formData.get("services.chatEnabled") === "on",
+          price_per_minute: safeParseFloat(formData.get("services.chatPrice")),
+        },
+        call: {
+          enabled: formData.get("services.callEnabled") === "on",
+          price_per_minute: safeParseFloat(formData.get("services.callPrice")),
+        },
+        email: {
+          enabled: formData.get("services.emailEnabled") === "on",
+          price: safeParseFloat(formData.get("services.emailPrice")),
+        },
+      },
+      availability: JSON.parse((formData.get("availability") as string) || "{}"),
+      specialties:
+        (formData.get("specialties") as string)
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean) || [],
+      categories:
+        (formData.get("categories") as string)
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean) || [],
+    }
+
+    const { error: complexUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update(complexDataToUpdate)
+      .eq("id", userId)
+
+    if (complexUpdateError) {
+      throw complexUpdateError
     }
 
     revalidatePath("/admin/operators")
@@ -91,7 +118,6 @@ export async function createOperator(operatorData: any) {
     if (userId) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
     }
-    console.error("Errore completo nella creazione dell'operatore:", error)
     return {
       success: false,
       message: `Errore durante la creazione dell'operatore: ${error.message}`,
@@ -99,7 +125,6 @@ export async function createOperator(operatorData: any) {
   }
 }
 
-// Funzione per l'admin per aggiornare la commissione
 export async function updateOperatorCommission(operatorId: string, commission: string) {
   const supabase = createClient()
   try {
@@ -117,16 +142,15 @@ export async function updateOperatorCommission(operatorId: string, commission: s
       success: true,
       message: "Commissione aggiornata con successo!",
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Errore aggiornamento commissione:", error)
     return {
       success: false,
-      message: `Errore nell'aggiornamento della commissione: ${error.message}`,
+      message: "Errore nell'aggiornamento della commissione",
     }
   }
 }
 
-// Funzione per ottenere tutti gli operatori (usata in admin/operators)
 export async function getAllOperators() {
   const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
@@ -137,7 +161,6 @@ export async function getAllOperators() {
   return data
 }
 
-// Funzione per ottenere un operatore by ID (usata in admin/operators/[id]/edit)
 export async function getOperatorById(id: string) {
   const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
@@ -146,76 +169,4 @@ export async function getOperatorById(id: string) {
     return null
   }
   return data
-}
-
-// Funzione per l'operatore per ottenere il proprio profilo
-export async function getMyOperatorProfile() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: { message: "Utente non autenticato." }, profile: null }
-  }
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .eq("role", "operator")
-    .single()
-
-  if (error) {
-    console.error("Error fetching operator profile:", error)
-    return { error: { message: "Profilo operatore non trovato." }, profile: null }
-  }
-
-  return { profile, error: null }
-}
-
-// Funzione per l'operatore per aggiornare il proprio profilo
-export async function updateMyOperatorProfile(formData: FormData) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
-  }
-
-  const profileFields = {
-    name: formData.get("name") as string,
-    surname: formData.get("surname") as string,
-    stage_name: formData.get("stage_name") as string,
-    phone: formData.get("phone") as string,
-    bio: formData.get("bio") as string,
-    specialties: formData.getAll("specialties").map(String),
-  }
-
-  const newPassword = formData.get("newPassword") as string
-
-  const { error: profileError } = await supabase.from("profiles").update(profileFields).eq("id", user.id)
-
-  if (profileError) {
-    console.error("Error updating profile:", profileError)
-    return { success: false, message: `Errore nell'aggiornamento del profilo: ${profileError.message}` }
-  }
-
-  if (newPassword) {
-    const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword })
-    if (passwordError) {
-      console.error("Error updating password:", passwordError)
-      revalidatePath("/(platform)/profile/operator")
-      return { success: true, message: "Profilo aggiornato, ma la password non è stata cambiata. Riprova." }
-    }
-  }
-
-  revalidatePath("/(platform)/profile/operator")
-  if (profileFields.stage_name) {
-    revalidatePath(`/(platform)/operator/${encodeURIComponent(profileFields.stage_name)}`)
-  }
-
-  return { success: true, message: "Profilo aggiornato con successo!" }
 }
