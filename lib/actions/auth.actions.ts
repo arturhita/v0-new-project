@@ -36,29 +36,25 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Si è verificato un errore imprevisto." }
   }
 
-  // On successful login, query the user's profile to determine their role
   if (authData.user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", authData.user.id).single()
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", authData.user.id)
+      .single()
 
-    // Redirect based on role
-    if (profile) {
-      switch (profile.role) {
-        case "admin":
-          redirect("/admin/dashboard")
-        case "operator":
-          redirect("/dashboard/operator")
-        case "client":
-        default:
-          redirect("/dashboard/client")
-      }
-    } else {
-      // Fallback if profile is not found, though this shouldn't happen
-      return { error: "Profilo utente non trovato." }
+    if (profileError || !profile) {
+      // This is a critical error, user exists in auth but not in profiles.
+      // Sign them out and return an error.
+      await supabase.auth.signOut()
+      return { error: "Errore nel recupero del profilo utente. Contattare l'assistenza." }
     }
+
+    // **MODIFICA CHIAVE**: Ritorna il ruolo al client invece di reindirizzare
+    return { success: true, role: profile.role as "admin" | "operator" | "client" }
   }
 
-  // This part should not be reached if redirect works
-  return { error: "Impossibile reindirizzare l'utente." }
+  return { error: "Utente non trovato dopo il login." }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
