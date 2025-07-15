@@ -46,17 +46,18 @@ export default function LoginPage() {
   const [state, formAction] = useActionState(login, initialState)
 
   useEffect(() => {
-    // Redirect if the user is already logged in (e.g. they navigate to /login manually)
-    // or after a successful login action has updated the AuthContext.
+    // The middleware now handles redirecting logged-in users.
+    // This useEffect is a fallback and ensures client-side consistency.
     if (!isLoading && profile) {
       const url = getDashboardUrl(profile.role)
       router.replace(url)
     }
   }, [profile, isLoading, router])
 
-  // While the AuthProvider is checking the session, or if the user is already logged in,
-  // show a loading spinner. This prevents the login form from flashing for logged-in users.
-  if (isLoading || profile) {
+  // While the AuthProvider is checking the session, show a loading spinner.
+  // This prevents the login form from flashing for users who are already logged in
+  // and being redirected by the middleware.
+  if (isLoading) {
     return (
       <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
         <ConstellationBackground goldVisible={true} />

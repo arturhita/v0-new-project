@@ -27,35 +27,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // Start as true
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
+    // This listener is the single source of truth.
+    // It fires on initial load, on login, and on logout.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setIsLoading(true)
       setSession(session)
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
       if (currentUser) {
+        // If there's a user, fetch their profile
         const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
         setProfile(userProfile ?? null)
       } else {
+        // If there's no user, clear the profile
         setProfile(null)
       }
+      // Set loading to false only after the first check is complete.
       setIsLoading(false)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [supabase])
 
   const logout = async () => {
     await supabase.auth.signOut()
+    // No need to push here, the onAuthStateChange listener will handle the state update,
+    // and protected route components will handle the redirect.
     router.push("/login")
   }
 
@@ -67,8 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }
 
-  // We don't render children until the initial auth check is complete.
-  // The LoadingSpinner inside LoginPage will handle the visual loading state.
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
