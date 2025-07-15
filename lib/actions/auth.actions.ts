@@ -7,6 +7,7 @@ import { redirect } from "next/navigation"
 
 export interface LoginState {
   error?: string | null
+  message?: string | null
 }
 
 export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {

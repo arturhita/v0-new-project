@@ -1,17 +1,17 @@
-import { createClient } from "@/lib/supabase/middleware"
+import { updateSession } from "@/lib/supabase/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  const { supabase, response } = createClient(request)
+  // This function will create a Supabase client and refresh the session cookie.
+  const { supabase, response } = await updateSession(request)
 
-  // This will refresh the session cookie if needed
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
-  // Auth routes (for logged-out users)
+  // Define routes for logged-out users
   const authRoutes = ["/login", "/register", "/registrazione-operatore"]
   const isAuthRoute = authRoutes.some((path) => pathname.startsWith(path))
 
@@ -32,43 +32,38 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardUrl, request.url))
   }
 
-  // Protected routes definitions
+  // Define protected routes
   const isAdminRoute = pathname.startsWith("/admin")
   const isOperatorRoute = pathname.startsWith("/dashboard/operator") || pathname.startsWith("/profile/operator")
-  const isClientRoute = pathname.startsWith("/dashboard/client") || pathname === "/profile"
+  const isClientRoute = pathname.startsWith("/dashboard/client") || pathname.startsWith("/profile")
+  const isProtectedRoute = isAdminRoute || isOperatorRoute || isClientRoute
 
-  // If user is not logged in, redirect any protected route to login
-  if (!user && (isAdminRoute || isOperatorRoute || isClientRoute)) {
+  // If user is not logged in and tries to access a protected route, redirect to login
+  if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url)
     redirectUrl.searchParams.set("message", "Devi effettuare l'accesso per visualizzare questa pagina.")
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If user is logged in, check role-based access
-  if (user) {
+  // If user is logged in, perform role-based authorization for protected routes
+  if (user && isProtectedRoute) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
     const userRole = profile?.role
 
     const unauthorizedRedirect = () => {
       const url = new URL("/login", request.url)
-      url.searchParams.set("message", "Accesso non autorizzato.")
-      // We might want to sign the user out if they are in an invalid state
-      // For now, just redirecting.
+      url.searchParams.set("message", "Accesso non autorizzato a questa risorsa.")
+      // In a real-world scenario, you might want to log this event.
       return NextResponse.redirect(url)
     }
 
-    if (isAdminRoute && userRole !== "admin") {
-      return unauthorizedRedirect()
-    }
-    if (isOperatorRoute && userRole !== "operator") {
-      return unauthorizedRedirect()
-    }
-    if (isClientRoute && userRole !== "client") {
-      // Admins and Operators should not access client dashboard directly
-      return unauthorizedRedirect()
-    }
+    if (isAdminRoute && userRole !== "admin") return unauthorizedRedirect()
+    if (isOperatorRoute && userRole !== "operator") return unauthorizedRedirect()
+    // Note: This logic assumes clients can't access operator/admin dashboards.
+    // The redirects for those cases are handled by the unauthorizedRedirect.
   }
 
+  // If no redirects are needed, pass the response along.
   return response
 }
 
@@ -79,6 +74,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public assets
      * Feel free to modify this pattern to include more paths.
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",

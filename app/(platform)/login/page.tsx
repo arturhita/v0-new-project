@@ -1,8 +1,8 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useActionState, useEffect, Suspense } from "react"
 import { useFormStatus } from "react-dom"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { login, type LoginState } from "@/lib/actions/auth.actions"
@@ -39,14 +39,15 @@ function SubmitButton() {
   )
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { profile, isLoading } = useAuth()
-  const initialState: LoginState = { error: null }
+  const initialState: LoginState = { error: null, message: null }
   const [state, formAction] = useActionState(login, initialState)
 
-  // This useEffect is now only for redirecting users who are ALREADY logged in
-  // when they visit the /login page. The post-login redirect is handled by the server action.
+  const urlMessage = searchParams.get("message")
+
   useEffect(() => {
     if (!isLoading && profile) {
       const url = getDashboardUrl(profile.role)
@@ -54,7 +55,6 @@ export default function LoginPage() {
     }
   }, [profile, isLoading, router])
 
-  // Show a spinner while checking auth state or if user is already logged in
   if (isLoading || profile) {
     return (
       <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
@@ -84,9 +84,9 @@ export default function LoginPage() {
             <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
           </div>
 
-          {state?.error && (
+          {(state?.error || urlMessage) && (
             <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm mb-4 text-center">
-              {state.error}
+              {state?.error || urlMessage}
             </div>
           )}
 
@@ -131,5 +131,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <LoginContent />
+    </Suspense>
   )
 }
