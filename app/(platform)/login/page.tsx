@@ -4,13 +4,11 @@ import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 
 import { LoginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
-import { useAuth } from "@/contexts/auth-context"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,8 +17,6 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { checkUser } = useAuth()
   const [error, setError] = useState<string | undefined>("")
   const [isPending, startTransition] = useTransition()
 
@@ -35,15 +31,11 @@ export default function LoginPage() {
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     setError("")
     startTransition(() => {
-      login(values).then(async (data) => {
+      login(values).then((data) => {
+        // The server action will handle the redirect on success.
+        // We only need to handle the error case here.
         if (data?.error) {
           setError(data.error)
-        }
-        if (data?.success) {
-          // Explicitly update the auth context
-          await checkUser()
-          // The redirect is now handled by the AuthProvider's useEffect
-          router.refresh()
         }
       })
     })

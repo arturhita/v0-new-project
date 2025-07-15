@@ -17,7 +17,7 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
@@ -36,7 +36,29 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Si è verificato un errore imprevisto." }
   }
 
-  return { success: "Login effettuato con successo!" }
+  // On successful login, query the user's profile to determine their role
+  if (authData.user) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", authData.user.id).single()
+
+    // Redirect based on role
+    if (profile) {
+      switch (profile.role) {
+        case "admin":
+          redirect("/admin/dashboard")
+        case "operator":
+          redirect("/dashboard/operator")
+        case "client":
+        default:
+          redirect("/dashboard/client")
+      }
+    } else {
+      // Fallback if profile is not found, though this shouldn't happen
+      return { error: "Profilo utente non trovato." }
+    }
+  }
+
+  // This part should not be reached if redirect works
+  return { error: "Impossibile reindirizzare l'utente." }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {

@@ -18,7 +18,6 @@ type AuthContextType = {
   user: User | null
   profile: Profile | null
   isLoading: boolean
-  checkUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -32,7 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   const checkUser = useCallback(async () => {
-    setIsLoading(true)
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -63,22 +61,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(() => {
+      // onAuthStateChange will fire on login, logout, etc.
+      // Re-checking the user will update the state for the whole app.
       checkUser()
     })
 
     return () => subscription.unsubscribe()
   }, [checkUser, supabase])
 
+  // This effect now only handles route protection, not login redirection.
   useEffect(() => {
-    if (!isLoading && user && profile) {
-      const role = profile?.role
-      const isAuthPage = pathname === "/login" || pathname === "/register"
+    if (isLoading) return
 
-      if (isAuthPage) {
-        if (role === "admin") router.push("/admin/dashboard")
-        else if (role === "operator") router.push("/dashboard/operator")
-        else router.push("/dashboard/client")
+    const protectedRoutes = ["/admin", "/dashboard"]
+    const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
+
+    // If user is not logged in and tries to access a protected route, redirect to login
+    if (!user && isProtectedRoute) {
+      router.push("/login")
+      return
+    }
+
+    // If user is logged in, check for role-based access
+    if (user && profile) {
+      const role = profile.role
+      if (pathname.startsWith("/admin") && role !== "admin") {
+        router.push("/") // or a specific "unauthorized" page
+      }
+      if (pathname.startsWith("/dashboard/operator") && role !== "operator") {
+        router.push("/")
+      }
+      if (pathname.startsWith("/dashboard/client") && role !== "client") {
+        router.push("/")
       }
     }
   }, [user, profile, isLoading, pathname, router])
@@ -91,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  return <AuthContext.Provider value={{ user, profile, isLoading, checkUser }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, profile, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {
