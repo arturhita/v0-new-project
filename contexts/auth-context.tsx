@@ -1,10 +1,10 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { User, Session } from "@supabase/supabase-js"
 import LoadingSpinner from "@/components/loading-spinner"
+import { useRouter } from "next/navigation"
 
 interface Profile {
   id: string
@@ -29,79 +29,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-  const pathname = usePathname()
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
       if (currentUser) {
-        const { data: userProfile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", currentUser.id)
-          .single()
-
-        if (error) {
-          console.error("Error fetching profile on auth change:", error)
-          setProfile(null)
-        } else {
-          setProfile(userProfile)
-          // Centralized redirection logic
-          if (event === "SIGNED_IN") {
-            switch (userProfile.role) {
-              case "admin":
-                router.push("/admin/dashboard")
-                break
-              case "operator":
-                router.push("/dashboard/operator")
-                break
-              case "client":
-              default:
-                router.push("/dashboard/client")
-                break
-            }
-          }
-        }
+        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
+        setProfile(userProfile ?? null)
       } else {
         setProfile(null)
       }
-      // This listener handles ongoing changes, but the initial load is what matters for the flicker
+      setIsLoading(false)
     })
 
-    // Initial session check - THIS IS CRUCIAL
-    const checkInitialSession = async () => {
+    // Initial check
+    const getInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       setSession(session)
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-
-      if (currentUser) {
-        const { data: userProfile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", currentUser.id)
-          .single()
-        if (!error) setProfile(userProfile)
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        setProfile(userProfile ?? null)
       }
-      // Only set loading to false after the initial check is complete
       setIsLoading(false)
     }
 
-    checkInitialSession()
+    getInitialSession()
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [supabase])
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -116,20 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }
 
-  const protectedRoutes = ["/admin", "/dashboard", "/profile"]
-  const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
-
-  // THE KEY FIX: Do not render children or run protection logic until the initial load is complete.
   if (isLoading) {
-    return <LoadingSpinner fullScreen={true} />
-  }
-
-  // This logic now only runs AFTER isLoading is false and we know the true auth state.
-  if (!user && isProtectedRoute) {
-    if (typeof window !== "undefined") {
-      router.push("/login")
-    }
-    // Return a loader while redirecting to prevent rendering the protected page.
     return <LoadingSpinner fullScreen={true} />
   }
 

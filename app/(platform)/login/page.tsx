@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
 import { login } from "@/lib/actions/auth.actions"
 import Link from "next/link"
 import Image from "next/image"
@@ -9,26 +7,46 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { useFormState, useFormStatus } from "react-dom"
+import { loginSchema } from "@/lib/schemas"
+import { PasswordInput } from "@/components/ui/password-input"
+
+const initialState = {
+  error: null,
+  success: false,
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button
+      type="submit"
+      disabled={pending}
+      className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
+    >
+      {pending ? "Accesso in corso..." : "Accedi"}
+    </Button>
+  )
+}
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [state, formAction] = useFormState(handleLogin, initialState)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
+  async function handleLogin(prevState: any, formData: FormData) {
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
 
-    const result = await login({ email, password })
+    const validatedFields = loginSchema.safeParse({ email, password })
 
-    if (result.error) {
-      setError(result.error)
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Email o password non validi.",
+      }
     }
-    // Redirection is now handled by AuthContext, no need for logic here.
-    // The page will just wait for the AuthContext to redirect.
-    setIsSubmitting(false)
+
+    const result = await login(validatedFields.data)
+    return result
   }
 
   return (
@@ -51,25 +69,23 @@ export default function LoginPage() {
             <p className="text-balance text-slate-300">Accedi per continuare il tuo viaggio.</p>
           </div>
 
-          {error && (
+          {state?.error && (
             <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm mb-4 text-center">
-              {error}
+              {state.error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="grid gap-4">
+          <form action={formAction} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email" className="text-slate-200">
                 Email
               </Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="mario@esempio.com"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
@@ -82,23 +98,14 @@ export default function LoginPage() {
                   Password dimenticata?
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
+                name="password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isSubmitting}
                 className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
               />
             </div>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
-            >
-              {isSubmitting ? "Accesso in corso..." : "Accedi"}
-            </Button>
+            <SubmitButton />
           </form>
           <div className="mt-6 text-center text-sm text-slate-300">
             Non hai un account?{" "}
