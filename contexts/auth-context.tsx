@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User, Session } from "@supabase/supabase-js"
-import LoadingSpinner from "@/components/loading-spinner"
 import { useRouter } from "next/navigation"
 
 interface Profile {
@@ -36,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setIsLoading(true)
       setSession(session)
       const currentUser = session?.user ?? null
       setUser(currentUser)
@@ -49,26 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    // Initial check
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(userProfile ?? null)
-      }
-      setIsLoading(false)
-    }
-
-    getInitialSession()
-
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [supabase, router])
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -83,10 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
   }
 
-  if (isLoading) {
-    return <LoadingSpinner fullScreen={true} />
-  }
-
+  // We don't render children until the initial auth check is complete.
+  // The LoadingSpinner inside LoginPage will handle the visual loading state.
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
