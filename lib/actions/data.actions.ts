@@ -89,9 +89,6 @@ export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
 
   if (error) {
     console.error("CRITICAL: Error fetching recent reviews:", error.message)
-    console.error(
-      "--> This likely means the 'reviews' table does not exist or is misconfigured. Please run the '009-create-reviews-table.sql' script.",
-    )
     return []
   }
 
@@ -116,17 +113,42 @@ export async function getOperatorByStageName(stageName: string) {
     .from("profiles")
     .select("*")
     .eq("role", "operator")
-    // FIX: Use .ilike for case-insensitive matching instead of .eq
     .ilike("stage_name", decodeURIComponent(stageName))
     .single()
 
-  // The .single() method throws an error if no row is found or more than one is found.
-  // We can catch this specific error to return null without logging a console error for a simple "not found" case.
   if (error && error.code !== "PGRST116") {
-    // PGRST116 = "The result contains 0 rows"
     console.error("Error fetching operator by stage name:", error)
     return null
   }
 
   return data
+}
+
+export async function getReviewsForOperator(operatorId: string): Promise<ReviewCardType[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(
+      `
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey ( stage_name, avatar_url )
+    `,
+    )
+    .eq("operator_id", operatorId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error(`Error fetching reviews for operator ${operatorId}:`, error)
+    return []
+  }
+
+  return data.map((review) => ({
+    id: review.id,
+    userName: review.client?.stage_name || "Utente Anonimo",
+    userType: "Utente",
+    operatorName: "", // Not needed here as we are on the operator's page
+    rating: review.rating,
+    comment: review.comment,
+    date: review.created_at,
+  }))
 }

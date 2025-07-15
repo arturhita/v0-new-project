@@ -1,24 +1,13 @@
 import { Button } from "@/components/ui/button"
 import { notFound } from "next/navigation"
-import { getOperatorByStageName } from "@/lib/actions/data.actions"
+import { getOperatorByStageName, getReviewsForOperator } from "@/lib/actions/data.actions"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, MessageCircle, Phone, Mail, Calendar, Trophy, Sun, Diamond } from "lucide-react"
+import { Star, MessageCircle, Phone, Mail, Calendar, Trophy, Sun, Diamond, MessageSquareQuote } from "lucide-react"
 import { SiteNavbar } from "@/components/site-navbar"
 import { StartChatButton } from "@/components/start-chat-button"
-
-// Mock reviews - Sostituire con dati reali
-const mockReviews = [
-  {
-    id: "r1",
-    userName: "Elena G.",
-    rating: 5,
-    comment: "Luna è straordinaria, precisa e molto empatica. Mi ha dato una nuova prospettiva.",
-    date: "20 lug",
-    serviceType: "Chat",
-  },
-]
+import { ReviewCard } from "@/components/review-card"
 
 export default async function OperatorProfilePage({ params }: { params: { operatorName: string } }) {
   const operator = await getOperatorByStageName(params.operatorName)
@@ -26,6 +15,8 @@ export default async function OperatorProfilePage({ params }: { params: { operat
   if (!operator) {
     notFound()
   }
+
+  const reviews = await getReviewsForOperator(operator.id)
 
   const services = (operator.services as any) || {}
   const availability = (operator.availability as any) || {}
@@ -42,9 +33,9 @@ export default async function OperatorProfilePage({ params }: { params: { operat
         <SiteNavbar />
         <div className="container mx-auto px-4 py-24">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Card Operatore - Sinistra */}
+            {/* Colonna Sinistra */}
             <div className="lg:col-span-4 space-y-6">
-              {/* Profilo Operatore */}
+              {/* Card Profilo */}
               <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
                 <CardContent className="p-8 text-center">
                   <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-cyan-300/50 shadow-xl">
@@ -65,7 +56,7 @@ export default async function OperatorProfilePage({ params }: { params: { operat
                   <div className="flex items-center justify-center space-x-2 mb-4">
                     <Star className="w-5 h-5 fill-cyan-400 text-cyan-400" />
                     <span className="text-white font-bold text-lg">{operator.rating || 4.9}</span>
-                    <span className="text-blue-300">({operator.reviews_count || 182} rec.)</span>
+                    <span className="text-blue-300">({reviews.length} rec.)</span>
                   </div>
 
                   <Badge
@@ -94,7 +85,7 @@ export default async function OperatorProfilePage({ params }: { params: { operat
                 </CardContent>
               </Card>
 
-              {/* Disponibilità Indicativa */}
+              {/* Card Disponibilità */}
               <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-xl text-white flex items-center">
@@ -129,8 +120,9 @@ export default async function OperatorProfilePage({ params }: { params: { operat
               </Card>
             </div>
 
-            {/* Contenuto Principale - Destra */}
+            {/* Colonna Destra */}
             <div className="lg:col-span-8 space-y-6">
+              {/* Card Bio e Azioni */}
               <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
                 <CardContent className="p-8">
                   <div className="flex items-center mb-4">
@@ -156,7 +148,6 @@ export default async function OperatorProfilePage({ params }: { params: { operat
                         <div className="text-xs mt-1">{services.call?.price_per_minute?.toFixed(2)}€/min</div>
                       </div>
                     </Button>
-                    {/* <WrittenConsultationModal> trigger here */}
                     <Button
                       className="bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-800 hover:to-blue-900 text-white py-6 px-4 text-sm font-semibold shadow-lg transition-all duration-300 hover:shadow-xl flex flex-col items-center justify-center min-h-[80px] border border-cyan-300/30"
                       disabled={!services.email?.enabled}
@@ -175,6 +166,29 @@ export default async function OperatorProfilePage({ params }: { params: { operat
                       <p className="text-blue-100 font-medium">
                         L'operatore è attualmente offline. Puoi comunque richiedere una consulenza via email.
                       </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Card Recensioni */}
+              <Card className="rounded-2xl bg-gradient-to-br from-[#0a1a5c] via-[#1E3C98] to-[#0a1a5c] text-white backdrop-blur-lg border border-blue-400/30 shadow-2xl">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-white flex items-center">
+                    <MessageSquareQuote className="w-6 h-6 mr-3 text-blue-300" />
+                    Recensioni dei Clienti
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reviews.length > 0 ? (
+                    <div className="space-y-6">
+                      {reviews.map((review) => (
+                        <ReviewCard key={review.id} review={review} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-blue-200">
+                      <p>Questo operatore non ha ancora ricevuto recensioni.</p>
                     </div>
                   )}
                 </CardContent>
