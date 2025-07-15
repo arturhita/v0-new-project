@@ -1,6 +1,6 @@
 import { Home, Calendar, FileText, LineChart, CreditCard, Star, Mail, Briefcase, CircleUser } from "lucide-react"
 
-export const navItems = [
+export const operatorNavItems = [
   { href: "/dashboard/operator", label: "Dashboard", icon: Home },
   { href: "/dashboard/operator/availability", label: "Disponibilità", icon: Calendar },
   { href: "/dashboard/operator/consultations-history", label: "Consulti", icon: FileText },

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import Image from "next/image"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { navItems } from "./nav-items"
+import { operatorNavItems } from "./nav-items"
 
 export default function OperatorDashboardLayoutClient({ children }: { children: ReactNode }) {
   const { profile, logout } = useAuth()
@@ -35,7 +35,7 @@ export default function OperatorDashboardLayoutClient({ children }: { children: 
           </div>
           <div className="flex-1">
             <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-              {navItems.map((item) => (
+              {operatorNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -67,7 +67,7 @@ export default function OperatorDashboardLayoutClient({ children }: { children: 
                   <Image src="/images/moonthir-logo.png" alt="Moonthir Logo" width={32} height={32} />
                   <span className="sr-only">Moonthir</span>
                 </Link>
-                {navItems.map((item) => (
+                {operatorNavItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
