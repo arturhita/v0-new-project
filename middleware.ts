@@ -17,31 +17,31 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          // If the cookie is set, update the request and response cookies.
+          request.cookies.set({ name, value, ...options })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.delete(name)
-          response.cookies.delete(name)
+          // If the cookie is removed, update the request and response cookies.
+          request.cookies.set({ name, value: "", ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value: "", ...options })
         },
       },
     },
   )
 
   // This call is essential to refresh the session cookie.
+  // It will also make the user available throughout the server-side rendering.
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -63,6 +63,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. If user IS logged in and is trying to access an auth route, redirect to their dashboard
   if (user && isAuthRoute) {
+    // We need to fetch the profile to determine the correct dashboard
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
     let dashboardUrl = "/dashboard/client" // Default dashboard
     if (profile) {
@@ -78,6 +79,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardUrl, request.url))
   }
 
+  // Return the original response with updated cookies
   return response
 }
 
