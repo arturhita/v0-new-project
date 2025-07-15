@@ -3,9 +3,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { loginSchema, signupSchema } from "@/lib/schemas"
 import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 
 export interface LoginState {
-  success: boolean
   error?: string | null
 }
 
@@ -13,20 +13,46 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
   const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { success: false, error: "Dati inseriti non validi." }
+    return { error: "Dati inseriti non validi." }
   }
 
   const { email, password } = validatedFields.data
   const supabase = createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     console.error("Login Error:", error.message)
-    return { success: false, error: "Credenziali di accesso non valide." }
+    return { error: "Credenziali di accesso non valide." }
   }
 
-  // On success, just return success. The client will react to the auth state change.
-  return { success: true }
+  if (data.user) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single()
+
+    if (profileError || !profile) {
+      await supabase.auth.signOut()
+      return { error: "Profilo utente non trovato. Contatta l'assistenza." }
+    }
+
+    // On success, redirect from the server. This is the key fix.
+    let dashboardUrl = "/dashboard/client" // Default
+    switch (profile.role) {
+      case "admin":
+        dashboardUrl = "/admin/dashboard"
+        break
+      case "operator":
+        dashboardUrl = "/dashboard/operator"
+        break
+    }
+    // This will throw a NEXT_REDIRECT error and stop execution,
+    // which is the intended way to handle redirects in Server Actions.
+    redirect(dashboardUrl)
+  }
+
+  return { error: "Si è verificato un errore imprevisto durante il login." }
 }
 
 export interface SignupState {

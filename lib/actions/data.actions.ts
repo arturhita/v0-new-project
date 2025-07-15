@@ -72,38 +72,39 @@ export async function getOperators(options: {
   return data.map(mapProfileToOperator)
 }
 
-export async function getRecentReviews(limit = 3): Promise<ReviewCardType[]> {
+export async function getRecentReviews(): Promise<ReviewCardType[]> {
   const supabase = createClient()
-
   const { data, error } = await supabase
     .from("reviews")
     .select(
       `
-      id, rating, comment, created_at,
-      client:profiles!reviews_client_id_fkey ( stage_name, avatar_url ),
-      operator:profiles!reviews_operator_id_fkey ( stage_name )
+      id,
+      rating,
+      comment,
+      operator:profiles!reviews_operator_id_fkey (
+        stage_name,
+        avatar_url
+      ),
+      client:profiles!reviews_client_id_fkey (
+        stage_name
+      )
     `,
     )
     .order("created_at", { ascending: false })
-    .limit(limit)
+    .limit(5)
 
   if (error) {
-    console.error("CRITICAL: Error fetching recent reviews:", error.message)
-    return []
-  }
-
-  if (!data) {
+    console.error("CRITICAL: Error fetching recent reviews. Check table relationships.", error)
     return []
   }
 
   return data.map((review) => ({
     id: review.id,
-    userName: review.client?.stage_name || "Utente Anonimo",
-    userType: "Utente",
-    operatorName: review.operator?.stage_name || "Operatore",
     rating: review.rating,
     comment: review.comment,
-    date: review.created_at,
+    operator_name: (review.operator as { stage_name: string })?.stage_name || "Operatore",
+    operator_avatar_url: (review.operator as { avatar_url: string })?.avatar_url,
+    client_name: (review.client as { stage_name: string })?.stage_name || "Cliente",
   }))
 }
 
@@ -113,14 +114,13 @@ export async function getOperatorByStageName(stageName: string) {
     .from("profiles")
     .select("*")
     .eq("role", "operator")
-    .ilike("stage_name", decodeURIComponent(stageName))
+    .ilike("stage_name", stageName) // Case-insensitive search
     .single()
 
-  if (error && error.code !== "PGRST116") {
-    console.error("Error fetching operator by stage name:", error)
+  if (error) {
+    console.error(`Error fetching operator by stage name ${stageName}:`, error)
     return null
   }
-
   return data
 }
 
@@ -130,8 +130,14 @@ export async function getReviewsForOperator(operatorId: string): Promise<ReviewC
     .from("reviews")
     .select(
       `
-      id, rating, comment, created_at,
-      client:profiles!reviews_client_id_fkey ( stage_name, avatar_url )
+      id,
+      rating,
+      comment,
+      created_at,
+      client:profiles!reviews_client_id_fkey (
+        stage_name,
+        avatar_url
+      )
     `,
     )
     .eq("operator_id", operatorId)
@@ -142,13 +148,13 @@ export async function getReviewsForOperator(operatorId: string): Promise<ReviewC
     return []
   }
 
+  // Map the data to a more usable format
   return data.map((review) => ({
     id: review.id,
-    userName: review.client?.stage_name || "Utente Anonimo",
-    userType: "Utente",
-    operatorName: "", // Not needed here as we are on the operator's page
     rating: review.rating,
     comment: review.comment,
-    date: review.created_at,
+    created_at: review.created_at,
+    client_name: (review.client as { stage_name: string } | null)?.stage_name || "Utente Anonimo",
+    client_avatar_url: (review.client as { avatar_url: string } | null)?.avatar_url,
   }))
 }
