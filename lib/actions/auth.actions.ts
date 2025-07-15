@@ -3,12 +3,9 @@
 import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
-import { AuthError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 
-type LoginResult = { success: true; role: "admin" | "operator" | "client" } | { error: string }
-
-export async function login(values: z.infer<typeof LoginSchema>): Promise<LoginResult> {
+export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
   const validatedFields = LoginSchema.safeParse(values)
@@ -18,43 +15,50 @@ export async function login(values: z.infer<typeof LoginSchema>): Promise<LoginR
 
   const { email, password } = validatedFields.data
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (authError) {
-    if (authError instanceof AuthError) {
-      if (authError.message.includes("Invalid login credentials")) {
+  if (signInError) {
+    switch (signInError.message) {
+      case "Invalid login credentials":
         return { error: "Credenziali di accesso non valide." }
-      }
-      if (authError.message === "Email not confirmed") {
-        return {
-          error: "Devi confermare la tua email. Controlla la tua casella di posta per il link di attivazione.",
-        }
-      }
+      case "Email not confirmed":
+        return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
+      default:
+        console.error("Login Error:", signInError.message)
+        return { error: "Si è verificato un errore imprevisto." }
     }
-    console.error("Login Auth Error:", authError.message)
-    return { error: "Si è verificato un errore imprevisto durante l'accesso." }
   }
 
-  if (authData.user) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", authData.user.id)
-      .single()
-
-    if (profileError || !profile) {
-      await supabase.auth.signOut() // Clean up inconsistent state
-      console.error("Login Profile Error:", profileError?.message)
-      return { error: "Errore nel recupero del profilo utente. L'accesso è stato annullato." }
-    }
-
-    return { success: true, role: profile.role as "admin" | "operator" | "client" }
+  if (!signInData.user) {
+    return { error: "Utente non trovato dopo il login." }
   }
 
-  return { error: "Utente non trovato dopo il tentativo di login." }
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    console.error("Profile fetch error after login:", profileError?.message)
+    await supabase.auth.signOut()
+    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+  }
+
+  // Reindirizzamento gestito interamente dal server
+  switch (profile.role) {
+    case "admin":
+      redirect("/admin/dashboard")
+    case "operator":
+      redirect("/dashboard/operator")
+    case "client":
+      redirect("/dashboard/client")
+    default:
+      redirect("/")
+  }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
@@ -74,17 +78,15 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
     options: {
       data: {
         full_name: name,
-        role: "client", // Default role for standard registration
+        role: "client",
       },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
-    if (error instanceof AuthError) {
-      if (error.message.includes("User already registered")) {
-        return { error: "Utente già registrato con questa email." }
-      }
+    if (error.message.includes("User already registered")) {
+      return { error: "Utente già registrato con questa email." }
     }
     console.error("Registration Error:", error.message)
     return { error: "Si è verificato un errore durante la registrazione." }
@@ -100,5 +102,5 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
-  redirect("/")
+  redirect("/login")
 }

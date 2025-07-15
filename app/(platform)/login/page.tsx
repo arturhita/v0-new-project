@@ -30,27 +30,13 @@ export default function LoginPage() {
 
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     setError("")
-    startTransition(() => {
-      login(values).then((data) => {
-        if ("error" in data) {
-          setError(data.error)
-        } else if ("success" in data) {
-          // Hard redirect using window.location to ensure session is picked up
-          let destination = "/"
-          switch (data.role) {
-            case "admin":
-              destination = "/admin/dashboard"
-              break
-            case "operator":
-              destination = "/dashboard/operator"
-              break
-            case "client":
-              destination = "/dashboard/client"
-              break
-          }
-          window.location.assign(destination)
-        }
-      })
+    startTransition(async () => {
+      const result = await login(values)
+      if (result?.error) {
+        setError(result.error)
+      }
+      // Nessuna gestione del successo qui. Il server reindirizzerà.
+      // Se il reindirizzamento avviene, questo componente verrà smontato.
     })
   }
 
