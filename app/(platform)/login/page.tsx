@@ -41,8 +41,6 @@ export default function LoginPage() {
       }
 
       if (result.success && result.role) {
-        // Il server ha confermato il login e il ruolo.
-        // Ora possiamo reindirizzare con certezza.
         let destination = "/"
         switch (result.role) {
           case "admin":
@@ -55,11 +53,9 @@ export default function LoginPage() {
             destination = "/dashboard/client"
             break
         }
-        // La navigazione alla nuova rotta attiverà i controlli di sicurezza
-        // nel layout corrispondente, che ora funzioneranno correttamente.
+        // Reindirizziamo. La nuova pagina verrà protetta correttamente dal suo layout server.
         router.push(destination)
       } else {
-        // Errore di fallback nel caso in cui l'azione abbia successo ma non restituisca un ruolo
         setError("Login riuscito, ma impossibile determinare il ruolo dell'utente.")
       }
     })

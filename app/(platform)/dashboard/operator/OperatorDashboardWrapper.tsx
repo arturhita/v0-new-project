@@ -1,7 +1,8 @@
 "use client"
 
-import type { ReactNode } from "react"
+import type React from "react"
 import Link from "next/link"
+import DashboardLayout from "@/components/dashboard-layout"
 import {
   LayoutDashboard,
   CalendarClock,
@@ -23,7 +24,9 @@ import {
   AlertTriangle,
   ChevronDown,
 } from "lucide-react"
-import { useOperatorStatus } from "@/contexts/operator-status-context"
+import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-status-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -34,9 +37,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import OperatorDashboardWrapper from "./OperatorDashboardWrapper"
 
 const operatorNavItems = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -164,25 +164,22 @@ function OperatorStatusDropdown() {
   )
 }
 
-async function OperatorLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-  if (profile?.role !== "operator") {
-    redirect("/")
-  }
-
-  // Se i controlli passano, renderizza il wrapper client con i provider
-  return <OperatorDashboardWrapper>{children}</OperatorDashboardWrapper>
+export default function OperatorDashboardWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <OperatorStatusProvider>
+      <ChatRequestProvider>
+        <DashboardLayout
+          menuItems={operatorNavItems}
+          sidebarHeader={sidebarHeader}
+          headerContent={<OperatorStatusDropdown />}
+          sidebarBaseClasses="border-blue-700 bg-blue-800"
+          sidebarHeaderClasses="bg-gradient-to-br from-blue-800 to-blue-900 border-blue-700"
+          sidebarLinkClasses={linkClasses}
+        >
+          {children}
+          <IncomingChatRequestModal />
+        </DashboardLayout>
+      </ChatRequestProvider>
+    </OperatorStatusProvider>
+  )
 }
-
-export default OperatorLayout
