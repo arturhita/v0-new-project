@@ -1,47 +1,10 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createClient } from "@/lib/supabase/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
+  const { supabase, response } = createClient(request)
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request and response cookies.
-          request.cookies.set({ name, value, ...options })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request and response cookies.
-          request.cookies.set({ name, value: "", ...options })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({ name, value: "", ...options })
-        },
-      },
-    },
-  )
-
-  // This call is essential to refresh the session cookie.
-  // It will also make the user available throughout the server-side rendering.
+  // Refresh session if expired - this will refresh the cookie
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -63,7 +26,6 @@ export async function middleware(request: NextRequest) {
 
   // 2. If user IS logged in and is trying to access an auth route, redirect to their dashboard
   if (user && isAuthRoute) {
-    // We need to fetch the profile to determine the correct dashboard
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
     let dashboardUrl = "/dashboard/client" // Default dashboard
     if (profile) {
@@ -79,7 +41,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dashboardUrl, request.url))
   }
 
-  // Return the original response with updated cookies
   return response
 }
 
