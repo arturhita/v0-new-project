@@ -31,29 +31,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   const checkUser = useCallback(async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-    if (session?.user) {
-      setUser(session.user)
-      const { data: userProfile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single()
+      if (session?.user) {
+        const { data: userProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
 
-      if (error) {
-        console.error("Error fetching profile:", error)
-        setProfile(null)
+        if (error) {
+          console.error("Error fetching profile, signing out:", error)
+          // If profile is missing for a logged-in user, something is wrong. Sign out.
+          await supabase.auth.signOut()
+          setUser(null)
+          setProfile(null)
+        } else {
+          setUser(session.user)
+          setProfile(userProfile)
+        }
       } else {
-        setProfile(userProfile)
+        setUser(null)
+        setProfile(null)
       }
-    } else {
+    } catch (e) {
+      console.error("Critical error in checkUser:", e)
       setUser(null)
       setProfile(null)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [supabase])
 
   useEffect(() => {
@@ -62,37 +72,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      // onAuthStateChange will fire on login, logout, etc.
-      // Re-checking the user will update the state for the whole app.
       checkUser()
     })
 
     return () => subscription.unsubscribe()
   }, [checkUser, supabase])
 
-  // This effect now only handles route protection, not login redirection.
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading) return // Don't do anything while loading
 
-    const protectedRoutes = ["/admin", "/dashboard"]
-    const isProtectedRoute = protectedRoutes.some((path) => pathname.startsWith(path))
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isAdminRoute = pathname.startsWith("/admin")
+    const isOperatorRoute = pathname.startsWith("/dashboard/operator")
+    const isClientRoute = pathname.startsWith("/dashboard/client")
+    const isProtectedRoute = isAdminRoute || isOperatorRoute || isClientRoute
 
-    // If user is not logged in and tries to access a protected route, redirect to login
-    if (!user && isProtectedRoute) {
-      router.push("/login")
+    // Case 1: User is not logged in
+    if (!user) {
+      if (isProtectedRoute) {
+        router.push("/login")
+      }
       return
     }
 
-    // If user is logged in, check for role-based access
-    if (user && profile) {
+    // Case 2: User is logged in
+    if (profile) {
       const role = profile.role
-      if (pathname.startsWith("/admin") && role !== "admin") {
-        router.push("/") // or a specific "unauthorized" page
+
+      // If on an auth page, redirect to their dashboard
+      if (isAuthPage) {
+        if (role === "admin") router.push("/admin/dashboard")
+        else if (role === "operator") router.push("/dashboard/operator")
+        else router.push("/dashboard/client")
+        return
       }
-      if (pathname.startsWith("/dashboard/operator") && role !== "operator") {
+
+      // Check for role mismatch on protected routes
+      if (isAdminRoute && role !== "admin") {
         router.push("/")
-      }
-      if (pathname.startsWith("/dashboard/client") && role !== "client") {
+      } else if (isOperatorRoute && role !== "operator") {
+        router.push("/")
+      } else if (isClientRoute && role !== "client") {
         router.push("/")
       }
     }
