@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { NextResponse, type NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -17,23 +17,31 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          response = NextResponse.next({
-            request: { headers: request.headers },
+          request.cookies.set({
+            name,
+            value,
+            ...options,
           })
-          response.cookies.set({ name, value, ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options })
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          response.cookies.set({ name, value: "", ...options })
+          request.cookies.delete(name)
+          response.cookies.delete(name)
         },
       },
     },
   )
 
+  // This call is essential to refresh the session cookie.
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -55,7 +63,6 @@ export async function middleware(request: NextRequest) {
 
   // 2. If user IS logged in and is trying to access an auth route, redirect to their dashboard
   if (user && isAuthRoute) {
-    // We need to get their role to redirect correctly
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
     let dashboardUrl = "/dashboard/client" // Default dashboard
     if (profile) {
