@@ -2,6 +2,30 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
+import type { Operator } from "@/components/operator-card"
+
+// Helper function to map Supabase profile to the Operator type expected by components
+const mapProfileToOperator = (profile: any): Operator => {
+  const services = profile.services || {}
+  return {
+    id: profile.id,
+    name: profile.stage_name || "Operatore",
+    avatarUrl: profile.avatar_url,
+    specialization: (profile.categories && profile.categories[0]) || "Nessuna specializzazione",
+    rating: profile.rating || 0,
+    reviewsCount: profile.reviews_count || 0,
+    description: profile.bio || "Nessuna biografia disponibile.",
+    tags: profile.specialties || [],
+    isOnline: profile.is_online || false,
+    services: {
+      chatPrice: services.chat?.price_per_minute,
+      callPrice: services.call?.price_per_minute,
+      emailPrice: services.email?.price,
+    },
+    joinedDate: profile.created_at,
+    profileLink: `/operator/${(profile.stage_name || "operatore").toLowerCase().replace(/ /g, "-")}`,
+  }
+}
 
 export async function getOperators(options: {
   category?: string
@@ -10,7 +34,7 @@ export async function getOperators(options: {
   ascending?: boolean
   onlineOnly?: boolean
   searchTerm?: string
-}) {
+}): Promise<Operator[]> {
   noStore()
   const { category, limit, sortBy = "created_at", ascending = false, onlineOnly = false, searchTerm } = options
   const supabase = createClient()
@@ -47,7 +71,7 @@ export async function getOperators(options: {
     return []
   }
 
-  return data
+  return data.map(mapProfileToOperator)
 }
 
 export async function getOperatorByStageName(stageName: string) {
@@ -139,7 +163,7 @@ export async function getRecentReviews(limit = 5) {
   }))
 }
 
-export async function getFeaturedOperators(limit = 4) {
+export async function getFeaturedOperators(limit = 4): Promise<Operator[]> {
   noStore()
   const supabase = createClient()
   const { data, error } = await supabase
@@ -154,5 +178,5 @@ export async function getFeaturedOperators(limit = 4) {
     return []
   }
 
-  return data
+  return data.map(mapProfileToOperator)
 }

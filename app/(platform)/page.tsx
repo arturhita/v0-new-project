@@ -3,16 +3,41 @@
 import Link from "next/link"
 import { ArrowRight, Sparkles, Users, MessageSquareQuote } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { OperatorCard } from "@/components/operator-card"
+import { OperatorCard, type Operator } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { getOperators, getRecentReviews, getFeaturedOperators } from "@/lib/actions/data.actions"
+import { useEffect, useState } from "react"
 
-export default async function UnveillyHomePage() {
-  const topOperators = await getOperators({ limit: 8, sortBy: "created_at", ascending: false })
-  const newTalents = await getOperators({ limit: 3, sortBy: "created_at", ascending: false })
-  const recentReviews = await getRecentReviews(3)
-  const featuredOperators = await getFeaturedOperators(4)
+export default function UnveillyHomePage() {
+  const [topOperators, setTopOperators] = useState<Operator[]>([])
+  const [newTalents, setNewTalents] = useState<Operator[]>([])
+  const [recentReviews, setRecentReviews] = useState<any[]>([])
+  const [featuredOperators, setFeaturedOperators] = useState<Operator[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true)
+      try {
+        const [topOperatorsData, newTalentsData, recentReviewsData, featuredOperatorsData] = await Promise.all([
+          getOperators({ limit: 8, sortBy: "created_at", ascending: false }),
+          getOperators({ limit: 3, sortBy: "created_at", ascending: true }),
+          getRecentReviews(3),
+          getFeaturedOperators(4),
+        ])
+        setTopOperators(topOperatorsData)
+        setNewTalents(newTalentsData)
+        setRecentReviews(recentReviewsData)
+        setFeaturedOperators(featuredOperatorsData)
+      } catch (error) {
+        console.error("Failed to load homepage data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
 
   return (
     <div className="bg-gradient-to-b from-[#0a1a5c] via-[#1E3C98] to-[#3a5fcf] text-white">
@@ -58,7 +83,9 @@ export default async function UnveillyHomePage() {
             </h2>
             <p className="text-blue-200 mt-2">Professionisti pronti ad ascoltarti e guidarti.</p>
           </div>
-          {featuredOperators.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center">Caricamento esperti...</div>
+          ) : featuredOperators.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {featuredOperators.map((operator) => (
                 <OperatorCard key={operator.id} operator={operator} />
@@ -80,13 +107,17 @@ export default async function UnveillyHomePage() {
               Trova la tua guida spirituale, disponibile ora per svelare i misteri del tuo destino.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-            {topOperators.map((operator, index) => (
-              <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                <OperatorCard operator={operator} />
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center">Caricamento esperti...</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {topOperators.map((operator, index) => (
+                <div key={operator.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                  <OperatorCard operator={operator} />
+                </div>
+              ))}
+            </div>
+          )}
           <div className="text-center mt-12">
             <Link href="/esperti/all" passHref>
               <Button
@@ -177,21 +208,25 @@ export default async function UnveillyHomePage() {
             </h2>
             <p className="text-blue-200 mt-2">Scopri cosa dicono di noi e dei nostri esperti.</p>
           </div>
-          <div className="max-w-4xl mx-auto space-y-6">
-            {recentReviews.map((review: any) => (
-              <ReviewCard
-                key={review.id}
-                review={{
-                  id: review.id,
-                  rating: review.rating,
-                  comment: review.comment,
-                  created_at: review.date,
-                  client_name: review.userName,
-                  client_avatar_url: review.userAvatar,
-                }}
-              />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center">Caricamento recensioni...</div>
+          ) : (
+            <div className="max-w-4xl mx-auto space-y-6">
+              {recentReviews.map((review: any) => (
+                <ReviewCard
+                  key={review.id}
+                  review={{
+                    id: review.id,
+                    rating: review.rating,
+                    comment: review.comment,
+                    created_at: review.date,
+                    client_name: review.userName,
+                    client_avatar_url: review.userAvatar,
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
