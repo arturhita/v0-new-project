@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
+// Client per l'uso nei Componenti Server e nelle Server Actions
 export function createClient() {
   const cookieStore = cookies()
 
@@ -13,18 +14,14 @@ export function createClient() {
         try {
           cookieStore.set({ name, value, ...options })
         } catch (error) {
-          // The `set` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          // Ignora l'errore se chiamato da un Server Component.
         }
       },
       remove(name: string, options: CookieOptions) {
         try {
           cookieStore.set({ name, value: "", ...options })
         } catch (error) {
-          // The `delete` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          // Ignora l'errore se chiamato da un Server Component.
         }
       },
     },

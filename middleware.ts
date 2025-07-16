@@ -8,6 +8,8 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  // NOTA: Qui usiamo `createServerClient` direttamente da `@supabase/ssr`
+  // perché il middleware ha un contesto di esecuzione diverso.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -53,7 +55,6 @@ export const config = {
      * - favicon.ico (file favicon)
      * - /images/ (le tue immagini)
      * - /sounds/ (i tuoi suoni)
-     * Escludi anche i file con estensioni specifiche per evitare che il middleware giri su asset statici.
      */
     "/((?!_next/static|_next/image|favicon.ico|images|sounds|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp3)$).*)",
   ],

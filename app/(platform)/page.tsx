@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { getOperators } from "@/lib/actions/data.actions"
-import HomePageClient from "./home-page-client"
+import HomePageClient, { mockOperators } from "./home-page-client"
 import type { Operator as OperatorType } from "@/components/operator-card"
-import { mockOperators } from "./home-page-client"
 
 export const revalidate = 3600 // Revalida i dati ogni ora
 
