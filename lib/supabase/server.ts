@@ -1,9 +1,7 @@
-// Questo file ora esporta una funzione `createClient` standardizzata
-// per l'uso in tutti i Componenti Server e Server Actions.
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
-export const createClient = () => {
+export function createClient() {
   const cookieStore = cookies()
 
   return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
@@ -15,14 +13,18 @@ export const createClient = () => {
         try {
           cookieStore.set({ name, value, ...options })
         } catch (error) {
-          // Ignora l'errore se chiamato da un Server Component.
+          // The `set` method was called from a Server Component.
+          // This can be ignored if you have middleware refreshing
+          // user sessions.
         }
       },
       remove(name: string, options: CookieOptions) {
         try {
           cookieStore.set({ name, value: "", ...options })
         } catch (error) {
-          // Ignora l'errore se chiamato da un Server Component.
+          // The `delete` method was called from a Server Component.
+          // This can be ignored if you have middleware refreshing
+          // user sessions.
         }
       },
     },

@@ -4,6 +4,8 @@ import HomePageClient from "./home-page-client"
 import type { Operator as OperatorType } from "@/components/operator-card"
 import { mockOperators } from "./home-page-client"
 
+export const revalidate = 3600 // Revalida i dati ogni ora
+
 export default async function UnveillyHomePage() {
   const supabase = createClient()
   const {
@@ -12,17 +14,14 @@ export default async function UnveillyHomePage() {
 
   let operators: OperatorType[] = []
   try {
-    // Tenta di recuperare gli operatori reali dal database
     const fetchedOperators = await getOperators({ limit: 8 })
     if (fetchedOperators && fetchedOperators.length > 0) {
       operators = fetchedOperators as OperatorType[]
     } else {
-      // Se non ci sono operatori, usa i dati mock come fallback
-      console.log("Nessun operatore trovato, utilizzo dati mock.")
+      console.log("Nessun operatore trovato nel database, utilizzo dati mock.")
       operators = mockOperators.slice(0, 8)
     }
   } catch (error) {
-    // Se c'è un errore nel recupero, usa i dati mock
     console.error("Errore nel recupero degli operatori, utilizzo dati mock:", error)
     operators = mockOperators.slice(0, 8)
   }

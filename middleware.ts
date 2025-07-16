@@ -52,7 +52,9 @@ export const config = {
      * - _next/image (file di ottimizzazione delle immagini)
      * - favicon.ico (file favicon)
      * - /images/ (le tue immagini)
+     * - /sounds/ (i tuoi suoni)
+     * Escludi anche i file con estensioni specifiche per evitare che il middleware giri su asset statici.
      */
-    "/((?!_next/static|_next/image|favicon.ico|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|sounds|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp3)$).*)",
   ],
 }

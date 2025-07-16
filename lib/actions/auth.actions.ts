@@ -1,64 +1,34 @@
 "use server"
 
-import type { z } from "zod"
-import { createClient } from "@/lib/supabase/server"
-import { LoginSchema, RegisterSchema } from "@/lib/schemas"
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import type { z } from "zod"
+import { LoginSchema, RegisterSchema } from "../schemas"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
   const validatedFields = LoginSchema.safeParse(values)
+
   if (!validatedFields.success) {
     return { error: "Campi non validi!" }
   }
 
   const { email, password } = validatedFields.data
 
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (signInError) {
-    switch (signInError.message) {
-      case "Invalid login credentials":
-        return { error: "Credenziali di accesso non valide." }
-      case "Email not confirmed":
-        return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
-      default:
-        console.error("Login Error:", signInError.message)
-        return { error: "Si è verificato un errore imprevisto." }
-    }
+  if (error) {
+    console.error("Login error:", error.message)
+    return { error: "Credenziali non valide. Riprova." }
   }
 
-  if (!signInData.user) {
-    return { error: "Utente non trovato dopo il login." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", signInData.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    console.error("Profile fetch error after login:", profileError?.message)
-    await supabase.auth.signOut()
-    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
-  }
-
-  // Reindirizzamento gestito interamente dal server
-  switch (profile.role) {
-    case "admin":
-      redirect("/admin/dashboard")
-    case "operator":
-      redirect("/dashboard/operator")
-    case "client":
-      redirect("/dashboard/client")
-    default:
-      redirect("/")
-  }
+  revalidatePath("/", "layout")
+  redirect("/")
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
@@ -77,30 +47,31 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
     password,
     options: {
       data: {
-        full_name: name,
-        role: "client",
+        name: name,
+        role: "client", // Ruolo di default per i nuovi utenti
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
+    console.error("Registration error:", error.message)
     if (error.message.includes("User already registered")) {
-      return { error: "Utente già registrato con questa email." }
+      return { error: "Un utente con questa email esiste già." }
     }
-    console.error("Registration Error:", error.message)
-    return { error: "Si è verificato un errore durante la registrazione." }
+    return { error: "Impossibile completare la registrazione. Riprova." }
   }
 
-  if (data.user && data.user.identities && data.user.identities.length === 0) {
-    return { error: "Questo utente esiste già ma non è confermato." }
+  if (!data.user) {
+    return { error: "Registrazione fallita. Nessun utente creato." }
   }
 
-  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
+  revalidatePath("/", "layout")
+  redirect("/login?message=Controlla la tua email per confermare la registrazione.")
 }
 
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
+  revalidatePath("/", "layout")
   redirect("/login")
 }
