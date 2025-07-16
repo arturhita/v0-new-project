@@ -141,88 +141,88 @@ export default async function UnveillyHomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
-        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
-        .font-playfair {
-          font-family: "Playfair Display", serif;
+      .font-playfair {
+        font-family: "Playfair Display", serif;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
         }
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
-        @keyframes fadeInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+      }
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
         }
-        @keyframes fadeInRight {
-          from {
-            opacity: 0;
-            transform: translateX(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+        to {
+          opacity: 1;
+          transform: translateX(0);
         }
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+      }
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
         }
-        @keyframes float {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+        to {
+          opacity: 1;
+          transform: translateX(0);
         }
-        @keyframes glow {
-          0%,
-          100% {
-            box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
-          }
+      }
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
         }
-        .animate-fadeInUp {
-          animation: fadeInUp 1s ease-out forwards;
+        to {
+          opacity: 1;
+          transform: scale(1);
         }
-        .animate-fadeInLeft {
-          animation: fadeInLeft 0.8s ease-out forwards;
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
         }
-        .animate-fadeInRight {
-          animation: fadeInRight 0.8s ease-out forwards;
+        50% {
+          transform: translateY(-10px);
         }
-        .animate-scaleIn {
-          animation: scaleIn 0.6s ease-out forwards;
+      }
+      @keyframes glow {
+        0%,
+        100% {
+          box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
         }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
+        50% {
+          box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
         }
-        .animate-glow {
-          animation: glow 2s ease-in-out infinite;
-        }
-      `}</style>
+      }
+      .animate-fadeInUp {
+        animation: fadeInUp 1s ease-out forwards;
+      }
+      .animate-fadeInLeft {
+        animation: fadeInLeft 0.8s ease-out forwards;
+      }
+      .animate-fadeInRight {
+        animation: fadeInRight 0.8s ease-out forwards;
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.6s ease-out forwards;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .animate-glow {
+        animation: glow 2s ease-in-out infinite;
+      }
+    `}</style>
 
       <main className="flex-1">
         {/* Hero Section */}

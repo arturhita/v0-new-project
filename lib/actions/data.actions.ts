@@ -1,80 +1,72 @@
-"use server"
+import { createClient } from "@/lib/supabase/server"
 
-import { createServerClient } from "@/lib/supabase/server"
+export async function getOperators(options?: { limit?: number }) {
+  const supabase = createClient()
 
-export async function getFeaturedOperators() {
-  const supabase = createServerClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from("profiles")
     .select(
       `
-      id,
-      stage_name,
-      avatar_url,
-      bio,
-      categories,
-      services,
-      is_online
-    `,
+        id,
+        role,
+        created_at,
+        operators (
+          user_id,
+          full_name,
+          avatar_url,
+          specialization,
+          average_rating,
+          reviews_count,
+          bio,
+          tags,
+          is_online,
+          chat_price_per_minute,
+          call_price_per_minute,
+          written_consultation_price
+        )
+      `,
     )
     .eq("role", "operator")
-    .eq("status", "Attivo")
-    .limit(4)
+    .not("operators", "is", null) // Assicura di ottenere solo profili con un operatore associato
+
+  if (options?.limit) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) {
-    console.error("Error fetching featured operators:", error)
+    console.error("Error fetching operators:", error)
     return []
   }
 
-  return data.map((op) => ({
-    id: op.id,
-    name: op.stage_name,
-    avatarUrl: op.avatar_url,
-    description: op.bio,
-    tags: op.categories,
-    isOnline: op.is_online,
-    services: op.services,
-    profileLink: `/operator/${op.stage_name}`,
-    specialization: op.categories?.[0] || "Esperto",
-    rating: 5, // Placeholder, da implementare con le recensioni
-    reviewsCount: 0, // Placeholder
-  }))
-}
+  return data
+    .map((profile) => {
+      // La query assicura che operators non sia nullo, ma manteniamo il controllo per sicurezza
+      if (!profile.operators) return null
 
-export async function getRecentReviews() {
-  const supabase = createServerClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:profiles!reviews_client_id_fkey (
-        name,
-        avatar_url
-      ),
-      operator:profiles!reviews_operator_id_fkey (
-        stage_name
-      )
-    `,
-    )
-    .order("created_at", { ascending: false })
-    .limit(5)
+      // La relazione è uno-a-uno, quindi operators è un oggetto
+      const operatorData = Array.isArray(profile.operators) ? profile.operators[0] : profile.operators
 
-  if (error) {
-    console.error("Error fetching recent reviews:", error)
-    return []
-  }
+      if (!operatorData) return null
 
-  return data.map((review) => ({
-    id: review.id,
-    userName: review.client?.name || "Utente Anonimo",
-    userAvatar: review.client?.avatar_url,
-    operatorName: review.operator?.stage_name || "Operatore",
-    rating: review.rating,
-    comment: review.comment,
-    date: review.created_at,
-  }))
+      return {
+        id: profile.id,
+        name: operatorData.full_name || "Operatore",
+        avatarUrl: operatorData.avatar_url || "/placeholder.svg",
+        specialization: operatorData.specialization || "N/A",
+        rating: operatorData.average_rating || 0,
+        reviewsCount: operatorData.reviews_count || 0,
+        description: operatorData.bio || "Nessuna descrizione.",
+        tags: operatorData.tags || [],
+        isOnline: operatorData.is_online || false,
+        services: {
+          chatPrice: operatorData.chat_price_per_minute,
+          callPrice: operatorData.call_price_per_minute,
+          emailPrice: operatorData.written_consultation_price,
+        },
+        joinedDate: profile.created_at,
+      }
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null)
 }
