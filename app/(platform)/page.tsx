@@ -1,8 +1,6 @@
-"use client"
-
 import { createClient } from "@/lib/supabase/server"
 import { getOperators } from "@/lib/actions/data.actions"
-import HomePageClient from "./home-page-client"
+import HomePageClient, { mockOperators } from "./home-page-client"
 import type { Operator as OperatorType } from "@/components/operator-card"
 
 export default async function UnveillyHomePage() {
@@ -11,7 +9,21 @@ export default async function UnveillyHomePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const operators = (await getOperators({ limit: 8 })) as OperatorType[]
+  let operators: OperatorType[] = []
+  try {
+    // Tentativo di fetch degli operatori reali
+    const fetchedOperators = await getOperators({ limit: 8 })
+    if (fetchedOperators && fetchedOperators.length > 0) {
+      operators = fetchedOperators as OperatorType[]
+    } else {
+      // Fallback ai dati mock se non ci sono operatori
+      operators = mockOperators.slice(0, 8)
+    }
+  } catch (error) {
+    console.error("Errore nel fetch degli operatori, utilizzo dati mock:", error)
+    // Fallback ai dati mock in caso di errore
+    operators = mockOperators.slice(0, 8)
+  }
 
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
