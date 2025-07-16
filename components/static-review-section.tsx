@@ -1,80 +1,67 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
+import { Star } from "lucide-react"
 
-const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
-  const date = new Date()
-  if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
-  if (hoursAgo) date.setHours(date.getHours() - hoursAgo)
-  if (minutesAgo) date.setMinutes(date.getMinutes() - minutesAgo)
-  return date.toISOString()
-}
-
-export const allMockReviews: ReviewCardType[] = [
+const reviews = [
   {
-    id: "r1",
-    userName: "Giulia R.",
-    userType: "Vip",
-    operatorName: "Luna Stellare",
+    name: "Elisa R.",
+    text: "Una guida incredibile. Ho trovato chiarezza e pace dopo la mia lettura. Consiglio vivamente!",
     rating: 5,
-    comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
-    date: generateTimeAgo(0, 0, 49),
   },
   {
-    id: "r2",
-    userName: "Marco B.",
-    userType: "Utente",
-    operatorName: "Maestro Cosmos",
+    name: "Marco T.",
+    text: "Esperienza trasformativa. L'astrologo è stato preciso e molto empatico. Tornerò sicuramente.",
     rating: 5,
-    comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
-    date: generateTimeAgo(0, 0, 57),
   },
   {
-    id: "r3",
-    userName: "Sofia L.",
-    userType: "Vip",
-    operatorName: "Sage Aurora",
-    rating: 4,
-    comment:
-      "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
-    date: generateTimeAgo(0, 1),
+    name: "Giulia B.",
+    text: "Servizio professionale e consulenti di altissimo livello. Mi sono sentita capita e supportata.",
+    rating: 5,
   },
 ]
 
 export function StaticReviewSection() {
-  const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
+  const [currentReview, setCurrentReview] = useState(0)
 
   useEffect(() => {
-    const updateReviews = () => {
-      const shuffled = [...allMockReviews].sort(() => 0.5 - Math.random())
-      setDisplayedReviews(shuffled.slice(0, 3))
-    }
-    updateReviews()
-    const intervalId = setInterval(updateReviews, 15000)
-    return () => clearInterval(intervalId)
+    const timer = setInterval(() => {
+      setCurrentReview((prev) => (prev + 1) % reviews.length)
+    }, 5000)
+    return () => clearInterval(timer)
   }, [])
 
   return (
-    <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
-      <div className="container px-4 md:px-6 relative z-10">
-        <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
+    <section className="py-16 md:py-24 bg-slate-900">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold md:text-4xl text-white">Le Voci delle Anime Illuminate</h2>
           <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
-            Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
+            Leggi cosa dicono coloro che hanno già intrapreso il loro viaggio con noi.
           </p>
         </div>
-        {displayedReviews.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {displayedReviews.map((review, index) => (
-              <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                <ReviewCard review={review} />
+        <div className="relative max-w-2xl mx-auto h-48 flex items-center justify-center">
+          {reviews.map((review, index) => (
+            <div
+              key={index}
+              className={`absolute w-full transition-opacity duration-1000 ease-in-out ${
+                index === currentReview ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <div className="bg-gradient-to-r from-blue-900/50 to-slate-800/50 rounded-2xl shadow-xl p-8 text-center">
+                <p className="italic text-lg text-white mb-4">"{review.text}"</p>
+                <p className="font-bold text-amber-400 mb-2">- {review.name}</p>
+                <div className="flex justify-center">
+                  {Array(review.rating)
+                    .fill(0)
+                    .map((_, i) => (
+                      <Star key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                    ))}
+                </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center text-slate-400">Caricamento testimonianze...</div>
-        )}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )
