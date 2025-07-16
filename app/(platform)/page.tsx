@@ -1,6 +1,6 @@
 "use client"
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@/lib/supabase/server"
 import { getOperators } from "@/lib/actions/data.actions"
 import { OperatorCard, type Operator as OperatorType } from "@/components/operator-card"
 import { ReviewCard, type Review as ReviewType } from "@/components/review-card"
@@ -162,7 +162,7 @@ export const allMockReviews: ReviewType[] = [
 ]
 
 export default async function UnveillyHomePage() {
-  const supabase = createClient()
+  const supabase = createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

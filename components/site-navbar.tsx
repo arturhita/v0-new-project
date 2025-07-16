@@ -1,13 +1,13 @@
 import Link from "next/link"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@/lib/supabase/server"
 import { UserNav } from "@/components/user-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { Button } from "@/components/ui/button"
 import { NavigationMenuDemo } from "@/components/navigation-menu"
 
 export default async function SiteNavbar() {
-  const supabase = createClient()
+  const supabase = createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
