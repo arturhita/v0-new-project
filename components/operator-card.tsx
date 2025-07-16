@@ -1,16 +1,18 @@
 "use client"
 
 import type React from "react"
-
-import Image from "next/image"
+import { useState } from "react"
 import Link from "next/link"
-import { Star, MessageCircle, Phone, Mail, BadgeCheck } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Star, MessageCircle, Phone, Mail, Users, Sparkles, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import type { User } from "@supabase/supabase-js"
+import { cn } from "@/lib/utils"
+import { initiateChatRequest } from "@/lib/actions/chat.actions"
+import { WrittenConsultationModal } from "./written-consultation-modal"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
 
-export type Operator = {
+export interface Operator {
   id: string
   name: string
   avatarUrl: string
@@ -25,139 +27,243 @@ export type Operator = {
     callPrice?: number
     emailPrice?: number
   }
+  profileLink?: string
   joinedDate?: string
 }
 
-export function OperatorCard({
-  operator,
-  showNewBadge = false,
-  currentUser,
-}: {
+interface OperatorCardProps {
   operator: Operator
+  currentUser: SupabaseUser | null
   showNewBadge?: boolean
-  currentUser: User | null
-}) {
+}
+
+export function OperatorCard({ operator, currentUser, showNewBadge = false }: OperatorCardProps) {
+  const [imageError, setImageError] = useState(false)
+  const [isStartingChat, setIsStartingChat] = useState(false)
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const router = useRouter()
 
-  const handleChatClick = (e: React.MouseEvent) => {
+  const isNewOperator =
+    showNewBadge && operator.joinedDate
+      ? new Date(operator.joinedDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      : false
+
+  const profileLink = operator.profileLink || `/operator/${operator.name.toLowerCase().replace(/ /g, "-")}`
+
+  const handleStartChat = async (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
+
     if (!currentUser) {
-      router.push("/login?redirect=/operator/" + operator.id)
+      alert("Devi effettuare l'accesso per avviare una chat.")
+      router.push("/login")
       return
     }
-    // Logica per iniziare la chat
-    console.log("Inizio chat con", operator.name)
-    router.push(`/chat/new?operatorId=${operator.id}`)
+
+    if (!operator.isOnline) {
+      alert("L'operatore non è al momento online.")
+      return
+    }
+
+    setIsStartingChat(true)
+    try {
+      const result = await initiateChatRequest(currentUser.id, operator.id)
+      if (result.success && result.sessionId) {
+        router.push(`/chat/${result.sessionId}`)
+      } else {
+        alert(`Errore: ${result.error || "Impossibile avviare la chat."}`)
+      }
+    } catch (error) {
+      console.error("Failed to initiate chat:", error)
+      alert("Si è verificato un errore tecnico. Riprova più tardi.")
+    } finally {
+      setIsStartingChat(false)
+    }
   }
 
-  const handleCallClick = (e: React.MouseEvent) => {
+  const handleOpenEmailModal = (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     if (!currentUser) {
-      router.push("/login?redirect=/operator/" + operator.id)
+      alert("Devi effettuare l'accesso per inviare una domanda.")
+      router.push("/login")
       return
     }
-    // Logica per iniziare la chiamata
-    console.log("Inizio chiamata con", operator.name)
-  }
-
-  const handleEmailClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    if (!currentUser) {
-      router.push("/login?redirect=/operator/" + operator.id)
-      return
-    }
-    // Logica per consulto via email
-    console.log("Richiesta email a", operator.name)
+    setIsEmailModalOpen(true)
   }
 
   return (
-    <Link href={`/operator/${operator.id}`} className="block group">
-      <div className="relative bg-gradient-to-br from-blue-900/50 via-slate-800/50 to-blue-900/50 backdrop-blur-md rounded-2xl shadow-lg hover:shadow-yellow-400/10 transition-all duration-500 transform hover:-translate-y-2 h-full flex flex-col border border-blue-700/50">
-        <div className="relative">
-          <Image
-            src={operator.avatarUrl || "/placeholder.svg"}
-            alt={operator.name}
-            width={300}
-            height={200}
-            className="w-full h-48 object-cover rounded-t-2xl"
-          />
-          <div className="absolute top-2 right-2">
-            <div
-              className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-bold ${
-                operator.isOnline ? "bg-green-500/80 text-white" : "bg-slate-600/80 text-slate-200"
-              }`}
-            >
-              <span className={`h-2 w-2 rounded-full ${operator.isOnline ? "bg-white" : "bg-slate-400"}`}></span>
-              <span>{operator.isOnline ? "Online" : "Offline"}</span>
-            </div>
-          </div>
-          {showNewBadge && (
-            <Badge className="absolute top-2 left-2 bg-yellow-400 text-slate-900 font-bold border-0">Nuovo</Badge>
+    <>
+      <div className="group relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-700 transform hover:-translate-y-3 hover:scale-105 border border-yellow-600/20 hover:border-yellow-600/40 h-full flex flex-col">
+        <div className="absolute top-4 left-4 z-20">
+          {isNewOperator && (
+            <Badge className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
+              <Sparkles className="w-3 h-3 mr-1" />
+              NUOVO
+            </Badge>
           )}
         </div>
-
-        <div className="p-5 flex flex-col flex-grow">
-          <div className="flex justify-between items-start">
-            <h3 className="text-xl font-bold text-white group-hover:text-yellow-300 transition-colors duration-300 flex items-center">
-              {operator.name}
-              <BadgeCheck className="ml-2 h-5 w-5 text-blue-400" />
-            </h3>
-            <div className="flex items-center text-yellow-400">
-              <Star className="w-4 h-4 mr-1" fill="currentColor" />
-              <span className="font-bold">{operator.rating.toFixed(1)}</span>
-            </div>
+        <div className="absolute top-4 right-4 z-20">
+          <div
+            className={cn(
+              "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur-xl",
+              operator.isOnline ? "bg-green-500/90 text-white animate-pulse" : "bg-gray-500/90 text-white",
+            )}
+          >
+            <div className={cn("w-2 h-2 rounded-full", operator.isOnline ? "bg-white animate-ping" : "bg-gray-300")} />
+            {operator.isOnline ? "Online" : "Offline"}
           </div>
-          <p className="text-sm text-blue-300 mb-3">{operator.specialization}</p>
+        </div>
 
-          <p className="text-slate-300 text-sm leading-relaxed flex-grow mb-4">{operator.description}</p>
+        <div className="relative p-6 text-center flex-1 flex flex-col">
+          <div className="relative mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
+            <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-600/30 group-hover:ring-yellow-600/50 transition-all duration-500">
+              {!imageError ? (
+                <img
+                  src={operator.avatarUrl || "/placeholder.svg"}
+                  alt={operator.name}
+                  className="w-full h-full object-cover"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-yellow-600 flex items-center justify-center text-white text-2xl font-bold">
+                  {operator.name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <div className="absolute inset-0 rounded-full bg-yellow-600/20 blur-md scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          </div>
 
-          <div className="flex flex-wrap gap-2 mb-4">
+          <h3 className="text-lg font-bold mb-2 text-white group-hover:text-yellow-100 transition-colors duration-500">
+            {operator.name}
+          </h3>
+          <p className="text-sm text-white/80 mb-3 font-medium group-hover:text-white/90 transition-colors duration-500">
+            {operator.specialization}
+          </p>
+
+          <div className="flex items-center justify-center space-x-1 mb-3">
+            <div className="flex">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  className={cn(
+                    "w-4 h-4 transition-colors duration-300",
+                    i < Math.floor(operator.rating) ? "text-yellow-500 fill-current" : "text-gray-400",
+                  )}
+                />
+              ))}
+            </div>
+            <span className="text-sm font-medium text-white/90">
+              {operator.rating} ({operator.reviewsCount})
+            </span>
+          </div>
+
+          <p className="text-sm text-white/70 mb-4 leading-relaxed flex-1 group-hover:text-white/80 transition-colors duration-500">
+            {operator.description}
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-1 mb-4">
             {operator.tags.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="secondary" className="bg-blue-800/50 text-blue-200 border-blue-700">
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="text-xs bg-blue-700/50 text-white border border-yellow-600/30 hover:bg-blue-600/50 transition-colors duration-300"
+              >
                 {tag}
               </Badge>
             ))}
           </div>
-        </div>
 
-        <div className="px-5 pb-5 mt-auto">
-          <div className="flex items-center justify-around gap-2 bg-slate-900/50 p-2 rounded-lg">
-            {operator.services.chatPrice && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="flex-1 flex flex-col h-auto py-1 text-slate-300 hover:bg-blue-700/50 hover:text-white"
-                onClick={handleChatClick}
-              >
-                <MessageCircle className="h-5 w-5 mb-1" />
-                <span className="text-xs">Chat</span>
-              </Button>
+          <div className="space-y-2 mb-4">
+            {typeof operator.services.chatPrice === "number" && (
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2 text-white/80">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Chat</span>
+                </div>
+                <span className="font-medium text-yellow-200">{operator.services.chatPrice.toFixed(2)} €/min</span>
+              </div>
             )}
-            {operator.services.callPrice && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="flex-1 flex flex-col h-auto py-1 text-slate-300 hover:bg-blue-700/50 hover:text-white"
-                onClick={handleCallClick}
-              >
-                <Phone className="h-5 w-5 mb-1" />
-                <span className="text-xs">Chiamata</span>
-              </Button>
+            {typeof operator.services.callPrice === "number" && (
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2 text-white/80">
+                  <Phone className="w-4 h-4" />
+                  <span>Chiamata</span>
+                </div>
+                <span className="font-medium text-yellow-200">{operator.services.callPrice.toFixed(2)} €/min</span>
+              </div>
             )}
-            {operator.services.emailPrice && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="flex-1 flex flex-col h-auto py-1 text-slate-300 hover:bg-blue-700/50 hover:text-white"
-                onClick={handleEmailClick}
-              >
-                <Mail className="h-5 w-5 mb-1" />
-                <span className="text-xs">Email</span>
-              </Button>
+            {typeof operator.services.emailPrice === "number" && (
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2 text-white/80">
+                  <Mail className="w-4 h-4" />
+                  <span>Email</span>
+                </div>
+                <span className="font-medium text-yellow-200">{operator.services.emailPrice.toFixed(2)} €</span>
+              </div>
             )}
           </div>
         </div>
+
+        <div className="p-6 pt-0 mt-auto">
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              {operator.services.chatPrice && (
+                <Button
+                  onClick={handleStartChat}
+                  disabled={isStartingChat || !operator.isOnline}
+                  size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+                >
+                  {isStartingChat ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <MessageCircle className="w-3 h-3 mr-1" />
+                  )}
+                  Chat
+                </Button>
+              )}
+              {operator.services.callPrice && (
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+                >
+                  <Phone className="w-3 h-3 mr-1" />
+                  Chiama
+                </Button>
+              )}
+              {operator.services.emailPrice && (
+                <Button
+                  onClick={handleOpenEmailModal}
+                  size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-xs font-semibold"
+                >
+                  <Mail className="w-3 h-3 mr-1" />
+                  Email
+                </Button>
+              )}
+            </div>
+            <Link href={profileLink} className="block">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 border-0 font-semibold"
+              >
+                <Users className="w-3 h-3 mr-2" />
+                Vedi Profilo
+              </Button>
+            </Link>
+          </div>
+        </div>
+        <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-yellow-600/30 transition-all duration-500 pointer-events-none"></div>
       </div>
-    </Link>
+      {operator.services.emailPrice && (
+        <WrittenConsultationModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          operator={{ id: operator.id, name: operator.name, emailPrice: operator.services.emailPrice }}
+        />
+      )}
+    </>
   )
 }

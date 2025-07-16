@@ -1,5 +1,5 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -17,44 +17,28 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          request.cookies.set({ name, value, ...options })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
+          request.cookies.set({ name, value: "", ...options })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
+          response.cookies.set({ name, value: "", ...options })
         },
       },
     },
   )
 
-  // Rinfresca la sessione utente se è scaduta.
+  // Rinfresca la sessione se è scaduta. Questo si applica a tutte le rotte.
   await supabase.auth.getUser()
 
   return response
@@ -67,8 +51,8 @@ export const config = {
      * - _next/static (file statici)
      * - _next/image (file di ottimizzazione delle immagini)
      * - favicon.ico (file favicon)
-     * - api/ (route API)
+     * - /images/ (le tue immagini)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images/).*)",
   ],
 }
