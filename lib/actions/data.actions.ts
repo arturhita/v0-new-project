@@ -1,11 +1,10 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@/lib/supabase/server"
 
-export async function getOperators(options?: { limit?: number }) {
-  const supabase = createClient()
-
-  let query = supabase
+export async function getFeaturedOperators() {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
     .from("profiles")
     .select(
       `
@@ -15,60 +14,54 @@ export async function getOperators(options?: { limit?: number }) {
       bio,
       categories,
       services,
-      is_online,
-      created_at
+      is_online
     `,
     )
     .eq("role", "operator")
     .eq("status", "Attivo")
-
-  if (options?.limit) {
-    query = query.limit(options.limit)
-  }
-
-  const { data, error } = await query
+    .limit(4)
 
   if (error) {
-    console.error("Error fetching operators:", error)
+    console.error("Error fetching featured operators:", error)
     return []
   }
 
   return data.map((op) => ({
     id: op.id,
-    name: op.stage_name || "Operatore",
+    name: op.stage_name,
     avatarUrl: op.avatar_url,
-    description: op.bio || "Nessuna descrizione.",
-    tags: op.categories || [],
-    isOnline: op.is_online || false,
-    services: op.services || {},
+    description: op.bio,
+    tags: op.categories,
+    isOnline: op.is_online,
+    services: op.services,
+    profileLink: `/operator/${op.stage_name}`,
     specialization: op.categories?.[0] || "Esperto",
-    rating: 5, // Placeholder
+    rating: 5, // Placeholder, da implementare con le recensioni
     reviewsCount: 0, // Placeholder
-    joinedDate: op.created_at,
   }))
 }
 
 export async function getRecentReviews() {
-  const supabase = createClient()
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from("reviews")
     .select(
       `
-     id,
-     rating,
-     comment,
-     created_at,
-     client:profiles!reviews_client_id_fkey (
-       name,
-       avatar_url
-     ),
-     operator:profiles!reviews_operator_id_fkey (
-       stage_name
-     )
-   `,
+      id,
+      rating,
+      comment,
+      created_at,
+      client:profiles!reviews_client_id_fkey (
+        name,
+        avatar_url
+      ),
+      operator:profiles!reviews_operator_id_fkey (
+        stage_name
+      )
+    `,
     )
     .order("created_at", { ascending: false })
-    .limit(3)
+    .limit(5)
 
   if (error) {
     console.error("Error fetching recent reviews:", error)

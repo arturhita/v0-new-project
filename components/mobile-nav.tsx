@@ -1,31 +1,28 @@
 "use client"
 
-import type { User } from "@supabase/supabase-js"
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Menu, X, UserIcon, LogOut } from "lucide-react"
 import { NavigationMenuDemo } from "@/components/navigation-menu"
-import { UserIcon, LogOut, Menu, X } from "lucide-react"
 import { logout } from "@/lib/actions/auth.actions"
 
-interface MobileNavProps {
-  user: User | null
-}
-
-export function MobileNav({ user }: MobileNavProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+export function MobileNav({ user }: { user: User | null }) {
+  const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
 
   useEffect(() => {
-    if (isMenuOpen) {
-      setIsMenuOpen(false)
+    if (isOpen) {
+      setIsOpen(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   const getDashboardLink = () => {
     if (!user) return "/login"
-    const role = user.user_metadata.role
+    const role = user.user_metadata?.role
     switch (role) {
       case "admin":
         return "/admin/dashboard"
@@ -37,19 +34,17 @@ export function MobileNav({ user }: MobileNavProps) {
     }
   }
 
+  const handleLogout = async () => {
+    await logout()
+  }
+
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="text-white hover:bg-white/10"
-      >
-        {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+      <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="text-white hover:bg-white/10">
+        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </Button>
-
-      {isMenuOpen && (
-        <div className="absolute top-16 left-0 right-0 md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8 shadow-lg">
+      {isOpen && (
+        <div className="absolute top-16 left-0 right-0 bg-[#1E3C98]/95 backdrop-blur-lg pb-8 md:hidden animate-in fade-in-20 slide-in-from-top-4">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
             <NavigationMenuDemo />
             <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">
@@ -65,12 +60,10 @@ export function MobileNav({ user }: MobileNavProps) {
                       Dashboard
                     </Link>
                   </Button>
-                  <form action={logout}>
-                    <Button type="submit" variant="ghost" className="w-full justify-center text-slate-300">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Logout
-                    </Button>
-                  </form>
+                  <Button onClick={handleLogout} variant="ghost" className="w-full justify-center text-slate-300">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
                 </>
               ) : (
                 <>

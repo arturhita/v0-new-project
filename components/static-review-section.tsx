@@ -1,98 +1,82 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Star } from "lucide-react"
-import { getRecentReviews } from "@/lib/actions/data.actions"
+import { ReviewCard, type Review as ReviewCardType } from "@/components/review-card"
+import { ConstellationBackground } from "@/components/constellation-background"
 
-type Review = {
-  id: string
-  userName: string
-  userAvatar?: string
-  operatorName: string
-  rating: number
-  comment: string
-  date: string
+const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number): string => {
+  const date = new Date()
+  if (daysAgo > 0) date.setDate(date.getDate() - daysAgo)
+  if (hoursAgo) date.setHours(date.getHours() - hoursAgo)
+  if (minutesAgo) date.setMinutes(date.getMinutes() - minutesAgo)
+  return date.toISOString()
 }
 
+export const allMockReviews: ReviewCardType[] = [
+  {
+    id: "r1",
+    userName: "Giulia R.",
+    userType: "Vip",
+    operatorName: "Luna Stellare",
+    rating: 5,
+    comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
+    date: generateTimeAgo(0, 0, 49),
+  },
+  {
+    id: "r2",
+    userName: "Marco B.",
+    userType: "Utente",
+    operatorName: "Maestro Cosmos",
+    rating: 5,
+    comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
+    date: generateTimeAgo(0, 0, 57),
+  },
+  {
+    id: "r3",
+    userName: "Sofia L.",
+    userType: "Vip",
+    operatorName: "Sage Aurora",
+    rating: 4,
+    comment:
+      "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
+    date: generateTimeAgo(0, 1),
+  },
+]
+
 export function StaticReviewSection() {
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [loading, setLoading] = useState(true)
+  const [displayedReviews, setDisplayedReviews] = useState<ReviewCardType[]>([])
 
   useEffect(() => {
-    async function fetchReviews() {
-      try {
-        const fetchedReviews = await getRecentReviews()
-        setReviews(fetchedReviews)
-      } catch (error) {
-        console.error("Failed to fetch reviews:", error)
-      } finally {
-        setLoading(false)
-      }
+    const updateReviews = () => {
+      const shuffled = [...allMockReviews].sort(() => 0.5 - Math.random())
+      setDisplayedReviews(shuffled.slice(0, 3))
     }
-    fetchReviews()
+    updateReviews()
+    const intervalId = setInterval(updateReviews, 15000)
+    return () => clearInterval(intervalId)
   }, [])
 
-  if (loading) {
-    return (
-      <section className="py-16 md:py-24 bg-slate-900">
-        <div className="container px-4 md:px-6 text-center">
-          <h2 className="text-3xl font-bold md:text-4xl text-white mb-4">Le Voci dei Nostri Clienti</h2>
-          <p className="text-lg text-slate-300 mb-12">Caricamento recensioni...</p>
-        </div>
-      </section>
-    )
-  }
-
-  if (reviews.length === 0) {
-    return null // Non mostrare la sezione se non ci sono recensioni
-  }
-
   return (
-    <section className="py-16 md:py-24 bg-slate-900">
-      <div className="container px-4 md:px-6">
+    <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
+      <ConstellationBackground goldVisible={true} />
+      <div className="container px-4 md:px-6 relative z-10">
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl font-bold md:text-4xl text-white">Le Voci dei Nostri Clienti</h2>
+          <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
           <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
-            Leggi le esperienze di chi ha già trovato guida e chiarezza con i nostri esperti.
+            Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {reviews.map((review, index) => (
-            <div
-              key={review.id}
-              className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-blue-700/50"
-              style={{ animation: `fadeInUp 0.5s ease-out ${index * 0.1}s forwards`, opacity: 0 }}
-            >
-              <div className="flex items-center mb-4">
-                <div className="flex-shrink-0">
-                  <img
-                    className="h-12 w-12 rounded-full object-cover border-2 border-yellow-400"
-                    src={review.userAvatar || `/placeholder.svg?width=48&height=48&query=user+avatar`}
-                    alt={review.userName}
-                  />
-                </div>
-                <div className="ml-4">
-                  <div className="text-lg font-bold text-white">{review.userName}</div>
-                  <div className="text-sm text-slate-400">
-                    per <span className="font-semibold text-yellow-400">{review.operatorName}</span>
-                  </div>
-                </div>
+        {displayedReviews.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {displayedReviews.map((review, index) => (
+              <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
+                <ReviewCard review={review} />
               </div>
-              <div className="flex items-center mb-3">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-5 w-5 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-slate-600"}`}
-                  />
-                ))}
-              </div>
-              <p className="text-slate-300 italic">"{review.comment}"</p>
-              <p className="text-right text-xs text-slate-500 mt-4">
-                {new Date(review.date).toLocaleDateString("it-IT")}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-slate-400">Caricamento testimonianze...</div>
+        )}
       </div>
     </section>
   )
