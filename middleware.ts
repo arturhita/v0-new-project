@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
+        set(name: string, value: string, options) {
           request.cookies.set({ name, value, ...options })
           response = NextResponse.next({
             request: {
@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
           })
           response.cookies.set({ name, value, ...options })
         },
-        remove(name: string, options: CookieOptions) {
+        remove(name: string, options) {
           request.cookies.set({ name, value: "", ...options })
           response = NextResponse.next({
             request: {
@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // Rinfresca la sessione se è scaduta. Questo si applica a tutte le rotte.
+  // Rinfresca la sessione utente se è scaduta.
   await supabase.auth.getUser()
 
   return response
@@ -53,6 +53,6 @@ export const config = {
      * - favicon.ico (file favicon)
      * - /images/ (le tue immagini)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

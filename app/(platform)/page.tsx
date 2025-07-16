@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { getOperators } from "@/lib/actions/data.actions"
-import HomePageClient, { mockOperators } from "./home-page-client"
+import HomePageClient from "./home-page-client"
 import type { Operator as OperatorType } from "@/components/operator-card"
+import { mockOperators } from "./home-page-client"
 
 export default async function UnveillyHomePage() {
   const supabase = createClient()
@@ -11,17 +12,18 @@ export default async function UnveillyHomePage() {
 
   let operators: OperatorType[] = []
   try {
-    // Tentativo di fetch degli operatori reali
+    // Tenta di recuperare gli operatori reali dal database
     const fetchedOperators = await getOperators({ limit: 8 })
     if (fetchedOperators && fetchedOperators.length > 0) {
       operators = fetchedOperators as OperatorType[]
     } else {
-      // Fallback ai dati mock se non ci sono operatori
+      // Se non ci sono operatori, usa i dati mock come fallback
+      console.log("Nessun operatore trovato, utilizzo dati mock.")
       operators = mockOperators.slice(0, 8)
     }
   } catch (error) {
-    console.error("Errore nel fetch degli operatori, utilizzo dati mock:", error)
-    // Fallback ai dati mock in caso di errore
+    // Se c'è un errore nel recupero, usa i dati mock
+    console.error("Errore nel recupero degli operatori, utilizzo dati mock:", error)
     operators = mockOperators.slice(0, 8)
   }
 
