@@ -17,7 +17,7 @@ export type OperatorPublicProfile = {
   id: string
   stage_name: string | null
   avatar_url: string | null
-  specialization: string[] | null
+  specialties: string[] | null // Corretto da specialization
   bio: string | null
   rating: number | null
   reviews_count: number | null
@@ -26,8 +26,8 @@ export type OperatorPublicProfile = {
   reviews: any[] | null
   is_online: boolean | null
   tags: string[] | null
-  experience?: string | null // Campo per tab "Esperienza"
-  specializations_details?: string | null // Campo per tab "Specializzazioni"
+  experience?: string | null
+  specializations_details?: string | null
 }
 
 export async function createOperator(
@@ -50,7 +50,7 @@ export async function createOperator(
     full_name,
     stage_name,
     bio,
-    specialization,
+    specialties, // Corretto da specialization
     tags,
     chat_price,
     call_price,
@@ -80,8 +80,7 @@ export async function createOperator(
 
   const userId = authData.user.id
 
-  // Gestione sicura dei campi opzionali
-  const specializationArray = specialization ? specialization.split(",").map((s) => s.trim()) : []
+  const specialtiesArray = specialties ? specialties.split(",").map((s) => s.trim()) : []
   const tagsArray = tags ? tags.split(",").map((t) => t.trim()) : []
 
   // 3. Aggiorna il profilo dell'utente
@@ -91,7 +90,7 @@ export async function createOperator(
       full_name: full_name,
       stage_name: stage_name,
       bio: bio,
-      specialization: specializationArray,
+      specialties: specialtiesArray, // Corretto da specialization
       tags: tagsArray,
       role: "operator",
       experience: experience,
@@ -101,7 +100,6 @@ export async function createOperator(
 
   if (profileError) {
     console.error("Errore aggiornamento profilo:", profileError)
-    // Tenta di eliminare l'utente Auth creato per pulizia
     await supabaseAdmin.auth.admin.deleteUser(userId)
     return { message: `Errore aggiornamento profilo: ${profileError.message}`, success: false }
   }
@@ -117,7 +115,6 @@ export async function createOperator(
     const { error: servicesError } = await supabaseAdmin.from("operator_services").insert(servicesToInsert)
     if (servicesError) {
       console.error("Errore inserimento servizi:", servicesError)
-      // Tenta di eliminare l'utente Auth e il profilo per pulizia
       await supabaseAdmin.auth.admin.deleteUser(userId)
       return { message: `Errore inserimento servizi: ${servicesError.message}`, success: false }
     }
@@ -175,7 +172,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
       id,
       stage_name,
       avatar_url,
-      specialization,
+      specialties, 
       bio,
       average_rating,
       reviews_count,
@@ -228,7 +225,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
     id: profile.id,
     stage_name: profile.stage_name,
     avatar_url: profile.avatar_url,
-    specialization: profile.specialization,
+    specialties: profile.specialties, // Corretto da specialization
     bio: profile.bio,
     rating: profile.average_rating,
     reviews_count: profile.reviews_count,
@@ -297,7 +294,7 @@ export async function updateOperatorProfile(
   profileData: {
     full_name?: string
     bio?: string
-    specialization?: string[]
+    specialties?: string[] // Corretto
     tags?: string[]
   },
 ) {
