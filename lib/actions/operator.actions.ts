@@ -17,7 +17,7 @@ export type OperatorPublicProfile = {
   id: string
   stage_name: string | null
   avatar_url: string | null
-  specialties: string[] | null // Corretto da specialization
+  specialties: string[] | null
   bio: string | null
   rating: number | null
   reviews_count: number | null
@@ -25,7 +25,7 @@ export type OperatorPublicProfile = {
   availability: any[] | null
   reviews: any[] | null
   is_online: boolean | null
-  tags: string[] | null
+  categories: string[] | null // Corretto da tags
   experience?: string | null
   specializations_details?: string | null
 }
@@ -50,8 +50,8 @@ export async function createOperator(
     full_name,
     stage_name,
     bio,
-    specialties, // Corretto da specialization
-    tags,
+    specialties,
+    categories, // Corretto da tags
     chat_price,
     call_price,
     written_price,
@@ -81,7 +81,7 @@ export async function createOperator(
   const userId = authData.user.id
 
   const specialtiesArray = specialties ? specialties.split(",").map((s) => s.trim()) : []
-  const tagsArray = tags ? tags.split(",").map((t) => t.trim()) : []
+  const categoriesArray = categories ? categories.split(",").map((t) => t.trim()) : [] // Corretto da tags
 
   // 3. Aggiorna il profilo dell'utente
   const { error: profileError } = await supabaseAdmin
@@ -90,8 +90,8 @@ export async function createOperator(
       full_name: full_name,
       stage_name: stage_name,
       bio: bio,
-      specialties: specialtiesArray, // Corretto da specialization
-      tags: tagsArray,
+      specialties: specialtiesArray,
+      categories: categoriesArray, // Corretto da tags
       role: "operator",
       experience: experience,
       specializations_details: specializations_details,
@@ -177,7 +177,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
       average_rating,
       reviews_count,
       is_online,
-      tags,
+      categories,
       experience,
       specializations_details
       `,
@@ -225,7 +225,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
     id: profile.id,
     stage_name: profile.stage_name,
     avatar_url: profile.avatar_url,
-    specialties: profile.specialties, // Corretto da specialization
+    specialties: profile.specialties,
     bio: profile.bio,
     rating: profile.average_rating,
     reviews_count: profile.reviews_count,
@@ -246,7 +246,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
       },
     })),
     is_online: profile.is_online,
-    tags: profile.tags,
+    categories: profile.categories, // Corretto da tags
     experience: profile.experience,
     specializations_details: profile.specializations_details,
   }
@@ -294,8 +294,8 @@ export async function updateOperatorProfile(
   profileData: {
     full_name?: string
     bio?: string
-    specialties?: string[] // Corretto
-    tags?: string[]
+    specialties?: string[]
+    categories?: string[] // Corretto da tags
   },
 ) {
   const supabase = createClient()

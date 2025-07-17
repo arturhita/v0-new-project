@@ -15,8 +15,8 @@ export const OperatorProfileSchema = z.object({
   stage_name: z.string().min(3, "Il nome d'arte è richiesto."),
   email: z.string().email("Email non valida."),
   bio: z.string().optional(),
-  specialties: z.string().optional(), // Corretto da specialization
-  tags: z.string().optional(),
+  specialties: z.string().optional(),
+  categories: z.string().optional(), // Corretto da tags
   experience: z.string().optional(),
   specializations_details: z.string().optional(),
   chat_price: z.coerce.number().optional(),
