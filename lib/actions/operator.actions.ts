@@ -3,13 +3,37 @@
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { OperatorProfileSchema } from "../schemas"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
+}
+
+// Definizione del tipo per i dati inviati dal form di creazione
+type OperatorData = {
+  name: string
+  surname: string
+  stageName: string
+  email: string
+  phone: string
+  bio: string
+  specialties: string[]
+  categories: string[]
+  avatarUrl: string
+  services: {
+    chatEnabled: boolean
+    chatPrice: string
+    callEnabled: boolean
+    callPrice: string
+    emailEnabled: boolean
+    emailPrice: string
+  }
+  availability: any
+  status: "Attivo" | "In Attesa" | "Sospeso"
+  isOnline: boolean
+  commission: string
 }
 
 // Definizione del tipo per il profilo pubblico
@@ -26,129 +50,114 @@ export type OperatorPublicProfile = {
   reviews: any[] | null
   is_online: boolean | null
   categories: string[] | null
-  // Campi rimossi perché non esistono nel DB
-  // experience?: string | null
-  // specializations_details?: string | null
 }
 
-export async function createOperator(
-  prevState: { message: string; success: boolean; tempPassword?: string },
-  formData: FormData,
-): Promise<{ message: string; success: boolean; tempPassword?: string }> {
+export async function createOperator(operatorData: OperatorData) {
   const supabaseAdmin = createAdminClient()
+  const password = Math.random().toString(36).slice(-12)
+  let userId: string | undefined = undefined
 
-  const validatedFields = OperatorProfileSchema.safeParse(Object.fromEntries(formData.entries()))
-
-  if (!validatedFields.success) {
-    return {
-      message: "Dati non validi: " + JSON.stringify(validatedFields.error.flatten().fieldErrors),
-      success: false,
-    }
-  }
-
-  const { email, full_name, stage_name, bio, specialties, categories, chat_price, call_price, written_price } =
-    validatedFields.data
-
-  // 1. Genera password temporanea
-  const tempPassword = Math.random().toString(36).slice(-12)
-
-  // 2. Crea utente in Supabase Auth
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email: email,
-    password: tempPassword,
-    email_confirm: true, // L'utente è già confermato
-    user_metadata: {
-      full_name: full_name,
-      role: "operator",
-    },
-  })
-
-  if (authError) {
-    console.error("Errore creazione utente in Auth:", authError)
-    return { message: `Errore creazione utente: ${authError.message}`, success: false }
-  }
-
-  const userId = authData.user.id
-
-  const specialtiesArray = specialties ? specialties.split(",").map((s) => s.trim()) : []
-  const categoriesArray = categories ? categories.split(",").map((t) => t.trim()) : []
-
-  // 3. Aggiorna il profilo dell'utente
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .update({
-      full_name: full_name,
-      stage_name: stage_name,
-      bio: bio,
-      specialties: specialtiesArray,
-      categories: categoriesArray,
-      role: "operator",
-    })
-    .eq("id", userId)
-
-  if (profileError) {
-    console.error("Errore aggiornamento profilo:", profileError)
-    await supabaseAdmin.auth.admin.deleteUser(userId)
-    return { message: `Errore aggiornamento profilo: ${profileError.message}`, success: false }
-  }
-
-  // 4. Inserisci i servizi
-  const servicesToInsert = []
-  if (chat_price) servicesToInsert.push({ user_id: userId, service_type: "chat", price: chat_price, is_active: true })
-  if (call_price) servicesToInsert.push({ user_id: userId, service_type: "call", price: call_price, is_active: true })
-  if (written_price)
-    servicesToInsert.push({ user_id: userId, service_type: "written", price: written_price, is_active: true })
-
-  if (servicesToInsert.length > 0) {
-    const { error: servicesError } = await supabaseAdmin.from("operator_services").insert(servicesToInsert)
-    if (servicesError) {
-      console.error("Errore inserimento servizi:", servicesError)
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      return { message: `Errore inserimento servizi: ${servicesError.message}`, success: false }
-    }
-  }
-
-  revalidatePath("/admin/operators")
-  revalidatePath(`/operator/${stage_name}`)
-
-  return {
-    message: "Operatore creato con successo!",
-    success: true,
-    tempPassword: tempPassword,
-  }
-}
-
-export async function updateOperatorCommission(operatorId: string, commission: string) {
-  const supabase = createClient()
   try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ commission_rate: safeParseFloat(commission) })
-      .eq("id", operatorId)
+    // 1. Crea utente in Supabase Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: operatorData.email,
+      password: password,
+      email_confirm: true, // Conferma automatica dell'email
+      user_metadata: {
+        full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
+        stage_name: operatorData.stageName,
+        avatar_url: operatorData.avatarUrl,
+        role: "operator",
+      },
+    })
 
-    if (error) throw error
+    if (authError || !authData.user) {
+      console.error("Errore creazione utente Auth:", authError)
+      if (authError?.message.includes("User already registered")) {
+        return { success: false, message: "Un utente con questa email esiste già." }
+      }
+      return { success: false, message: `Errore Supabase Auth: ${authError?.message}` }
+    }
+    userId = authData.user.id
+
+    // 2. Aggiorna il profilo creato dal trigger
+    const profileToUpdate = {
+      full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
+      stage_name: operatorData.stageName,
+      phone: operatorData.phone,
+      bio: operatorData.bio,
+      avatar_url: operatorData.avatarUrl,
+      role: "operator" as const,
+      status: operatorData.status,
+      is_online: operatorData.isOnline,
+      commission_rate: safeParseFloat(operatorData.commission),
+      specialties: operatorData.specialties,
+      categories: operatorData.categories,
+      availability: operatorData.availability,
+    }
+
+    const { error: profileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", userId)
+
+    if (profileError) {
+      throw new Error(`Errore aggiornamento profilo: ${profileError.message}`)
+    }
+
+    // 3. Inserisci i servizi nella tabella operator_services
+    const servicesToInsert = []
+    if (operatorData.services.chatEnabled) {
+      servicesToInsert.push({
+        user_id: userId,
+        service_type: "chat",
+        price: safeParseFloat(operatorData.services.chatPrice),
+        is_active: true,
+      })
+    }
+    if (operatorData.services.callEnabled) {
+      servicesToInsert.push({
+        user_id: userId,
+        service_type: "call",
+        price: safeParseFloat(operatorData.services.callPrice),
+        is_active: true,
+      })
+    }
+    if (operatorData.services.emailEnabled) {
+      servicesToInsert.push({
+        user_id: userId,
+        service_type: "written",
+        price: safeParseFloat(operatorData.services.emailPrice),
+        is_active: true,
+      })
+    }
+
+    if (servicesToInsert.length > 0) {
+      const { error: servicesError } = await supabaseAdmin.from("operator_services").insert(servicesToInsert)
+      if (servicesError) {
+        throw new Error(`Errore inserimento servizi: ${servicesError.message}`)
+      }
+    }
 
     revalidatePath("/admin/operators")
-    revalidatePath(`/admin/operators/${operatorId}/edit`)
+    revalidatePath(`/operator/${operatorData.stageName}`)
 
     return {
       success: true,
-      message: "Commissione aggiornata con successo!",
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
+      temporaryPassword: password,
     }
-  } catch (error) {
-    console.error("Errore aggiornamento commissione:", error)
+  } catch (error: any) {
+    console.error("Errore nel processo di creazione operatore:", error)
+    // Pulisce l'utente creato se qualcosa va storto dopo
+    if (userId) {
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      console.log(`Utente Auth ${userId} eliminato a causa di un errore successivo.`)
+    }
     return {
       success: false,
-      message: "Errore nell'aggiornamento della commissione",
+      message: error.message || "Si è verificato un errore sconosciuto.",
     }
   }
 }
 
-/**
- * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
- * @param stageName - Lo username pubblico (stage_name) dell'operatore.
- * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
- */
 export async function getOperatorPublicProfile(stageName: string): Promise<OperatorPublicProfile | null> {
   const supabase = createClient()
 
@@ -191,16 +200,9 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
       .limit(5),
   ])
 
-  // Error handling for each promise, though we can proceed with partial data
-  if (servicesResult.error) {
-    console.error("Error fetching operator services:", servicesResult.error.message)
-  }
-  if (availabilityResult.error) {
-    console.error("Error fetching operator availability:", availabilityResult.error.message)
-  }
-  if (reviewsResult.error) {
-    console.error("Error fetching operator reviews:", reviewsResult.error.message)
-  }
+  if (servicesResult.error) console.error("Error fetching operator services:", servicesResult.error.message)
+  if (availabilityResult.error) console.error("Error fetching operator availability:", availabilityResult.error.message)
+  if (reviewsResult.error) console.error("Error fetching operator reviews:", reviewsResult.error.message)
 
   const services = servicesResult.data || []
   const availability = availabilityResult.data || []
