@@ -167,32 +167,23 @@ export async function updateOperatorCommission(operatorId: string, commission: s
 export async function getOperatorPublicProfile(stageName: string): Promise<OperatorPublicProfile | null> {
   const supabase = createClient()
 
-  // Step 1: Fetch the main operator profile without reviews
+  // Step 1: Fetch the main operator profile data
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
       `
-id,
-stage_name,
-avatar_url,
-specialization,
-bio,
-average_rating,
-reviews_count,
-is_online,
-tags,
-experience,
-specializations_details,
-operator_services (
-  service_type,
-  price
-),
-operator_availability (
-  day_of_week,
-  start_time,
-  end_time
-)
-`,
+      id,
+      stage_name,
+      avatar_url,
+      specialization,
+      bio,
+      average_rating,
+      reviews_count,
+      is_online,
+      tags,
+      experience,
+      specializations_details
+      `,
     )
     .eq("stage_name", stageName)
     .eq("role", "operator")
@@ -203,29 +194,34 @@ operator_availability (
     return null
   }
 
-  // Step 2: Fetch the reviews for this operator in a separate, unambiguous query
-  const { data: reviewsData, error: reviewsError } = await supabase
-    .from("reviews")
-    .select(
-      `
-id,
-rating,
-comment,
-created_at,
-client:client_id (
-  full_name,
-  avatar_url
-)
-`,
-    )
-    .eq("operator_id", profile.id) // Filter specifically by operator_id
-    .order("created_at", { ascending: false })
-    .limit(5)
+  const operatorId = profile.id
 
-  if (reviewsError) {
-    console.error("Error fetching operator reviews (step 2):", reviewsError.message)
-    // We can still return the profile data even if reviews fail to load
+  // Step 2: Fetch services, availability, and reviews in parallel
+  const [servicesResult, availabilityResult, reviewsResult] = await Promise.all([
+    supabase.from("operator_services").select("service_type, price").eq("user_id", operatorId),
+    supabase.from("operator_availability").select("day_of_week, start_time, end_time").eq("user_id", operatorId),
+    supabase
+      .from("reviews")
+      .select(`id, rating, comment, created_at, client:client_id (full_name, avatar_url)`)
+      .eq("operator_id", operatorId)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ])
+
+  // Error handling for each promise, though we can proceed with partial data
+  if (servicesResult.error) {
+    console.error("Error fetching operator services:", servicesResult.error.message)
   }
+  if (availabilityResult.error) {
+    console.error("Error fetching operator availability:", availabilityResult.error.message)
+  }
+  if (reviewsResult.error) {
+    console.error("Error fetching operator reviews:", reviewsResult.error.message)
+  }
+
+  const services = servicesResult.data || []
+  const availability = availabilityResult.data || []
+  const reviews = reviewsResult.data || []
 
   // Step 3: Combine the data
   const combinedData: OperatorPublicProfile = {
@@ -236,13 +232,13 @@ client:client_id (
     bio: profile.bio,
     rating: profile.average_rating,
     reviews_count: profile.reviews_count,
-    services: profile.operator_services,
-    availability: (profile.operator_availability || []).map((a: any) => ({
+    services: services,
+    availability: availability.map((a: any) => ({
       day: a.day_of_week,
       start_time: a.start_time.substring(0, 5),
       end_time: a.end_time.substring(0, 5),
     })),
-    reviews: (reviewsData || []).map((r: any) => ({
+    reviews: reviews.map((r: any) => ({
       id: r.id,
       rating: r.rating,
       comment: r.comment,
