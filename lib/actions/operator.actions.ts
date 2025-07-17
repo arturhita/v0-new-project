@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 import { getMockOperatorProfileByStageName } from "@/lib/mock-data"
+import { OperatorRegistrationSchema } from "@/lib/schemas"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -296,4 +297,96 @@ export async function updateOperatorAvailability(userId: string, availability: a
   revalidatePath("/(platform)/dashboard/operator/availability")
 
   return { data }
+}
+
+export async function registerOperator(formData: FormData) {
+  const supabase = createClient() // Usa il client standard per la registrazione pubblica
+
+  const rawFormData = Object.fromEntries(formData.entries())
+
+  // Converte le categorie da stringa separata da virgole ad array
+  const categories =
+    typeof rawFormData.categories === "string" && rawFormData.categories.length > 0
+      ? rawFormData.categories.split(",")
+      : []
+
+  const validation = OperatorRegistrationSchema.safeParse({
+    ...rawFormData,
+    categories,
+  })
+
+  if (!validation.success) {
+    console.log("Validation errors:", validation.error.flatten().fieldErrors)
+    return {
+      success: false,
+      message: "Dati non validi. Controlla i campi.",
+      errors: validation.error.flatten().fieldErrors,
+    }
+  }
+
+  const { email, password, name, surname, stageName, bio } = validation.data
+
+  // 1. Registra l'utente con Supabase Auth
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: `${name} ${surname}`.trim(),
+        stage_name: stageName,
+      },
+    },
+  })
+
+  if (signUpError || !signUpData.user) {
+    console.error("Errore durante la registrazione (signUp):", signUpError)
+    if (signUpError?.message.includes("User already registered")) {
+      return { success: false, message: "Un utente con questa email esiste già." }
+    }
+    return { success: false, message: signUpError?.message || "Impossibile registrare l'utente." }
+  }
+
+  const userId = signUpData.user.id
+  console.log(`[Self-Register] Utente Auth creato con ID: ${userId}`)
+
+  // 2. Aggiorna il profilo con i dettagli completi usando il client admin
+  const supabaseAdmin = createAdminClient()
+
+  const profileToUpdate = {
+    full_name: `${name} ${surname}`.trim(),
+    name,
+    surname,
+    stage_name: stageName,
+    bio: bio || "",
+    role: "operator" as const,
+    status: "Attivo" as const, // Approvazione automatica
+    categories: validation.data.categories,
+    // Imposta valori predefiniti per gli altri campi
+    specialties: [],
+    availability: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] },
+    services: {
+      chat: { enabled: true, price_per_minute: 2.0 },
+      call: { enabled: false, price_per_minute: 2.5 },
+      email: { enabled: false, price: 20.0 },
+    },
+    commission_rate: 20, // Commissione predefinita
+    is_online: false,
+  }
+
+  const { error: profileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", userId)
+
+  if (profileError) {
+    console.error(`[Self-Register] Errore aggiornamento profilo per ${userId}:`, profileError)
+    // Se l'aggiornamento del profilo fallisce, elimina l'utente appena creato per evitare dati orfani
+    await supabaseAdmin.auth.admin.deleteUser(userId)
+    return { success: false, message: `Errore durante la finalizzazione del profilo: ${profileError.message}` }
+  }
+
+  console.log(`[Self-Register] Profilo per ${userId} aggiornato e attivato con successo.`)
+
+  // Revalida le pagine pertinenti per mostrare subito il nuovo operatore
+  revalidatePath("/operator")
+  revalidatePath(`/operator/${stageName}`)
+
+  return { success: true, message: "Registrazione completata! Benvenuto/a!" }
 }
