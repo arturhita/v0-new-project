@@ -1,4 +1,3 @@
-"use client"
 import { getOperatorsByCategory } from "@/lib/actions/data.actions"
 import EspertiClientPage from "./EspertiClientPage"
 import type { Operator } from "@/components/operator-card"

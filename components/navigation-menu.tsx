@@ -12,7 +12,7 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { BookOpen, Users, Sparkles, Home, Briefcase } from "lucide-react"
+import { BookOpen, Users, Home } from "lucide-react"
 import { getFeaturedOperatorsByCategories } from "@/lib/actions/data.actions"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -88,55 +88,43 @@ export function NavigationMenuDemo() {
             Esperti
           </NavigationMenuTrigger>
           <NavigationMenuContent>
-            <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+            <ul className="grid w-[600px] grid-cols-2 gap-4 p-4 md:w-[700px] lg:w-[800px]">
               {isLoading ? (
                 <MenuSkeleton />
               ) : (
-                <>
-                  <li className="row-span-3">
-                    <NavigationMenuLink asChild>
-                      <a
-                        className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-indigo-900/50 to-indigo-800 p-6 no-underline outline-none focus:shadow-md"
-                        href="/esperti"
-                      >
-                        <Sparkles className="h-6 w-6 text-yellow-400" />
-                        <div className="mb-2 mt-4 text-lg font-medium text-white">Trova il tuo Esperto</div>
-                        <p className="text-sm leading-tight text-white/80">
-                          Connettiti con i migliori professionisti del settore esoterico.
-                        </p>
-                      </a>
-                    </NavigationMenuLink>
-                  </li>
-                  {categoriesWithOperators.map((category) => (
-                    <div key={category.slug}>
-                      <Link href={`/esperti/${category.slug}`} passHref legacyBehavior>
-                        <a className="font-medium text-slate-800 hover:text-indigo-600 block p-2 rounded-md hover:bg-slate-50">
-                          {category.name}
-                        </a>
-                      </Link>
-                      <ul className="mt-1 space-y-1">
-                        {category.operators.map((operator) => (
+                categoriesWithOperators.map((category) => (
+                  <li key={category.slug} className="flex flex-col">
+                    <Link href={`/esperti/${category.slug}`} passHref legacyBehavior>
+                      <NavigationMenuLink className="text-base font-medium text-slate-900 hover:text-indigo-600 px-2 py-1 rounded-md hover:bg-slate-50">
+                        {category.name}
+                      </NavigationMenuLink>
+                    </Link>
+                    <ul className="mt-2 space-y-2">
+                      {category.operators.length > 0 ? (
+                        category.operators.map((operator) => (
                           <li key={operator.id}>
                             <Link href={`/operator/${operator.stage_name}`} passHref legacyBehavior>
-                              <a className="flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 transition-colors">
-                                <Avatar className="h-8 w-8 border-2 border-indigo-100">
+                              <a className="flex items-center space-x-3 p-2 rounded-md hover:bg-slate-100 transition-colors">
+                                <Avatar className="h-10 w-10 border-2 border-indigo-100">
                                   <AvatarImage src={operator.avatar_url || ""} alt={operator.stage_name || ""} />
                                   <AvatarFallback>{operator.stage_name?.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-medium text-xs text-slate-700">{operator.stage_name}</p>
+                                  <p className="font-semibold text-sm text-slate-800">{operator.stage_name}</p>
                                   <p className="text-xs text-slate-500">{operator.specialties?.[0] || "Esperto"}</p>
                                 </div>
                               </a>
                             </Link>
                           </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </>
+                        ))
+                      ) : (
+                        <li className="p-2 text-sm text-slate-500">Nessun operatore in primo piano.</li>
+                      )}
+                    </ul>
+                  </li>
+                ))
               )}
-            </div>
+            </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
 
@@ -155,20 +143,6 @@ export function NavigationMenuDemo() {
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
-
-        <NavigationMenuItem>
-          <Link href="/diventa-esperto" legacyBehavior passHref>
-            <NavigationMenuLink
-              className={cn(
-                navigationMenuTriggerStyle(),
-                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
-              )}
-            >
-              <Briefcase className="mr-2 h-4 w-4" />
-              Lavora con noi
-            </NavigationMenuLink>
-          </Link>
-        </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
   )
@@ -176,27 +150,26 @@ export function NavigationMenuDemo() {
 
 const MenuSkeleton = () => (
   <>
-    <li className="row-span-3">
-      <Skeleton className="h-full w-full" />
-    </li>
     {[...Array(4)].map((_, i) => (
-      <div key={i} className="space-y-2">
-        <Skeleton className="h-5 w-2/3" />
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-8 w-8 rounded-full" />
-          <div className="space-y-1">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-3 w-12" />
+      <li key={i} className="space-y-3 p-2">
+        <Skeleton className="h-6 w-3/4" />
+        <div className="space-y-2">
+          <div className="flex items-center space-x-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-8 w-8 rounded-full" />
-          <div className="space-y-1">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-3 w-12" />
-          </div>
-        </div>
-      </div>
+      </li>
     ))}
   </>
 )
