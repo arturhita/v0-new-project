@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { z } from "zod"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -10,6 +11,10 @@ const safeParseFloat = (value: any): number => {
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
 }
+
+const OperatorSchema = z.object({
+  // ... schema esistente
+})
 
 export async function createOperator(formData: FormData) {
   const supabaseAdmin = createAdminClient()
@@ -149,6 +154,27 @@ export async function updateOperatorCommission(operatorId: string, commission: s
       message: "Errore nell'aggiornamento della commissione",
     }
   }
+}
+
+/**
+ * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
+ * Utilizza una funzione RPC del database per efficienza.
+ * @param username - Lo username pubblico dell'operatore.
+ * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
+ */
+export async function getOperatorPublicProfile(username: string) {
+  const supabase = createAdminClient()
+
+  const { data, error } = await supabase.rpc("get_operator_public_profile", {
+    p_username: username,
+  })
+
+  if (error) {
+    console.error("Error fetching operator profile:", error.message)
+    return null
+  }
+
+  return data
 }
 
 export async function getAllOperators() {
