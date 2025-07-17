@@ -58,11 +58,11 @@ export async function createOperator(operatorData: OperatorData) {
   let userId: string | undefined = undefined
 
   try {
-    // 1. Crea utente in Supabase Auth
+    // 1. Crea utente in Supabase Auth. Questo esegue anche il trigger che crea la riga base nel profilo.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: password,
-      email_confirm: true, // Conferma automatica dell'email
+      email_confirm: true,
       user_metadata: {
         full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
         stage_name: operatorData.stageName,
@@ -80,32 +80,10 @@ export async function createOperator(operatorData: OperatorData) {
     }
     userId = authData.user.id
 
-    // 2. Aggiorna il profilo creato dal trigger (senza availability)
-    const profileToUpdate = {
-      full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
-      stage_name: operatorData.stageName,
-      phone: operatorData.phone,
-      bio: operatorData.bio,
-      avatar_url: operatorData.avatarUrl,
-      role: "operator" as const,
-      status: operatorData.status,
-      is_online: operatorData.isOnline,
-      commission_rate: safeParseFloat(operatorData.commission),
-      specialties: operatorData.specialties,
-      categories: operatorData.categories,
-    }
-
-    const { error: profileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", userId)
-
-    if (profileError) {
-      throw new Error(`Errore aggiornamento profilo: ${profileError.message}`)
-    }
-
-    // 3. Inserisci i servizi nella tabella operator_services
+    // 2. Prepara i dati per la chiamata RPC
     const servicesToInsert = []
     if (operatorData.services.chatEnabled) {
       servicesToInsert.push({
-        user_id: userId,
         service_type: "chat",
         price: safeParseFloat(operatorData.services.chatPrice),
         is_active: true,
@@ -113,7 +91,6 @@ export async function createOperator(operatorData: OperatorData) {
     }
     if (operatorData.services.callEnabled) {
       servicesToInsert.push({
-        user_id: userId,
         service_type: "call",
         price: safeParseFloat(operatorData.services.callPrice),
         is_active: true,
@@ -121,60 +98,34 @@ export async function createOperator(operatorData: OperatorData) {
     }
     if (operatorData.services.emailEnabled) {
       servicesToInsert.push({
-        user_id: userId,
         service_type: "written_consultation",
         price: safeParseFloat(operatorData.services.emailPrice),
         is_active: true,
       })
     }
 
-    if (servicesToInsert.length > 0) {
-      const { error: servicesError } = await supabaseAdmin.from("operator_services").insert(servicesToInsert)
-      if (servicesError) {
-        console.error("Raw services insertion error:", servicesError)
-        throw new Error(`Errore inserimento servizi: ${servicesError.message || JSON.stringify(servicesError)}`)
-      }
+    const rpcParams = {
+      p_user_id: userId,
+      p_full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
+      p_stage_name: operatorData.stageName,
+      p_phone: operatorData.phone,
+      p_bio: operatorData.bio,
+      p_avatar_url: operatorData.avatarUrl,
+      p_status: operatorData.status,
+      p_is_online: operatorData.isOnline,
+      p_commission_rate: safeParseFloat(operatorData.commission),
+      p_specialties: operatorData.specialties,
+      p_categories: operatorData.categories,
+      p_services: servicesToInsert,
+      p_availability: operatorData.availability,
     }
 
-    // 4. Inserisci la disponibilità nella tabella operator_availability
-    const dayMapping: { [key: string]: number } = {
-      sunday: 0,
-      monday: 1,
-      tuesday: 2,
-      wednesday: 3,
-      thursday: 4,
-      friday: 5,
-      saturday: 6,
-    }
-    const availabilityToInsert = []
-    for (const dayKey in operatorData.availability) {
-      if (Object.prototype.hasOwnProperty.call(operatorData.availability, dayKey)) {
-        const dayOfWeek = dayMapping[dayKey]
-        const slots = operatorData.availability[dayKey as keyof typeof operatorData.availability]
-        for (const slot of slots) {
-          const [startTime, endTime] = slot.split("-")
-          if (startTime && endTime) {
-            availabilityToInsert.push({
-              user_id: userId,
-              day_of_week: dayOfWeek,
-              start_time: `${startTime}:00`,
-              end_time: `${endTime}:00`,
-            })
-          }
-        }
-      }
-    }
+    // 3. Chiama la funzione RPC per completare il profilo in un'unica transazione
+    const { error: rpcError } = await supabaseAdmin.rpc("create_full_operator_profile", rpcParams)
 
-    if (availabilityToInsert.length > 0) {
-      const { error: availabilityError } = await supabaseAdmin
-        .from("operator_availability")
-        .insert(availabilityToInsert)
-      if (availabilityError) {
-        console.error("Raw availability insertion error:", availabilityError)
-        throw new Error(
-          `Errore inserimento disponibilità: ${availabilityError.message || JSON.stringify(availabilityError)}`,
-        )
-      }
+    if (rpcError) {
+      console.error("Errore RPC 'create_full_operator_profile':", rpcError)
+      throw new Error(`Errore durante la creazione del profilo operatore: ${rpcError.message}`)
     }
 
     revalidatePath("/admin/operators")
@@ -187,13 +138,14 @@ export async function createOperator(operatorData: OperatorData) {
     }
   } catch (error: any) {
     console.error("Errore nel processo di creazione operatore:", error)
+    // Pulisce l'utente creato se qualcosa va storto dopo la sua creazione
     if (userId) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
       console.log(`Utente Auth ${userId} eliminato a causa di un errore successivo.`)
     }
     return {
       success: false,
-      message: error.message || "Si è verificato un errore sconosciuto.",
+      message: error.message || "Si è verificato un errore sconosciuto durante la creazione.",
     }
   }
 }
@@ -201,7 +153,6 @@ export async function createOperator(operatorData: OperatorData) {
 export async function getOperatorPublicProfile(stageName: string): Promise<OperatorPublicProfile | null> {
   const supabase = createClient()
 
-  // Step 1: Fetch the main operator profile data
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
@@ -222,13 +173,12 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
     .single()
 
   if (profileError || !profile) {
-    console.error("Error fetching operator profile (step 1):", profileError?.message)
+    console.error("Error fetching operator profile:", profileError?.message)
     return null
   }
 
   const operatorId = profile.id
 
-  // Step 2: Fetch services, availability, and reviews in parallel
   const [servicesResult, availabilityResult, reviewsResult] = await Promise.all([
     supabase.from("operator_services").select("service_type, price").eq("user_id", operatorId),
     supabase.from("operator_availability").select("day_of_week, start_time, end_time").eq("user_id", operatorId),
@@ -248,7 +198,6 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
   const availability = availabilityResult.data || []
   const reviews = reviewsResult.data || []
 
-  // Step 3: Combine the data
   const combinedData: OperatorPublicProfile = {
     id: profile.id,
     stage_name: profile.stage_name,
