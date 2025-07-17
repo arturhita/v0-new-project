@@ -1,184 +1,195 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { PlusCircle, Edit, Trash2, MoreHorizontal, Search, UserCheck, UserX, Clock } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, PlusCircle, Sparkles, Edit3, RefreshCw } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { useState, useEffect } from "react"
-import { getAllOperators, resetOperators, type Operator } from "@/lib/mock-data"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { getAllOperators } from "@/lib/actions/operator.actions"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import LoadingSpinner from "@/components/loading-spinner"
 
-export default function ManageMastersPage() {
-  const [masters, setMasters] = useState<Operator[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+// Definiamo un tipo più completo per l'operatore, basato sullo schema del DB
+type OperatorProfile = {
+  id: string
+  name: string | null
+  surname: string | null
+  stage_name: string | null
+  email: string | null
+  status: "Attivo" | "In Attesa" | "Sospeso" | null
+  commission_rate: number | null
+  created_at: string
+  avatar_url: string | null
+}
 
-  const loadOperators = () => {
-    setIsLoading(true)
-    try {
-      const operators = getAllOperators()
-      setMasters(operators)
-    } catch (error) {
-      console.error("Errore nel caricamento operatori:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+export default function OperatorsPage() {
+  const [operators, setOperators] = useState<OperatorProfile[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
-    loadOperators()
-
-    // Ascolta gli aggiornamenti degli operatori
-    const handleOperatorUpdate = () => {
-      loadOperators()
+    const fetchOperators = async () => {
+      setLoading(true)
+      try {
+        // Usiamo la Server Action per prendere i dati reali
+        const data = await getAllOperators()
+        setOperators(data as OperatorProfile[])
+      } catch (error) {
+        console.error("Failed to fetch operators:", error)
+      } finally {
+        setLoading(false)
+      }
     }
-
-    const handleOperatorsReset = () => {
-      loadOperators()
-    }
-
-    window.addEventListener("operatorUpdated", handleOperatorUpdate)
-    window.addEventListener("operatorsReset", handleOperatorsReset)
-
-    // Ricarica quando la finestra torna in focus (utile quando si torna dalla pagina di modifica)
-    const handleFocus = () => {
-      loadOperators()
-    }
-    window.addEventListener("focus", handleFocus)
-
-    return () => {
-      window.removeEventListener("operatorUpdated", handleOperatorUpdate)
-      window.removeEventListener("operatorsReset", handleOperatorsReset)
-      window.removeEventListener("focus", handleFocus)
-    }
+    fetchOperators()
   }, [])
 
-  const getStatusBadgeVariant = (status: string) => {
-    if (status === "Attivo") return "default"
-    if (status === "In Attesa") return "outline"
-    if (status === "Sospeso") return "destructive"
-    return "secondary"
-  }
-
-  const handleRefresh = () => {
-    loadOperators()
-  }
-
-  const handleResetData = () => {
-    if (confirm("Sei sicuro di voler resettare tutti i dati degli operatori?")) {
-      resetOperators()
+  const getStatusBadge = (status: OperatorProfile["status"]) => {
+    switch (status) {
+      case "Attivo":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+            <UserCheck className="mr-1 h-3 w-3" />
+            Attivo
+          </Badge>
+        )
+      case "In Attesa":
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            <Clock className="mr-1 h-3 w-3" />
+            In Attesa
+          </Badge>
+        )
+      case "Sospeso":
+        return (
+          <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+            <UserX className="mr-1 h-3 w-3" />
+            Sospeso
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">Sconosciuto</Badge>
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center p-8">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-sky-600" />
-            <p className="text-slate-600">Caricamento operatori...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const filteredOperators = operators.filter(
+    (op) =>
+      op.stage_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.surname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.email?.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Elenco Maestri</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh} size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Aggiorna
-          </Button>
-          <Button variant="outline" onClick={handleResetData} size="sm" className="text-red-600 hover:text-red-700">
-            Reset Dati
-          </Button>
-          <Button className="bg-gradient-to-r from-[hsl(var(--primary-light))] to-[hsl(var(--primary-medium))] text-white shadow-md hover:opacity-90">
-            <PlusCircle className="mr-2 h-5 w-5" /> Aggiungi Maestro
-          </Button>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-800">Gestione Operatori</h1>
+          <p className="text-slate-500">Visualizza, modifica e crea nuovi operatori per la piattaforma.</p>
         </div>
+        <Button asChild className="bg-gradient-to-r from-sky-500 to-cyan-600 text-white shadow-md hover:opacity-90">
+          <Link href="/admin/operators/create">
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Crea Nuovo Operatore
+          </Link>
+        </Button>
       </div>
 
-      <Card className="shadow-xl rounded-2xl">
+      <Card className="shadow-lg rounded-2xl">
         <CardHeader>
-          <CardTitle>Maestri del Santuario</CardTitle>
+          <CardTitle>Elenco Operatori</CardTitle>
           <CardDescription>
-            Gestisci i profili, le commissioni e lo stato dei consulenti esoterici. I dati si aggiornano
-            automaticamente.
+            Attualmente ci sono {filteredOperators.length} operatori che corrispondono alla ricerca.
           </CardDescription>
+          <div className="relative pt-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Cerca per nome, email o nome d'arte..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome d'Arte</TableHead>
-                <TableHead>Nome Reale</TableHead>
-                <TableHead>Disciplina Principale</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead>Commissione</TableHead>
-                <TableHead>Data Iniziazione</TableHead>
-                <TableHead>
-                  <span className="sr-only">Azioni</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {masters.map((master) => (
-                <TableRow key={master.id}>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[hsl(var(--primary-accent-highlight))]" />
-                    {master.stageName}
-                  </TableCell>
-                  <TableCell>{master.name}</TableCell>
-                  <TableCell>{master.discipline}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(master.status)}>{master.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-semibold text-green-600">{master.commission}</span>
-                  </TableCell>
-                  <TableCell>{master.joined}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Azioni</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/operators/${master.id}/edit`} className="flex items-center">
-                            <Edit3 className="mr-2 h-4 w-4" /> Modifica Profilo/Commissione
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">Sospendi</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {masters.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-slate-500">Nessun operatore trovato.</p>
-              <Button onClick={handleRefresh} className="mt-4">
-                Ricarica
-              </Button>
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Operatore</TableHead>
+                    <TableHead>Stato</TableHead>
+                    <TableHead>Commissione</TableHead>
+                    <TableHead>Data Iscrizione</TableHead>
+                    <TableHead className="text-right">Azioni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOperators.length > 0 ? (
+                    filteredOperators.map((operator) => (
+                      <TableRow key={operator.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage
+                                src={operator.avatar_url || undefined}
+                                alt={operator.stage_name || "Avatar"}
+                              />
+                              <AvatarFallback>
+                                {operator.stage_name ? operator.stage_name.charAt(0).toUpperCase() : "O"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-slate-800">{operator.stage_name}</p>
+                              <p className="text-sm text-slate-500">{operator.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(operator.status)}</TableCell>
+                        <TableCell>
+                          {operator.commission_rate !== null ? `${operator.commission_rate}%` : "N/A"}
+                        </TableCell>
+                        <TableCell>{new Date(operator.created_at).toLocaleDateString("it-IT")}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Apri menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/admin/operators/${operator.id}/edit`}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Modifica
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Elimina
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        Nessun operatore trovato.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
