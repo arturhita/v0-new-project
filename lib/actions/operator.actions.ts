@@ -80,7 +80,7 @@ export async function createOperator(operatorData: OperatorData) {
     }
     userId = authData.user.id
 
-    // 2. Aggiorna il profilo creato dal trigger
+    // 2. Aggiorna il profilo creato dal trigger (senza availability)
     const profileToUpdate = {
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
       stage_name: operatorData.stageName,
@@ -93,7 +93,6 @@ export async function createOperator(operatorData: OperatorData) {
       commission_rate: safeParseFloat(operatorData.commission),
       specialties: operatorData.specialties,
       categories: operatorData.categories,
-      availability: operatorData.availability,
     }
 
     const { error: profileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", userId)
@@ -123,7 +122,7 @@ export async function createOperator(operatorData: OperatorData) {
     if (operatorData.services.emailEnabled) {
       servicesToInsert.push({
         user_id: userId,
-        service_type: "written_consultation", // FIX: Correct enum value
+        service_type: "written_consultation",
         price: safeParseFloat(operatorData.services.emailPrice),
         is_active: true,
       })
@@ -132,9 +131,49 @@ export async function createOperator(operatorData: OperatorData) {
     if (servicesToInsert.length > 0) {
       const { error: servicesError } = await supabaseAdmin.from("operator_services").insert(servicesToInsert)
       if (servicesError) {
-        // FIX: Improved error logging
         console.error("Raw services insertion error:", servicesError)
         throw new Error(`Errore inserimento servizi: ${servicesError.message || JSON.stringify(servicesError)}`)
+      }
+    }
+
+    // 4. Inserisci la disponibilità nella tabella operator_availability
+    const dayMapping: { [key: string]: number } = {
+      sunday: 0,
+      monday: 1,
+      tuesday: 2,
+      wednesday: 3,
+      thursday: 4,
+      friday: 5,
+      saturday: 6,
+    }
+    const availabilityToInsert = []
+    for (const dayKey in operatorData.availability) {
+      if (Object.prototype.hasOwnProperty.call(operatorData.availability, dayKey)) {
+        const dayOfWeek = dayMapping[dayKey]
+        const slots = operatorData.availability[dayKey as keyof typeof operatorData.availability]
+        for (const slot of slots) {
+          const [startTime, endTime] = slot.split("-")
+          if (startTime && endTime) {
+            availabilityToInsert.push({
+              user_id: userId,
+              day_of_week: dayOfWeek,
+              start_time: `${startTime}:00`,
+              end_time: `${endTime}:00`,
+            })
+          }
+        }
+      }
+    }
+
+    if (availabilityToInsert.length > 0) {
+      const { error: availabilityError } = await supabaseAdmin
+        .from("operator_availability")
+        .insert(availabilityToInsert)
+      if (availabilityError) {
+        console.error("Raw availability insertion error:", availabilityError)
+        throw new Error(
+          `Errore inserimento disponibilità: ${availabilityError.message || JSON.stringify(availabilityError)}`,
+        )
       }
     }
 
@@ -148,7 +187,6 @@ export async function createOperator(operatorData: OperatorData) {
     }
   } catch (error: any) {
     console.error("Errore nel processo di creazione operatore:", error)
-    // Pulisce l'utente creato se qualcosa va storto dopo
     if (userId) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
       console.log(`Utente Auth ${userId} eliminato a causa di un errore successivo.`)
