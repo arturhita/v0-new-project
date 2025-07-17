@@ -15,3 +15,18 @@ export const OperatorRegistrationSchema = z
     message: "Le password non coincidono.",
     path: ["confirmPassword"], // Assegna l'errore al campo di conferma
   })
+
+export const OperatorProfileSchema = z.object({
+  email: z.string().email({ message: "Inserisci un'email valida." }),
+  full_name: z.string().min(3, { message: "Il nome completo deve contenere almeno 3 caratteri." }),
+  stage_name: z.string().min(3, { message: "Il nome d'arte deve contenere almeno 3 caratteri." }),
+  bio: z.string().optional(),
+  specialization: z.string().optional(), // Comma-separated
+  tags: z.string().optional(), // Comma-separated
+  // Converte stringhe vuote in undefined per una validazione opzionale corretta
+  chat_price: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().positive().optional()),
+  call_price: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().positive().optional()),
+  written_price: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.number().positive().optional()),
+  experience: z.string().optional(),
+  specializations_details: z.string().optional(),
+})

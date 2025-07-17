@@ -12,32 +12,6 @@ const safeParseFloat = (value: any): number => {
   return isNaN(num) ? 0 : num
 }
 
-type OperatorData = {
-  name: string
-  surname: string
-  stageName: string
-  email: string
-  phone: string
-  bio: string
-  specialties: string[]
-  categories: string[]
-  avatarUrl: string
-  services: {
-    chatEnabled: boolean
-    chatPrice: string
-    callEnabled: boolean
-    callPrice: string
-    emailEnabled: boolean
-    emailPrice: string
-  }
-  availability: any
-  status: "Attivo" | "In Attesa" | "Sospeso"
-  isOnline: boolean
-  commission: string
-  experience?: string
-  specializations_details?: string
-}
-
 // Definizione del tipo per il profilo pubblico
 export type OperatorPublicProfile = {
   id: string
@@ -66,7 +40,7 @@ export async function createOperator(
 
   if (!validatedFields.success) {
     return {
-      message: "Dati non validi: " + validatedFields.error.flatten().fieldErrors,
+      message: "Dati non validi: " + JSON.stringify(validatedFields.error.flatten().fieldErrors),
       success: false,
     }
   }
@@ -106,6 +80,10 @@ export async function createOperator(
 
   const userId = authData.user.id
 
+  // Gestione sicura dei campi opzionali
+  const specializationArray = specialization ? specialization.split(",").map((s) => s.trim()) : []
+  const tagsArray = tags ? tags.split(",").map((t) => t.trim()) : []
+
   // 3. Aggiorna il profilo dell'utente
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -113,8 +91,8 @@ export async function createOperator(
       full_name: full_name,
       stage_name: stage_name,
       bio: bio,
-      specialization: specialization.split(",").map((s) => s.trim()),
-      tags: tags.split(",").map((t) => t.trim()),
+      specialization: specializationArray,
+      tags: tagsArray,
       role: "operator",
       experience: experience,
       specializations_details: specializations_details,
@@ -144,6 +122,9 @@ export async function createOperator(
       return { message: `Errore inserimento servizi: ${servicesError.message}`, success: false }
     }
   }
+
+  revalidatePath("/admin/operators")
+  revalidatePath(`/operator/${stage_name}`)
 
   return {
     message: "Operatore creato con successo!",
