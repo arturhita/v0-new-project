@@ -166,55 +166,69 @@ export async function updateOperatorCommission(operatorId: string, commission: s
  */
 export async function getOperatorPublicProfile(stageName: string): Promise<OperatorPublicProfile | null> {
   const supabase = createClient()
-  const { data: profile, error } = await supabase
+
+  // Step 1: Fetch the main operator profile without reviews
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
       `
-      id,
-      stage_name,
-      avatar_url,
-      specialization,
-      bio,
-      average_rating,
-      reviews_count,
-      is_online,
-      tags,
-      experience,
-      specializations_details,
-      operator_services (
-        service_type,
-        price
-      ),
-      operator_availability (
-        day_of_week,
-        start_time,
-        end_time
-      ),
-      reviews (
-        id,
-        rating,
-        comment,
-        created_at,
-        client:client_id (
-          full_name,
-          avatar_url
-        )
-      )
-    `,
+id,
+stage_name,
+avatar_url,
+specialization,
+bio,
+average_rating,
+reviews_count,
+is_online,
+tags,
+experience,
+specializations_details,
+operator_services (
+  service_type,
+  price
+),
+operator_availability (
+  day_of_week,
+  start_time,
+  end_time
+)
+`,
     )
     .eq("stage_name", stageName)
     .eq("role", "operator")
-    .limit(5, { referencedTable: "reviews" })
-    .order("created_at", { referencedTable: "reviews", ascending: false })
     .single()
 
-  if (error || !profile) {
-    console.error("Error fetching operator public profile:", error?.message)
+  if (profileError || !profile) {
+    console.error("Error fetching operator profile (step 1):", profileError?.message)
     return null
   }
 
-  // Mappatura dei dati per coerenza
-  return {
+  // Step 2: Fetch the reviews for this operator in a separate, unambiguous query
+  const { data: reviewsData, error: reviewsError } = await supabase
+    .from("reviews")
+    .select(
+      `
+id,
+rating,
+comment,
+created_at,
+client:client_id (
+  full_name,
+  avatar_url
+)
+`,
+    )
+    .eq("operator_id", profile.id) // Filter specifically by operator_id
+    .order("created_at", { ascending: false })
+    .limit(5)
+
+  if (reviewsError) {
+    console.error("Error fetching operator reviews (step 2):", reviewsError.message)
+    // We can still return the profile data even if reviews fail to load
+  }
+
+  // Step 3: Combine the data
+  const combinedData: OperatorPublicProfile = {
     id: profile.id,
     stage_name: profile.stage_name,
     avatar_url: profile.avatar_url,
@@ -223,12 +237,12 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
     rating: profile.average_rating,
     reviews_count: profile.reviews_count,
     services: profile.operator_services,
-    availability: profile.operator_availability.map((a) => ({
+    availability: (profile.operator_availability || []).map((a: any) => ({
       day: a.day_of_week,
       start_time: a.start_time.substring(0, 5),
       end_time: a.end_time.substring(0, 5),
     })),
-    reviews: profile.reviews.map((r) => ({
+    reviews: (reviewsData || []).map((r: any) => ({
       id: r.id,
       rating: r.rating,
       comment: r.comment,
@@ -243,6 +257,8 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
     experience: profile.experience,
     specializations_details: profile.specializations_details,
   }
+
+  return combinedData
 }
 
 export async function getAllOperators() {
