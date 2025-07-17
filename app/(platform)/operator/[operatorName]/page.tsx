@@ -1,7 +1,7 @@
 import { getOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { notFound } from "next/navigation"
 import Image from "next/image"
-import { Star, Phone, MessageSquare, Calendar } from 'lucide-react'
+import { Star, Phone, MessageSquare, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import OperatorAvailabilityCalendar from "@/components/operator-availability-calendar"

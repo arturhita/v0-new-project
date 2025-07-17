@@ -2,7 +2,7 @@
 DROP FUNCTION IF EXISTS get_operator_public_profile(text);
 
 -- Funzione per ottenere tutti i dati pubblici di un operatore con una singola chiamata.
--- VERSIONE CORRETTA: Usa 'stage_name' invece di 'username'.
+-- VERSIONE 3: Usa 'stage_name', 'categories', e 'specialties' che sono le colonne corrette.
 create or replace function get_operator_public_profile(in_stage_name text)
 returns jsonb as $$
 declare
@@ -15,12 +15,14 @@ begin
   select
     jsonb_build_object(
       'id', p.id,
-      'username', p.stage_name, -- Restituisce stage_name come 'username' per coerenza con l'API
+      'username', p.stage_name,
       'full_name', p.full_name,
       'avatar_url', p.avatar_url,
       'bio', p.bio,
-      'specialization', p.specialization,
-      'tags', p.tags,
+      -- CORREZIONE: Deriva 'specialization' dal primo elemento dell'array 'categories'.
+      'specialization', (p.categories[1]),
+      -- CORREZIONE: Usa la colonna 'specialties' per i 'tags' della UI.
+      'tags', p.specialties,
       'availability', p.availability,
       'is_online', p.is_online,
       'rating', coalesce(avg(r.rating), 0),
@@ -31,7 +33,7 @@ begin
   left join
     reviews r on p.id = r.operator_id and r.status = 'approved'
   where
-    p.stage_name = in_stage_name and p.role = 'operator' -- CORREZIONE: Cerca per stage_name
+    p.stage_name = in_stage_name and p.role = 'operator'
   group by
     p.id;
 
