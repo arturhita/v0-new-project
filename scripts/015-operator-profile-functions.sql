@@ -1,6 +1,7 @@
 -- Funzione per ottenere tutti i dati pubblici di un operatore con una singola chiamata.
 -- Questo approccio è molto efficiente perché raggruppa più query in una sola operazione sul database.
-create or replace function get_operator_public_profile(p_username text)
+-- VERSIONE CORRETTA: usa 'in_username' per evitare ambiguità con la colonna 'username'.
+create or replace function get_operator_public_profile(in_username text)
 returns jsonb as $$
 declare
   profile_data jsonb;
@@ -16,17 +17,19 @@ begin
       'full_name', p.full_name,
       'avatar_url', p.avatar_url,
       'bio', p.bio,
-      'specializations', p.specializations,
+      'specialization', p.specialization,
+      'tags', p.tags,
       'availability', p.availability,
-      'average_rating', coalesce(avg(r.rating), 0),
-      'review_count', count(r.id)
+      'is_online', p.is_online,
+      'rating', coalesce(avg(r.rating), 0),
+      'reviews_count', count(r.id)
     ) into profile_data
   from
     profiles p
   left join
     reviews r on p.id = r.operator_id and r.status = 'approved'
   where
-    p.username = p_username and p.role = 'operator'
+    p.username = in_username and p.role = 'operator' -- CORREZIONE: usa il parametro non ambiguo
   group by
     p.id;
 
@@ -65,16 +68,15 @@ begin
     jsonb_agg(
       jsonb_build_object(
         'id', os.id,
-        'name', os.name,
-        'description', os.description,
-        'price_per_minute', os.price_per_minute,
-        'type', os.type
+        'service_type', os.service_type,
+        'price', os.price,
+        'enabled', os.enabled
       )
     ) into services_data
   from
     operator_services os
   where
-    os.operator_id = operator_id;
+    os.operator_id = operator_id and os.enabled = true;
 
   -- Passo 4: Combinare tutti i dati in un unico oggetto JSON e restituirlo.
   return profile_data

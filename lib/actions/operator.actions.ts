@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { z } from "zod"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -11,10 +10,6 @@ const safeParseFloat = (value: any): number => {
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
 }
-
-const OperatorSchema = z.object({
-  // ... schema esistente
-})
 
 export async function createOperator(formData: FormData) {
   const supabaseAdmin = createAdminClient()
@@ -166,7 +161,8 @@ export async function getOperatorPublicProfile(username: string) {
   const supabase = createAdminClient()
 
   const { data, error } = await supabase.rpc("get_operator_public_profile", {
-    p_username: username,
+    // CORREZIONE: usa il nuovo nome del parametro 'in_username'
+    in_username: username,
   })
 
   if (error) {
