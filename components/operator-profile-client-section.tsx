@@ -14,7 +14,7 @@ interface Service {
 interface OperatorProfileClientSectionProps {
   operator: {
     id: string
-    fullName: string
+    stageName: string
     services: Service[]
   }
 }
@@ -44,7 +44,7 @@ export function OperatorProfileClientSection({ operator }: OperatorProfileClient
           </Button>
         )}
         {writtenService && (
-          <Button size="lg" className="w-full" onClick={() => setIsModalOpen(true)}>
+          <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700" onClick={() => setIsModalOpen(true)}>
             <Mail className="mr-2 h-5 w-5" /> Richiedi Consulto Scritto
           </Button>
         )}
@@ -56,7 +56,7 @@ export function OperatorProfileClientSection({ operator }: OperatorProfileClient
           onClose={() => setIsModalOpen(false)}
           operator={{
             id: operator.id,
-            name: operator.fullName,
+            name: operator.stageName,
             emailPrice: writtenService.price,
           }}
         />
