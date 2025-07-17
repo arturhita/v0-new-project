@@ -38,9 +38,9 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
     tags,
   } = profileData
 
-  const hasChat = services?.some((s) => s.service_type === "chat")
-  const hasCall = services?.some((s) => s.service_type === "call")
-  const hasWritten = services?.some((s) => s.service_type === "written")
+  const hasChat = services?.some((s: any) => s.service_type === "chat")
+  const hasCall = services?.some((s: any) => s.service_type === "call")
+  const hasWritten = services?.some((s: any) => s.service_type === "written")
 
   return (
     <div className="bg-slate-900 text-white">
@@ -89,13 +89,13 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
                   </Link>
                 </Button>
               )}
-              {hasWritten && <WrittenConsultationModal operatorId={id} operatorName={full_name} />}
+              {hasWritten && <WrittenConsultationModal operatorId={id} operatorName={full_name || ""} />}
             </div>
 
             <div className="mt-8 w-full bg-slate-800/50 rounded-lg p-4 border border-slate-700">
               <h3 className="text-xl font-semibold mb-3 text-amber-400">Servizi Offerti</h3>
               <ul className="space-y-2 text-slate-300">
-                {services?.map((service) => (
+                {services?.map((service: any) => (
                   <li key={service.service_type} className="flex justify-between">
                     <span>
                       {
@@ -117,7 +117,7 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
               <h2 className="text-2xl font-bold mb-4">Chi sono</h2>
               <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{bio}</p>
               <div className="flex flex-wrap gap-2 mt-4">
-                {tags?.map((tag) => (
+                {tags?.map((tag: string) => (
                   <Badge key={tag} variant="secondary" className="bg-slate-700 text-slate-200">
                     {tag}
                   </Badge>
@@ -136,7 +136,7 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
               <h2 className="text-2xl font-bold mb-4">Ultime Recensioni</h2>
               <div className="space-y-6">
                 {reviews && reviews.length > 0 ? (
-                  reviews.map((review) => <ReviewCard key={review.id} review={review as Review} />)
+                  reviews.map((review: any) => <ReviewCard key={review.id} review={review as Review} />)
                 ) : (
                   <p className="text-slate-400">Nessuna recensione ancora.</p>
                 )}

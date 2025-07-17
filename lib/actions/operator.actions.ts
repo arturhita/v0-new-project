@@ -13,116 +13,113 @@ const safeParseFloat = (value: any): number => {
   return isNaN(num) ? 0 : num
 }
 
-export async function createOperator(formData: FormData) {
-  const supabaseAdmin = createAdminClient()
+type OperatorData = {
+  name: string
+  surname: string
+  stageName: string
+  email: string
+  phone: string
+  bio: string
+  specialties: string[]
+  categories: string[]
+  avatarUrl: string
+  services: {
+    chatEnabled: boolean
+    chatPrice: string
+    callEnabled: boolean
+    callPrice: string
+    emailEnabled: boolean
+    emailPrice: string
+  }
+  availability: any
+  status: "Attivo" | "In Attesa" | "Sospeso"
+  isOnline: boolean
+  commission: string
+}
 
-  const email = formData.get("email") as string
-  const name = formData.get("name") as string
-  const surname = formData.get("surname") as string
-  const stageName = formData.get("stageName") as string
-  const password = Math.random().toString(36).slice(-12) // Genera una password sicura
+export async function createOperator(operatorData: OperatorData) {
+  const supabaseAdmin = createAdminClient()
+  const password = Math.random().toString(36).slice(-12)
   let userId: string | undefined = undefined
 
   try {
     // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
+      email: operatorData.email,
+      password: password,
+      email_confirm: true, // L'email è già confermata, l'operatore può accedere subito
       user_metadata: {
-        full_name: `${name} ${surname}`.trim(),
-        stage_name: stageName,
+        full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
+        stage_name: operatorData.stageName,
+        avatar_url: operatorData.avatarUrl,
       },
     })
 
     if (authError || !authData.user) {
-      console.error("Errore nella creazione dell'utente in Supabase Auth:", authError)
-      return {
-        success: false,
-        message: `Errore Supabase Auth: ${authError?.message || "Utente non creato."}`,
+      console.error("Errore creazione utente Auth:", authError)
+      if (authError?.message.includes("User already registered")) {
+        return { success: false, message: "Un utente con questa email esiste già." }
       }
+      return { success: false, message: `Errore Supabase Auth: ${authError?.message}` }
     }
-
     userId = authData.user.id
+    console.log(`Utente Auth creato con ID: ${userId}`)
 
-    // Il trigger di Supabase ha già creato un profilo di base.
-    // Ora lo aggiorniamo con i dati del form.
-
-    // FASE 1: Aggiornamento dati semplici
-    const simpleDataToUpdate = {
-      full_name: `${name || ""} ${surname || ""}`.trim(),
-      name: name || "",
-      surname: surname || "",
-      stage_name: stageName || "",
-      phone: formData.get("phone") as string | null,
-      bio: formData.get("bio") as string | null,
-      avatar_url: formData.get("avatarUrl") as string | null,
+    // 2. Aggiornamento del profilo creato dal trigger
+    const profileToUpdate = {
+      full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
+      name: operatorData.name,
+      surname: operatorData.surname,
+      stage_name: operatorData.stageName,
+      phone: operatorData.phone,
+      bio: operatorData.bio,
+      avatar_url: operatorData.avatarUrl,
       role: "operator" as const,
-      status: formData.get("status") as "Attivo" | "In Attesa" | "Sospeso",
-      is_online: formData.get("isOnline") === "on",
-    }
-
-    const { error: simpleUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update(simpleDataToUpdate)
-      .eq("id", userId)
-
-    if (simpleUpdateError) {
-      throw simpleUpdateError
-    }
-
-    // FASE 2: Aggiornamento dati complessi
-    const complexDataToUpdate = {
-      commission_rate: safeParseFloat(formData.get("commission")),
+      status: operatorData.status,
+      is_online: operatorData.isOnline,
+      commission_rate: safeParseFloat(operatorData.commission),
+      specialties: operatorData.specialties,
+      categories: operatorData.categories,
+      availability: operatorData.availability,
       services: {
         chat: {
-          enabled: formData.get("services.chatEnabled") === "on",
-          price_per_minute: safeParseFloat(formData.get("services.chatPrice")),
+          enabled: operatorData.services.chatEnabled,
+          price_per_minute: safeParseFloat(operatorData.services.chatPrice),
         },
         call: {
-          enabled: formData.get("services.callEnabled") === "on",
-          price_per_minute: safeParseFloat(formData.get("services.callPrice")),
+          enabled: operatorData.services.callEnabled,
+          price_per_minute: safeParseFloat(operatorData.services.callPrice),
         },
         email: {
-          enabled: formData.get("services.emailEnabled") === "on",
-          price: safeParseFloat(formData.get("services.emailPrice")),
+          enabled: operatorData.services.emailEnabled,
+          price: safeParseFloat(operatorData.services.emailPrice),
         },
       },
-      availability: JSON.parse((formData.get("availability") as string) || "{}"),
-      specialties:
-        (formData.get("specialties") as string)
-          ?.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean) || [],
-      categories:
-        (formData.get("categories") as string)
-          ?.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean) || [],
     }
 
-    const { error: complexUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update(complexDataToUpdate)
-      .eq("id", userId)
+    const { error: profileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", userId)
 
-    if (complexUpdateError) {
-      throw complexUpdateError
+    if (profileError) {
+      throw new Error(`Errore aggiornamento profilo: ${profileError.message}`)
     }
+    console.log(`Profilo per l'utente ${userId} aggiornato con successo.`)
 
     revalidatePath("/admin/operators")
     return {
       success: true,
-      message: `Operatore ${stageName} creato con successo!`,
+      message: `Operatore ${operatorData.stageName} creato con successo!`,
       temporaryPassword: password,
     }
   } catch (error: any) {
+    console.error("Errore nel processo di creazione operatore:", error)
+    // Se qualcosa va storto dopo la creazione dell'utente, lo eliminiamo per evitare dati orfani
     if (userId) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
+      console.log(`Utente Auth ${userId} eliminato a causa di un errore successivo.`)
     }
     return {
       success: false,
-      message: `Errore durante la creazione dell'operatore: ${error.message}`,
+      message: error.message || "Si è verificato un errore sconosciuto.",
     }
   }
 }
@@ -161,76 +158,29 @@ export async function updateOperatorCommission(operatorId: string, commission: s
  */
 export async function getOperatorPublicProfile(username: string) {
   noStore()
-  const supabase = createAdminClient()
+  const supabase = createClient() // Usiamo il client standard per la lettura pubblica
 
-  console.log(`[V0-DEBUG] Inizio ricerca profilo per stage_name: "${username}"`)
+  console.log(`[DB-FETCH] Inizio ricerca profilo REALE per stage_name: "${username}"`)
 
-  // 1. Trova il profilo base dell'operatore.
-  // Usiamo .ilike per una ricerca case-insensitive, che è più robusta per i nomi utente.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .ilike("stage_name", username)
     .eq("role", "operator")
+    .eq("status", "Attivo") // Mostra solo operatori attivi
     .single()
 
-  // Se non troviamo un profilo, questo è l'errore principale.
   if (profileError || !profile) {
     console.error(
-      `[V0-DEBUG] ERRORE CRITICO: Nessun profilo trovato con stage_name simile a "${username}" e role = "operator". Questo è il motivo dell'errore "Not Found". Errore DB: ${profileError?.message}`,
+      `[DB-FETCH] Profilo REALE non trovato per "${username}" (o non è 'Attivo'). Errore: ${profileError?.message}`,
     )
     return null
   }
 
-  console.log(`[V0-DEBUG] Profilo base trovato per "${username}". ID: ${profile.id}, Status: "${profile.status}"`)
+  console.log(`[DB-FETCH] Profilo REALE trovato per "${username}". ID: ${profile.id}`)
 
-  // 2. CONTROLLO DELLO STATO: Questa è la causa più probabile del problema.
-  // Se l'operatore esiste ma non è "Attivo", la sua pagina non deve essere pubblica.
-  if (profile.status !== "Attivo") {
-    console.warn(
-      `[V0-DEBUG] ATTENZIONE: Profilo per "${username}" trovato, ma il suo stato è "${profile.status}" invece di "Attivo". La pagina non verrà mostrata come da requisito.`,
-    )
-    return null // Restituisce null, che causa correttamente l'errore "Not Found".
-  }
-
-  console.log(`[V0-DEBUG] Profilo "${username}" è "Attivo". Procedo a caricare i dati aggiuntivi.`)
-
-  // 3. Recupera i servizi attivi dell'operatore
-  const { data: servicesData, error: servicesError } = await supabase
-    .from("services")
-    .select("service_type, price")
-    .eq("operator_id", profile.id)
-    .eq("is_active", true)
-
-  if (servicesError) {
-    console.error(`[V0-DEBUG] Errore nel caricamento dei servizi per l'operatore ${profile.id}:`, servicesError.message)
-  }
-
-  // 4. Recupera le recensioni approvate, con il nome del cliente
-  const { data: reviewsData, error: reviewsError } = await supabase
-    .from("reviews")
-    .select(
-      `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:profiles ( name )
-    `,
-    )
-    .eq("operator_id", profile.id)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(10) // Limitiamo per performance
-
-  if (reviewsError) {
-    console.error(
-      `[V0-DEBUG] Errore nel caricamento delle recensioni per l'operatore ${profile.id}:`,
-      reviewsError.message,
-    )
-  }
-
-  // 5. Combina tutti i dati in un unico oggetto per la pagina
+  // Combina i dati per la pagina
+  const services = profile.services as any
   const combinedData = {
     id: profile.id,
     full_name: profile.full_name,
@@ -243,18 +193,22 @@ export async function getOperatorPublicProfile(username: string) {
     reviews_count: profile.reviews_count,
     is_online: profile.is_online,
     availability: profile.availability,
-    services: servicesData || [],
-    reviews:
-      reviewsData?.map((r: any) => ({
-        id: r.id,
-        rating: r.rating,
-        comment: r.comment,
-        created_at: r.created_at,
-        client_name: r.client?.name || "Utente",
-      })) || [],
+    services: [
+      services?.chat?.enabled && {
+        service_type: "chat",
+        price: services.chat.price_per_minute,
+      },
+      services?.call?.enabled && {
+        service_type: "call",
+        price: services.call.price_per_minute,
+      },
+      services?.email?.enabled && {
+        service_type: "written",
+        price: services.email.price,
+      },
+    ].filter(Boolean),
+    reviews: [], // TODO: Caricare le recensioni reali
   }
-
-  console.log(`[V0-DEBUG] Dati per "${username}" combinati con successo. La pagina verrà renderizzata.`)
 
   return combinedData
 }
