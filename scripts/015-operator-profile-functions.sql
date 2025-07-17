@@ -1,11 +1,9 @@
--- Drop the old function first to allow for parameter name changes.
--- Using IF EXISTS prevents an error if the function doesn't exist on the first run.
+-- Drop the old function first to allow for parameter name changes and corrections.
 DROP FUNCTION IF EXISTS get_operator_public_profile(text);
 
 -- Funzione per ottenere tutti i dati pubblici di un operatore con una singola chiamata.
--- Questo approccio è molto efficiente perché raggruppa più query in una sola operazione sul database.
--- VERSIONE CORRETTA: usa 'in_username' per evitare ambiguità con la colonna 'username'.
-create or replace function get_operator_public_profile(in_username text)
+-- VERSIONE CORRETTA: Usa 'stage_name' invece di 'username'.
+create or replace function get_operator_public_profile(in_stage_name text)
 returns jsonb as $$
 declare
   profile_data jsonb;
@@ -13,11 +11,11 @@ declare
   services_data jsonb;
   operator_id uuid;
 begin
-  -- Passo 1: Ottenere i dati base del profilo e le statistiche aggregate (media voti, numero recensioni)
+  -- Passo 1: Ottenere i dati base del profilo e le statistiche aggregate
   select
     jsonb_build_object(
       'id', p.id,
-      'username', p.username,
+      'username', p.stage_name, -- Restituisce stage_name come 'username' per coerenza con l'API
       'full_name', p.full_name,
       'avatar_url', p.avatar_url,
       'bio', p.bio,
@@ -33,7 +31,7 @@ begin
   left join
     reviews r on p.id = r.operator_id and r.status = 'approved'
   where
-    p.username = in_username and p.role = 'operator' -- CORREZIONE: usa il parametro non ambiguo
+    p.stage_name = in_stage_name and p.role = 'operator' -- CORREZIONE: Cerca per stage_name
   group by
     p.id;
 
@@ -45,7 +43,7 @@ begin
   -- Estrae l'ID dell'operatore per le query successive.
   operator_id := (profile_data->>'id')::uuid;
 
-  -- Passo 2: Ottenere le recensioni più recenti per questo operatore.
+  -- Passo 2: Ottenere le recensioni più recenti
   select
     jsonb_agg(
       jsonb_build_object(
@@ -65,9 +63,9 @@ begin
     r.operator_id = operator_id and r.status = 'approved'
   order by
     r.created_at desc
-  limit 10; -- Limita il risultato alle 10 recensioni più recenti per la pagina profilo.
+  limit 10;
 
-  -- Passo 3: Ottenere la lista dei servizi offerti dall'operatore.
+  -- Passo 3: Ottenere la lista dei servizi offerti
   select
     jsonb_agg(
       jsonb_build_object(
@@ -82,7 +80,7 @@ begin
   where
     os.operator_id = operator_id and os.enabled = true;
 
-  -- Passo 4: Combinare tutti i dati in un unico oggetto JSON e restituirlo.
+  -- Passo 4: Combinare tutti i dati e restituirli
   return profile_data
     || jsonb_build_object('reviews', coalesce(reviews_data, '[]'::jsonb))
     || jsonb_build_object('services', coalesce(services_data, '[]'::jsonb));

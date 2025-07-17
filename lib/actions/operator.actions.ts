@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-// Correzione: importiamo 'createClient' che è il nome corretto della funzione
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 
@@ -156,17 +155,16 @@ export async function updateOperatorCommission(operatorId: string, commission: s
 /**
  * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
  * Utilizza una funzione RPC del database per efficienza.
- * @param username - Lo username pubblico dell'operatore.
+ * @param username - Lo username pubblico (stage_name) dell'operatore.
  * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
  */
 export async function getOperatorPublicProfile(username: string) {
   noStore()
-  // Correzione: usiamo createAdminClient per avere i permessi di leggere tutti i dati necessari
-  // per il profilo pubblico, inclusi quelli che potrebbero essere protetti da RLS.
   const supabase = createAdminClient()
 
   const { data, error } = await supabase.rpc("get_operator_public_profile", {
-    in_username: username,
+    // CORREZIONE: Usa il nome del parametro corretto 'in_stage_name'
+    in_stage_name: username,
   })
 
   if (error) {
@@ -215,8 +213,9 @@ export async function updateOperatorProfile(
   }
 
   // Revalida il percorso del profilo pubblico per mostrare i dati aggiornati
-  if (data.username) {
-    revalidatePath(`/operator/${data.username}`)
+  if (data.stage_name) {
+    // CORREZIONE: usa stage_name
+    revalidatePath(`/operator/${data.stage_name}`)
   }
   revalidatePath("/(platform)/dashboard/operator/profile")
 
@@ -232,8 +231,9 @@ export async function updateOperatorAvailability(userId: string, availability: a
     return { error: "Impossibile aggiornare la disponibilità." }
   }
 
-  if (data.username) {
-    revalidatePath(`/operator/${data.username}`)
+  if (data.stage_name) {
+    // CORREZIONE: usa stage_name
+    revalidatePath(`/operator/${data.stage_name}`)
   }
   revalidatePath("/(platform)/dashboard/operator/availability")
 
