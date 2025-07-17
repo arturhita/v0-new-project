@@ -81,7 +81,8 @@ export default function EspertiClientPage({ initialOperators, params }: EspertiC
       operators = operators.filter(
         (op) =>
           op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          op.specialization.toLowerCase().includes(searchTerm.toLowerCase()),
+          op.specialization.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          op.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase())),
       )
     }
 
@@ -93,7 +94,8 @@ export default function EspertiClientPage({ initialOperators, params }: EspertiC
     // 3. Ordina per prezzo
     if (priceSort !== "default") {
       const getPrice = (op: Operator) => {
-        return op.services.chatPrice ?? op.services.callPrice ?? 9999
+        const prices = [op.services.chatPrice, op.services.callPrice].filter((p): p is number => typeof p === "number")
+        return prices.length > 0 ? Math.min(...prices) : 9999
       }
 
       operators.sort((a, b) => {

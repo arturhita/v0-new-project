@@ -223,8 +223,9 @@ export default function CreateOperatorPage() {
               </p>
             </div>
           ),
-          duration: 20000,
+          duration: 20000, // Aumentata la durata per dare tempo di copiare
         })
+        // Non reindirizzare subito per dare tempo di copiare la password
         setTimeout(() => {
           router.push("/admin/operators")
         }, 20000)

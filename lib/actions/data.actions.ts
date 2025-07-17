@@ -41,7 +41,7 @@ export async function getHomepageData() {
   // Recupera gli operatori da mostrare in home, usando i campi pre-calcolati
   const { data: operatorsData, error: operatorsError } = await supabase
     .from("profiles")
-    .select(`*`) // Semplificato: non serve più il join per il conteggio
+    .select(`*`)
     .eq("role", "operator")
     .eq("status", "Attivo")
     .order("is_online", { ascending: false })
@@ -103,7 +103,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select(`*`) // Semplificato: non serve più il join per il conteggio
+    .select(`*`)
     .eq("role", "operator")
     .eq("status", "Attivo")
     .contains("categories", [categorySlug])
@@ -116,82 +116,36 @@ export async function getOperatorsByCategory(categorySlug: string) {
   return (data || []).map(mapProfileToOperator)
 }
 
-export async function getFeaturedOperators() {
+export async function getFeaturedOperatorsByCategory(categorySlugs: string[]) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      id,
-      stage_name,
-      avatar_url,
-      bio,
-      categories,
-      services,
-      is_online,
-      average_rating,
-      reviews_count
-    `,
-    )
-    .eq("role", "operator")
-    .eq("status", "Attivo")
-    .limit(4)
+  const results = await Promise.all(
+    categorySlugs.map(async (slug) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, stage_name, avatar_url, specialties")
+        .eq("role", "operator")
+        .eq("status", "Attivo")
+        .contains("categories", [slug])
+        .limit(4)
 
-  if (error) {
-    console.error("Error fetching featured operators:", error)
-    return []
-  }
-
-  return data.map((op) => ({
-    id: op.id,
-    name: op.stage_name,
-    avatarUrl: op.avatar_url,
-    description: op.bio,
-    tags: op.categories,
-    isOnline: op.is_online,
-    services: op.services,
-    profileLink: `/operator/${op.stage_name}`,
-    specialization: op.categories?.[0] || "Esperto",
-    rating: op.average_rating || 0,
-    reviewsCount: op.reviews_count || 0,
-  }))
+      if (error) {
+        console.error(`Error fetching operators for menu category ${slug}:`, error)
+        return { name: slug, slug, operators: [] }
+      }
+      const categoryDetails = getCategoryDetails(slug)
+      return { name: categoryDetails.title, slug, operators: data || [] }
+    }),
+  )
+  return results
 }
 
-export async function getRecentReviews() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:profiles!reviews_client_id_fkey (
-        full_name,
-        avatar_url
-      ),
-      operator:profiles!reviews_operator_id_fkey (
-        stage_name
-      )
-    `,
-    )
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  if (error) {
-    console.error("Error fetching recent reviews:", error)
-    return []
+const getCategoryDetails = (slug: string) => {
+  const decodedSlug = decodeURIComponent(slug)
+  const details: { [key: string]: { title: string } } = {
+    cartomanzia: { title: "Cartomanzia" },
+    astrologia: { title: "Astrologia" },
+    numerologia: { title: "Numerologia" },
+    medianita: { title: "Medianità" },
   }
-
-  return data.map((review) => ({
-    id: review.id,
-    userName: review.client?.full_name || "Utente Anonimo",
-    userAvatar: review.client?.avatar_url,
-    operatorName: review.operator?.stage_name || "Operatore",
-    rating: review.rating,
-    comment: review.comment,
-    date: review.created_at,
-  }))
+  return details[decodedSlug] || { title: decodedSlug }
 }
