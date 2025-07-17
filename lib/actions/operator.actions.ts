@@ -67,8 +67,6 @@ export async function createOperator(operatorData: OperatorData) {
     // 2. Aggiornamento del profilo creato dal trigger
     const profileToUpdate = {
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
-      name: operatorData.name,
-      surname: operatorData.surname,
       stage_name: operatorData.stageName,
       phone: operatorData.phone,
       bio: operatorData.bio,
