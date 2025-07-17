@@ -124,6 +124,37 @@ export async function createOperator(operatorData: OperatorData) {
   }
 }
 
+export async function updateOperatorCommission(operatorId: string, commission: string) {
+  const supabase = createClient()
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ commission_rate: safeParseFloat(commission) })
+      .eq("id", operatorId)
+
+    if (error) throw error
+
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+
+    return {
+      success: true,
+      message: "Commissione aggiornata con successo!",
+    }
+  } catch (error) {
+    console.error("Errore aggiornamento commissione:", error)
+    return {
+      success: false,
+      message: "Errore nell'aggiornamento della commissione",
+    }
+  }
+}
+
+/**
+ * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
+ * @param username - Lo username pubblico (stage_name) dell'operatore.
+ * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
+ */
 export async function getOperatorPublicProfile(username: string) {
   noStore()
   const supabase = createClient() // Usiamo il client standard per la lettura pubblica
@@ -179,4 +210,66 @@ export async function getOperatorPublicProfile(username: string) {
   }
 
   return combinedData
+}
+
+export async function getAllOperators() {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
+  }
+  return data
+}
+
+export async function getOperatorById(id: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+  if (error) {
+    console.error(`Error fetching operator ${id}:`, error)
+    return null
+  }
+  return data
+}
+
+export async function updateOperatorProfile(
+  userId: string,
+  profileData: {
+    full_name?: string
+    bio?: string
+    specialization?: string[]
+    tags?: string[]
+  },
+) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").update(profileData).eq("id", userId).select().single()
+
+  if (error) {
+    console.error("Error updating operator profile:", error)
+    return { error: "Impossibile aggiornare il profilo." }
+  }
+
+  if (data.stage_name) {
+    revalidatePath(`/operator/${data.stage_name}`)
+  }
+  revalidatePath("/(platform)/dashboard/operator/profile")
+
+  return { data }
+}
+
+export async function updateOperatorAvailability(userId: string, availability: any) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").update({ availability }).eq("id", userId).select().single()
+
+  if (error) {
+    console.error("Error updating availability:", error)
+    return { error: "Impossibile aggiornare la disponibilità." }
+  }
+
+  if (data.stage_name) {
+    revalidatePath(`/operator/${data.stage_name}`)
+  }
+  revalidatePath("/(platform)/dashboard/operator/availability")
+
+  return { data }
 }
