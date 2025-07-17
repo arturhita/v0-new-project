@@ -1,195 +1,110 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
-import { loadStripe } from "@stripe/stripe-js"
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
+import { useAuth } from "@/contexts/auth-context"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { CreditCard, Loader2, AlertTriangle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+import { CreditCard, Zap, CheckCircle } from "lucide-react"
+import { packages, type Package } from "@/lib/packages"
+import { loadStripe } from "@stripe/stripe-js"
 
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-const stripePromise = publishableKey ? loadStripe(publishableKey) : null
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-interface PaymentFormProps {
-  onSuccess: (amount: number) => void
-}
+export function WalletRecharge() {
+  const { user } = useAuth()
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(packages[1]) // Pre-seleziona il pacchetto standard
+  const [isLoading, setIsLoading] = useState(false)
 
-function PaymentForm({ onSuccess }: PaymentFormProps) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [amount, setAmount] = useState("20")
-  const [loading, setLoading] = useState(false)
+  const handleRecharge = async () => {
+    if (!user) {
+      toast({
+        title: "Accesso richiesto",
+        description: "Devi effettuare l'accesso per ricaricare.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!selectedPackage) {
+      toast({
+        title: "Nessun pacchetto selezionato",
+        description: "Scegli un importo da ricaricare.",
+        variant: "destructive",
+      })
+      return
+    }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!stripe || !elements) return
-
-    const cardElement = elements.getElement(CardElement)
-    if (!cardElement) return
-
-    setLoading(true)
+    setIsLoading(true)
 
     try {
-      // Crea PaymentIntent
       const response = await fetch("/api/payments/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number.parseFloat(amount) * 100, // Converti in centesimi
-          userId: "user123", // Sostituisci con ID utente reale (es. user.id)
-        }),
+        body: JSON.stringify({ packageId: selectedPackage.id, userId: user.id }),
       })
 
-      const { clientSecret, error } = await response.json()
+      if (!response.ok) throw new Error("Failed to create payment session.")
 
+      const { sessionId } = await response.json()
+      const stripe = await stripePromise
+      if (!stripe) throw new Error("Stripe.js has not loaded yet.")
+
+      const { error } = await stripe.redirectToCheckout({ sessionId })
       if (error) {
-        toast({ title: "Errore", description: error, variant: "destructive" })
-        setLoading(false)
-        return
-      }
-
-      // Conferma il pagamento
-      const { error: confirmError } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: "Cliente Test", // Sostituire con dati reali (es. user.name)
-          },
-        },
-      })
-
-      if (confirmError) {
-        toast({
-          title: "Pagamento Fallito",
-          description: confirmError.message,
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Pagamento Riuscito!",
-          description: `Hai ricaricato €${amount} nel tuo wallet`,
-        })
-        onSuccess(Number.parseFloat(amount))
+        toast({ title: "Errore di reindirizzamento", description: error.message, variant: "destructive" })
       }
     } catch (error) {
-      console.error("Errore pagamento:", error)
-      toast({
-        title: "Errore",
-        description: "Si è verificato un errore durante il pagamento",
-        variant: "destructive",
-      })
+      console.error(error)
+      toast({ title: "Errore", description: "Impossibile avviare il pagamento. Riprova.", variant: "destructive" })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <Label htmlFor="amount">Importo da ricaricare (€)</Label>
-        <Input
-          id="amount"
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          min="0.50"
-          step="0.50"
-          className="mt-1"
-        />
-      </div>
-
-      <div>
-        <Label>Dati Carta di Credito</Label>
-        <div className="mt-1 p-3 border rounded-md bg-white">
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: "16px",
-                  color: "#333",
-                  "::placeholder": {
-                    color: "#aab7c4",
-                  },
-                },
-                invalid: {
-                  color: "#fa755a",
-                  iconColor: "#fa755a",
-                },
-              },
-            }}
-          />
-        </div>
-      </div>
-
-      <Button type="submit" disabled={!stripe || loading} className="w-full bg-gradient-to-r from-sky-500 to-cyan-600">
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Elaborazione...
-          </>
-        ) : (
-          <>
-            <CreditCard className="mr-2 h-4 w-4" />
-            Ricarica €{amount}
-          </>
-        )}
-      </Button>
-    </form>
-  )
-}
-
-interface WalletRechargeProps {
-  currentBalance: number
-  onBalanceUpdate: (newBalance: number) => void
-}
-
-export function WalletRecharge({ currentBalance, onBalanceUpdate }: WalletRechargeProps) {
-  const handlePaymentSuccess = (amount: number) => {
-    onBalanceUpdate(currentBalance + amount)
-  }
-
-  if (!stripePromise) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Ricarica Wallet
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-md">
-            <AlertTriangle className="h-5 w-5" />
-            <p>Il servizio di ricarica non è configurato correttamente.</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
-          Ricarica Wallet
-        </CardTitle>
+    <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-2xl">
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl font-bold text-slate-800">Ricarica il tuo Portafoglio</CardTitle>
+        <CardDescription className="text-slate-500">
+          Scegli un pacchetto e procedi al pagamento sicuro con Stripe.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="mb-4 p-3 bg-sky-50 rounded-lg">
-          <p className="text-sm text-sky-700">
-            Saldo attuale: <span className="font-bold">€{currentBalance.toFixed(2)}</span>
-          </p>
+      <CardContent className="p-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {packages.map((pkg) => (
+            <button
+              key={pkg.id}
+              onClick={() => setSelectedPackage(pkg)}
+              className={`p-4 border-2 rounded-lg text-center transition-all duration-200 ${
+                selectedPackage?.id === pkg.id
+                  ? "border-sky-500 bg-sky-50 shadow-lg scale-105"
+                  : "border-slate-200 hover:border-sky-400"
+              }`}
+            >
+              <p className="text-xl font-bold text-slate-700">{pkg.price}€</p>
+              <p className="text-xs text-slate-500">{pkg.name}</p>
+              {selectedPackage?.id === pkg.id && (
+                <CheckCircle className="h-5 w-5 text-sky-500 absolute -top-2 -right-2 bg-white rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
-
-        <Elements stripe={stripePromise}>
-          <PaymentForm onSuccess={handlePaymentSuccess} />
-        </Elements>
+        <Button
+          onClick={handleRecharge}
+          disabled={isLoading || !selectedPackage}
+          className="w-full text-lg py-6 bg-gradient-to-r from-sky-500 to-cyan-500 text-white"
+        >
+          {isLoading ? (
+            "Caricamento..."
+          ) : (
+            <>
+              <CreditCard className="mr-2 h-5 w-5" /> Ricarica {selectedPackage?.price}€
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-center text-slate-400 mt-4 flex items-center justify-center">
+          <Zap className="h-3 w-3 mr-1 text-yellow-500" /> Pagamento sicuro e protetto con Stripe.
+        </p>
       </CardContent>
     </Card>
   )

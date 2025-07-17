@@ -1,64 +1,67 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { stripe, STRIPE_WEBHOOK_SECRET } from "@/lib/stripe"
+import { stripe } from "@/lib/stripe"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { headers } from "next/headers"
+import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 
-export async function POST(request: NextRequest) {
-  const body = await request.text()
-  const signature = request.headers.get("stripe-signature")!
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+
+export async function POST(req: Request) {
+  const body = await req.text()
+  const signature = headers().get("stripe-signature")!
 
   let event: Stripe.Event
-
   try {
-    event = stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET)
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err)
-    return NextResponse.json({ error: "Webhook Error" }, { status: 400 })
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+  } catch (err: any) {
+    console.error(`❌ Stripe Webhook Error: ${err.message}`)
+    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 })
   }
 
-  switch (event.type) {
-    case "payment_intent.succeeded":
-      const paymentIntent = event.data.object as Stripe.PaymentIntent
+  // Gestiamo solo l'evento di sessione di checkout completata
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session
 
-      // Aggiorna il wallet dell'utente
-      const userId = paymentIntent.metadata.userId
-      const amount = paymentIntent.amount / 100 // Converti da centesimi
+    const { userId, packageId } = session.metadata || {}
+    const paymentIntentId = session.payment_intent as string
 
-      // Questo è il punto più critico per la logica di business.
-      // Una volta che Stripe conferma che il pagamento è andato a buon fine,
-      // devi aggiornare il tuo database per riflettere questo cambiamento.
-      // Ad esempio, se stai usando Supabase:
-      //
-      // import { createClient } from '@supabase/supabase-js'
-      // const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      //
-      // const { data: profile, error } = await supabase
-      //   .from('profiles')
-      //   .select('wallet_balance')
-      //   .eq('id', userId)
-      //   .single()
-      //
-      // if (profile) {
-      //   await supabase
-      //     .from('profiles')
-      //     .update({ wallet_balance: profile.wallet_balance + amount })
-      //     .eq('id', userId)
-      // }
-      //
-      // Inoltre, dovresti registrare la transazione in una tabella 'transactions' per lo storico.
-      console.log(`Pagamento riuscito: ${amount}€ per utente ${userId}`)
+    // Validazione dei dati ricevuti
+    if (!userId || !packageId || !session.amount_total || !paymentIntentId) {
+      console.error("❌ Webhook Error: Dati mancanti nella sessione Stripe.", session.id)
+      return new NextResponse("Webhook Error: Dati mancanti", { status: 400 })
+    }
 
-      // Qui dovresti aggiornare il database
-      // await updateUserWallet(userId, amount)
+    try {
+      const supabase = createAdminClient()
+      const amountInEuros = session.amount_total / 100
 
-      break
+      // Chiamiamo la nostra funzione di database sicura
+      const { error: rpcError } = await supabase.rpc("add_wallet_balance_and_log_transaction", {
+        p_user_id: userId,
+        p_amount_euros: amountInEuros,
+        p_stripe_payment_intent_id: paymentIntentId,
+        p_package_id: packageId,
+        p_transaction_metadata: {
+          // Salviamo dati utili per riferimento futuro
+          stripe_customer_id: session.customer,
+          customer_email: session.customer_details?.email,
+        },
+      })
 
-    case "payment_intent.payment_failed":
-      console.log("Pagamento fallito:", event.data.object)
-      break
+      if (rpcError) {
+        console.error("❌ Supabase RPC Error:", rpcError)
+        return new NextResponse(`Webhook Error: Errore durante l'aggiornamento del database.`, { status: 500 })
+      }
 
-    default:
-      console.log(`Evento non gestito: ${event.type}`)
+      console.log(
+        `✅ Pagamento processato con successo per l'utente ${userId}. Aggiunti ${amountInEuros}€ al portafoglio.`,
+      )
+    } catch (err: any) {
+      console.error("❌ Errore nel gestore del webhook:", err)
+      return new NextResponse(`Webhook handler error: ${err.message}`, { status: 500 })
+    }
   }
 
-  return NextResponse.json({ received: true })
+  // Rispondiamo a Stripe con successo per confermare la ricezione
+  return new NextResponse(null, { status: 200 })
 }
