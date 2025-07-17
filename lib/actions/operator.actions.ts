@@ -123,7 +123,7 @@ export async function createOperator(operatorData: OperatorData) {
     if (operatorData.services.emailEnabled) {
       servicesToInsert.push({
         user_id: userId,
-        service_type: "written",
+        service_type: "written_consultation", // FIX: Correct enum value
         price: safeParseFloat(operatorData.services.emailPrice),
         is_active: true,
       })
@@ -132,7 +132,9 @@ export async function createOperator(operatorData: OperatorData) {
     if (servicesToInsert.length > 0) {
       const { error: servicesError } = await supabaseAdmin.from("operator_services").insert(servicesToInsert)
       if (servicesError) {
-        throw new Error(`Errore inserimento servizi: ${servicesError.message}`)
+        // FIX: Improved error logging
+        console.error("Raw services insertion error:", servicesError)
+        throw new Error(`Errore inserimento servizi: ${servicesError.message || JSON.stringify(servicesError)}`)
       }
     }
 
