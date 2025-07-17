@@ -35,8 +35,6 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error)
       }
-      // Nessuna gestione del successo qui. Il server reindirizzerà.
-      // Se il reindirizzamento avviene, questo componente verrà smontato.
     })
   }
 
@@ -45,13 +43,15 @@ export default function LoginPage() {
       <ConstellationBackground goldVisible={true} />
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <Image
-            src="/images/moonthir-logo-white.png"
-            alt="Moonthir Logo"
-            width={180}
-            height={50}
-            className="mx-auto"
-          />
+          <Link href="/">
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={180}
+              height={50}
+              className="mx-auto"
+            />
+          </Link>
         </div>
 
         <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">

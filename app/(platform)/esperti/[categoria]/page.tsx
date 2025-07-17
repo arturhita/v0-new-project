@@ -65,8 +65,11 @@ const getCategoryDetails = (slug: string) => {
   )
 }
 
-export default async function EspertiCategoriaPage({ params }) {
+// Questo è un Server Component che recupera i dati
+export default async function CategoriaPage({ params }: { params: { categoria: string } }) {
+  // Recupera i dati sul server
   const operators: Operator[] = await getOperatorsByCategory(params.categoria)
 
+  // Passa i dati recuperati come prop al Client Component
   return <EspertiClientPage initialOperators={operators} params={params} />
 }

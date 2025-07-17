@@ -38,7 +38,6 @@ const mapProfileToOperator = (profile: any): Operator => {
 export async function getHomepageData() {
   const supabase = createClient()
 
-  // Recupera gli operatori da mostrare in home, usando i campi pre-calcolati
   const { data: operatorsData, error: operatorsError } = await supabase
     .from("profiles")
     .select(`*`)
@@ -52,22 +51,13 @@ export async function getHomepageData() {
   }
   const operators = (operatorsData || []).map(mapProfileToOperator)
 
-  // Recupera le recensioni recenti approvate
   const { data: reviewsData, error: reviewsError } = await supabase
     .from("reviews")
     .select(
       `
-      id,
-      rating,
-      comment,
-      created_at,
-      client:profiles!reviews_client_id_fkey (
-        full_name,
-        avatar_url
-      ),
-      operator:profiles!reviews_operator_id_fkey (
-        stage_name
-      )
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+      operator:profiles!reviews_operator_id_fkey (stage_name)
     `,
     )
     .eq("status", "approved")
@@ -83,7 +73,7 @@ export async function getHomepageData() {
       ({
         id: review.id,
         user_name: review.client?.full_name || "Utente Anonimo",
-        user_type: "Utente", // Placeholder
+        user_type: "Utente",
         operator_name: review.operator?.stage_name || "Operatore",
         rating: review.rating,
         comment: review.comment,
@@ -107,6 +97,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
     .eq("role", "operator")
     .eq("status", "Attivo")
     .contains("categories", [categorySlug])
+    .order("is_online", { ascending: false })
 
   if (error) {
     console.error(`Error fetching operators for category ${categorySlug}:`, error)
@@ -114,4 +105,48 @@ export async function getOperatorsByCategory(categorySlug: string) {
   }
 
   return (data || []).map(mapProfileToOperator)
+}
+
+/**
+ * Recupera operatori in primo piano per le categorie specificate, per il menu di navigazione.
+ * @param categorySlugs - Un array di slug di categoria.
+ */
+export async function getFeaturedOperatorsByCategories(categorySlugs: string[]) {
+  const supabase = createClient()
+
+  const categoryDetails: { [key: string]: { name: string } } = {
+    cartomanzia: { name: "Cartomanti" },
+    astrologia: { name: "Astrologi" },
+    medianita: { name: "Sensitivi" },
+    numerologia: { name: "Numerologi" },
+  }
+
+  const results = await Promise.all(
+    categorySlugs.map(async (slug) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, stage_name, avatar_url, specialties")
+        .eq("role", "operator")
+        .eq("status", "Attivo")
+        .contains("categories", [slug])
+        .order("is_online", { ascending: false })
+        .limit(2) // Prende 2 operatori per categoria per il menu
+
+      if (error) {
+        console.error(`Error fetching featured operators for category ${slug}:`, error)
+        return {
+          name: categoryDetails[slug]?.name || slug,
+          slug,
+          operators: [],
+        }
+      }
+
+      return {
+        name: categoryDetails[slug]?.name || slug,
+        slug,
+        operators: data || [],
+      }
+    }),
+  )
+  return results
 }
