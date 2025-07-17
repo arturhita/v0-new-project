@@ -36,6 +36,13 @@ interface OperatorCardProps {
   showNewBadge?: boolean
 }
 
+const truncateText = (text: string, maxLength: number) => {
+  if (!text || text.length <= maxLength) {
+    return text
+  }
+  return text.substring(0, maxLength) + "..."
+}
+
 export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
   const [imageError, setImageError] = useState(false)
   const [isStartingChat, setIsStartingChat] = useState(false)
@@ -156,12 +163,12 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
               ))}
             </div>
             <span className="text-sm font-medium text-white/90">
-              {operator.rating} ({operator.reviewsCount})
+              {operator.rating.toFixed(1)} ({operator.reviewsCount})
             </span>
           </div>
 
           <p className="text-sm text-white/70 mb-4 leading-relaxed flex-1 group-hover:text-white/80 transition-colors duration-500">
-            {operator.description}
+            {truncateText(operator.description, 100)}
           </p>
 
           <div className="flex flex-wrap justify-center gap-1 mb-4">
@@ -259,7 +266,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
         </div>
         <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-yellow-600/30 transition-all duration-500 pointer-events-none"></div>
       </div>
-      {operator.services.emailPrice && (
+      {typeof operator.services.emailPrice === "number" && (
         <WrittenConsultationModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
