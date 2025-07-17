@@ -18,18 +18,27 @@ interface ReviewCardProps {
 }
 
 export function ReviewCard({ review }: ReviewCardProps) {
+  // 1. Controllo di sicurezza: se non ci sono dati per la recensione, non renderizzare nulla.
+  if (!review) {
+    return null
+  }
+
+  // 2. Gestione sicura dei dati: usiamo valori di fallback per prevenire errori.
+  const userName = review.user_name || "Utente Anonimo"
+  const userInitial = userName.charAt(0).toUpperCase()
+
   return (
     <div className="group relative overflow-hidden bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 hover:scale-105 p-6">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-100/30 to-purple-100/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"></div>
       <div className="relative">
         <div className="flex items-center space-x-3 mb-4">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
-            <span className="text-gray-800 font-bold text-sm">{review.user_name?.charAt(0).toUpperCase() || "U"}</span>
+            <span className="text-gray-800 font-bold text-sm">{userInitial}</span>
           </div>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <h4 className="font-semibold text-sm text-gray-800 group-hover:text-gray-900 transition-colors duration-300">
-                {review.user_name || "Utente Anonimo"}
+                {userName}
               </h4>
               {review.user_type && (
                 <span
@@ -60,7 +69,10 @@ export function ReviewCard({ review }: ReviewCardProps) {
         </p>
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-            {new Date(review.created_at).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+            {/* 3. Controllo di sicurezza anche per la data */}
+            {review.created_at
+              ? new Date(review.created_at).toLocaleDateString("it-IT", { day: "numeric", month: "short" })
+              : ""}
           </span>
           {review.operator_name && (
             <span className="text-blue-600 font-medium group-hover:text-blue-700 transition-colors duration-300">
