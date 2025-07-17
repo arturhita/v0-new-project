@@ -163,7 +163,6 @@ export async function getOperatorPublicProfile(username: string) {
   const supabase = createAdminClient()
 
   const { data, error } = await supabase.rpc("get_operator_public_profile", {
-    // CORREZIONE: Usa il nome del parametro corretto 'in_stage_name'
     in_stage_name: username,
   })
 
@@ -212,9 +211,7 @@ export async function updateOperatorProfile(
     return { error: "Impossibile aggiornare il profilo." }
   }
 
-  // Revalida il percorso del profilo pubblico per mostrare i dati aggiornati
   if (data.stage_name) {
-    // CORREZIONE: usa stage_name
     revalidatePath(`/operator/${data.stage_name}`)
   }
   revalidatePath("/(platform)/dashboard/operator/profile")
@@ -232,7 +229,6 @@ export async function updateOperatorAvailability(userId: string, availability: a
   }
 
   if (data.stage_name) {
-    // CORREZIONE: usa stage_name
     revalidatePath(`/operator/${data.stage_name}`)
   }
   revalidatePath("/(platform)/dashboard/operator/availability")
