@@ -24,12 +24,12 @@ export function ReviewCard({ review }: ReviewCardProps) {
       <div className="relative">
         <div className="flex items-center space-x-3 mb-4">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-300">
-            <span className="text-gray-800 font-bold text-sm">{review.user_name.charAt(0).toUpperCase()}</span>
+            <span className="text-gray-800 font-bold text-sm">{review.user_name?.charAt(0).toUpperCase() || "U"}</span>
           </div>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <h4 className="font-semibold text-sm text-gray-800 group-hover:text-gray-900 transition-colors duration-300">
-                {review.user_name}
+                {review.user_name || "Utente Anonimo"}
               </h4>
               {review.user_type && (
                 <span

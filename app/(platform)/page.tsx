@@ -132,31 +132,31 @@ const generateTimeAgo = (daysAgo: number, hoursAgo?: number, minutesAgo?: number
 export const allMockReviews: ReviewCardType[] = [
   {
     id: "r1",
-    userName: "Giulia R.",
-    userType: "Vip",
-    operatorName: "Luna Stellare",
+    user_name: "Giulia R.",
+    user_type: "Vip",
+    operator_name: "Luna Stellare",
     rating: 5,
     comment: "Luna è incredibile! Le sue letture sono sempre accurate e piene di speranza. Mi ha aiutato tantissimo.",
-    date: generateTimeAgo(0, 0, 49),
+    created_at: generateTimeAgo(0, 0, 49),
   },
   {
     id: "r2",
-    userName: "Marco B.",
-    userType: "Utente",
-    operatorName: "Maestro Cosmos",
+    user_name: "Marco B.",
+    user_type: "Utente",
+    operator_name: "Maestro Cosmos",
     rating: 5,
     comment: "Un vero professionista. L'analisi del mio tema natale è stata illuminante. Consigliatissimo!",
-    date: generateTimeAgo(0, 0, 57),
+    created_at: generateTimeAgo(0, 0, 57),
   },
   {
     id: "r3",
-    userName: "Sofia L.",
-    userType: "Vip",
-    operatorName: "Sage Aurora",
+    user_name: "Sofia L.",
+    user_type: "Vip",
+    operator_name: "Sage Aurora",
     rating: 4,
     comment:
       "Aurora è molto dolce e intuitiva. Le sue previsioni con le Sibille sono state utili e mi hanno dato conforto.",
-    date: generateTimeAgo(0, 1),
+    created_at: generateTimeAgo(0, 1),
   },
 ]
 
