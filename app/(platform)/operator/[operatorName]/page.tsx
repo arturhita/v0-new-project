@@ -1,138 +1,148 @@
 import { getOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { notFound } from "next/navigation"
 import Image from "next/image"
-import { Star, Phone, MessageSquare, Video, Clock } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Star, Phone, MessageSquare, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import OperatorAvailabilityCalendar from "@/components/operator-availability-calendar"
-import ReviewCard from "@/components/review-card"
+import { Badge } from "@/components/ui/badge"
+import { OperatorAvailabilityCalendar } from "@/components/operator-availability-calendar"
+// Correzione: importazione nominata con le parentesi graffe {}
+import { ReviewCard, type Review } from "@/components/review-card"
 import { WrittenConsultationModal } from "@/components/written-consultation-modal"
+import Link from "next/link"
 
-export default async function OperatorProfilePage({ params }: { params: { operatorName: string } }) {
-  const operator = await getOperatorPublicProfile(params.operatorName)
+type OperatorProfilePageProps = {
+  params: {
+    operatorName: string
+  }
+}
 
-  if (!operator) {
+export default async function OperatorProfilePage({ params }: OperatorProfilePageProps) {
+  const operatorName = decodeURIComponent(params.operatorName)
+  const profileData = await getOperatorPublicProfile(operatorName)
+
+  if (!profileData) {
     notFound()
   }
 
-  const averageRating = operator.average_rating ? Number(operator.average_rating).toFixed(1) : "N/A"
+  const {
+    id,
+    full_name,
+    avatar_url,
+    specialization,
+    bio,
+    rating,
+    reviews_count,
+    services,
+    availability,
+    reviews,
+    is_online,
+    tags,
+  } = profileData
+
+  const hasChat = services?.some((s) => s.service_type === "chat")
+  const hasCall = services?.some((s) => s.service_type === "call")
+  const hasWritten = services?.some((s) => s.service_type === "written")
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900">
+    <div className="bg-slate-900 text-white">
       <div className="container mx-auto px-4 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Colonna Sinistra: Profilo e Azioni */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card className="overflow-hidden">
-              <CardContent className="p-6 text-center">
-                <Image
-                  src={operator.avatar_url || "/placeholder.svg?width=128&height=128&query=avatar"}
-                  alt={`Foto di ${operator.full_name}`}
-                  width={128}
-                  height={128}
-                  className="rounded-full mx-auto mb-4 border-4 border-white shadow-lg"
-                />
-                <h1 className="text-2xl font-bold">{operator.full_name}</h1>
-                <p className="text-sm text-muted-foreground">@{operator.username}</p>
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <Star className="w-5 h-5 text-yellow-400" />
-                  <span className="font-bold text-lg">{averageRating}</span>
-                  <span className="text-muted-foreground">({operator.review_count} recensioni)</span>
-                </div>
-              </CardContent>
-              <div className="bg-gray-50 dark:bg-gray-800/50 p-4 border-t">
-                <div className="flex justify-around">
-                  <Button variant="ghost" size="sm" className="flex flex-col h-auto gap-1">
-                    <Phone className="w-5 h-5" />
-                    <span className="text-xs">Chiama</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="flex flex-col h-auto gap-1">
-                    <MessageSquare className="w-5 h-5" />
-                    <span className="text-xs">Chat</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="flex flex-col h-auto gap-1">
-                    <Video className="w-5 h-5" />
-                    <span className="text-xs">Video</span>
-                  </Button>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+          {/* Colonna Sinistra - Profilo e Azioni */}
+          <div className="lg:col-span-1 flex flex-col items-center lg:items-start">
+            <div className="relative w-48 h-48 mb-4">
+              <Image
+                src={avatar_url || "/placeholder.svg?width=192&height=192"}
+                alt={`Foto di ${full_name}`}
+                width={192}
+                height={192}
+                className="rounded-full object-cover border-4 border-blue-500 shadow-lg"
+              />
+              {is_online && (
+                <span className="absolute bottom-2 right-2 block h-6 w-6 rounded-full bg-green-500 border-2 border-slate-800 ring-2 ring-green-500 animate-pulse" />
+              )}
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-center lg:text-left">{full_name}</h1>
+            <p className="text-lg text-amber-400 mb-4 text-center lg:text-left">{specialization}</p>
+
+            <div className="flex items-center space-x-2 mb-6">
+              <div className="flex text-amber-400">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className={`w-5 h-5 ${i < (rating || 0) ? "fill-current" : "text-gray-600"}`} />
+                ))}
               </div>
-            </Card>
+              <span className="text-slate-300">
+                {rating?.toFixed(1)} ({reviews_count} recensioni)
+              </span>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Specializzazioni</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {operator.specializations?.map((spec: string) => (
-                    <Badge key={spec} variant="secondary">
-                      {spec}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div className="w-full space-y-3">
+              {hasChat && (
+                <Button asChild size="lg" className="w-full bg-green-600 hover:bg-green-700">
+                  <Link href={`/chat/new?operatorId=${id}`}>
+                    <MessageSquare className="mr-2 h-5 w-5" /> Inizia Chat
+                  </Link>
+                </Button>
+              )}
+              {hasCall && (
+                <Button asChild size="lg" className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Link href={`/call/new?operatorId=${id}`}>
+                    <Phone className="mr-2 h-5 w-5" /> Chiama Ora
+                  </Link>
+                </Button>
+              )}
+              {hasWritten && <WrittenConsultationModal operatorId={id} operatorName={full_name} />}
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Biografia</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground whitespace-pre-wrap">{operator.bio}</p>
-              </CardContent>
-            </Card>
+            <div className="mt-8 w-full bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+              <h3 className="text-xl font-semibold mb-3 text-amber-400">Servizi Offerti</h3>
+              <ul className="space-y-2 text-slate-300">
+                {services?.map((service) => (
+                  <li key={service.service_type} className="flex justify-between">
+                    <span>
+                      {
+                        { chat: "Chat al minuto", call: "Chiamata al minuto", written: "Consulto Scritto" }[
+                          service.service_type
+                        ]
+                      }
+                    </span>
+                    <span className="font-semibold text-white">€{service.price?.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
-          {/* Colonna Destra: Servizi, Disponibilità, Recensioni */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Servizi Offerti</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {operator.services?.map((service: any) => (
-                  <div key={service.id} className="p-4 border rounded-lg flex justify-between items-center">
-                    <div>
-                      <h3 className="font-semibold">{service.name}</h3>
-                      <p className="text-sm text-muted-foreground">{service.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg text-primary">€{service.price_per_minute.toFixed(2)}/min</p>
-                      <Badge variant="outline">{service.type}</Badge>
-                    </div>
-                  </div>
+          {/* Colonna Destra - Dettagli e Recensioni */}
+          <div className="lg:col-span-2">
+            <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mb-8">
+              <h2 className="text-2xl font-bold mb-4">Chi sono</h2>
+              <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{bio}</p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {tags?.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="bg-slate-700 text-slate-200">
+                    {tag}
+                  </Badge>
                 ))}
-                <WrittenConsultationModal operatorId={operator.id} operatorName={operator.full_name} />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Disponibilità
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <OperatorAvailabilityCalendar availability={operator.availability} />
-              </CardContent>
-            </Card>
+            <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mb-8">
+              <h2 className="text-2xl font-bold mb-4 flex items-center">
+                <Calendar className="mr-3 text-amber-400" /> La mia disponibilità
+              </h2>
+              <OperatorAvailabilityCalendar availability={availability} />
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recensioni Recenti</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {operator.reviews?.length > 0 ? (
-                  operator.reviews.map((review: any) => <ReviewCard key={review.id} review={review} />)
+            <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+              <h2 className="text-2xl font-bold mb-4">Ultime Recensioni</h2>
+              <div className="space-y-6">
+                {reviews && reviews.length > 0 ? (
+                  reviews.map((review) => <ReviewCard key={review.id} review={review as Review} />)
                 ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    Questo operatore non ha ancora ricevuto recensioni.
-                  </p>
+                  <p className="text-slate-400">Nessuna recensione ancora.</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       </div>
