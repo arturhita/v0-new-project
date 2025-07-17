@@ -2,7 +2,7 @@
 DROP FUNCTION IF EXISTS get_operator_public_profile(text);
 
 -- Funzione per ottenere tutti i dati pubblici di un operatore con una singola chiamata.
--- VERSIONE 3: Usa 'stage_name', 'categories', e 'specialties' che sono le colonne corrette.
+-- VERSIONE 4: Aggiunge la ricerca case-insensitive per 'stage_name'.
 create or replace function get_operator_public_profile(in_stage_name text)
 returns jsonb as $$
 declare
@@ -19,9 +19,7 @@ begin
       'full_name', p.full_name,
       'avatar_url', p.avatar_url,
       'bio', p.bio,
-      -- CORREZIONE: Deriva 'specialization' dal primo elemento dell'array 'categories'.
       'specialization', (p.categories[1]),
-      -- CORREZIONE: Usa la colonna 'specialties' per i 'tags' della UI.
       'tags', p.specialties,
       'availability', p.availability,
       'is_online', p.is_online,
@@ -33,7 +31,8 @@ begin
   left join
     reviews r on p.id = r.operator_id and r.status = 'approved'
   where
-    p.stage_name = in_stage_name and p.role = 'operator'
+    -- CORREZIONE: Usa LOWER() per una ricerca case-insensitive, molto più robusta.
+    LOWER(p.stage_name) = LOWER(in_stage_name) and p.role = 'operator'
   group by
     p.id;
 
