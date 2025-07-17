@@ -1,3 +1,7 @@
+-- Drop the old function first to allow for parameter name changes.
+-- Using IF EXISTS prevents an error if the function doesn't exist on the first run.
+DROP FUNCTION IF EXISTS get_operator_public_profile(text);
+
 -- Funzione per ottenere tutti i dati pubblici di un operatore con una singola chiamata.
 -- Questo approccio è molto efficiente perché raggruppa più query in una sola operazione sul database.
 -- VERSIONE CORRETTA: usa 'in_username' per evitare ambiguità con la colonna 'username'.
