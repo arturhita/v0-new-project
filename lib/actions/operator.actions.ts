@@ -162,13 +162,26 @@ export async function getOperatorPublicProfile(username: string) {
   noStore()
   const supabase = createAdminClient()
 
+  console.log(`[V0-DEBUG] Inizio getOperatorPublicProfile per username: "${username}"`)
+
   const { data, error } = await supabase.rpc("get_operator_public_profile", {
     in_stage_name: username,
   })
 
   if (error) {
-    console.error("Error fetching operator public profile:", error.message)
+    console.error(
+      `[V0-DEBUG] Errore durante la chiamata RPC "get_operator_public_profile" per "${username}":`,
+      error.message,
+    )
     return null
+  }
+
+  if (!data) {
+    console.warn(
+      `[V0-DEBUG] NESSUN DATO RESTITUITO dalla RPC per "${username}". La funzione ha restituito null. Questo causa l'errore "Not Found". Verificare che un operatore con stage_name = "${username}" (case-insensitive) e role = 'operator' esista nel database.`,
+    )
+  } else {
+    console.log(`[V0-DEBUG] Dati trovati per "${username}". Profilo caricato con successo.`)
   }
 
   return data
