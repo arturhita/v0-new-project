@@ -8,9 +8,9 @@ import { Star, MessageCircle, Phone, Mail, Users, Sparkles, Loader2 } from "luci
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "./written-consultation-modal"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 export interface Operator {
   id: string
@@ -33,15 +33,15 @@ export interface Operator {
 
 interface OperatorCardProps {
   operator: Operator
-  currentUser: SupabaseUser | null
   showNewBadge?: boolean
 }
 
-export function OperatorCard({ operator, currentUser, showNewBadge = false }: OperatorCardProps) {
+export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
   const [imageError, setImageError] = useState(false)
   const [isStartingChat, setIsStartingChat] = useState(false)
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const router = useRouter()
+  const { user } = useAuth()
 
   const isNewOperator =
     showNewBadge && operator.joinedDate
@@ -54,7 +54,7 @@ export function OperatorCard({ operator, currentUser, showNewBadge = false }: Op
     e.preventDefault()
     e.stopPropagation()
 
-    if (!currentUser) {
+    if (!user) {
       alert("Devi effettuare l'accesso per avviare una chat.")
       router.push("/login")
       return
@@ -67,7 +67,7 @@ export function OperatorCard({ operator, currentUser, showNewBadge = false }: Op
 
     setIsStartingChat(true)
     try {
-      const result = await initiateChatRequest(currentUser.id, operator.id)
+      const result = await initiateChatRequest(user.id, operator.id)
       if (result.success && result.sessionId) {
         router.push(`/chat/${result.sessionId}`)
       } else {
@@ -84,7 +84,7 @@ export function OperatorCard({ operator, currentUser, showNewBadge = false }: Op
   const handleOpenEmailModal = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!currentUser) {
+    if (!user) {
       alert("Devi effettuare l'accesso per inviare una domanda.")
       router.push("/login")
       return
@@ -95,6 +95,7 @@ export function OperatorCard({ operator, currentUser, showNewBadge = false }: Op
   return (
     <>
       <div className="group relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-700 transform hover:-translate-y-3 hover:scale-105 border border-yellow-600/20 hover:border-yellow-600/40 h-full flex flex-col">
+        {/* Online Status & New Badge */}
         <div className="absolute top-4 left-4 z-20">
           {isNewOperator && (
             <Badge className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
@@ -115,6 +116,7 @@ export function OperatorCard({ operator, currentUser, showNewBadge = false }: Op
           </div>
         </div>
 
+        {/* Card Content */}
         <div className="relative p-6 text-center flex-1 flex flex-col">
           <div className="relative mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
             <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-600/30 group-hover:ring-yellow-600/50 transition-all duration-500">

@@ -1,164 +1,200 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-export interface Review {
-  id: string
-  userId: string
-  operatorId: string
-  operatorName: string
-  userName: string
-  userAvatar?: string
+// Definiamo lo schema per una nuova recensione, come deve arrivare dal form.
+// Nota l'uso di snake_case per i nomi, che corrisponde alle colonne del database.
+export interface NewReviewSchema {
+  user_id: string
+  operator_id: string
+  operator_name: string
+  user_name: string
+  user_avatar?: string
   rating: number
   comment: string
-  serviceType: "chat" | "call" | "email"
-  consultationId: string
-  date: string
-  isVerified: boolean
-  isModerated: boolean
-  helpfulVotes: number
-  reportCount: number
+  service_type: "chat" | "call" | "email"
+  consultation_id: string
+  is_verified: boolean
 }
 
-// Simulazione database recensioni
-const reviewsDB: Review[] = [
-  {
-    id: "r1",
-    userId: "u1",
-    operatorId: "op1",
-    operatorName: "Stella Divina",
-    userName: "Maria R.",
-    userAvatar: "/placeholder.svg?height=40&width=40",
-    rating: 5,
-    comment:
-      "Consulenza eccellente! Stella ha una sensibilità incredibile e mi ha aiutato a vedere chiaramente la mia situazione. Consigliatissima!",
-    serviceType: "chat",
-    consultationId: "c1",
-    date: "2024-01-15T10:30:00Z",
-    isVerified: true,
-    isModerated: true,
-    helpfulVotes: 12,
-    reportCount: 0,
-  },
-  {
-    id: "r2",
-    userId: "u2",
-    operatorId: "op1",
-    operatorName: "Stella Divina",
-    userName: "Giuseppe M.",
-    userAvatar: "/placeholder.svg?height=40&width=40",
-    rating: 4,
-    comment: "Molto professionale e precisa nelle sue letture. Mi ha dato consigli utili per il mio futuro lavorativo.",
-    serviceType: "call",
-    consultationId: "c2",
-    date: "2024-01-12T15:45:00Z",
-    isVerified: true,
-    isModerated: true,
-    helpfulVotes: 8,
-    reportCount: 0,
-  },
-  {
-    id: "r3",
-    userId: "u3",
-    operatorId: "op1",
-    operatorName: "Stella Divina",
-    userName: "Anna L.",
-    userAvatar: "/placeholder.svg?height=40&width=40",
-    rating: 2,
-    comment: "Non sono rimasta soddisfatta della consulenza.",
-    serviceType: "chat",
-    consultationId: "c3",
-    date: "2024-01-10T09:15:00Z",
-    isVerified: true,
-    isModerated: true,
-    helpfulVotes: 1,
-    reportCount: 0,
-  },
-]
+/**
+ * Crea una nuova recensione nel database.
+ * Determina automaticamente se la recensione deve essere 'Pending' o 'Approved'.
+ */
+export async function createReview(reviewData: NewReviewSchema) {
+  const supabase = createAdminClient()
 
-export async function createReview(
-  reviewData: Omit<Review, "id" | "date" | "isModerated" | "helpfulVotes" | "reportCount">,
-) {
-  const newReview: Review = {
-    ...reviewData,
-    id: `r${Date.now()}`,
-    date: new Date().toISOString(),
-    isModerated: false, // Richiede moderazione
-    helpfulVotes: 0,
-    reportCount: 0,
+  // Le recensioni con 4 o 5 stelle vengono approvate in automatico.
+  // Le altre (1-3 stelle) vanno in moderazione.
+  const status = reviewData.rating >= 4 ? "Approved" : "Pending"
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .insert([{ ...reviewData, status }])
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error creating review:", error)
+    return { success: false, error }
   }
 
-  reviewsDB.push(newReview)
+  // Invalida la cache per le pagine rilevanti per mostrare subito i nuovi dati
   revalidatePath("/")
-  revalidatePath(`/operator/${reviewData.operatorName}`)
+  revalidatePath(`/operator/${reviewData.operator_name}`)
+  revalidatePath(`/admin/reviews`)
 
-  return { success: true, review: newReview }
+  return { success: true, review: data }
 }
 
+/**
+ * Recupera le recensioni approvate per un operatore specifico.
+ * Usato nella pagina profilo dell'operatore.
+ */
 export async function getOperatorReviews(operatorId: string) {
-  const reviews = reviewsDB.filter((r) => r.operatorId === operatorId && r.isModerated)
-  return reviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("operator_id", operatorId)
+    .eq("status", "Approved")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching operator reviews:", error)
+    return []
+  }
+  return data
 }
 
-export async function getAllReviews() {
-  return reviewsDB.filter((r) => r.isModerated).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+/**
+ * Recupera le recensioni in attesa di moderazione.
+ * Usato nella dashboard dell'amministratore.
+ */
+export async function getPendingReviews() {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(`*`)
+    .eq("status", "Pending")
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching pending reviews:", error)
+    return []
+  }
+  return data
 }
 
-// ✅ NUOVA FUNZIONE: Calcola media escludendo recensioni negative (rating < 3)
+/**
+ * Recupera lo storico delle recensioni già moderate (Approvate o Rifiutate).
+ * Usato nella dashboard dell'amministratore.
+ */
+export async function getModeratedReviews() {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .in("status", ["Approved", "Rejected"])
+    .order("created_at", { ascending: false })
+    .limit(50) // Limita per performance
+
+  if (error) {
+    console.error("Error fetching moderated reviews:", error)
+    return []
+  }
+  return data
+}
+
+/**
+ * Modifica lo stato di una recensione (la approva o la rifiuta).
+ * Chiamato dai bottoni nella pagina di moderazione dell'admin.
+ */
+export async function moderateReview(reviewId: string, approved: boolean) {
+  const supabase = createAdminClient()
+  const newStatus = approved ? "Approved" : "Rejected"
+
+  const { error } = await supabase.from("reviews").update({ status: newStatus }).eq("id", reviewId)
+
+  if (error) {
+    console.error("Error moderating review:", error)
+    return { success: false, error }
+  }
+
+  revalidatePath("/admin/reviews")
+  return { success: true }
+}
+
+// --- Altre funzioni di supporto (già presenti, ora connesse a Supabase) ---
+
 export async function getOperatorAverageRating(operatorId: string) {
-  const reviews = reviewsDB.filter((r) => r.operatorId === operatorId && r.isModerated)
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("operator_id", operatorId)
+    .eq("status", "Approved")
+    .gte("rating", 3)
 
-  // Esclude recensioni negative (rating < 3) dalla media
-  const positiveReviews = reviews.filter((r) => r.rating >= 3)
+  if (error || !data || data.length === 0) return 0
 
-  if (positiveReviews.length === 0) return 0
-
-  const totalRating = positiveReviews.reduce((sum, review) => sum + review.rating, 0)
-  const average = totalRating / positiveReviews.length
-
-  return Math.round(average * 10) / 10 // Arrotonda a 1 decimale
+  const totalRating = data.reduce((sum, review) => sum + review.rating, 0)
+  return Math.round((totalRating / data.length) * 10) / 10
 }
 
 export async function getOperatorReviewStats(operatorId: string) {
-  const allReviews = reviewsDB.filter((r) => r.operatorId === operatorId && r.isModerated)
-  const positiveReviews = allReviews.filter((r) => r.rating >= 3)
-  const negativeReviews = allReviews.filter((r) => r.rating < 3)
+  const supabase = createAdminClient()
+  const { data: allReviews, error } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("operator_id", operatorId)
+    .eq("status", "Approved")
 
+  if (error || !allReviews) {
+    return { totalReviews: 0, positiveReviews: 0, negativeReviews: 0, averageRating: 0, reviewsUsedInAverage: 0 }
+  }
+
+  const positiveReviews = allReviews.filter((r) => r.rating >= 3)
   return {
     totalReviews: allReviews.length,
     positiveReviews: positiveReviews.length,
-    negativeReviews: negativeReviews.length,
+    negativeReviews: allReviews.filter((r) => r.rating < 3).length,
     averageRating: await getOperatorAverageRating(operatorId),
     reviewsUsedInAverage: positiveReviews.length,
   }
 }
 
 export async function voteHelpful(reviewId: string) {
-  const review = reviewsDB.find((r) => r.id === reviewId)
-  if (review) {
-    review.helpfulVotes += 1
-    revalidatePath("/")
+  const supabase = createAdminClient()
+  const { error } = await supabase.rpc("increment_helpful_votes", { review_id_param: reviewId })
+
+  if (error) {
+    console.error("Error incrementing helpful votes:", error)
+    return { success: false, error }
   }
+  revalidatePath("/")
   return { success: true }
 }
 
-export async function reportReview(reviewId: string, reason: string) {
-  const review = reviewsDB.find((r) => r.id === reviewId)
-  if (review) {
-    review.reportCount += 1
-    // Se troppi report, nasconde la recensione
-    if (review.reportCount >= 3) {
-      review.isModerated = false
-    }
-  }
-  return { success: true }
-}
+export async function reportReview(reviewId: string) {
+  const supabase = createAdminClient()
+  const { data: review, error: fetchError } = await supabase
+    .from("reviews")
+    .select("report_count")
+    .eq("id", reviewId)
+    .single()
+  if (fetchError || !review) return { success: false, error: fetchError }
 
-export async function moderateReview(reviewId: string, approved: boolean) {
-  const review = reviewsDB.find((r) => r.id === reviewId)
-  if (review) {
-    review.isModerated = approved
-    revalidatePath("/admin/reviews")
-  }
+  const newReportCount = review.report_count + 1
+  const shouldUnmoderate = newReportCount >= 3
+
+  const { error: updateError } = await supabase
+    .from("reviews")
+    .update({ report_count: newReportCount, ...(shouldUnmoderate && { status: "Pending" }) })
+    .eq("id", reviewId)
+  if (updateError) return { success: false, error: updateError }
+
+  if (shouldUnmoderate) revalidatePath("/admin/reviews")
   return { success: true }
 }

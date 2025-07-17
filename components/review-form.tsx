@@ -1,20 +1,22 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Star, Send } from "lucide-react"
 import { createReview } from "@/lib/actions/reviews.actions"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
 interface ReviewFormProps {
   operatorId: string
   operatorName: string
   consultationId: string
   serviceType: "chat" | "call" | "email"
+  userId: string // Obbligatorio: deve essere passato dal componente genitore
+  userName: string // Obbligatorio: deve essere passato dal componente genitore
+  userAvatar?: string
   onReviewSubmitted?: () => void
 }
 
@@ -23,12 +25,16 @@ export function ReviewForm({
   operatorName,
   consultationId,
   serviceType,
+  userId,
+  userName,
+  userAvatar,
   onReviewSubmitted,
 }: ReviewFormProps) {
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [comment, setComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,7 +47,6 @@ export function ReviewForm({
       })
       return
     }
-
     if (comment.trim().length < 10) {
       toast({
         title: "Commento troppo breve",
@@ -55,34 +60,39 @@ export function ReviewForm({
 
     try {
       const result = await createReview({
-        userId: "current_user_id", // In produzione, prendere dall'auth
-        operatorId,
-        operatorName,
-        userName: "Utente Corrente", // In produzione, prendere dall'auth
-        userAvatar: "/placeholder.svg?height=40&width=40",
+        user_id: userId,
+        operator_id: operatorId,
+        operator_name: operatorName,
+        user_name: userName,
+        user_avatar: userAvatar,
         rating,
         comment: comment.trim(),
-        serviceType,
-        consultationId,
-        isVerified: true,
+        service_type: serviceType,
+        consultation_id: consultationId,
+        is_verified: true,
       })
 
       if (result.success) {
+        const toastMessage =
+          rating >= 4
+            ? "La tua recensione è stata pubblicata. Grazie!"
+            : "La tua recensione è stata inviata e sarà pubblicata dopo la moderazione."
         toast({
           title: "Recensione inviata!",
-          description: "La tua recensione è stata inviata e sarà pubblicata dopo la moderazione.",
+          description: toastMessage,
           className: "bg-green-100 border-green-300 text-green-700",
         })
-
-        // Reset form
         setRating(0)
         setComment("")
         onReviewSubmitted?.()
+      } else {
+        throw new Error(result.error?.message || "Unknown error")
       }
     } catch (error) {
+      console.error(error)
       toast({
         title: "Errore",
-        description: "Si è verificato un errore nell'invio della recensione",
+        description: "Si è verificato un errore nell'invio della recensione. Riprova più tardi.",
         variant: "destructive",
       })
     } finally {
@@ -99,7 +109,6 @@ export function ReviewForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Rating Stars */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">La tua valutazione</label>
             <div className="flex items-center space-x-1">
@@ -139,8 +148,6 @@ export function ReviewForm({
               </span>
             </div>
           </div>
-
-          {/* Comment */}
           <div>
             <label htmlFor="comment" className="block text-sm font-medium text-slate-300 mb-2">
               Il tuo commento
@@ -158,16 +165,12 @@ export function ReviewForm({
               <span className="text-xs text-slate-400">{comment.length}/500</span>
             </div>
           </div>
-
-          {/* Service Type Badge */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-400">Tipo di consulenza:</span>
             <span className="px-2 py-1 bg-sky-500/20 text-sky-300 rounded-full text-xs font-medium">
               {serviceType === "chat" ? "💬 Chat" : serviceType === "call" ? "📞 Chiamata" : "📧 Email"}
             </span>
           </div>
-
-          {/* Submit Button */}
           <Button
             type="submit"
             disabled={isSubmitting || rating === 0}
@@ -175,8 +178,7 @@ export function ReviewForm({
           >
             {isSubmitting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Invio in corso...
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Invio in corso...
               </>
             ) : (
               <>

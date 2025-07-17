@@ -1,9 +1,9 @@
 "use server"
 
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
-import { LoginSchema, RegisterSchema } from "../schemas"
+import { createClient } from "@/lib/supabase/server"
+import { LoginSchema, RegisterSchema } from "@/lib/schemas"
+import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
@@ -48,13 +48,14 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
   }
 
+  // Reindirizzamento gestito interamente dal server
   switch (profile.role) {
     case "admin":
       redirect("/admin/dashboard")
     case "operator":
-      redirect("/operator/dashboard") // Corretto il path
+      redirect("/dashboard/operator")
     case "client":
-      redirect("/client/dashboard") // Corretto il path
+      redirect("/dashboard/client")
     default:
       redirect("/")
   }
