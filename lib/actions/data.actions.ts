@@ -38,10 +38,10 @@ const mapProfileToOperator = (profile: any): Operator => {
 export async function getHomepageData() {
   const supabase = createClient()
 
-  // Recupera gli operatori da mostrare in home
+  // Recupera gli operatori da mostrare in home, usando i campi pre-calcolati
   const { data: operatorsData, error: operatorsError } = await supabase
     .from("profiles")
-    .select(`*, reviews(count)`)
+    .select(`*`) // Semplificato: non serve più il join per il conteggio
     .eq("role", "operator")
     .eq("status", "Attivo")
     .order("is_online", { ascending: false })
@@ -103,7 +103,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select(`*, reviews(count)`)
+    .select(`*`) // Semplificato: non serve più il join per il conteggio
     .eq("role", "operator")
     .eq("status", "Attivo")
     .contains("categories", [categorySlug])
@@ -128,7 +128,9 @@ export async function getFeaturedOperators() {
       bio,
       categories,
       services,
-      is_online
+      is_online,
+      average_rating,
+      reviews_count
     `,
     )
     .eq("role", "operator")
@@ -150,8 +152,8 @@ export async function getFeaturedOperators() {
     services: op.services,
     profileLink: `/operator/${op.stage_name}`,
     specialization: op.categories?.[0] || "Esperto",
-    rating: 5, // Placeholder, da implementare con le recensioni
-    reviewsCount: 0, // Placeholder
+    rating: op.average_rating || 0,
+    reviewsCount: op.reviews_count || 0,
   }))
 }
 
@@ -166,7 +168,7 @@ export async function getRecentReviews() {
       comment,
       created_at,
       client:profiles!reviews_client_id_fkey (
-        name,
+        full_name,
         avatar_url
       ),
       operator:profiles!reviews_operator_id_fkey (
@@ -174,6 +176,7 @@ export async function getRecentReviews() {
       )
     `,
     )
+    .eq("status", "approved")
     .order("created_at", { ascending: false })
     .limit(5)
 
@@ -184,7 +187,7 @@ export async function getRecentReviews() {
 
   return data.map((review) => ({
     id: review.id,
-    userName: review.client?.name || "Utente Anonimo",
+    userName: review.client?.full_name || "Utente Anonimo",
     userAvatar: review.client?.avatar_url,
     operatorName: review.operator?.stage_name || "Operatore",
     rating: review.rating,
