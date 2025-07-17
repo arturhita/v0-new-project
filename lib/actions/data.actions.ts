@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 
@@ -36,7 +36,7 @@ const mapProfileToOperator = (profile: any): Operator => {
  * Recupera tutti i dati necessari per la homepage (operatori e recensioni).
  */
 export async function getHomepageData() {
-  const supabase = createServerClient()
+  const supabase = createClient()
 
   // Recupera gli operatori da mostrare in home
   const { data: operatorsData, error: operatorsError } = await supabase
@@ -99,7 +99,7 @@ export async function getHomepageData() {
  * @param categorySlug - Lo slug della categoria (es. 'cartomanzia').
  */
 export async function getOperatorsByCategory(categorySlug: string) {
-  const supabase = createServerClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("profiles")
@@ -117,7 +117,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
 }
 
 export async function getFeaturedOperators() {
-  const supabase = createServerClient()
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("profiles")
     .select(
@@ -156,7 +156,7 @@ export async function getFeaturedOperators() {
 }
 
 export async function getRecentReviews() {
-  const supabase = createServerClient()
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("reviews")
     .select(
