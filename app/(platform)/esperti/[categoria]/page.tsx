@@ -1,6 +1,9 @@
 "use client"
 import { getOperatorsByCategory } from "@/lib/actions/data.actions"
 import EspertiClientPage from "./EspertiClientPage"
+import { useEffect, useState } from "react"
+import type { Operator } from "@/components/operator-card"
+import LoadingSpinner from "@/components/loading-spinner"
 
 // Helper per ottenere i dettagli della categoria in base allo slug dell'URL
 const getCategoryDetails = (slug: string) => {
@@ -64,8 +67,27 @@ const getCategoryDetails = (slug: string) => {
   )
 }
 
-export default async function CategoriaPage({ params }: { params: { categoria: string } }) {
-  const operators = await getOperatorsByCategory(params.categoria)
+export default function CategoriaPage({ params }: { params: { categoria: string } }) {
+  const [operators, setOperators] = useState<Operator[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchOperators = async () => {
+      setLoading(true)
+      const fetchedOperators = await getOperatorsByCategory(params.categoria)
+      setOperators(fetchedOperators)
+      setLoading(false)
+    }
+    fetchOperators()
+  }, [params.categoria])
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800">
+        <LoadingSpinner />
+      </div>
+    )
+  }
 
   return <EspertiClientPage initialOperators={operators} params={params} />
 }

@@ -115,37 +115,3 @@ export async function getOperatorsByCategory(categorySlug: string) {
 
   return (data || []).map(mapProfileToOperator)
 }
-
-export async function getFeaturedOperatorsByCategory(categorySlugs: string[]) {
-  const supabase = createClient()
-  const results = await Promise.all(
-    categorySlugs.map(async (slug) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, stage_name, avatar_url, specialties")
-        .eq("role", "operator")
-        .eq("status", "Attivo")
-        .contains("categories", [slug])
-        .limit(4)
-
-      if (error) {
-        console.error(`Error fetching operators for menu category ${slug}:`, error)
-        return { name: slug, slug, operators: [] }
-      }
-      const categoryDetails = getCategoryDetails(slug)
-      return { name: categoryDetails.title, slug, operators: data || [] }
-    }),
-  )
-  return results
-}
-
-const getCategoryDetails = (slug: string) => {
-  const decodedSlug = decodeURIComponent(slug)
-  const details: { [key: string]: { title: string } } = {
-    cartomanzia: { title: "Cartomanzia" },
-    astrologia: { title: "Astrologia" },
-    numerologia: { title: "Numerologia" },
-    medianita: { title: "Medianità" },
-  }
-  return details[decodedSlug] || { title: decodedSlug }
-}

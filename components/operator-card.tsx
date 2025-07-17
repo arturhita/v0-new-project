@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "./written-consultation-modal"
-import Image from "next/image"
 
 export interface Operator {
   id: string
@@ -55,7 +54,7 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
       ? new Date(operator.joinedDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       : false
 
-  const profileLink = operator.profileLink || `/operator/${operator.name}`
+  const profileLink = operator.profileLink || `/operator/${operator.name.toLowerCase().replace(/ /g, "-")}`
 
   const handleStartChat = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -127,12 +126,15 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
         <div className="relative p-6 text-center flex-1 flex flex-col">
           <div className="relative mx-auto mb-4 group-hover:scale-110 transition-transform duration-500">
             <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-yellow-600/30 group-hover:ring-yellow-600/50 transition-all duration-500">
-              <Image
+              <img
                 src={operator.avatarUrl || "/placeholder.svg"}
                 alt={operator.name}
-                width={80}
-                height={80}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.onerror = null
+                  target.src = "/placeholder.svg"
+                }}
               />
             </div>
             <div className="absolute inset-0 rounded-full bg-yellow-600/20 blur-md scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

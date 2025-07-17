@@ -76,13 +76,14 @@ export default function EspertiClientPage({ initialOperators, params }: EspertiC
   const filteredOperators = useMemo(() => {
     let operators = [...initialOperators]
 
-    // 1. Filtra per termine di ricerca (nome o specializzazione)
+    // 1. Filtra per termine di ricerca (nome, specializzazione o tag)
     if (searchTerm) {
+      const lowercasedSearchTerm = searchTerm.toLowerCase()
       operators = operators.filter(
         (op) =>
-          op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          op.specialization.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          op.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase())),
+          op.name.toLowerCase().includes(lowercasedSearchTerm) ||
+          op.specialization.toLowerCase().includes(lowercasedSearchTerm) ||
+          op.tags.some((tag) => tag.toLowerCase().includes(lowercasedSearchTerm)),
       )
     }
 
