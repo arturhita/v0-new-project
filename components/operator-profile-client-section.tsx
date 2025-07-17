@@ -26,26 +26,29 @@ export function OperatorProfileClientSection({ operator }: OperatorProfileClient
   const callService = operator.services.find((s) => s.service_type === "call")
   const writtenService = operator.services.find((s) => s.service_type === "written")
 
+  const buttonClasses =
+    "bg-gradient-to-r from-blue-600 to-yellow-600 text-white hover:from-blue-700 hover:to-yellow-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 text-sm font-semibold"
+
   return (
     <>
       <div className="w-full space-y-3">
         {chatService && (
-          <Button asChild size="lg" className="w-full bg-green-600 hover:bg-green-700">
+          <Button asChild size="lg" className={buttonClasses}>
             <Link href={`/chat/new?operatorId=${operator.id}`}>
               <MessageSquare className="mr-2 h-5 w-5" /> Inizia Chat
             </Link>
           </Button>
         )}
         {callService && (
-          <Button asChild size="lg" className="w-full bg-blue-600 hover:bg-blue-700">
+          <Button asChild size="lg" className={buttonClasses}>
             <Link href={`/call/new?operatorId=${operator.id}`}>
               <Phone className="mr-2 h-5 w-5" /> Chiama Ora
             </Link>
           </Button>
         )}
         {writtenService && (
-          <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700" onClick={() => setIsModalOpen(true)}>
-            <Mail className="mr-2 h-5 w-5" /> Richiedi Consulto Scritto
+          <Button size="lg" className={buttonClasses} onClick={() => setIsModalOpen(true)}>
+            <Mail className="mr-2 h-5 w-5" /> Richiedi Consulto
           </Button>
         )}
       </div>
