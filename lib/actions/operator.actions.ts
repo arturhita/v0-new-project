@@ -162,29 +162,100 @@ export async function getOperatorPublicProfile(username: string) {
   noStore()
   const supabase = createAdminClient()
 
-  console.log(`[V0-DEBUG] Inizio getOperatorPublicProfile per username: "${username}"`)
+  console.log(`[V0-DEBUG] Inizio ricerca profilo per stage_name: "${username}"`)
 
-  const { data, error } = await supabase.rpc("get_operator_public_profile", {
-    in_stage_name: username,
-  })
+  // 1. Trova il profilo base dell'operatore.
+  // Usiamo .ilike per una ricerca case-insensitive, che è più robusta per i nomi utente.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .ilike("stage_name", username)
+    .eq("role", "operator")
+    .single()
 
-  if (error) {
+  // Se non troviamo un profilo, questo è l'errore principale.
+  if (profileError || !profile) {
     console.error(
-      `[V0-DEBUG] Errore durante la chiamata RPC "get_operator_public_profile" per "${username}":`,
-      error.message,
+      `[V0-DEBUG] ERRORE CRITICO: Nessun profilo trovato con stage_name simile a "${username}" e role = "operator". Questo è il motivo dell'errore "Not Found". Errore DB: ${profileError?.message}`,
     )
     return null
   }
 
-  if (!data) {
+  console.log(`[V0-DEBUG] Profilo base trovato per "${username}". ID: ${profile.id}, Status: "${profile.status}"`)
+
+  // 2. CONTROLLO DELLO STATO: Questa è la causa più probabile del problema.
+  // Se l'operatore esiste ma non è "Attivo", la sua pagina non deve essere pubblica.
+  if (profile.status !== "Attivo") {
     console.warn(
-      `[V0-DEBUG] NESSUN DATO RESTITUITO dalla RPC per "${username}". La funzione ha restituito null. Questo causa l'errore "Not Found". Verificare che un operatore con stage_name = "${username}" (case-insensitive) e role = 'operator' esista nel database.`,
+      `[V0-DEBUG] ATTENZIONE: Profilo per "${username}" trovato, ma il suo stato è "${profile.status}" invece di "Attivo". La pagina non verrà mostrata come da requisito.`,
     )
-  } else {
-    console.log(`[V0-DEBUG] Dati trovati per "${username}". Profilo caricato con successo.`)
+    return null // Restituisce null, che causa correttamente l'errore "Not Found".
   }
 
-  return data
+  console.log(`[V0-DEBUG] Profilo "${username}" è "Attivo". Procedo a caricare i dati aggiuntivi.`)
+
+  // 3. Recupera i servizi attivi dell'operatore
+  const { data: servicesData, error: servicesError } = await supabase
+    .from("services")
+    .select("service_type, price")
+    .eq("operator_id", profile.id)
+    .eq("is_active", true)
+
+  if (servicesError) {
+    console.error(`[V0-DEBUG] Errore nel caricamento dei servizi per l'operatore ${profile.id}:`, servicesError.message)
+  }
+
+  // 4. Recupera le recensioni approvate, con il nome del cliente
+  const { data: reviewsData, error: reviewsError } = await supabase
+    .from("reviews")
+    .select(
+      `
+      id,
+      rating,
+      comment,
+      created_at,
+      client:profiles ( name )
+    `,
+    )
+    .eq("operator_id", profile.id)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(10) // Limitiamo per performance
+
+  if (reviewsError) {
+    console.error(
+      `[V0-DEBUG] Errore nel caricamento delle recensioni per l'operatore ${profile.id}:`,
+      reviewsError.message,
+    )
+  }
+
+  // 5. Combina tutti i dati in un unico oggetto per la pagina
+  const combinedData = {
+    id: profile.id,
+    full_name: profile.full_name,
+    stage_name: profile.stage_name,
+    avatar_url: profile.avatar_url,
+    bio: profile.bio,
+    specialization: profile.specialties || [],
+    tags: profile.categories || [],
+    rating: profile.average_rating,
+    reviews_count: profile.reviews_count,
+    is_online: profile.is_online,
+    availability: profile.availability,
+    services: servicesData || [],
+    reviews:
+      reviewsData?.map((r: any) => ({
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        created_at: r.created_at,
+        client_name: r.client?.name || "Utente",
+      })) || [],
+  }
+
+  console.log(`[V0-DEBUG] Dati per "${username}" combinati con successo. La pagina verrà renderizzata.`)
+
+  return combinedData
 }
 
 export async function getAllOperators() {

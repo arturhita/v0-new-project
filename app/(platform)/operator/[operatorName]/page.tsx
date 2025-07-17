@@ -61,7 +61,7 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
               )}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-center lg:text-left">{full_name}</h1>
-            <p className="text-lg text-amber-400 mb-4 text-center lg:text-left">{specialization}</p>
+            <p className="text-lg text-amber-400 mb-4 text-center lg:text-left">{specialization.join(", ")}</p>
 
             <div className="flex items-center space-x-2 mb-6">
               <div className="flex text-amber-400">
