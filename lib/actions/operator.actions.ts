@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
+import { getMockOperatorProfileByStageName } from "@/lib/mock-data"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -256,6 +257,29 @@ export async function getOperatorPublicProfile(username: string) {
   console.log(`[V0-DEBUG] Dati per "${username}" combinati con successo. La pagina verrà renderizzata.`)
 
   return combinedData
+}
+
+/**
+ * Recupera i dati del profilo pubblico di un operatore usando il sistema di dati mock.
+ * @param stageName - Il nome d'arte dell'operatore, usato per creare lo slug dell'URL.
+ * @returns I dati del profilo o null se non trovato o non attivo.
+ */
+export async function getMockOperatorPublicProfile(stageName: string) {
+  console.log(`[ACTION] Attempting to fetch public profile for stageName: "${stageName}" using MOCK data.`)
+
+  const profileData = getMockOperatorProfileByStageName(stageName)
+
+  if (!profileData) {
+    console.log(`[ACTION] MOCK profile not found for stageName: "${stageName}"`)
+    return null
+  }
+
+  console.log(`[ACTION] Successfully found MOCK profile for: "${profileData.full_name}"`)
+
+  // Simula un piccolo ritardo di rete per un'esperienza più realistica
+  await new Promise((resolve) => setTimeout(resolve, 250))
+
+  return profileData
 }
 
 export async function getAllOperators() {
