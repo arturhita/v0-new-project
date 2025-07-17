@@ -25,9 +25,10 @@ export type OperatorPublicProfile = {
   availability: any[] | null
   reviews: any[] | null
   is_online: boolean | null
-  categories: string[] | null // Corretto da tags
-  experience?: string | null
-  specializations_details?: string | null
+  categories: string[] | null
+  // Campi rimossi perché non esistono nel DB
+  // experience?: string | null
+  // specializations_details?: string | null
 }
 
 export async function createOperator(
@@ -45,19 +46,8 @@ export async function createOperator(
     }
   }
 
-  const {
-    email,
-    full_name,
-    stage_name,
-    bio,
-    specialties,
-    categories, // Corretto da tags
-    chat_price,
-    call_price,
-    written_price,
-    experience,
-    specializations_details,
-  } = validatedFields.data
+  const { email, full_name, stage_name, bio, specialties, categories, chat_price, call_price, written_price } =
+    validatedFields.data
 
   // 1. Genera password temporanea
   const tempPassword = Math.random().toString(36).slice(-12)
@@ -81,7 +71,7 @@ export async function createOperator(
   const userId = authData.user.id
 
   const specialtiesArray = specialties ? specialties.split(",").map((s) => s.trim()) : []
-  const categoriesArray = categories ? categories.split(",").map((t) => t.trim()) : [] // Corretto da tags
+  const categoriesArray = categories ? categories.split(",").map((t) => t.trim()) : []
 
   // 3. Aggiorna il profilo dell'utente
   const { error: profileError } = await supabaseAdmin
@@ -91,10 +81,8 @@ export async function createOperator(
       stage_name: stage_name,
       bio: bio,
       specialties: specialtiesArray,
-      categories: categoriesArray, // Corretto da tags
+      categories: categoriesArray,
       role: "operator",
-      experience: experience,
-      specializations_details: specializations_details,
     })
     .eq("id", userId)
 
@@ -177,9 +165,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
       average_rating,
       reviews_count,
       is_online,
-      categories,
-      experience,
-      specializations_details
+      categories
       `,
     )
     .eq("stage_name", stageName)
@@ -246,9 +232,7 @@ export async function getOperatorPublicProfile(stageName: string): Promise<Opera
       },
     })),
     is_online: profile.is_online,
-    categories: profile.categories, // Corretto da tags
-    experience: profile.experience,
-    specializations_details: profile.specializations_details,
+    categories: profile.categories,
   }
 
   return combinedData
@@ -295,7 +279,7 @@ export async function updateOperatorProfile(
     full_name?: string
     bio?: string
     specialties?: string[]
-    categories?: string[] // Corretto da tags
+    categories?: string[]
   },
 ) {
   const supabase = createClient()

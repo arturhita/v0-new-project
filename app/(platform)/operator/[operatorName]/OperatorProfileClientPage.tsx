@@ -18,20 +18,8 @@ type Tab = "biography" | "experience" | "specializations"
 export default function OperatorProfileClientPage({ profileData }: OperatorProfileClientPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("biography")
 
-  const {
-    id,
-    stage_name,
-    avatar_url,
-    specialties, // Corretto da specialization
-    bio,
-    rating,
-    reviews_count,
-    services,
-    availability,
-    is_online,
-    experience,
-    specializations_details,
-  } = profileData
+  const { id, stage_name, avatar_url, specialties, bio, rating, reviews_count, services, availability, is_online } =
+    profileData
 
   const getService = (type: "chat" | "call" | "written") => services?.find((s) => s.service_type === type)
 
@@ -44,13 +32,9 @@ export default function OperatorProfileClientPage({ profileData }: OperatorProfi
       case "biography":
         return <p className="text-gray-300 leading-relaxed">{bio || "Nessuna biografia disponibile."}</p>
       case "experience":
-        return <p className="text-gray-300 leading-relaxed">{experience || "Nessuna esperienza descritta."}</p>
+        return <p className="text-gray-300 leading-relaxed">{"Nessuna esperienza descritta."}</p>
       case "specializations":
-        return (
-          <p className="text-gray-300 leading-relaxed">
-            {specializations_details || "Nessun dettaglio sulle specializzazioni."}
-          </p>
-        )
+        return <p className="text-gray-300 leading-relaxed">{"Nessun dettaglio sulle specializzazioni."}</p>
       default:
         return null
     }

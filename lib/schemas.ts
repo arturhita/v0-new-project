@@ -16,9 +16,10 @@ export const OperatorProfileSchema = z.object({
   email: z.string().email("Email non valida."),
   bio: z.string().optional(),
   specialties: z.string().optional(),
-  categories: z.string().optional(), // Corretto da tags
-  experience: z.string().optional(),
-  specializations_details: z.string().optional(),
+  categories: z.string().optional(),
+  // Rimuoviamo i campi non esistenti
+  // experience: z.string().optional(),
+  // specializations_details: z.string().optional(),
   chat_price: z.coerce.number().optional(),
   call_price: z.coerce.number().optional(),
   written_price: z.coerce.number().optional(),
