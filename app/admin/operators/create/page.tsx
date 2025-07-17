@@ -219,16 +219,16 @@ export default function CreateOperatorPage() {
                 </Button>
               </div>
               <p className="text-xs mt-2 text-slate-500">
-                Comunicare questa password all'operatore. Dovrà confermare l'email e potrà cambiare la password in
-                seguito.
+                Comunicare questa password all'operatore. Potrà accedere subito e cambiarla in seguito.
               </p>
             </div>
           ),
-          duration: 15000,
+          duration: 20000, // Aumentata la durata per dare tempo di copiare
         })
+        // Non reindirizzare subito per dare tempo di copiare la password
         setTimeout(() => {
           router.push("/admin/operators")
-        }, 15000)
+        }, 20000)
       } else {
         toast({
           title: "Errore nella creazione",

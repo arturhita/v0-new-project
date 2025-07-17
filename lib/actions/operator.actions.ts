@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
-import { getMockOperatorProfileByStageName } from "@/lib/mock-data"
-import { OperatorRegistrationSchema } from "@/lib/schemas"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -106,6 +104,7 @@ export async function createOperator(operatorData: OperatorData) {
     console.log(`Profilo per l'utente ${userId} aggiornato con successo.`)
 
     revalidatePath("/admin/operators")
+    revalidatePath(`/operator/${operatorData.stageName}`)
     return {
       success: true,
       message: `Operatore ${operatorData.stageName} creato con successo!`,
@@ -125,38 +124,6 @@ export async function createOperator(operatorData: OperatorData) {
   }
 }
 
-export async function updateOperatorCommission(operatorId: string, commission: string) {
-  const supabase = createClient()
-  try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ commission_rate: safeParseFloat(commission) })
-      .eq("id", operatorId)
-
-    if (error) throw error
-
-    revalidatePath("/admin/operators")
-    revalidatePath(`/admin/operators/${operatorId}/edit`)
-
-    return {
-      success: true,
-      message: "Commissione aggiornata con successo!",
-    }
-  } catch (error) {
-    console.error("Errore aggiornamento commissione:", error)
-    return {
-      success: false,
-      message: "Errore nell'aggiornamento della commissione",
-    }
-  }
-}
-
-/**
- * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
- * Utilizza una funzione RPC del database per efficienza.
- * @param username - Lo username pubblico (stage_name) dell'operatore.
- * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
- */
 export async function getOperatorPublicProfile(username: string) {
   noStore()
   const supabase = createClient() // Usiamo il client standard per la lettura pubblica
@@ -212,181 +179,4 @@ export async function getOperatorPublicProfile(username: string) {
   }
 
   return combinedData
-}
-
-/**
- * Recupera i dati del profilo pubblico di un operatore usando il sistema di dati mock.
- * @param stageName - Il nome d'arte dell'operatore, usato per creare lo slug dell'URL.
- * @returns I dati del profilo o null se non trovato o non attivo.
- */
-export async function getMockOperatorPublicProfile(stageName: string) {
-  console.log(`[ACTION] Attempting to fetch public profile for stageName: "${stageName}" using MOCK data.`)
-
-  const profileData = getMockOperatorProfileByStageName(stageName)
-
-  if (!profileData) {
-    console.log(`[ACTION] MOCK profile not found for stageName: "${stageName}"`)
-    return null
-  }
-
-  console.log(`[ACTION] Successfully found MOCK profile for: "${profileData.full_name}"`)
-
-  // Simula un piccolo ritardo di rete per un'esperienza più realistica
-  await new Promise((resolve) => setTimeout(resolve, 250))
-
-  return profileData
-}
-
-export async function getAllOperators() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
-  if (error) {
-    console.error("Error fetching operators:", error)
-    return []
-  }
-  return data
-}
-
-export async function getOperatorById(id: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
-  if (error) {
-    console.error(`Error fetching operator ${id}:`, error)
-    return null
-  }
-  return data
-}
-
-export async function updateOperatorProfile(
-  userId: string,
-  profileData: {
-    full_name?: string
-    bio?: string
-    specialization?: string[]
-    tags?: string[]
-  },
-) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").update(profileData).eq("id", userId).select().single()
-
-  if (error) {
-    console.error("Error updating operator profile:", error)
-    return { error: "Impossibile aggiornare il profilo." }
-  }
-
-  if (data.stage_name) {
-    revalidatePath(`/operator/${data.stage_name}`)
-  }
-  revalidatePath("/(platform)/dashboard/operator/profile")
-
-  return { data }
-}
-
-export async function updateOperatorAvailability(userId: string, availability: any) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").update({ availability }).eq("id", userId).select().single()
-
-  if (error) {
-    console.error("Error updating availability:", error)
-    return { error: "Impossibile aggiornare la disponibilità." }
-  }
-
-  if (data.stage_name) {
-    revalidatePath(`/operator/${data.stage_name}`)
-  }
-  revalidatePath("/(platform)/dashboard/operator/availability")
-
-  return { data }
-}
-
-export async function registerOperator(formData: FormData) {
-  const supabase = createClient() // Usa il client standard per la registrazione pubblica
-
-  const rawFormData = Object.fromEntries(formData.entries())
-
-  // Converte le categorie da stringa separata da virgole ad array
-  const categories =
-    typeof rawFormData.categories === "string" && rawFormData.categories.length > 0
-      ? rawFormData.categories.split(",")
-      : []
-
-  const validation = OperatorRegistrationSchema.safeParse({
-    ...rawFormData,
-    categories,
-  })
-
-  if (!validation.success) {
-    console.log("Validation errors:", validation.error.flatten().fieldErrors)
-    return {
-      success: false,
-      message: "Dati non validi. Controlla i campi.",
-      errors: validation.error.flatten().fieldErrors,
-    }
-  }
-
-  const { email, password, name, surname, stageName, bio } = validation.data
-
-  // 1. Registra l'utente con Supabase Auth
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: `${name} ${surname}`.trim(),
-        stage_name: stageName,
-      },
-    },
-  })
-
-  if (signUpError || !signUpData.user) {
-    console.error("Errore durante la registrazione (signUp):", signUpError)
-    if (signUpError?.message.includes("User already registered")) {
-      return { success: false, message: "Un utente con questa email esiste già." }
-    }
-    return { success: false, message: signUpError?.message || "Impossibile registrare l'utente." }
-  }
-
-  const userId = signUpData.user.id
-  console.log(`[Self-Register] Utente Auth creato con ID: ${userId}`)
-
-  // 2. Aggiorna il profilo con i dettagli completi usando il client admin
-  const supabaseAdmin = createAdminClient()
-
-  const profileToUpdate = {
-    full_name: `${name} ${surname}`.trim(),
-    name,
-    surname,
-    stage_name: stageName,
-    bio: bio || "",
-    role: "operator" as const,
-    status: "Attivo" as const, // Approvazione automatica
-    categories: validation.data.categories,
-    // Imposta valori predefiniti per gli altri campi
-    specialties: [],
-    availability: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] },
-    services: {
-      chat: { enabled: true, price_per_minute: 2.0 },
-      call: { enabled: false, price_per_minute: 2.5 },
-      email: { enabled: false, price: 20.0 },
-    },
-    commission_rate: 20, // Commissione predefinita
-    is_online: false,
-  }
-
-  const { error: profileError } = await supabaseAdmin.from("profiles").update(profileToUpdate).eq("id", userId)
-
-  if (profileError) {
-    console.error(`[Self-Register] Errore aggiornamento profilo per ${userId}:`, profileError)
-    // Se l'aggiornamento del profilo fallisce, elimina l'utente appena creato per evitare dati orfani
-    await supabaseAdmin.auth.admin.deleteUser(userId)
-    return { success: false, message: `Errore durante la finalizzazione del profilo: ${profileError.message}` }
-  }
-
-  console.log(`[Self-Register] Profilo per ${userId} aggiornato e attivato con successo.`)
-
-  // Revalida le pagine pertinenti per mostrare subito il nuovo operatore
-  revalidatePath("/operator")
-  revalidatePath(`/operator/${stageName}`)
-
-  return { success: true, message: "Registrazione completata! Benvenuto/a!" }
 }
