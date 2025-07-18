@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
+// Rinominato per chiarezza e coerenza. Questa è l'unica fonte di verità.
 export const createSupabaseServerClient = () => {
   const cookieStore = cookies()
 
@@ -13,18 +14,16 @@ export const createSupabaseServerClient = () => {
         try {
           cookieStore.set({ name, value, ...options })
         } catch (error) {
-          // The `set` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          // Il metodo `set` è stato chiamato da un Server Component.
+          // Può essere ignorato se si dispone di un middleware che aggiorna le sessioni utente.
         }
       },
       remove(name: string, options: CookieOptions) {
         try {
           cookieStore.set({ name, value: "", ...options })
         } catch (error) {
-          // The `delete` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          // Il metodo `delete` è stato chiamato da un Server Component.
+          // Può essere ignorato se si dispone di un middleware che aggiorna le sessioni utente.
         }
       },
     },

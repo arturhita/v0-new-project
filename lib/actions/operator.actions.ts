@@ -2,11 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { z } from "zod"
-import { operatorProfileSchema } from "../schemas"
+import { unstable_noStore as noStore } from "next/cache"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number | null => {
@@ -127,35 +124,44 @@ export async function createOperator(operatorData: OperatorData) {
 
 // --- FUNZIONI DI LETTURA ---
 
-export async function getAllOperators(page = 1, limit = 10) {
+export async function getAllOperators() {
+  noStore()
   const supabase = createSupabaseServerClient()
-  const { data, error, count } = await supabase
+  // FIX: Rimosso il riferimento alla colonna inesistente 'user_metadata'
+  const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, operator_details(specialties, status)", { count: "exact" })
+    .select(`*`)
     .eq("role", "operator")
-    .range((page - 1) * limit, page * limit - 1)
+    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching operators:", error)
-    return { operators: [], count: 0, error: error.message }
+    console.error("Error fetching operators:", error.message)
+    // Restituisce un array vuoto in caso di errore per non far crashare la pagina
+    return []
   }
-  return { operators: data, count, error: null }
+  return data
 }
 
-export async function getOperatorById(operatorId: string) {
+export async function getOperatorById(id: string) {
+  noStore()
   const supabase = createSupabaseServerClient()
-  const { data, error } = await supabase.from("profiles").select("*, operator_details(*)").eq("id", operatorId).single()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
 
   if (error) {
-    console.error("Error fetching operator by id:", error)
-    return { operator: null, error: error.message }
+    console.error(`Error fetching operator ${id}:`, error)
+    return null
   }
-  return { operator: data, error: null }
+  return data
 }
 
+/**
+ * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
+ * @param username - Lo username pubblico (stage_name) dell'operatore.
+ * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
+ */
 export async function getOperatorPublicProfile(username: string) {
   noStore()
-  const supabase = createClient() // Usiamo il client standard per la lettura pubblica
+  const supabase = createSupabaseServerClient() // Usiamo il client standard per la lettura pubblica
 
   console.log(`[DB-FETCH] Inizio ricerca profilo REALE per stage_name: "${username}"`)
 
@@ -210,63 +216,28 @@ export async function getOperatorPublicProfile(username: string) {
   return combinedData
 }
 
-export async function getPendingOperators() {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase
-    .from("operator_applications")
-    .select(`
-      id,
-      user_id,
-      status,
-      created_at,
-      profiles (
-        full_name,
-        email
-      )
-    `)
-    .eq("status", "Pending")
-
-  if (error) {
-    console.error("Error fetching pending operators:", error)
-    return []
-  }
-  return data
-}
-
 // --- FUNZIONI DI SCRITTURA ---
 
-export async function updateOperatorProfile(operatorId: string, formData: z.infer<typeof operatorProfileSchema>) {
+export async function updateOperatorProfile(operatorId: string, formData: FormData) {
   const supabase = createSupabaseServerClient()
 
-  const validatedData = operatorProfileSchema.safeParse(formData)
-  if (!validatedData.success) {
-    return { success: false, error: validatedData.error.flatten() }
+  const profileData = {
+    full_name: formData.get("name") as string,
+    stage_name: formData.get("stage_name") as string,
+    phone: formData.get("phone") as string,
+    bio: formData.get("description") as string,
+    status: formData.get("status") as "Attivo" | "In Attesa" | "Sospeso",
   }
 
-  const { full_name, email, specialties, bio, status } = validatedData.data
-
-  // Update profiles table
-  const { error: profileError } = await supabase.from("profiles").update({ full_name, email }).eq("id", operatorId)
-
-  if (profileError) {
-    console.error("Error updating profile:", profileError)
-    return { success: false, error: { formErrors: [profileError.message], fieldErrors: {} } }
+  try {
+    const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
+    if (error) throw error
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+    return { success: true, message: "Profilo operatore aggiornato con successo." }
+  } catch (error: any) {
+    return { success: false, message: `Errore nell'aggiornamento del profilo: ${error.message}` }
   }
-
-  // Update operator_details table
-  const { error: detailsError } = await supabase
-    .from("operator_details")
-    .update({ specialties, bio, status })
-    .eq("user_id", operatorId)
-
-  if (detailsError) {
-    console.error("Error updating operator details:", detailsError)
-    return { success: false, error: { formErrors: [detailsError.message], fieldErrors: {} } }
-  }
-
-  revalidatePath("/admin/operators")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: true, error: null }
 }
 
 export async function updateOperatorCommission(operatorId: string, formData: FormData) {
@@ -288,38 +259,19 @@ export async function updateOperatorCommission(operatorId: string, formData: For
   }
 }
 
-const OperatorStatusSchema = z.object({
-  operatorId: z.string().uuid(),
-  status: z.enum(["Pending", "Approved", "Rejected"]),
-})
-
-export async function updateOperatorStatus(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-
-  const validatedFields = OperatorStatusSchema.safeParse({
-    operatorId: formData.get("operatorId"),
-    status: formData.get("status"),
-  })
-
-  if (!validatedFields.success) {
-    return {
-      error: "Invalid data provided.",
-    }
-  }
-
-  const { operatorId, status } = validatedFields.data
-
-  const { error } = await supabase.from("operator_applications").update({ status: status }).eq("id", operatorId)
+export async function updateOperatorAvailability(userId: string, availability: any) {
+  const supabase = createSupabaseServerClient()
+  const { data, error } = await supabase.from("profiles").update({ availability }).eq("id", userId).select().single()
 
   if (error) {
-    console.error("Error updating operator status:", error)
-    return {
-      error: "Could not update operator status.",
-    }
+    console.error("Error updating availability:", error)
+    return { error: "Impossibile aggiornare la disponibilità." }
   }
 
-  revalidatePath("/admin/operator-approvals")
-  return {
-    success: "Operator status updated successfully.",
+  if (data.stage_name) {
+    revalidatePath(`/operator/${data.stage_name}`)
   }
+  revalidatePath("/(platform)/dashboard/operator/availability")
+
+  return { data }
 }
