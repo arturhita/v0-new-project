@@ -258,20 +258,3 @@ export async function updateOperatorCommission(operatorId: string, formData: For
     return { success: false, message: `Errore nell'aggiornamento della commissione: ${error.message}` }
   }
 }
-
-export async function updateOperatorAvailability(userId: string, availability: any) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").update({ availability }).eq("id", userId).select().single()
-
-  if (error) {
-    console.error("Error updating availability:", error)
-    return { error: "Impossibile aggiornare la disponibilità." }
-  }
-
-  if (data.stage_name) {
-    revalidatePath(`/operator/${data.stage_name}`)
-  }
-  revalidatePath("/(platform)/dashboard/operator/availability")
-
-  return { data }
-}

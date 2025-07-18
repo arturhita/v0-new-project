@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CreatePromotionModal } from "@/components/create-promotion-modal"
 import type { Promotion } from "@/lib/actions/promotions.actions"
-import { Plus, Edit, Trash2, Target, Zap, Loader2 } from 'lucide-react'
+import { Plus, Edit, Trash2, Target, Zap, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import * as promotionActions from "@/lib/actions/promotions.actions"
 import { DashboardLayout } from "@/components/dashboard-layout"

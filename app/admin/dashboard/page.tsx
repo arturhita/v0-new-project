@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Briefcase, BarChart, CircleDollarSign } from 'lucide-react'
+import { Users, Briefcase, BarChart, CircleDollarSign } from "lucide-react"
 import { getDashboardStats } from "@/lib/actions/analytics.actions"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import Link from "next/link"

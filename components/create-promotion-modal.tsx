@@ -3,11 +3,17 @@
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import type { Promotion } from "@/lib/actions/promotions.actions"
 import { createPromotion, updatePromotion } from "@/lib/actions/promotions.actions"
@@ -84,7 +90,16 @@ export function CreatePromotionModal({ isOpen, onClose, promotion, onSuccess }: 
           is_active: promotion.is_active,
         })
       } else {
-        reset()
+        reset({
+          title: "",
+          description: "",
+          special_price: 0,
+          original_price: 0,
+          start_date: "",
+          end_date: "",
+          valid_days: [],
+          is_active: true,
+        })
       }
     }
   }, [promotion, reset, isOpen])
@@ -94,9 +109,7 @@ export function CreatePromotionModal({ isOpen, onClose, promotion, onSuccess }: 
 
     const promotionData = { ...data, discount_percentage: discountPercentage }
 
-    const result = promotion
-      ? await updatePromotion(promotion.id, promotionData)
-      : await createPromotion(promotionData)
+    const result = promotion ? await updatePromotion(promotion.id, promotionData) : await createPromotion(promotionData)
 
     if (result.success) {
       toast.success(promotion ? "Promozione aggiornata!" : "Promozione creata!")
@@ -183,9 +196,7 @@ export function CreatePromotionModal({ isOpen, onClose, promotion, onSuccess }: 
             <Controller
               name="is_active"
               control={control}
-              render={({ field }) => (
-                <Checkbox id="is_active" checked={field.value} onCheckedChange={field.onChange} />
-              )}
+              render={({ field }) => <Checkbox id="is_active" checked={field.value} onCheckedChange={field.onChange} />}
             />
             <Label htmlFor="is_active">Attiva questa promozione</Label>
           </div>

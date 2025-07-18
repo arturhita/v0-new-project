@@ -17,5 +17,15 @@ export async function getDashboardStats() {
   }
 
   // La funzione RPC restituisce un array con un singolo oggetto
-  return { data: data[0], error: null }
+  const stats = data && data.length > 0 ? data[0] : null
+
+  return {
+    data: {
+      totalUsers: stats?.total_users ?? 0,
+      totalOperators: stats?.total_operators ?? 0,
+      totalRevenue: stats?.total_revenue ?? 0,
+      totalConsultations: stats?.total_consultations ?? 0,
+    },
+    error: null,
+  }
 }
