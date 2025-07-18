@@ -1,5 +1,5 @@
-import { getInvoicesWithDetails } from "@/lib/actions/invoice.actions"
-import InvoicesClientPage from "./invoices-client-page"
+import { getInvoices } from "@/lib/actions/invoice.actions"
+import { InvoicesClientPage } from "./invoices-client-page"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -7,7 +7,11 @@ import { format } from "date-fns"
 import { it } from "date-fns/locale"
 
 export default async function InvoicesPage() {
-  const invoices = await getInvoicesWithDetails()
+  const { data: invoices, error } = await getInvoices()
+
+  if (error) {
+    return <div className="p-8 text-red-500">{error}</div>
+  }
 
   const getStatusVariant = (status: string | null) => {
     switch (status) {
@@ -29,7 +33,7 @@ export default async function InvoicesPage() {
           <h1 className="text-3xl font-bold">Gestione Fatture</h1>
           <p className="text-muted-foreground">Visualizza e crea fatture per clienti e operatori.</p>
         </div>
-        <InvoicesClientPage invoices={invoices} />
+        <InvoicesClientPage initialInvoices={invoices || []} />
       </div>
 
       <Card>
@@ -49,7 +53,7 @@ export default async function InvoicesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length > 0 ? (
+              {invoices && invoices.length > 0 ? (
                 invoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.invoice_number || "N/D"}</TableCell>

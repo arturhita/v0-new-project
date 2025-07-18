@@ -8,6 +8,7 @@ export async function getPromotions() {
   noStore()
   const supabase = createAdminClient()
   const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
+
   if (error) {
     console.error("Error fetching promotions:", error)
     return []
@@ -15,10 +16,10 @@ export async function getPromotions() {
   return data
 }
 
-export async function savePromotion(id: string | null, formData: FormData) {
+export async function createOrUpdatePromotion(formData: FormData) {
   const supabase = createAdminClient()
-
   const rawData = {
+    id: formData.get("id") as string | null,
     title: formData.get("title") as string,
     description: formData.get("description") as string,
     special_price: formData.get("special_price") ? Number(formData.get("special_price")) : null,
@@ -28,37 +29,30 @@ export async function savePromotion(id: string | null, formData: FormData) {
     is_active: formData.get("is_active") === "on",
   }
 
-  if (rawData.special_price === null && rawData.discount_percentage === null) {
-    return { error: "Devi specificare un prezzo speciale o una percentuale di sconto." }
-  }
-  if (rawData.special_price !== null && rawData.discount_percentage !== null) {
-    return { error: "Puoi specificare solo un prezzo speciale o una percentuale di sconto, non entrambi." }
-  }
+  const { id, ...updateData } = rawData
 
-  let error
   if (id) {
-    const { error: updateError } = await supabase.from("promotions").update(rawData).eq("id", id)
-    error = updateError
+    // Update existing promotion
+    const { error } = await supabase.from("promotions").update(updateData).eq("id", id)
+    if (error) return { error: `Errore durante l'aggiornamento della promozione: ${error.message}` }
   } else {
-    const { error: insertError } = await supabase.from("promotions").insert([rawData])
-    error = insertError
-  }
-
-  if (error) {
-    console.error("Error saving promotion:", error)
-    return { error: "Impossibile salvare la promozione." }
+    // Create new promotion
+    const { error } = await supabase.from("promotions").insert(updateData)
+    if (error) return { error: `Errore durante la creazione della promozione: ${error.message}` }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: `Promozione ${id ? "aggiornata" : "creata"} con successo.` }
+  return { success: "Promozione salvata con successo." }
 }
 
 export async function deletePromotion(id: string) {
   const supabase = createAdminClient()
   const { error } = await supabase.from("promotions").delete().eq("id", id)
+
   if (error) {
-    return { error: "Impossibile eliminare la promozione." }
+    return { error: `Errore durante l'eliminazione della promozione: ${error.message}` }
   }
+
   revalidatePath("/admin/promotions")
   return { success: "Promozione eliminata con successo." }
 }

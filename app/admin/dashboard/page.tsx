@@ -1,57 +1,60 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, UserCheck, UserPlus, TrendingUp, Euro } from "lucide-react"
 import { getAdminDashboardStats } from "@/lib/actions/dashboard.actions"
-
-const StatCard = ({ title, value, icon: Icon, description }) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      <Icon className="h-4 w-4 text-muted-foreground" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{value}</div>
-      <p className="text-xs text-muted-foreground">{description}</p>
-    </CardContent>
-  </Card>
-)
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Users, UserCheck, DollarSign, TrendingUp } from "lucide-react"
 
 export default async function AdminDashboardPage() {
   const stats = await getAdminDashboardStats()
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Cruscotto Amministratore</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <StatCard
-          title="Utenti Totali"
-          value={stats.total_users}
-          icon={Users}
-          description="Numero totale di clienti registrati."
-        />
-        <StatCard
-          title="Operatori Attivi"
-          value={stats.total_operators}
-          icon={UserCheck}
-          description="Numero totale di operatori approvati."
-        />
-        <StatCard
-          title="Approvazioni Pendenti"
-          value={stats.pending_operators}
-          icon={UserPlus}
-          description="Operatori in attesa di approvazione."
-        />
-        <StatCard
-          title="Fatturato Mensile"
-          value={new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(stats.monthly_revenue)}
-          icon={TrendingUp}
-          description="Fatturato generato nel mese corrente."
-        />
-        <StatCard
-          title="Fatturato Totale"
-          value={new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(stats.total_revenue)}
-          icon={Euro}
-          description="Fatturato totale generato."
-        />
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard Amministrazione</h2>
+      </div>
+      {stats.error && <p className="text-red-500">{stats.error}</p>}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Utenti Totali</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total_users ?? 0}</div>
+            <p className="text-xs text-muted-foreground">Clienti registrati sulla piattaforma</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Operatori Attivi</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total_operators ?? 0}</div>
+            <p className="text-xs text-muted-foreground">Operatori approvati e attivi</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Fatturato Totale</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">€{Number(stats.total_revenue ?? 0).toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Dall'inizio dell'attività</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Fatturato Mensile</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">€{Number(stats.monthly_revenue ?? 0).toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Fatturato del mese corrente</p>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {/* Qui andranno altri componenti, come grafici o liste recenti */}
       </div>
     </div>
   )

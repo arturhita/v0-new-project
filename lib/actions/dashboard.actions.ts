@@ -16,9 +16,9 @@ export async function getAdminDashboardStats() {
       pending_operators: 0,
       total_revenue: 0,
       monthly_revenue: 0,
+      error: "Impossibile caricare le statistiche.",
     }
   }
 
-  // The RPC function returns a single object in an array
   return data[0]
 }

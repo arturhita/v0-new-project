@@ -7,7 +7,6 @@ import { unstable_noStore as noStore } from "next/cache"
 export async function getPayoutRequests() {
   noStore()
   const supabase = createAdminClient()
-  // The SQL script now guarantees the relationship exists and is correct.
   const { data, error } = await supabase
     .from("payout_requests")
     .select(

@@ -1,74 +1,70 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getPayoutRequests } from "@/lib/actions/payouts.actions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { getPayoutRequests } from "@/lib/actions/payouts.actions"
+import { PayoutActions } from "./payout-actions"
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
-import { PayoutActions } from "./payout-actions"
 
 export default async function PayoutsPage() {
   const { data: requests, error } = await getPayoutRequests()
 
   if (error) {
-    return <div className="p-4 text-red-500">{error}</div>
+    return <div className="p-8 text-red-500">{error}</div>
   }
 
-  const getStatusVariant = (status: string) => {
+  const getBadgeVariant = (status: string) => {
     switch (status) {
-      case "pending":
-        return "secondary"
       case "approved":
-        return "default"
+        return "success"
       case "rejected":
         return "destructive"
+      case "pending":
       default:
-        return "outline"
+        return "secondary"
     }
   }
 
   return (
-    <div className="p-4 md:p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Richieste di Pagamento</CardTitle>
-          <CardDescription>Approva o rifiuta le richieste di pagamento inviate dagli operatori.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!requests || requests.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nessuna richiesta di pagamento trovata.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Operatore</TableHead>
-                  <TableHead>Importo</TableHead>
-                  <TableHead>Data Richiesta</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Richieste di Pagamento</h1>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Operatore</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead className="text-right">Importo</TableHead>
+              <TableHead>Data Richiesta</TableHead>
+              <TableHead>Stato</TableHead>
+              <TableHead className="text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {requests && requests.length > 0 ? (
+              requests.map((req) => (
+                <TableRow key={req.id}>
+                  <TableCell className="font-medium">{req.profiles?.full_name ?? "N/A"}</TableCell>
+                  <TableCell>{req.profiles?.email ?? "N/A"}</TableCell>
+                  <TableCell className="text-right">€{Number(req.amount).toFixed(2)}</TableCell>
+                  <TableCell>{format(new Date(req.created_at), "d MMM yyyy, HH:mm", { locale: it })}</TableCell>
+                  <TableCell>
+                    <Badge variant={getBadgeVariant(req.status)}>{req.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <PayoutActions requestId={req.id} currentStatus={req.status} />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell>
-                      <div className="font-medium">{req.profiles?.full_name ?? "N/D"}</div>
-                      <div className="text-sm text-muted-foreground">{req.profiles?.email ?? ""}</div>
-                    </TableCell>
-                    <TableCell>€{req.amount.toFixed(2)}</TableCell>
-                    <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy HH:mm", { locale: it })}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <PayoutActions request={req as any} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center">
+                  Nessuna richiesta di pagamento trovata.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
