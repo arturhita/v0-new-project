@@ -1,74 +1,44 @@
-import { getOperatorsByCategory } from "@/lib/actions/data.actions"
-import EspertiClientPage from "./EspertiClientPage"
-import type { Operator } from "@/components/operator-card"
+import { getOperatorsForShowcase } from "@/lib/actions/data.actions"
+import { OperatorCard } from "@/components/operator-card"
+import { ConstellationBackground } from "@/components/constellation-background"
+import { notFound } from "next/navigation"
 
-// Helper per ottenere i dettagli della categoria in base allo slug dell'URL
-const getCategoryDetails = (slug: string) => {
-  const decodedSlug = decodeURIComponent(slug)
-  const details: { [key: string]: { title: string; description: string; searchKeywords: string[] } } = {
-    cartomanzia: {
-      title: "Esperti di Cartomanzia",
-      description:
-        "Svela i segreti del tuo destino con i nostri esperti cartomanti. Letture di tarocchi, sibille e carte per offrirti chiarezza e guida.",
-      searchKeywords: ["cartomanzia", "tarocchi", "cartomante", "sibilla", "sibille"],
-    },
-    astrologia: {
-      title: "Esperti di Astrologia",
-      description:
-        "Interpreta il linguaggio delle stelle. I nostri astrologi creano carte natali, analizzano transiti e svelano l'influenza dei pianeti sulla tua vita.",
-      searchKeywords: ["astrologia", "astrologo", "oroscopi", "tema natale"],
-    },
-    numerologia: {
-      title: "Esperti di Numerologia",
-      description:
-        "Scopri il potere nascosto nei numeri. I nostri numerologi analizzano le vibrazioni numeriche legate al tuo nome e alla tua data di nascita.",
-      searchKeywords: ["numerologia", "numerologo"],
-    },
-    canalizzazione: {
-      title: "Esperti di Canalizzazione",
-      description:
-        "Connettiti con guide spirituali e energie superiori. I nostri canalizzatori fungono da ponte per ricevere messaggi illuminanti per il tuo cammino.",
-      searchKeywords: ["canalizzazione", "canalizzatrice", "angeli", "spirituale"],
-    },
-    "guarigione-energetica": {
-      title: "Esperti di Guarigione Energetica",
-      description:
-        "Riequilibra i tuoi chakra e armonizza la tua energia vitale. Sessioni di guarigione per il benessere di corpo, mente e spirito.",
-      searchKeywords: ["guarigione energetica", "energia", "chakra", "benessere", "guaritore"],
-    },
-    rune: {
-      title: "Esperti di Rune",
-      description:
-        "Interroga gli antichi simboli nordici. I nostri esperti di rune ti guideranno attraverso la saggezza e i misteri delle rune.",
-      searchKeywords: ["rune"],
-    },
-    cristalloterapia: {
-      title: "Esperti di Cristalloterapia",
-      description:
-        "Sfrutta il potere curativo di cristalli e pietre. I nostri esperti ti aiuteranno a scegliere e utilizzare i cristalli per il tuo benessere.",
-      searchKeywords: ["cristalloterapia", "cristalli"],
-    },
-    medianita: {
-      title: "Esperti di Medianità",
-      description:
-        "Comunica con il mondo spirituale in un ambiente sicuro e protetto. I nostri medium offrono conforto e messaggi dai tuoi cari.",
-      searchKeywords: ["medianità", "medium"],
-    },
+type EspertiCategoriaPageProps = {
+  params: {
+    categoria: string
   }
-  return (
-    details[decodedSlug] || {
-      title: `Esperti di ${decodedSlug}`,
-      description: "Trova l'esperto giusto per te.",
-      searchKeywords: [decodedSlug],
-    }
-  )
 }
 
-// Questo è un Server Component che recupera i dati
-export default async function CategoriaPage({ params }: { params: { categoria: string } }) {
-  // Recupera i dati sul server
-  const operators: Operator[] = await getOperatorsByCategory(params.categoria)
+export default async function EspertiCategoriaPage({ params }: EspertiCategoriaPageProps) {
+  const categoryName = decodeURIComponent(params.categoria)
+  const operators = await getOperatorsForShowcase({ category: categoryName })
 
-  // Passa i dati recuperati come prop al Client Component
-  return <EspertiClientPage initialOperators={operators} params={params} />
+  if (!operators) {
+    notFound()
+  }
+
+  return (
+    <div className="relative text-white min-h-screen">
+      <ConstellationBackground />
+      <div className="relative container mx-auto px-4 py-12 z-10">
+        <h1 className="text-4xl font-bold text-center mb-2 capitalize">Esperti in {categoryName.replace(/-/g, " ")}</h1>
+        <p className="text-center text-slate-300 mb-12">Trova la guida perfetta per te tra i nostri specialisti.</p>
+
+        {operators.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {operators.map((operator) => (
+              <OperatorCard key={operator.id} operator={operator} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-indigo-900/50 rounded-2xl">
+            <p className="text-xl text-slate-300">
+              Al momento non ci sono esperti disponibili per la categoria "{categoryName}".
+            </p>
+            <p className="text-slate-400 mt-2">Ti invitiamo a esplorare le altre nostre categorie.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
