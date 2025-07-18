@@ -56,7 +56,6 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
-      {/* Qui si possono aggiungere altri componenti, come grafici o tabelle di attività recenti */}
     </div>
   )
 }

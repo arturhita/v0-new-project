@@ -2,8 +2,10 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { unstable_noStore as noStore } from "next/cache"
 
-export async function getCommissionRequests() {
+export async function getCommissionIncreaseRequests() {
+  noStore()
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("commission_increase_requests")
@@ -17,54 +19,51 @@ export async function getCommissionRequests() {
       created_at,
       operator:profiles (
         id,
-        username,
-        full_name
+        full_name,
+        email
       )
     `,
     )
-    .eq("status", "pending")
     .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching commission requests:", error)
-    throw new Error("Impossibile caricare le richieste di commissione.")
+    return { error: `Impossibile caricare le richieste: ${error.message}` }
   }
-  return data
+  return { data }
 }
 
 export async function updateCommissionRequestStatus(
   requestId: string,
-  operatorId: string,
-  newRate: number,
   newStatus: "approved" | "rejected",
+  operatorId?: string,
+  newRate?: number,
 ) {
   const supabase = createAdminClient()
 
-  // Step 1: Update the request status
-  const { error: requestError } = await supabase
-    .from("commission_increase_requests")
-    .update({ status: newStatus, processed_at: new Date().toISOString() })
-    .eq("id", requestId)
-
-  if (requestError) {
-    console.error("Error updating commission request:", requestError)
-    return { error: "Impossibile aggiornare la richiesta." }
-  }
-
-  // Step 2: If approved, update the operator's profile
   if (newStatus === "approved") {
+    if (!operatorId || newRate === undefined) {
+      return { error: "Dati mancanti per approvare la richiesta." }
+    }
     const { error: profileError } = await supabase
       .from("profiles")
       .update({ commission_rate: newRate })
       .eq("id", operatorId)
 
     if (profileError) {
-      console.error("Error updating operator commission rate:", profileError)
-      // Potentially roll back the request status update here
-      return { error: "Impossibile aggiornare il profilo dell'operatore." }
+      return { error: `Impossibile aggiornare la commissione dell'operatore: ${profileError.message}` }
     }
   }
 
+  const { error } = await supabase
+    .from("commission_increase_requests")
+    .update({ status: newStatus, processed_at: new Date().toISOString() })
+    .eq("id", requestId)
+
+  if (error) {
+    return { error: "Impossibile aggiornare lo stato della richiesta." }
+  }
+
   revalidatePath("/admin/commission-requests")
-  return { success: true }
+  return { success: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"} con successo.` }
 }

@@ -2,42 +2,30 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
-
-const NotificationSchema = z.object({
-  title: z.string().min(1, "Il titolo è obbligatorio."),
-  message: z.string().min(1, "Il messaggio è obbligatorio."),
-  target_role: z.enum(["all", "client", "operator"]),
-})
 
 export async function sendBroadcastNotification(formData: FormData) {
   const supabase = createAdminClient()
-  const rawData = Object.fromEntries(formData.entries())
+  const title = formData.get("title") as string
+  const message = formData.get("message") as string
+  const targetRole = formData.get("target_role") as "all" | "client" | "operator"
 
-  const validation = NotificationSchema.safeParse(rawData)
-
-  if (!validation.success) {
-    return {
-      error: "Dati non validi.",
-      fieldErrors: validation.error.flatten().fieldErrors,
-    }
+  if (!title || !message) {
+    return { error: "Titolo e messaggio sono obbligatori." }
   }
-
-  const { title, message, target_role } = validation.data
 
   const { error } = await supabase.rpc("send_broadcast_notification", {
     p_title: title,
     p_message: message,
-    p_target_role: target_role,
+    p_target_role: targetRole,
   })
 
   if (error) {
-    console.error("Error sending notification:", error)
+    console.error("Error sending broadcast notification:", error)
     return { error: "Impossibile inviare la notifica." }
   }
 
   revalidatePath("/admin/notifications")
-  return { success: true }
+  return { success: "Notifica broadcast registrata con successo." }
 }
 
 export async function getBroadcastNotifications() {
@@ -50,7 +38,7 @@ export async function getBroadcastNotifications() {
 
   if (error) {
     console.error("Error fetching notifications:", error)
-    throw new Error("Impossibile caricare le notifiche.")
+    return []
   }
   return data
 }

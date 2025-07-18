@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useTransition } from "react"
 import {
   Dialog,
@@ -16,13 +15,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { deletePromotion, savePromotion } from "@/lib/actions/promotions.actions"
-import { toast } from "sonner"
-import type { getPromotions } from "@/lib/actions/promotions.actions"
+import { Switch } from "@/components/ui/switch"
+import { savePromotion, deletePromotion } from "@/lib/actions/promotions.actions"
+import { useToast } from "@/components/ui/use-toast"
 import { Trash2 } from "lucide-react"
 
-type Promotion = Awaited<ReturnType<typeof getPromotions>>[0]
+type Promotion = {
+  id: string
+  title: string
+  description: string | null
+  special_price: number | null
+  discount_percentage: number | null
+  start_date: string
+  end_date: string
+  is_active: boolean
+}
 
 interface PromotionFormModalProps {
   children: React.ReactNode
@@ -30,140 +37,123 @@ interface PromotionFormModalProps {
 }
 
 export function PromotionFormModal({ children, promotion }: PromotionFormModalProps) {
-  const [open, setOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [isDeleting, startDeleteTransition] = useTransition()
+  const { toast } = useToast()
+  const isEditMode = !!promotion
 
-  const handleSubmit = (formData: FormData) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    if (isEditMode) {
+      formData.append("id", promotion.id)
+    }
+
     startTransition(async () => {
-      if (promotion?.id) {
-        formData.append("id", promotion.id)
-      }
       const result = await savePromotion(formData)
       if (result.error) {
-        toast.error(result.error)
+        toast({ title: "Errore", description: result.error, variant: "destructive" })
       } else {
-        toast.success(`Promozione ${promotion?.id ? "aggiornata" : "creata"} con successo!`)
-        setOpen(false)
+        toast({ title: "Successo!", description: "Promozione salvata con successo." })
+        setIsOpen(false)
       }
     })
   }
 
-  const handleDelete = () => {
-    if (!promotion) return
+  const handleDelete = async () => {
+    if (!isEditMode) return
     startDeleteTransition(async () => {
       const result = await deletePromotion(promotion.id)
       if (result.error) {
-        toast.error(result.error)
+        toast({ title: "Errore", description: result.error, variant: "destructive" })
       } else {
-        toast.success("Promozione eliminata con successo!")
-        setOpen(false)
+        toast({ title: "Successo!", description: "Promozione eliminata." })
+        setIsOpen(false)
       }
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <form action={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{promotion ? "Modifica Promozione" : "Crea Nuova Promozione"}</DialogTitle>
-            <DialogDescription>
-              Le promozioni si applicano globalmente a tutti gli operatori per il periodo specificato.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">
-                Titolo
-              </Label>
-              <Input id="title" name="title" defaultValue={promotion?.title} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Descrizione
-              </Label>
-              <Textarea
-                id="description"
-                name="description"
-                defaultValue={promotion?.description || ""}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="special_price" className="text-right">
-                Prezzo Speciale (€)
-              </Label>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{isEditMode ? "Modifica Promozione" : "Crea Nuova Promozione"}</DialogTitle>
+          <DialogDescription>
+            Le promozioni globali si applicano a tutti gli operatori. Imposta un prezzo speciale o uno sconto
+            percentuale.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="title">Titolo</Label>
+            <Input id="title" name="title" defaultValue={promotion?.title} required />
+          </div>
+          <div>
+            <Label htmlFor="description">Descrizione</Label>
+            <Textarea id="description" name="description" defaultValue={promotion?.description ?? ""} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="special_price">Prezzo Speciale (€)</Label>
               <Input
                 id="special_price"
                 name="special_price"
                 type="number"
                 step="0.01"
-                defaultValue={promotion?.special_price || ""}
-                className="col-span-3"
-                placeholder="Es. 1.50"
+                defaultValue={promotion?.special_price ?? ""}
+                placeholder="Es. 0.89"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="discount_percentage" className="text-right">
-                Sconto (%)
-              </Label>
+            <div>
+              <Label htmlFor="discount_percentage">Sconto (%)</Label>
               <Input
                 id="discount_percentage"
                 name="discount_percentage"
                 type="number"
-                step="1"
-                defaultValue={promotion?.discount_percentage || ""}
-                className="col-span-3"
-                placeholder="Es. 10 (per 10%)"
+                defaultValue={promotion?.discount_percentage ?? ""}
+                placeholder="Es. 10"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="start_date" className="text-right">
-                Data Inizio
-              </Label>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="start_date">Inizio</Label>
               <Input
                 id="start_date"
                 name="start_date"
                 type="datetime-local"
-                defaultValue={promotion?.start_date ? new Date(promotion.start_date).toISOString().slice(0, 16) : ""}
-                className="col-span-3"
+                defaultValue={promotion?.start_date ? promotion.start_date.slice(0, 16) : ""}
                 required
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="end_date" className="text-right">
-                Data Fine
-              </Label>
+            <div>
+              <Label htmlFor="end_date">Fine</Label>
               <Input
                 id="end_date"
                 name="end_date"
                 type="datetime-local"
-                defaultValue={promotion?.end_date ? new Date(promotion.end_date).toISOString().slice(0, 16) : ""}
-                className="col-span-3"
+                defaultValue={promotion?.end_date ? promotion.end_date.slice(0, 16) : ""}
                 required
               />
             </div>
-            <div className="flex items-center space-x-2 col-start-2 col-span-3">
-              <Checkbox id="is_active" name="is_active" defaultChecked={promotion?.is_active ?? true} />
-              <label
-                htmlFor="is_active"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Attiva
-              </label>
-            </div>
           </div>
-          <DialogFooter className="sm:justify-between">
-            {promotion && (
-              <Button type="button" variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                {isDeleting ? "Eliminazione..." : "Elimina"}
-              </Button>
-            )}
+          <div className="flex items-center space-x-2">
+            <Switch id="is_active" name="is_active" defaultChecked={promotion?.is_active ?? true} />
+            <Label htmlFor="is_active">Promozione Attiva</Label>
+          </div>
+          <DialogFooter className="flex justify-between mt-4">
+            <div>
+              {isEditMode && (
+                <Button type="button" variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isDeleting ? "Eliminazione..." : "Elimina"}
+                </Button>
+              )}
+            </div>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Salvataggio..." : "Salva"}
+              {isPending ? "Salvataggio..." : "Salva Promozione"}
             </Button>
           </DialogFooter>
         </form>

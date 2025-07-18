@@ -6,11 +6,11 @@ import { z } from "zod"
 
 const PromotionSchema = z
   .object({
-    id: z.string().uuid().optional(),
+    id: z.string().uuid().optional().nullable(),
     title: z.string().min(1, "Il titolo è obbligatorio."),
     description: z.string().optional(),
-    special_price: z.coerce.number().positive().optional(),
-    discount_percentage: z.coerce.number().int().min(1).max(100).optional(),
+    special_price: z.coerce.number().positive("Il prezzo deve essere positivo.").optional().nullable(),
+    discount_percentage: z.coerce.number().int().min(1).max(100).optional().nullable(),
     start_date: z.string().min(1, "La data di inizio è obbligatoria."),
     end_date: z.string().min(1, "La data di fine è obbligatoria."),
     is_active: z.boolean(),
@@ -19,34 +19,28 @@ const PromotionSchema = z
     message: "Devi specificare un prezzo speciale o una percentuale di sconto.",
     path: ["special_price"],
   })
-
-export async function getPromotions() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching promotions:", error)
-    throw new Error("Impossibile caricare le promozioni.")
-  }
-  return data
-}
+  .refine((data) => !(data.special_price != null && data.discount_percentage != null), {
+    message: "Non puoi specificare sia un prezzo speciale che uno sconto.",
+    path: ["special_price"],
+  })
 
 export async function savePromotion(formData: FormData) {
   const supabase = createAdminClient()
 
-  const rawData = Object.fromEntries(formData.entries())
-
-  // Convert checkbox value
-  rawData.is_active = rawData.is_active === "on"
-
-  // Clean up empty values for validation
-  if (rawData.special_price === "") delete rawData.special_price
-  if (rawData.discount_percentage === "") delete rawData.discount_percentage
+  const rawData = {
+    id: formData.get("id") || null,
+    title: formData.get("title"),
+    description: formData.get("description"),
+    special_price: formData.get("special_price"),
+    discount_percentage: formData.get("discount_percentage"),
+    start_date: formData.get("start_date"),
+    end_date: formData.get("end_date"),
+    is_active: formData.get("is_active") === "on",
+  }
 
   const validation = PromotionSchema.safeParse(rawData)
 
   if (!validation.success) {
-    console.error("Validation errors:", validation.error.flatten().fieldErrors)
     return {
       error: "Dati non validi.",
       fieldErrors: validation.error.flatten().fieldErrors,
@@ -55,41 +49,22 @@ export async function savePromotion(formData: FormData) {
 
   const { id, ...promoData } = validation.data
 
-  const dataToUpsert = {
-    ...promoData,
-    special_price: promoData.special_price || null,
-    discount_percentage: promoData.discount_percentage || null,
-  }
-
   if (id) {
-    // Update
-    const { error } = await supabase.from("promotions").update(dataToUpsert).eq("id", id)
-    if (error) {
-      console.error("Error updating promotion:", error)
-      return { error: "Impossibile aggiornare la promozione." }
-    }
+    const { error } = await supabase.from("promotions").update(promoData).eq("id", id)
+    if (error) return { error: "Impossibile aggiornare la promozione." }
   } else {
-    // Create
-    const { error } = await supabase.from("promotions").insert(dataToUpsert)
-    if (error) {
-      console.error("Error creating promotion:", error)
-      return { error: "Impossibile creare la promozione." }
-    }
+    const { error } = await supabase.from("promotions").insert(promoData)
+    if (error) return { error: "Impossibile creare la promozione." }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: true }
+  return { success: "Promozione salvata con successo." }
 }
 
 export async function deletePromotion(id: string) {
   const supabase = createAdminClient()
   const { error } = await supabase.from("promotions").delete().eq("id", id)
-
-  if (error) {
-    console.error("Error deleting promotion:", error)
-    return { error: "Impossibile eliminare la promozione." }
-  }
-
+  if (error) return { error: "Impossibile eliminare la promozione." }
   revalidatePath("/admin/promotions")
-  return { success: true }
+  return { success: "Promozione eliminata con successo." }
 }

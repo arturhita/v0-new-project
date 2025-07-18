@@ -1,81 +1,50 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
 import { useTransition } from "react"
+import { Button } from "@/components/ui/button"
+import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
 import { useToast } from "@/components/ui/use-toast"
+import { Check, X } from "lucide-react"
 
-type CommissionRequest = {
+type Request = {
   id: string
-  justification: string | null
-  status: string
+  operator: { id: string }
+  requested_rate: number
 }
 
-export function CommissionRequestActions({ request }: { request: CommissionRequest }) {
+interface CommissionRequestActionsProps {
+  request: Request
+}
+
+export function CommissionRequestActions({ request }: CommissionRequestActionsProps) {
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
 
   const handleAction = (status: "approved" | "rejected") => {
     startTransition(async () => {
-      const result = await updateCommissionRequestStatus(request.id, status)
-      if (result.success) {
-        toast({
-          title: "Successo!",
-          description: result.success,
-        })
+      const result = await updateCommissionRequestStatus(
+        request.id,
+        status,
+        request.operator.id,
+        request.requested_rate,
+      )
+      if (result.error) {
+        toast({ title: "Errore", description: result.error, variant: "destructive" })
       } else {
-        toast({
-          title: "Errore",
-          description: result.error,
-          variant: "destructive",
-        })
+        toast({ title: "Successo", description: `Richiesta ${status === "approved" ? "approvata" : "rifiutata"}.` })
       }
     })
   }
 
-  if (request.status !== "pending") {
-    return <span className="text-sm text-muted-foreground">Elaborata</span>
-  }
-
   return (
-    <div className="flex gap-2">
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button size="sm" variant="outline">
-            Dettagli
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Dettagli Richiesta</AlertDialogTitle>
-            <AlertDialogDescription>
-              <p className="mt-4">
-                <strong>Motivazione:</strong>
-              </p>
-              <p>{request.justification || "Nessuna motivazione fornita."}</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Chiudi</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Button size="sm" variant="default" onClick={() => handleAction("approved")} disabled={isPending}>
-        {isPending ? "Approvo..." : "Approva"}
+    <div className="flex gap-2 justify-end">
+      <Button size="sm" variant="outline" onClick={() => handleAction("approved")} disabled={isPending}>
+        <Check className="h-4 w-4 mr-2" />
+        Approva
       </Button>
       <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isPending}>
-        {isPending ? "Rifiuto..." : "Rifiuta"}
+        <X className="h-4 w-4 mr-2" />
+        Rifiuta
       </Button>
     </div>
   )

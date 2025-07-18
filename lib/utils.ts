@@ -1,31 +1,13 @@
-import { clsx, type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function getInitials(name: string | null | undefined): string {
-  if (!name) {
-    return "??"
-  }
-
-  // Se è un'email, prende la prima lettera
-  if (name.includes("@")) {
-    return name[0].toUpperCase()
-  }
-
-  const nameParts = name.trim().split(/\s+/).filter(Boolean)
-
-  if (nameParts.length === 0) {
-    return "??"
-  }
-
-  if (nameParts.length === 1) {
-    // Ritorna le prime due lettere se è una parola singola
-    return nameParts[0].length > 1 ? nameParts[0].slice(0, 2).toUpperCase() : nameParts[0].toUpperCase()
-  }
-
-  // Ritorna l'iniziale del primo e dell'ultimo nome
-  return (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+export function getInitials(name = ""): string {
+  const words = name.split(" ").filter(Boolean)
+  if (words.length === 0) return "U"
+  if (words.length === 1) return words[0].charAt(0).toUpperCase()
+  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
 }

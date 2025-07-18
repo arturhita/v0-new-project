@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { sendBroadcastNotification } from "@/lib/actions/notifications.actions"
-import { toast } from "sonner"
+import { useToast } from "@/components/ui/use-toast"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,6 +20,7 @@ const formSchema = z.object({
 
 export function SendNotificationForm() {
   const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -38,9 +39,9 @@ export function SendNotificationForm() {
     startTransition(async () => {
       const result = await sendBroadcastNotification(formData)
       if (result.error) {
-        toast.error(result.error)
+        toast({ title: "Errore", description: result.error, variant: "destructive" })
       } else {
-        toast.success("Notifica inviata con successo!")
+        toast({ title: "Successo!", description: "Notifica inviata con successo." })
         form.reset()
       }
     })
