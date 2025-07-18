@@ -1,4 +1,4 @@
-import { getOperatorDetailsForAdmin } from "@/lib/actions/operator.actions"
+import { getOperatorById } from "@/lib/actions/operator.actions"
 import EditOperatorForm from "./edit-operator-form"
 import { notFound } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 export default async function EditOperatorPage({ params }: { params: { operatorId: string } }) {
-  const operator = await getOperatorDetailsForAdmin(params.operatorId)
+  const operator = await getOperatorById(params.operatorId)
 
   if (!operator) {
     notFound()

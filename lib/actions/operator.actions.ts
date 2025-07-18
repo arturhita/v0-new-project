@@ -22,12 +22,12 @@ export async function getOperatorsForAdmin() {
   return data
 }
 
-export async function getOperatorDetailsForAdmin(operatorId: string) {
+export async function getOperatorById(operatorId: string) {
   const supabase = createClient()
   const { data, error } = await supabase.from("operators").select("*").eq("id", operatorId).single()
 
   if (error) {
-    console.error("Error fetching operator details:", error)
+    console.error(`Error fetching operator by ID ${operatorId}:`, error)
     return null
   }
   return data
@@ -71,7 +71,6 @@ export async function getPendingOperatorApplications() {
 
 export async function approveOperatorApplication(applicationId: string) {
   const supabase = createClient()
-  // La funzione RPC 'approve_operator' gestisce la logica complessa di creazione utente, operatore, etc.
   const { error } = await supabase.rpc("approve_operator", { p_application_id: applicationId })
 
   if (error) {
