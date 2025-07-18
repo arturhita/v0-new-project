@@ -16,11 +16,23 @@ export default async function ManageSupportTicketsPage() {
       case "open":
         return <Badge variant="destructive">Aperto</Badge>
       case "in_progress":
-        return <Badge variant="outline" className="border-yellow-500 text-yellow-600">In Lavorazione</Badge>
+        return (
+          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+            In Lavorazione
+          </Badge>
+        )
       case "answered":
-        return <Badge variant="outline" className="border-blue-500 text-blue-600">Risposto</Badge>
+        return (
+          <Badge variant="outline" className="border-blue-500 text-blue-600">
+            Risposto
+          </Badge>
+        )
       case "closed":
-        return <Badge variant="default" className="bg-slate-500 text-white">Chiuso</Badge>
+        return (
+          <Badge variant="default" className="bg-slate-500 text-white">
+            Chiuso
+          </Badge>
+        )
       default:
         return <Badge>{status}</Badge>
     }

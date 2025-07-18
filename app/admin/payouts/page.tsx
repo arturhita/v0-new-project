@@ -13,11 +13,23 @@ export default async function ManagePayoutsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="border-yellow-500 text-yellow-600">In Attesa</Badge>
+        return (
+          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+            In Attesa
+          </Badge>
+        )
       case "processing":
-        return <Badge variant="outline" className="border-blue-500 text-blue-600">In Elaborazione</Badge>
+        return (
+          <Badge variant="outline" className="border-blue-500 text-blue-600">
+            In Elaborazione
+          </Badge>
+        )
       case "paid":
-        return <Badge variant="default" className="bg-emerald-500 text-white">Pagato</Badge>
+        return (
+          <Badge variant="default" className="bg-emerald-500 text-white">
+            Pagato
+          </Badge>
+        )
       case "rejected":
         return <Badge variant="destructive">Rifiutato</Badge>
       default:
@@ -31,6 +43,7 @@ export default async function ManagePayoutsPage() {
       <CardDescription className="text-slate-500 -mt-4">
         Visualizza, processa e gestisci le richieste di pagamento inviate dagli operatori.
       </CardDescription>
+
       <Card className="shadow-xl rounded-2xl">
         <CardHeader>
           <CardTitle className="text-xl text-slate-700 flex items-center">
