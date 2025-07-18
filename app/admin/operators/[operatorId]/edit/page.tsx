@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,25 +11,43 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Save, ArrowLeft, User, DollarSign, Settings } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { updateOperator, updateOperatorCommission, type Operator, getOperatorForEdit } from "@/lib/mock-data"
-import { notFound } from "next/navigation"
+import { getOperatorById, updateOperator, updateOperatorCommission, type Operator } from "@/lib/mock-data"
 
-const EditOperatorForm = ({
-  operator,
-  setOperator,
-}: { operator: Operator; setOperator: (operator: Operator) => void }) => {
-  const [commissionValue, setCommissionValue] = useState<number>(operator.commission || 0)
+export default function EditOperatorPage() {
+  const params = useParams()
   const router = useRouter()
+  const operatorId = params.operatorId as string
+
+  const [operator, setOperator] = useState<Operator | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [commissionValue, setCommissionValue] = useState<number>(0)
+
+  useEffect(() => {
+    // Carica dati operatore
+    setIsLoading(true)
+    setTimeout(() => {
+      const foundOperator = getOperatorById(operatorId)
+      if (foundOperator) {
+        setOperator(foundOperator)
+        // Estrai il valore numerico dalla commissione (es: "15%" -> 15)
+        const commissionNum = Number.parseInt(foundOperator.commission.replace("%", "")) || 0
+        setCommissionValue(commissionNum)
+      }
+      setIsLoading(false)
+    }, 500)
+  }, [operatorId])
 
   const handleSaveOperator = async () => {
+    if (!operator) return
+
     setIsSaving(true)
     try {
       // Simula salvataggio
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       // Aggiorna l'operatore nel storage condiviso
-      const success = updateOperator(operator.id, {
+      const success = updateOperator(operatorId, {
         name: operator.name,
         email: operator.email,
         phone: operator.phone,
@@ -61,20 +79,24 @@ const EditOperatorForm = ({
   }
 
   const handleUpdateCommission = async () => {
+    if (!operator) return
+
     setIsSaving(true)
     try {
       // Simula aggiornamento commissione
       await new Promise((resolve) => setTimeout(resolve, 800))
 
       // Aggiorna la commissione nel storage condiviso
-      const success = updateOperatorCommission(operator.id, commissionValue)
+      const success = updateOperatorCommission(operatorId, commissionValue)
 
       if (success) {
+        // Aggiorna lo stato locale
+        setOperator((prev) => (prev ? { ...prev, commission: `${commissionValue}%` } : null))
+
         toast({
           title: "Commissione aggiornata",
           description: `Commissione aggiornata a ${commissionValue}%`,
         })
-        setOperator({ ...operator, commission: commissionValue })
       } else {
         throw new Error("Errore nell'aggiornamento")
       }
@@ -89,7 +111,24 @@ const EditOperatorForm = ({
   }
 
   const handleInputChange = (field: keyof Operator, value: string | number | boolean) => {
+    if (!operator) return
     setOperator((prev) => (prev ? { ...prev, [field]: value } : null))
+  }
+
+  if (isLoading) {
+    return <div className="p-6 text-center">Caricamento operatore...</div>
+  }
+
+  if (!operator) {
+    return (
+      <div className="p-6 text-center">
+        <h2 className="text-xl font-semibold text-red-600">Operatore non trovato</h2>
+        <p className="text-slate-600 mt-2">L'operatore richiesto non esiste o è stato rimosso.</p>
+        <Button onClick={() => router.push("/admin/operators")} className="mt-4">
+          Torna alla lista
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -99,6 +138,10 @@ const EditOperatorForm = ({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Indietro
         </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Modifica Operatore</h1>
+          <p className="text-slate-600">Gestisci i dati e le impostazioni dell'operatore.</p>
+        </div>
       </div>
 
       {/* Informazioni Generali */}
@@ -273,27 +316,6 @@ const EditOperatorForm = ({
           {isSaving ? "Salvataggio..." : "Salva Tutto"}
         </Button>
       </div>
-    </div>
-  )
-}
-
-export default async function EditOperatorPage({ params }: { params: { operatorId: string } }) {
-  const operator = await getOperatorForEdit(params.operatorId)
-  const [currentOperator, setCurrentOperator] = useState<Operator | null>(operator)
-
-  if (!operator) {
-    notFound()
-  }
-
-  return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-          Modifica Operatore: {operator.stage_name || operator.full_name}
-        </h1>
-        <p className="text-slate-600">Gestisci i dati e le impostazioni dell'operatore.</p>
-      </div>
-      {currentOperator && <EditOperatorForm operator={currentOperator} setOperator={setCurrentOperator} />}
     </div>
   )
 }

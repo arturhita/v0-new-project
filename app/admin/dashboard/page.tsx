@@ -1,76 +1,77 @@
-import { getDashboardStats } from "@/lib/actions/admin.actions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, UserCheck, DollarSign, CheckSquare, Star, MessageSquare } from "lucide-react"
+import { Users, Briefcase, BarChart, CircleDollarSign } from "lucide-react"
+import { getDashboardStats } from "@/lib/actions/analytics.actions"
+import PromotionsSection from "./promotions-section"
 
 export default async function AdminDashboardPage() {
-  const stats = await getDashboardStats()
+  const { data: stats, error } = await getDashboardStats()
+
+  if (error) {
+    return <div className="text-red-500 p-4">{error}</div>
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Cruscotto Amministratore</h1>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Entrate Totali</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">€{stats.total_revenue?.toFixed(2) || "0.00"}</div>
-            <p className="text-xs text-muted-foreground">Basato sulle fatture pagate</p>
-          </CardContent>
-        </Card>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard Amministratore</h2>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Utenti Totali</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total_users || 0}</div>
-            <p className="text-xs text-muted-foreground">Numero totale di clienti registrati</p>
+            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">Utenti registrati sulla piattaforma</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Operatori Totali</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Operatori Attivi</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total_operators || 0}</div>
-            <p className="text-xs text-muted-foreground">Numero totale di operatori attivi</p>
+            <div className="text-2xl font-bold">{stats.totalOperators}</div>
+            <p className="text-xs text-muted-foreground">Operatori approvati e attivi</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approvazioni in Attesa</CardTitle>
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Fatturato Totale</CardTitle>
+            <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pending_approvals || 0}</div>
-            <p className="text-xs text-muted-foreground">Nuovi operatori da revisionare</p>
+            <div className="text-2xl font-bold">€{stats.totalRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Basato sugli acquisti di crediti</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recensioni in Attesa</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Consulenze Effettuate</CardTitle>
+            <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pending_reviews || 0}</div>
-            <p className="text-xs text-muted-foreground">Recensioni da moderare</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ticket Aperti</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.open_tickets || 0}</div>
-            <p className="text-xs text-muted-foreground">Richieste di supporto da gestire</p>
+            <div className="text-2xl font-bold">{stats.totalConsultations}</div>
+            <p className="text-xs text-muted-foreground">Numero totale di consulenze completate</p>
           </CardContent>
         </Card>
       </div>
-      {/* Qui puoi aggiungere altri componenti per grafici o log recenti */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Panoramica</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">{/* Placeholder for Overview Chart */}</CardContent>
+        </Card>
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Attività Recenti</CardTitle>
+          </CardHeader>
+          <CardContent>{/* Placeholder for Recent Activities */}</CardContent>
+        </Card>
+      </div>
+      <PromotionsSection />
     </div>
   )
 }

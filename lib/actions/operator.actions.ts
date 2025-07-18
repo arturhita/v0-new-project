@@ -210,14 +210,35 @@ export async function getOperatorPublicProfile(username: string) {
   return combinedData
 }
 
+/**
+ * Recupera l'elenco completo degli operatori per il pannello di amministrazione.
+ * Utilizza la nuova funzione RPC che risolve i problemi di permessi e colonne mancanti.
+ */
 export async function getAllOperators() {
+  noStore() // Impedisce la cache di questa chiamata per avere dati sempre aggiornati
   const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
+
+  // Chiamiamo la nuova funzione RPC sicura che abbiamo creato
+  const { data, error } = await supabase.rpc("get_operators_for_admin_list")
+
   if (error) {
-    console.error("Error fetching operators:", error)
+    console.error("Error fetching operators for admin via RPC:", error)
     return []
   }
-  return data
+
+  // La funzione RPC restituisce già i dati nel formato corretto,
+  // ma dobbiamo mapparli per far corrispondere i nomi dei campi con il tipo client-side.
+  return data.map((op) => ({
+    id: op.id,
+    name: op.full_name, // Mappiamo full_name a name
+    surname: null, // La nostra funzione non restituisce un cognome separato
+    stage_name: op.stage_name,
+    email: op.email,
+    status: op.status,
+    commission_rate: op.commission_rate,
+    created_at: op.created_at,
+    avatar_url: op.avatar_url,
+  }))
 }
 
 export async function getOperatorById(id: string) {
