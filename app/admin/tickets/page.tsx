@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Eye } from 'lucide-react'
+import { Eye, MessageSquare } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ManageSupportTicketsPage() {
   const tickets = await getTickets()
@@ -44,10 +46,13 @@ export default async function ManageSupportTicketsPage() {
       </CardDescription>
       <Card className="shadow-xl rounded-2xl">
         <CardHeader>
-          <CardTitle>Ticket Aperti e Recenti</CardTitle>
+            <CardTitle className="text-xl text-slate-700 flex items-center">
+                <MessageSquare className="h-5 w-5 mr-2 text-primary" />
+                Ticket Aperti e Recenti
+            </CardTitle>
         </CardHeader>
         <CardContent>
-          {tickets.length === 0 ? (
+          {!tickets || tickets.length === 0 ? (
             <p className="text-center text-slate-500 py-4">Nessun ticket di supporto presente.</p>
           ) : (
             <Table>
@@ -56,7 +61,7 @@ export default async function ManageSupportTicketsPage() {
                   <TableHead>Oggetto</TableHead>
                   <TableHead>Utente</TableHead>
                   <TableHead>Tipo Utente</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead>Ultimo Aggiornamento</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
@@ -67,7 +72,7 @@ export default async function ManageSupportTicketsPage() {
                     <TableCell className="font-medium truncate max-w-xs">{ticket.subject}</TableCell>
                     <TableCell>{ticket.user?.full_name || "N/A"}</TableCell>
                     <TableCell>{ticket.user?.role === "operator" ? "Operatore" : "Utente"}</TableCell>
-                    <TableCell>{new Date(ticket.created_at).toLocaleString("it-IT")}</TableCell>
+                    <TableCell>{new Date(ticket.updated_at).toLocaleString("it-IT")}</TableCell>
                     <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="outline" size="sm">

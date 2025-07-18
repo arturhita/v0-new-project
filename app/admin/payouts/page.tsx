@@ -2,8 +2,10 @@ import { getPayoutRequests } from "@/lib/actions/payouts.actions"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PayoutActions } from "./payout-actions" // Componente client per le azioni
+import { PayoutActions } from "./payout-actions"
 import { DollarSign } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ManagePayoutsPage() {
   const payoutRequests = await getPayoutRequests()
@@ -50,7 +52,7 @@ export default async function ManagePayoutsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {payoutRequests.length === 0 ? (
+          {!payoutRequests || payoutRequests.length === 0 ? (
             <p className="text-slate-500 text-center py-4">Nessuna richiesta di pagamento al momento.</p>
           ) : (
             <Table>
