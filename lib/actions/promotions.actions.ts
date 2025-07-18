@@ -15,44 +15,46 @@ export async function getPromotions() {
   return data
 }
 
-export async function createPromotion(formData: FormData) {
+export async function savePromotion(id: string | null, formData: FormData) {
   const supabase = createAdminClient()
+
   const rawData = {
-    code: formData.get("code"),
-    description: formData.get("description"),
-    discount_percentage: Number(formData.get("discount_percentage")),
-    start_date: formData.get("start_date"),
-    end_date: formData.get("end_date"),
+    title: formData.get("title") as string,
+    description: formData.get("description") as string,
+    // Handle optional fields, converting empty strings to null
+    special_price: formData.get("special_price") ? Number(formData.get("special_price")) : null,
+    discount_percentage: formData.get("discount_percentage") ? Number(formData.get("discount_percentage")) : null,
+    start_date: formData.get("start_date") as string,
+    end_date: formData.get("end_date") as string,
     is_active: formData.get("is_active") === "on",
   }
 
-  const { error } = await supabase.from("promotions").insert([rawData])
+  // Basic validation
+  if (rawData.special_price === null && rawData.discount_percentage === null) {
+    return { error: "Devi specificare un prezzo speciale o una percentuale di sconto." }
+  }
+  if (rawData.special_price !== null && rawData.discount_percentage !== null) {
+    return { error: "Puoi specificare solo un prezzo speciale o una percentuale di sconto, non entrambi." }
+  }
+
+  let error
+  if (id) {
+    // Update
+    const { error: updateError } = await supabase.from("promotions").update(rawData).eq("id", id)
+    error = updateError
+  } else {
+    // Create
+    const { error: insertError } = await supabase.from("promotions").insert([rawData])
+    error = insertError
+  }
+
   if (error) {
-    return { error: "Impossibile creare la promozione." }
+    console.error("Error saving promotion:", error)
+    return { error: "Impossibile salvare la promozione." }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: "Promozione creata con successo." }
-}
-
-export async function updatePromotion(id: string, formData: FormData) {
-  const supabase = createAdminClient()
-  const rawData = {
-    code: formData.get("code"),
-    description: formData.get("description"),
-    discount_percentage: Number(formData.get("discount_percentage")),
-    start_date: formData.get("start_date"),
-    end_date: formData.get("end_date"),
-    is_active: formData.get("is_active") === "on",
-  }
-
-  const { error } = await supabase.from("promotions").update(rawData).eq("id", id)
-  if (error) {
-    return { error: "Impossibile aggiornare la promozione." }
-  }
-
-  revalidatePath("/admin/promotions")
-  return { success: "Promozione aggiornata con successo." }
+  return { success: `Promozione ${id ? "aggiornata" : "creata"} con successo.` }
 }
 
 export async function deletePromotion(id: string) {

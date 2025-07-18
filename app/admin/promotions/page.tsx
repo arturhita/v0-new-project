@@ -14,8 +14,10 @@ export default async function PromotionsPage() {
     <div className="p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Gestione Promozioni</h1>
-          <p className="text-muted-foreground">Crea e gestisci i codici sconto per i tuoi clienti.</p>
+          <h1 className="text-3xl font-bold">Promozioni Globali</h1>
+          <p className="text-muted-foreground">
+            Crea promozioni che si applicano a tutti gli operatori per un periodo limitato.
+          </p>
         </div>
         <PromotionFormModal>
           <Button>Crea Promozione</Button>
@@ -23,14 +25,14 @@ export default async function PromotionsPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Promozioni Attive e Scadute</CardTitle>
+          <CardTitle>Promozioni Attive e Programmate</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Codice</TableHead>
-                <TableHead>Sconto</TableHead>
+                <TableHead>Titolo</TableHead>
+                <TableHead>Tipo Sconto</TableHead>
                 <TableHead>Validità</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead className="text-right">Azioni</TableHead>
@@ -40,8 +42,11 @@ export default async function PromotionsPage() {
               {promotions.length > 0 ? (
                 promotions.map((promo) => (
                   <TableRow key={promo.id}>
-                    <TableCell className="font-medium">{promo.code}</TableCell>
-                    <TableCell>{promo.discount_percentage}%</TableCell>
+                    <TableCell className="font-medium">{promo.title}</TableCell>
+                    <TableCell>
+                      {promo.special_price ? `Prezzo Fisso: €${promo.special_price.toFixed(2)}` : ""}
+                      {promo.discount_percentage ? `Sconto: ${promo.discount_percentage}%` : ""}
+                    </TableCell>
                     <TableCell>
                       {format(new Date(promo.start_date), "dd/MM/yy", { locale: it })} -{" "}
                       {format(new Date(promo.end_date), "dd/MM/yy", { locale: it })}

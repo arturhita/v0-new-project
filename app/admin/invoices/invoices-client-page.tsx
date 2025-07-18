@@ -14,11 +14,8 @@ export default function InvoicesClientPage({ invoices }: InvoicesClientPageProps
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
-        <Button onClick={() => setIsModalOpen(true)}>Crea Nuova Fattura</Button>
-      </div>
+      <Button onClick={() => setIsModalOpen(true)}>Crea Nuova Fattura</Button>
       <CreateInvoiceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-      {/* Qui andrà la tabella delle fatture, per ora il modale è la parte client-side */}
     </div>
   )
 }

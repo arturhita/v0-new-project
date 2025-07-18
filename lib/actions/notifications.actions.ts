@@ -1,10 +1,10 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export async function getAdminNotifications() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("admin_notifications")
     .select("*")
@@ -23,11 +23,10 @@ export async function getAdminNotifications() {
 }
 
 export async function markNotificationAsRead(notificationId: string) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from("admin_notifications").update({ is_read: true }).eq("id", notificationId)
 
   if (error) {
-    console.error("Error marking notification as read:", error)
     return { success: false, error }
   }
 
@@ -35,15 +34,27 @@ export async function markNotificationAsRead(notificationId: string) {
   return { success: true }
 }
 
-export async function markAllNotificationsAsRead() {
-  const supabase = createClient()
-  const { error } = await supabase.from("admin_notifications").update({ is_read: true }).eq("is_read", false)
+export async function sendBroadcastNotification(formData: FormData) {
+  const supabase = createAdminClient()
+  const title = formData.get("title") as string
+  const message = formData.get("message") as string
+  const targetRole = formData.get("target_role") as "all" | "client" | "operator"
+
+  if (!title || !message) {
+    return { error: "Titolo e messaggio sono obbligatori." }
+  }
+
+  const { error } = await supabase.rpc("send_broadcast_notification", {
+    p_title: title,
+    p_message: message,
+    p_target_role: targetRole,
+  })
 
   if (error) {
-    console.error("Error marking all notifications as read:", error)
-    return { success: false, error }
+    console.error("Error sending broadcast notification:", error)
+    return { error: "Impossibile inviare la notifica." }
   }
 
   revalidatePath("/admin/notifications")
-  return { success: true }
+  return { success: "Notifica inviata con successo a tutti gli utenti target." }
 }

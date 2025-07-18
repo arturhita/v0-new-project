@@ -7,6 +7,8 @@ import { unstable_noStore as noStore } from "next/cache"
 export async function getPayoutRequests() {
   noStore()
   const supabase = createAdminClient()
+  // Explicitly joining to avoid schema cache issues.
+  // The foreign key on payout_requests.operator_id -> profiles.id is now guaranteed by the SQL script.
   const { data, error } = await supabase
     .from("payout_requests")
     .select(
@@ -27,7 +29,7 @@ export async function getPayoutRequests() {
 
   if (error) {
     console.error("Error fetching payout requests:", error)
-    return { error: "Impossibile caricare le richieste di pagamento." }
+    return { error: `Impossibile caricare le richieste di pagamento: ${error.message}` }
   }
   return { data }
 }
