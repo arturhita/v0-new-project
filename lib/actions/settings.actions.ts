@@ -1,214 +1,156 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
-// Interfacce per le impostazioni
-interface AdvancedSettings {
-  callDeductions: {
+export interface PlatformSettings {
+  call_deductions: {
     enabled: boolean
-    userFixedDeduction: number
-    operatorFixedDeduction: number
+    user_fixed_deduction: number
+    operator_fixed_deduction: number
   }
-  paymentProcessing: {
-    operatorFixedFee: number
+  payment_processing: {
+    operator_fixed_fee: number
     enabled: boolean
   }
-  operatorDeductions: {
+  operator_deductions: {
     enabled: boolean
-    fixedDeduction: number
+    fixed_deduction: number
   }
 }
 
-interface CompanyDetails {
-  companyName: string
-  vatNumber: string
-  address: string
-  phone: string
-  email: string
-}
+// Recupera le impostazioni
+export async function getPlatformSettings(): Promise<PlatformSettings> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("platform_settings").select("settings").eq("id", "singleton").single()
 
-// Salva impostazioni avanzate
-export async function saveAdvancedSettings(settings: AdvancedSettings) {
-  try {
-    console.log("Salvataggio impostazioni avanzate:", settings)
-
-    // Simula il salvataggio
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    revalidatePath("/admin/settings/advanced")
-
+  if (error || !data) {
+    console.error("Error fetching platform settings:", error)
+    // Ritorna un default di sicurezza
     return {
-      success: true,
-      message: "Impostazioni avanzate salvate con successo.",
-    }
-  } catch (error) {
-    console.error("Errore salvataggio impostazioni avanzate:", error)
-    return {
-      success: false,
-      message: "Errore nel salvataggio delle impostazioni.",
+      call_deductions: { enabled: false, user_fixed_deduction: 0, operator_fixed_deduction: 0 },
+      payment_processing: { enabled: false, operator_fixed_fee: 0 },
+      operator_deductions: { enabled: false, fixed_deduction: 0 },
     }
   }
+  return data.settings as PlatformSettings
 }
 
-// Aggiorna commissione operatore
-export async function updateOperatorCommission(operatorId: string, newCommission: number) {
-  try {
-    console.log(`Aggiornamento commissione operatore ${operatorId}: ${newCommission}%`)
+// Salva le impostazioni
+export async function savePlatformSettings(settings: PlatformSettings) {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("platform_settings")
+    .update({ settings, updated_at: new Date().toISOString() })
+    .eq("id", "singleton")
 
-    // Simula aggiornamento
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    // Aggiorna tutte le pagine correlate
-    revalidatePath("/admin/operators")
-    revalidatePath(`/admin/operators/${operatorId}/edit`)
-    revalidatePath("/admin/dashboard")
-
-    return {
-      success: true,
-      message: `Commissione aggiornata a ${newCommission}%`,
-    }
-  } catch (error) {
-    console.error("Errore aggiornamento commissione:", error)
-    return {
-      success: false,
-      message: "Errore nell'aggiornamento della commissione.",
-    }
+  if (error) {
+    return { success: false, message: "Errore nel salvataggio delle impostazioni." }
   }
+
+  revalidatePath("/admin/settings/advanced")
+  return { success: true, message: "Impostazioni salvate con successo." }
 }
 
-// Salva dettagli azienda
-export async function saveCompanyDetails(details: CompanyDetails) {
-  try {
-    console.log("Salvataggio dettagli azienda:", details)
+// Recupera le richieste di commissione pendenti
+export async function getPendingCommissionRequests() {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("commission_requests")
+    .select(
+      `
+      id,
+      operator_id,
+      current_commission,
+      requested_commission,
+      justification,
+      created_at,
+      operator_profiles (
+        display_name
+      )
+    `,
+    )
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    revalidatePath("/admin/company-details")
-
-    return {
-      success: true,
-      message: "Dettagli azienda salvati con successo.",
-    }
-  } catch (error) {
-    console.error("Errore salvataggio dettagli azienda:", error)
-    return {
-      success: false,
-      message: "Errore nel salvataggio dei dettagli azienda.",
-    }
+  if (error) {
+    console.error("Error fetching commission requests:", error)
+    return []
   }
+  // Trasformiamo i dati per renderli più facili da usare nel componente
+  return data.map((req) => ({
+    ...req,
+    operatorName: req.operator_profiles?.display_name || "Nome non disponibile",
+  }))
 }
 
-// Invia newsletter
-export async function sendNewsletter(subject: string, content: string, recipients: string[]) {
-  try {
-    console.log("Invio newsletter:", { subject, recipients: recipients.length })
+// Crea una richiesta di commissione (lato operatore)
+export async function createCommissionRequest(
+  operatorId: string,
+  currentCommission: number,
+  requestedCommission: number,
+  justification: string,
+) {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("commission_requests").insert({
+    operator_id: operatorId,
+    current_commission: currentCommission,
+    requested_commission: requestedCommission,
+    justification: justification,
+  })
 
-    // Simula invio
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    return {
-      success: true,
-      message: `Newsletter inviata a ${recipients.length} destinatari.`,
-    }
-  } catch (error) {
-    console.error("Errore invio newsletter:", error)
-    return {
-      success: false,
-      message: "Errore nell'invio della newsletter.",
-    }
+  if (error) {
+    return { success: false, message: "Errore nell'invio della richiesta." }
   }
+
+  revalidatePath("/admin/settings/advanced")
+  revalidatePath("/(platform)/dashboard/operator/commission-request")
+  return { success: true, message: "Richiesta inviata con successo." }
 }
 
-// Invia messaggio interno
-export async function sendInternalMessage(fromUserId: string, toUserId: string, subject: string, message: string) {
-  try {
-    console.log("Invio messaggio interno:", { fromUserId, toUserId, subject })
+// Gestisce una richiesta (approva o rifiuta)
+export async function resolveCommissionRequest(requestId: string, approved: boolean, adminUserId: string) {
+  const supabase = createAdminClient()
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+  // 1. Recupera la richiesta
+  const { data: request, error: fetchError } = await supabase
+    .from("commission_requests")
+    .select("operator_id, requested_commission")
+    .eq("id", requestId)
+    .single()
 
-    revalidatePath("/admin/messages")
+  if (fetchError || !request) {
+    return { success: false, message: "Richiesta non trovata." }
+  }
 
-    return {
-      success: true,
-      message: "Messaggio inviato con successo.",
-    }
-  } catch (error) {
-    console.error("Errore invio messaggio:", error)
-    return {
-      success: false,
-      message: "Errore nell'invio del messaggio.",
+  // 2. Se approvata, aggiorna la commissione dell'operatore
+  if (approved) {
+    const { error: updateError } = await supabase
+      .from("operator_profiles")
+      .update({ commission_rate: request.requested_commission })
+      .eq("user_id", request.operator_id)
+
+    if (updateError) {
+      return { success: false, message: "Errore nell'aggiornamento del profilo operatore." }
     }
   }
-}
 
-// Approva richiesta aumento commissione
-export async function approveCommissionRequest(requestId: string) {
-  try {
-    console.log(`Approvazione richiesta commissione: ${requestId}`)
+  // 3. Aggiorna lo stato della richiesta
+  const newStatus = approved ? "approved" : "rejected"
+  const { error: statusError } = await supabase
+    .from("commission_requests")
+    .update({
+      status: newStatus,
+      resolved_at: new Date().toISOString(),
+      resolved_by: adminUserId,
+    })
+    .eq("id", requestId)
 
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    revalidatePath("/admin/settings/advanced")
-    revalidatePath("/admin/commission-requests")
-
-    return {
-      success: true,
-      message: "Richiesta approvata con successo.",
-    }
-  } catch (error) {
-    console.error("Errore approvazione richiesta:", error)
-    return {
-      success: false,
-      message: "Errore nell'approvazione della richiesta.",
-    }
+  if (statusError) {
+    // Potremmo voler implementare un rollback qui in un'app di produzione
+    return { success: false, message: "Errore nell'aggiornamento dello stato della richiesta." }
   }
-}
 
-// Rifiuta richiesta aumento commissione
-export async function rejectCommissionRequest(requestId: string, reason?: string) {
-  try {
-    console.log(`Rifiuto richiesta commissione: ${requestId}, motivo: ${reason}`)
-
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    revalidatePath("/admin/settings/advanced")
-    revalidatePath("/admin/commission-requests")
-
-    return {
-      success: true,
-      message: "Richiesta rifiutata.",
-    }
-  } catch (error) {
-    console.error("Errore rifiuto richiesta:", error)
-    return {
-      success: false,
-      message: "Errore nel rifiuto della richiesta.",
-    }
-  }
-}
-
-// Crea fattura
-export async function createInvoice(invoiceData: any) {
-  try {
-    console.log("Creazione fattura:", invoiceData)
-
-    // Simula creazione
-    const invoiceId = `INV-${Date.now()}`
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    revalidatePath("/admin/invoices")
-
-    return {
-      success: true,
-      message: "Fattura creata con successo.",
-      invoiceId,
-    }
-  } catch (error) {
-    console.error("Errore creazione fattura:", error)
-    return {
-      success: false,
-      message: "Errore nella creazione della fattura.",
-    }
-  }
+  revalidatePath("/admin/settings/advanced")
+  return { success: true, message: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
 }

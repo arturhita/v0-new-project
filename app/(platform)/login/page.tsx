@@ -1,175 +1,98 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { login, signInWithGoogle } from "@/lib/actions/auth.actions"
+import type { z } from "zod"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { ConstellationBackground } from "@/components/constellation-background"
-import { Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { login } from "@/lib/actions/auth.actions"
 import { toast } from "sonner"
-
-const loginSchema = z.object({
-  email: z.string().email({ message: "Inserisci un'email valida." }),
-  password: z.string().min(1, { message: "La password è richiesta." }),
-})
+import { ConstellationBackground } from "@/components/constellation-background"
+import Link from "next/link"
+import { LoginSchema } from "@/lib/schemas"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
-
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<z.infer<typeof LoginSchema>>({
+    resolver: zodResolver(LoginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   })
 
-  async function onSubmit(values: z.infer<typeof loginSchema>) {
-    setIsLoading(true)
+  async function onSubmit(values: z.infer<typeof LoginSchema>) {
     const result = await login(values)
-    setIsLoading(false)
-
     if (result.error) {
-      toast.error("Credenziali non valide. Riprova.")
+      toast.error(result.error)
     } else {
       toast.success("Accesso effettuato con successo!")
-      router.push("/")
-      router.refresh() // Force a refresh to update navbar state
+      router.push("/") // Reindirizza alla home o alla dashboard
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true)
-    await signInWithGoogle()
-    // The page will be redirected by the Supabase callback handler,
-    // so we don't need to do anything here. If it fails, the user stays on the page.
-    // We can set a timeout to reset the loading state in case of an error.
-    setTimeout(() => setIsGoogleLoading(false), 5000)
-  }
-
   return (
-    <div className="relative w-full min-h-screen flex items-center justify-center p-4">
+    <div className="relative flex min-h-[calc(100vh-80px)] items-center justify-center py-12">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md">
-        <Card className="bg-slate-900/70 backdrop-blur-lg border-slate-700 text-white">
-          <CardHeader className="text-center">
-            <Link href="/" className="inline-block mx-auto mb-4">
-              <Image src="/images/moonthir-logo-white.png" alt="Moonthir" width={180} height={50} />
-            </Link>
-            <CardTitle className="text-2xl font-bold">Bentornato</CardTitle>
-            <CardDescription className="text-slate-400">Accedi al tuo account per continuare</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="tua@email.com"
-                          {...field}
-                          className="bg-slate-800 border-slate-600 focus:border-yellow-500"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          {...field}
-                          className="bg-slate-800 border-slate-600 focus:border-yellow-500"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="text-right">
-                  <Link href="/forgot-password" passHref>
-                    <Button variant="link" className="text-slate-400 hover:text-yellow-400 px-0 h-auto py-1">
-                      Password dimenticata?
-                    </Button>
-                  </Link>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg hover:shadow-blue-500/40 font-bold"
-                  disabled={isLoading}
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Accedi
-                </Button>
-              </form>
-            </Form>
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-600" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-slate-900/70 px-2 text-slate-400">Oppure continua con</span>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full bg-transparent border-slate-600 hover:bg-slate-800"
-              onClick={handleGoogleSignIn}
-              disabled={isGoogleLoading}
-            >
-              {isGoogleLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <svg
-                  className="mr-2 h-4 w-4"
-                  aria-hidden="true"
-                  focusable="false"
-                  data-prefix="fab"
-                  data-icon="google"
-                  role="img"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 488 512"
-                >
-                  <path
-                    fill="currentColor"
-                    d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 21.2 177.2 56.4l-64.5 64.5C337 96.3 297.4 80 248 80c-81.9 0-148.3 65.7-148.3 147.4s66.4 147.4 148.3 147.4c97.7 0 130.2-72.2 132.8-109.4H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
-                  ></path>
-                </svg>
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-yellow-600/20 bg-blue-900/50 p-8 shadow-lg backdrop-blur-sm">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-white">Accedi</h1>
+          <p className="mt-2 text-white/70">Bentornato su Moonthir.</p>
+        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-6">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white/80">Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="tua@email.com"
+                      {...field}
+                      className="bg-blue-800/60 border-yellow-600/30 text-white placeholder:text-white/50 focus:ring-yellow-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-              Google
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white/80">Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      className="bg-blue-800/60 border-yellow-600/30 text-white placeholder:text-white/50 focus:ring-yellow-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="submit"
+              className="w-full bg-yellow-500 text-blue-950 hover:bg-yellow-400"
+              disabled={form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting ? "Accesso in corso..." : "Accedi"}
             </Button>
-            <div className="mt-6 text-center text-sm text-slate-400">
-              Non hai un account?{" "}
-              <Link href="/register" passHref>
-                <Button variant="link" className="text-yellow-400 hover:text-yellow-300 px-0 h-auto py-1">
-                  Registrati
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+          </form>
+        </Form>
+        <p className="mt-6 text-center text-sm text-white/70">
+          Non hai un account?{" "}
+          <Link href="/register" className="font-medium text-yellow-300 hover:text-yellow-200">
+            Inizia ora
+          </Link>
+        </p>
       </div>
     </div>
   )
