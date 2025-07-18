@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -9,38 +9,53 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { MoreHorizontal, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { updatePayoutStatus } from "@/lib/actions/payouts.actions"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
-export default function PayoutActions({ request }: { request: any }) {
-  const [isPending, startTransition] = useTransition()
+type PayoutStatus = "pending" | "processing" | "paid" | "rejected" | "on_hold"
+
+interface PayoutRequest {
+  id: string
+  status: PayoutStatus
+}
+
+export default function PayoutActions({ request }: { request: PayoutRequest }) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const onAction = (status: "processing" | "paid" | "rejected") => {
-    startTransition(async () => {
-      const result = await updatePayoutStatus(request.id, status)
+  const onAction = async (newStatus: PayoutStatus) => {
+    setIsSubmitting(true)
+    const result = await updatePayoutStatus(request.id, newStatus)
+    setIsSubmitting(false)
+
+    if (result.success) {
       toast({
-        title: result.success ? "Successo" : "Errore",
+        title: "Successo",
         description: result.message,
-        variant: result.success ? "default" : "destructive",
       })
-    })
+    } else {
+      toast({
+        title: "Errore",
+        description: result.message,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={isPending}>
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+        <Button variant="ghost" size="icon" disabled={isSubmitting}>
+          <MoreHorizontal className="h-4 w-4" />
           <span className="sr-only">Azioni Pagamento</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Modifica Stato</DropdownMenuLabel>
-        {request.status === "pending" && (
+        {request.status !== "processing" && request.status !== "paid" && (
           <DropdownMenuItem onClick={() => onAction("processing")}>
-            <CheckCircle className="mr-2 h-4 w-4 text-blue-500" /> Processa
+            <CheckCircle className="mr-2 h-4 w-4 text-blue-500" /> Processa Pagamento
           </DropdownMenuItem>
         )}
         {request.status !== "paid" && (
@@ -48,9 +63,14 @@ export default function PayoutActions({ request }: { request: any }) {
             <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> Segna come Pagato
           </DropdownMenuItem>
         )}
+        {request.status !== "on_hold" && (
+          <DropdownMenuItem onClick={() => onAction("on_hold")}>
+            <Clock className="mr-2 h-4 w-4 text-orange-500" /> Metti in Sospeso
+          </DropdownMenuItem>
+        )}
         {request.status !== "rejected" && (
-          <DropdownMenuItem onClick={() => onAction("rejected")} className="text-red-600">
-            <XCircle className="mr-2 h-4 w-4" /> Rifiuta
+          <DropdownMenuItem onClick={() => onAction("rejected")} className="text-red-600 focus:text-red-600">
+            <XCircle className="mr-2 h-4 w-4" /> Rifiuta Pagamento
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

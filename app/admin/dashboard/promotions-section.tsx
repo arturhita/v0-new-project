@@ -1,9 +1,8 @@
-"use client"
 import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Target, Zap, TrendingUp, Plus } from "lucide-react"
+import { Target, Zap, TrendingUp, Plus } from 'lucide-react'
 
 export default function PromotionsSection() {
   return (
@@ -21,7 +20,7 @@ export default function PromotionsSection() {
               </div>
             </div>
             <Link href="/admin/promotions">
-              <Button className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+              <Button className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Nuova Promozione
               </Button>
@@ -45,7 +44,7 @@ export default function PromotionsSection() {
                   -50%
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">Sabato e Domenica</p>
+              <p className="text-xs text-muted-foreground">Sabato e Domenica (Esempio)</p>
             </div>
             <div className="p-4 bg-white rounded-lg border border-yellow-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
@@ -71,12 +70,12 @@ export default function PromotionsSection() {
               <h4 className="font-semibold mb-3">Azioni Rapide</h4>
               <div className="space-y-2">
                 <Link href="/admin/promotions">
-                  <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                  <Button variant="outline" size="sm" className="w-full justify-start">
                     <Target className="h-4 w-4 mr-2" />
                     Gestisci Promozioni
                   </Button>
                 </Link>
-                <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                <Button variant="outline" size="sm" className="w-full justify-start">
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Statistiche Dettagliate
                 </Button>

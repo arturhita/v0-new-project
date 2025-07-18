@@ -15,6 +15,7 @@ export async function getPayoutRequests() {
       payment_details,
       created_at,
       operator:profiles (
+        id,
         stage_name
       )
     `,
@@ -26,10 +27,10 @@ export async function getPayoutRequests() {
     return []
   }
   // @ts-ignore
-  return data.map((req) => ({ ...req, operatorName: req.operator.stage_name }))
+  return data.map((req) => ({ ...req, operatorName: req.operator.stage_name, operatorId: req.operator.id }))
 }
 
-export async function updatePayoutStatus(payoutId: string, newStatus: "processing" | "paid" | "rejected") {
+export async function updatePayoutStatus(payoutId: string, newStatus: "processing" | "paid" | "rejected" | "on_hold") {
   const supabase = createAdminClient()
 
   const { error } = await supabase
@@ -38,6 +39,7 @@ export async function updatePayoutStatus(payoutId: string, newStatus: "processin
     .eq("id", payoutId)
 
   if (error) {
+    console.error("Error updating payout status:", error)
     return { success: false, message: "Errore nell'aggiornare lo stato del pagamento." }
   }
 

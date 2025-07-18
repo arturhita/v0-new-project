@@ -1,7 +1,7 @@
 import { getPayoutRequests } from "@/lib/actions/payouts.actions"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DollarSign } from "lucide-react"
+import { DollarSign } from 'lucide-react'
 import PayoutActions from "./payout-actions"
 import { Badge } from "@/components/ui/badge"
 
@@ -29,6 +29,8 @@ const getStatusBadge = (status: string) => {
       )
     case "rejected":
       return <Badge variant="destructive">Rifiutato</Badge>
+    case "on_hold":
+        return <Badge variant="secondary">In Sospeso</Badge>
     default:
       return <Badge>Sconosciuto</Badge>
   }
@@ -70,11 +72,11 @@ export default async function ManagePayoutsPage() {
                 {payoutRequests.map((req: any) => (
                   <TableRow key={req.id}>
                     <TableCell className="font-medium">{req.operatorName}</TableCell>
-                    <TableCell className="text-right">€{req.amount.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">€{Number(req.amount).toFixed(2)}</TableCell>
                     <TableCell>{new Date(req.created_at).toLocaleDateString("it-IT")}</TableCell>
                     <TableCell>
                       {req.payment_details?.method}
-                      <span className="text-xs block text-slate-500">{req.payment_details?.email}</span>
+                      <span className="text-xs block text-slate-500">{req.payment_details?.email || req.payment_details?.value}</span>
                     </TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
                     <TableCell className="text-right">

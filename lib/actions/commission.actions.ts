@@ -16,6 +16,7 @@ export async function getCommissionRequests() {
       status,
       created_at,
       operator:profiles (
+        id,
         stage_name
       )
     `,
@@ -27,14 +28,13 @@ export async function getCommissionRequests() {
     return []
   }
 
-  // @ts-ignore
-  return data.map((req) => ({ ...req, operatorName: req.operator.stage_name }))
+  // @ts-ignore - Supabase TS inference can be tricky with nested selects
+  return data.map((req) => ({ ...req, operatorName: req.operator.stage_name, operatorId: req.operator.id }))
 }
 
 export async function handleCommissionRequest(requestId: string, newStatus: "approved" | "rejected") {
   const supabase = createAdminClient()
 
-  // Recupera la richiesta per ottenere l'ID operatore e la nuova percentuale
   const { data: request, error: fetchError } = await supabase
     .from("commission_requests")
     .select("operator_id, requested_rate")
@@ -42,28 +42,29 @@ export async function handleCommissionRequest(requestId: string, newStatus: "app
     .single()
 
   if (fetchError || !request) {
+    console.error("Commission request not found:", fetchError)
     return { success: false, message: "Richiesta non trovata." }
   }
 
-  // Se approvata, aggiorna la commissione nel profilo dell'operatore
   if (newStatus === "approved") {
     const { error: profileError } = await supabase
       .from("profiles")
       .update({ commission_rate: request.requested_rate })
-      .eq("user_id", request.operator_id)
+      .eq("id", request.operator_id) // CORREZIONE: usa 'id'
 
     if (profileError) {
+      console.error("Error updating operator profile:", profileError)
       return { success: false, message: "Errore nell'aggiornare il profilo operatore." }
     }
   }
 
-  // Aggiorna lo stato della richiesta
   const { error: updateError } = await supabase
     .from("commission_requests")
     .update({ status: newStatus, reviewed_at: new Date().toISOString() })
     .eq("id", requestId)
 
   if (updateError) {
+    console.error("Error updating commission request status:", updateError)
     return { success: false, message: "Errore nell'aggiornare lo stato della richiesta." }
   }
 
