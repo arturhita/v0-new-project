@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, UserCheck, UserPlus, TrendingUp } from "lucide-react"
+import { Users, UserCheck, UserPlus, TrendingUp, Euro } from "lucide-react"
 import { getAdminDashboardStats } from "@/lib/actions/dashboard.actions"
 
 const StatCard = ({ title, value, icon: Icon, description }) => (
@@ -21,33 +21,38 @@ export default async function AdminDashboardPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <h1 className="text-3xl font-bold">Cruscotto Amministratore</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Utenti Totali"
-          value={stats.totalUsers}
+          value={stats.total_users}
           icon={Users}
           description="Numero totale di clienti registrati."
         />
         <StatCard
-          title="Operatori Totali"
-          value={stats.totalOperators}
+          title="Operatori Attivi"
+          value={stats.total_operators}
           icon={UserCheck}
           description="Numero totale di operatori approvati."
         />
         <StatCard
           title="Approvazioni Pendenti"
-          value={stats.pendingOperators}
+          value={stats.pending_operators}
           icon={UserPlus}
           description="Operatori in attesa di approvazione."
         />
         <StatCard
           title="Fatturato Mensile"
-          value={new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(stats.monthlyRevenue)}
+          value={new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(stats.monthly_revenue)}
           icon={TrendingUp}
           description="Fatturato generato nel mese corrente."
         />
+        <StatCard
+          title="Fatturato Totale"
+          value={new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(stats.total_revenue)}
+          icon={Euro}
+          description="Fatturato totale generato."
+        />
       </div>
-      {/* Qui andranno altri componenti come grafici, attività recenti, etc. */}
     </div>
   )
 }

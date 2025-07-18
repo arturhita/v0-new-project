@@ -12,7 +12,7 @@ export default async function InvoicesPage() {
   const getStatusVariant = (status: string | null) => {
     switch (status) {
       case "paid":
-        return "default" // Green in default theme
+        return "default"
       case "pending":
         return "secondary"
       case "overdue":

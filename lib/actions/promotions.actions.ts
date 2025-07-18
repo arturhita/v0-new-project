@@ -21,7 +21,6 @@ export async function savePromotion(id: string | null, formData: FormData) {
   const rawData = {
     title: formData.get("title") as string,
     description: formData.get("description") as string,
-    // Handle optional fields, converting empty strings to null
     special_price: formData.get("special_price") ? Number(formData.get("special_price")) : null,
     discount_percentage: formData.get("discount_percentage") ? Number(formData.get("discount_percentage")) : null,
     start_date: formData.get("start_date") as string,
@@ -29,7 +28,6 @@ export async function savePromotion(id: string | null, formData: FormData) {
     is_active: formData.get("is_active") === "on",
   }
 
-  // Basic validation
   if (rawData.special_price === null && rawData.discount_percentage === null) {
     return { error: "Devi specificare un prezzo speciale o una percentuale di sconto." }
   }
@@ -39,11 +37,9 @@ export async function savePromotion(id: string | null, formData: FormData) {
 
   let error
   if (id) {
-    // Update
     const { error: updateError } = await supabase.from("promotions").update(rawData).eq("id", id)
     error = updateError
   } else {
-    // Create
     const { error: insertError } = await supabase.from("promotions").insert([rawData])
     error = insertError
   }

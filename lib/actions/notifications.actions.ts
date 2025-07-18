@@ -56,5 +56,5 @@ export async function sendBroadcastNotification(formData: FormData) {
   }
 
   revalidatePath("/admin/notifications")
-  return { success: "Notifica inviata con successo a tutti gli utenti target." }
+  return { success: "Notifica broadcast registrata con successo." }
 }

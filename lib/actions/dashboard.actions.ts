@@ -10,7 +10,6 @@ export async function getAdminDashboardStats() {
 
   if (error) {
     console.error("Error fetching admin dashboard stats:", error)
-    // Return a default object on error to avoid crashing the page
     return {
       total_users: 0,
       total_operators: 0,
@@ -20,5 +19,6 @@ export async function getAdminDashboardStats() {
     }
   }
 
-  return data
+  // The RPC function returns a single object in an array
+  return data[0]
 }

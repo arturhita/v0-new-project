@@ -7,8 +7,7 @@ import { unstable_noStore as noStore } from "next/cache"
 export async function getPayoutRequests() {
   noStore()
   const supabase = createAdminClient()
-  // Explicitly joining to avoid schema cache issues.
-  // The foreign key on payout_requests.operator_id -> profiles.id is now guaranteed by the SQL script.
+  // The SQL script now guarantees the relationship exists and is correct.
   const { data, error } = await supabase
     .from("payout_requests")
     .select(
