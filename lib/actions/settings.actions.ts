@@ -19,24 +19,50 @@ export interface PlatformSettings {
   }
 }
 
-// Recupera le impostazioni
-export async function getPlatformSettings(): Promise<PlatformSettings> {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("platform_settings").select("settings").eq("id", "singleton").single()
+export interface CompanyDetails {
+  companyName: string
+  vatNumber: string
+  address: string
+  phone: string
+  email: string
+}
 
-  if (error || !data) {
-    console.error("Error fetching platform settings:", error)
-    // Ritorna un default di sicurezza
-    return {
+// Recupera le impostazioni complete (piattaforma + azienda)
+export async function getFullPlatformSettings(): Promise<{ platform: PlatformSettings; company: CompanyDetails }> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("platform_settings")
+    .select("settings, company_details")
+    .eq("id", "singleton")
+    .single()
+
+  const defaultSettings = {
+    platform: {
       call_deductions: { enabled: false, user_fixed_deduction: 0, operator_fixed_deduction: 0 },
       payment_processing: { enabled: false, operator_fixed_fee: 0 },
       operator_deductions: { enabled: false, fixed_deduction: 0 },
-    }
+    },
+    company: {
+      companyName: "",
+      vatNumber: "",
+      address: "",
+      phone: "",
+      email: "",
+    },
   }
-  return data.settings as PlatformSettings
+
+  if (error || !data) {
+    console.error("Error fetching platform settings:", error)
+    return defaultSettings
+  }
+
+  return {
+    platform: (data.settings as PlatformSettings) || defaultSettings.platform,
+    company: (data.company_details as CompanyDetails) || defaultSettings.company,
+  }
 }
 
-// Salva le impostazioni
+// Salva le impostazioni della piattaforma
 export async function savePlatformSettings(settings: PlatformSettings) {
   const supabase = createAdminClient()
   const { error } = await supabase
@@ -45,11 +71,29 @@ export async function savePlatformSettings(settings: PlatformSettings) {
     .eq("id", "singleton")
 
   if (error) {
+    console.error("Error saving platform settings:", error)
     return { success: false, message: "Errore nel salvataggio delle impostazioni." }
   }
 
   revalidatePath("/admin/settings/advanced")
-  return { success: true, message: "Impostazioni salvate con successo." }
+  return { success: true, message: "Impostazioni piattaforma salvate con successo." }
+}
+
+// Salva i dettagli dell'azienda
+export async function saveCompanyDetails(details: CompanyDetails) {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("platform_settings")
+    .update({ company_details: details, updated_at: new Date().toISOString() })
+    .eq("id", "singleton")
+
+  if (error) {
+    console.error("Errore salvataggio dettagli azienda:", error)
+    return { success: false, message: "Errore nel salvataggio dei dettagli azienda." }
+  }
+
+  revalidatePath("/admin/company-details")
+  return { success: true, message: "Dettagli azienda salvati con successo." }
 }
 
 // Recupera le richieste di commissione pendenti
@@ -77,42 +121,16 @@ export async function getPendingCommissionRequests() {
     console.error("Error fetching commission requests:", error)
     return []
   }
-  // Trasformiamo i dati per renderli più facili da usare nel componente
   return data.map((req) => ({
     ...req,
     operatorName: req.operator_profiles?.display_name || "Nome non disponibile",
   }))
 }
 
-// Crea una richiesta di commissione (lato operatore)
-export async function createCommissionRequest(
-  operatorId: string,
-  currentCommission: number,
-  requestedCommission: number,
-  justification: string,
-) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("commission_requests").insert({
-    operator_id: operatorId,
-    current_commission: currentCommission,
-    requested_commission: requestedCommission,
-    justification: justification,
-  })
-
-  if (error) {
-    return { success: false, message: "Errore nell'invio della richiesta." }
-  }
-
-  revalidatePath("/admin/settings/advanced")
-  revalidatePath("/(platform)/dashboard/operator/commission-request")
-  return { success: true, message: "Richiesta inviata con successo." }
-}
-
 // Gestisce una richiesta (approva o rifiuta)
 export async function resolveCommissionRequest(requestId: string, approved: boolean, adminUserId: string) {
   const supabase = createAdminClient()
 
-  // 1. Recupera la richiesta
   const { data: request, error: fetchError } = await supabase
     .from("commission_requests")
     .select("operator_id, requested_commission")
@@ -123,7 +141,6 @@ export async function resolveCommissionRequest(requestId: string, approved: bool
     return { success: false, message: "Richiesta non trovata." }
   }
 
-  // 2. Se approvata, aggiorna la commissione dell'operatore
   if (approved) {
     const { error: updateError } = await supabase
       .from("operator_profiles")
@@ -135,7 +152,6 @@ export async function resolveCommissionRequest(requestId: string, approved: bool
     }
   }
 
-  // 3. Aggiorna lo stato della richiesta
   const newStatus = approved ? "approved" : "rejected"
   const { error: statusError } = await supabase
     .from("commission_requests")
@@ -147,10 +163,10 @@ export async function resolveCommissionRequest(requestId: string, approved: bool
     .eq("id", requestId)
 
   if (statusError) {
-    // Potremmo voler implementare un rollback qui in un'app di produzione
     return { success: false, message: "Errore nell'aggiornamento dello stato della richiesta." }
   }
 
   revalidatePath("/admin/settings/advanced")
+  revalidatePath("/admin/operators")
   return { success: true, message: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
 }

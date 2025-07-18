@@ -1,309 +1,270 @@
 "use client"
 
-import { useState } from "react"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Trash2, Save } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { CalendarIcon } from "@radix-ui/react-icons"
+import { format } from "date-fns"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
+import { useState } from "react"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { createInvoice } from "@/lib/actions/invoice.actions"
 
-interface InvoiceItem {
-  description: string
-  type: "consultation" | "commission" | "deduction" | "fee"
-  quantity: number
-  unitPrice: number
-}
+const formSchema = z.object({
+  customerName: z.string().min(2, {
+    message: "Customer name must be at least 2 characters.",
+  }),
+  customerEmail: z.string().email({
+    message: "Invalid email address.",
+  }),
+  invoiceNumber: z.string().min(5, {
+    message: "Invoice number must be at least 5 characters.",
+  }),
+  invoiceDate: z.date(),
+  dueDate: z.date(),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, {
+    message: "Amount must be a valid number with up to 2 decimal places.",
+  }),
+  status: z.enum(["pending", "paid", "draft"]),
+  notes: z.string().optional(),
+})
 
-interface CreateInvoiceModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onInvoiceCreated: () => void
-}
+const CreateInvoiceModal = () => {
+  const [open, setOpen] = useState(false)
+  const router = useRouter()
+  const { data: session } = useSession()
 
-export default function CreateInvoiceModal({ isOpen, onClose, onInvoiceCreated }: CreateInvoiceModalProps) {
-  const [formData, setFormData] = useState({
-    operatorId: "",
-    operatorName: "",
-    dueDate: "",
-    notes: "",
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      customerName: "",
+      customerEmail: "",
+      invoiceNumber: "",
+      invoiceDate: new Date(),
+      dueDate: new Date(),
+      amount: "",
+      status: "pending",
+      notes: "",
+    },
   })
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    {
-      description: "",
-      type: "consultation" as const,
-      quantity: 1,
-      unitPrice: 0,
-    },
-  ])
-
-  const [isCreating, setIsCreating] = useState(false)
-
-  const operators = [
-    { id: "op1", name: "Stella Divina" },
-    { id: "op2", name: "Marco Astrologo" },
-    { id: "op3", name: "Luna Stellare" },
-  ]
-
-  const addItem = () => {
-    setItems([
-      ...items,
-      {
-        description: "",
-        type: "consultation",
-        quantity: 1,
-        unitPrice: 0,
-      },
-    ])
-  }
-
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
-  const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
-    const updatedItems = [...items]
-    updatedItems[index] = { ...updatedItems[index], [field]: value }
-    setItems(updatedItems)
-  }
-
-  const calculateTotal = () => {
-    return items.reduce((total, item) => total + item.quantity * item.unitPrice, 0)
-  }
-
-  const handleCreateInvoice = async () => {
-    setIsCreating(true)
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      // Validazione
-      if (!formData.operatorId || !formData.dueDate) {
-        toast({
-          title: "Errore",
-          description: "Seleziona operatore e data di scadenza.",
-          variant: "destructive",
+      if (session?.user?.id) {
+        await createInvoice({
+          ...values,
+          userId: session.user.id,
         })
-        return
+        toast.success("Invoice created successfully!")
+        router.refresh()
+        form.reset()
+        setOpen(false)
       }
-
-      if (items.some((item) => !item.description || item.unitPrice === 0)) {
-        toast({
-          title: "Errore",
-          description: "Completa tutti gli elementi della fattura.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Simula creazione fattura
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      const invoiceNumber = `INV-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`
-
-      toast({
-        title: "Fattura creata",
-        description: `Fattura ${invoiceNumber} creata con successo per ${formData.operatorName}.`,
-      })
-
-      // Reset form
-      setFormData({
-        operatorId: "",
-        operatorName: "",
-        dueDate: "",
-        notes: "",
-      })
-      setItems([
-        {
-          description: "",
-          type: "consultation",
-          quantity: 1,
-          unitPrice: 0,
-        },
-      ])
-
-      onInvoiceCreated()
-      onClose()
     } catch (error) {
-      toast({
-        title: "Errore",
-        description: "Errore nella creazione della fattura.",
-        variant: "destructive",
-      })
+      toast.error("Something went wrong!")
     }
-    setIsCreating(false)
-  }
-
-  const getItemTypeLabel = (type: InvoiceItem["type"]) => {
-    const labels = {
-      consultation: "Consulenza",
-      commission: "Commissione",
-      deduction: "Detrazione",
-      fee: "Spesa",
-    }
-    return labels[type]
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Crea Nuova Fattura</DialogTitle>
-          <DialogDescription>Compila i dettagli per creare una nuova fattura operatore.</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Dati Generali */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="operator">Operatore</Label>
-              <Select
-                value={formData.operatorId}
-                onValueChange={(value) => {
-                  const operator = operators.find((op) => op.id === value)
-                  setFormData((prev) => ({
-                    ...prev,
-                    operatorId: value,
-                    operatorName: operator?.name || "",
-                  }))
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona operatore" />
-                </SelectTrigger>
-                <SelectContent>
-                  {operators.map((operator) => (
-                    <SelectItem key={operator.id} value={operator.id}>
-                      {operator.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Data Scadenza</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline">Create Invoice</Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Create Invoice</AlertDialogTitle>
+          <AlertDialogDescription>Fill in the information below to create a new invoice.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <FormField
+              control={form.control}
+              name="customerName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="customerEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="johndoe@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="invoiceNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Invoice Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="INV-2024-001" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex flex-col md:flex-row gap-4">
+              <FormField
+                control={form.control}
+                name="invoiceDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Invoice Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-[240px] pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date > new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Due Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-[240px] pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
-
-          {/* Elementi Fattura */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Elementi Fattura</h3>
-              <Button onClick={addItem} size="sm" variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Aggiungi Elemento
-              </Button>
-            </div>
-
-            {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 items-end p-4 border rounded-lg">
-                <div className="col-span-4">
-                  <Label>Descrizione</Label>
-                  <Input
-                    placeholder="Descrizione elemento..."
-                    value={item.description}
-                    onChange={(e) => updateItem(index, "description", e.target.value)}
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={item.type}
-                    onValueChange={(value) => updateItem(index, "type", value as InvoiceItem["type"])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount</FormLabel>
+                  <FormControl>
+                    <Input placeholder="100.00" type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a status" />
+                      </SelectTrigger>
+                    </FormControl>
                     <SelectContent>
-                      <SelectItem value="consultation">Consulenza</SelectItem>
-                      <SelectItem value="commission">Commissione</SelectItem>
-                      <SelectItem value="deduction">Detrazione</SelectItem>
-                      <SelectItem value="fee">Spesa</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Quantità</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <Label>Prezzo Unit. (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={item.unitPrice}
-                    onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value))}
-                  />
-                </div>
-
-                <div className="col-span-1">
-                  <Label>Totale</Label>
-                  <p className="text-sm font-medium p-2 bg-slate-100 rounded">
-                    €{(item.quantity * item.unitPrice).toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="col-span-1">
-                  <Button
-                    onClick={() => removeItem(index)}
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 hover:bg-red-50"
-                    disabled={items.length === 1}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Note */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Note (opzionale)</Label>
-            <Textarea
-              id="notes"
-              placeholder="Note aggiuntive per la fattura..."
-              value={formData.notes}
-              onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-              rows={3}
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          {/* Totale */}
-          <div className="flex justify-end">
-            <div className="text-right">
-              <p className="text-lg font-semibold">Totale Fattura: €{calculateTotal().toFixed(2)}</p>
-            </div>
-          </div>
-
-          {/* Azioni */}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Annulla
-            </Button>
-            <Button onClick={handleCreateInvoice} disabled={isCreating} className="bg-sky-600 hover:bg-sky-700">
-              <Save className="h-4 w-4 mr-2" />
-              {isCreating ? "Creazione..." : "Crea Fattura"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Add any relevant notes here." className="resize-none" {...field} />
+                  </FormControl>
+                  <FormDescription>These notes will be visible to the customer.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <Button type="submit">Create</Button>
+            </AlertDialogFooter>
+          </form>
+        </Form>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
+
+export default CreateInvoiceModal
