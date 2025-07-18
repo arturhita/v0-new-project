@@ -1,40 +1,68 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from "@/components/ui/use-toast"
 import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
-import { useState } from "react"
+import { MoreHorizontal } from "lucide-react"
+import { useTransition } from "react"
 
-export function CommissionRequestActions({ requestId }: { requestId: string }) {
-  const [isLoading, setIsLoading] = useState(false)
+type RequestStatus = "pending" | "approved" | "rejected"
+
+interface CommissionRequestActionsProps {
+  requestId: string
+  currentStatus: RequestStatus
+}
+
+export default function CommissionRequestActions({ requestId, currentStatus }: CommissionRequestActionsProps) {
   const { toast } = useToast()
+  const [isPending, startTransition] = useTransition()
 
-  const handleAction = async (status: "approved" | "rejected") => {
-    setIsLoading(true)
-    const result = await updateCommissionRequestStatus(requestId, status)
-    if (result.success) {
-      toast({
-        title: "Successo",
-        description: `Richiesta ${status === "approved" ? "approvata" : "rifiutata"}.`,
-      })
-    } else {
-      toast({
-        title: "Errore",
-        description: result.error,
-        variant: "destructive",
-      })
-    }
-    setIsLoading(false)
+  const handleUpdate = (newStatus: RequestStatus) => {
+    if (newStatus === currentStatus || currentStatus !== "pending") return
+
+    startTransition(async () => {
+      const result = await updateCommissionRequestStatus(requestId, newStatus)
+      if (result.error) {
+        toast({
+          title: "Errore",
+          description: result.error,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Successo",
+          description: result.success,
+        })
+      }
+    })
   }
 
   return (
-    <div className="space-x-2">
-      <Button size="sm" variant="outline" onClick={() => handleAction("approved")} disabled={isLoading}>
-        Approva
-      </Button>
-      <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isLoading}>
-        Rifiuta
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0" disabled={isPending || currentStatus !== "pending"}>
+          <span className="sr-only">Apri menu</span>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Azioni</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleUpdate("approved")} disabled={isPending}>
+          Approva
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-red-600" onClick={() => handleUpdate("rejected")} disabled={isPending}>
+          Rifiuta
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

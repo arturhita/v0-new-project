@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,97 +12,64 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { createPromotion, updatePromotion } from "@/lib/actions/promotions.actions"
-import type { Promotion } from "@/lib/actions/promotions.actions"
+import { createOrUpdatePromotion, type Promotion } from "@/lib/actions/promotions.actions"
+import { useTransition } from "react"
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
+import { CalendarIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Calendar } from "./ui/calendar"
+import { format } from "date-fns"
 
 const promotionSchema = z.object({
-  name: z.string().min(1, "Il nome è richiesto."),
-  description: z.string().min(1, "La descrizione è richiesta."),
-  discount_percentage: z
-    .number({ invalid_type_error: "Deve essere un numero" })
+  name: z.string().min(3, "Il nome deve essere di almeno 3 caratteri."),
+  description: z.string().optional(),
+  discount_percentage: z.coerce
+    .number()
     .min(1, "La percentuale deve essere almeno 1.")
     .max(100, "La percentuale non può superare 100."),
-  start_date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Data di inizio non valida." }),
-  end_date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Data di fine non valida." }),
+  start_date: z.date({ required_error: "La data di inizio è richiesta." }),
+  end_date: z.date({ required_error: "La data di fine è richiesta." }),
 })
 
-type PromotionFormValues = z.infer<typeof promotionSchema>
-
-type CreatePromotionModalProps = {
+interface CreatePromotionModalProps {
   isOpen: boolean
   onClose: () => void
-  onPromotionCreated?: (promotion: Promotion) => void
-  onPromotionUpdated?: (promotion: Promotion) => void
   promotion?: Promotion | null
 }
 
-export function CreatePromotionModal({
-  isOpen,
-  onClose,
-  onPromotionCreated,
-  onPromotionUpdated,
-  promotion,
-}: CreatePromotionModalProps) {
+export default function CreatePromotionModal({ isOpen, onClose, promotion }: CreatePromotionModalProps) {
   const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<PromotionFormValues>({
+  const form = useForm<z.infer<typeof promotionSchema>>({
     resolver: zodResolver(promotionSchema),
+    defaultValues: {
+      name: promotion?.name ?? "",
+      description: promotion?.description ?? "",
+      discount_percentage: promotion?.discount_percentage ?? 10,
+      start_date: promotion?.start_date ? new Date(promotion.start_date) : new Date(),
+      end_date: promotion?.end_date ? new Date(promotion.end_date) : new Date(),
+    },
   })
 
-  useEffect(() => {
-    if (promotion) {
-      reset({
-        name: promotion.name,
-        description: promotion.description,
-        discount_percentage: promotion.discount_percentage,
-        start_date: new Date(promotion.start_date).toISOString().substring(0, 16),
-        end_date: new Date(promotion.end_date).toISOString().substring(0, 16),
+  const onSubmit = (values: z.infer<typeof promotionSchema>) => {
+    startTransition(async () => {
+      const result = await createOrUpdatePromotion(promotion?.id, {
+        ...values,
+        start_date: values.start_date.toISOString(),
+        end_date: values.end_date.toISOString(),
       })
-    } else {
-      reset({
-        name: "",
-        description: "",
-        discount_percentage: 10,
-        start_date: new Date().toISOString().substring(0, 16),
-        end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 16),
-      })
-    }
-  }, [promotion, reset, isOpen])
 
-  const onSubmit = async (data: PromotionFormValues) => {
-    setIsLoading(true)
-    const action = promotion ? updatePromotion : createPromotion
-    const result = await action(promotion ? promotion.id : undefined, data)
-
-    if (result.error) {
-      toast({
-        title: "Errore",
-        description: typeof result.error === "string" ? result.error : "Controlla i campi.",
-        variant: "destructive",
-      })
-    } else {
-      toast({
-        title: "Successo!",
-        description: `Promozione ${promotion ? "aggiornata" : "creata"} con successo.`,
-      })
-      if (promotion && onPromotionUpdated && result.promotion) {
-        onPromotionUpdated(result.promotion)
-      } else if (!promotion && onPromotionCreated && result.promotion) {
-        onPromotionCreated(result.promotion)
+      if (result.error) {
+        toast({ title: "Errore", description: result.error, variant: "destructive" })
+      } else {
+        toast({ title: "Successo", description: `Promozione ${promotion ? "aggiornata" : "creata"} con successo.` })
+        onClose()
       }
-      onClose()
-    }
-    setIsLoading(false)
+    })
   }
 
   return (
@@ -113,71 +79,113 @@ export function CreatePromotionModal({
           <DialogTitle>{promotion ? "Modifica Promozione" : "Crea Nuova Promozione"}</DialogTitle>
           <DialogDescription>
             {promotion
-              ? "Modifica i dettagli della promozione."
-              : "Inserisci i dettagli per la nuova promozione. Verrà applicata a tutti gli operatori."}
+              ? "Modifica i dettagli di questa promozione."
+              : "Crea una nuova promozione per tutti gli operatori."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Nome
-            </Label>
-            <div className="col-span-3">
-              <Input id="name" {...register("name")} />
-              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Descrizione
-            </Label>
-            <div className="col-span-3">
-              <Textarea id="description" {...register("description")} />
-              {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="discount_percentage" className="text-right">
-              Sconto (%)
-            </Label>
-            <div className="col-span-3">
-              <Input
-                id="discount_percentage"
-                type="number"
-                {...register("discount_percentage", { valueAsNumber: true })}
-              />
-              {errors.discount_percentage && (
-                <p className="text-red-500 text-xs mt-1">{errors.discount_percentage.message}</p>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome Promozione</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Es: Sconto Estivo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="start_date" className="text-right">
-              Inizio
-            </Label>
-            <div className="col-span-3">
-              <Input id="start_date" type="datetime-local" {...register("start_date")} />
-              {errors.start_date && <p className="text-red-500 text-xs mt-1">{errors.start_date.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="end_date" className="text-right">
-              Fine
-            </Label>
-            <div className="col-span-3">
-              <Input id="end_date" type="datetime-local" {...register("end_date")} />
-              {errors.end_date && <p className="text-red-500 text-xs mt-1">{errors.end_date.message}</p>}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Annulla
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Salvataggio..." : promotion ? "Salva Modifiche" : "Crea Promozione"}
-            </Button>
-          </DialogFooter>
-        </form>
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrizione (Opzionale)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Breve descrizione della promo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="discount_percentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sconto (%)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="Es: 20" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="start_date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Data di Inizio</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Scegli una data</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="end_date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Data di Fine</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Scegli una data</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>
+                Annulla
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Salvataggio..." : promotion ? "Salva Modifiche" : "Crea Promozione"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

@@ -1,56 +1,52 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { unstable_noStore as noStore } from "next/cache"
 
 export async function getPayoutRequests() {
-  const supabase = createClient()
-  try {
-    // Explicit join to avoid schema cache issues
-    const { data, error } = await supabase
-      .from("payout_requests")
-      .select(
-        `
-        id,
-        operator_id,
-        amount,
-        status,
-        created_at,
-        processed_at,
-        profiles (
-          id,
-          username,
-          email
-        )
-      `,
-      )
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching payout requests:", error.message)
-      throw new Error(`Could not fetch payout requests: ${error.message}`)
-    }
-
-    // The data is already in the desired shape because of the explicit select.
-    return data
-  } catch (error: any) {
-    console.error("Catch block error fetching payout requests:", error.message)
-    return { error: error.message }
-  }
-}
-
-export async function updatePayoutStatus(id: string, status: "completed" | "rejected") {
-  const supabase = createClient()
+  noStore()
+  const supabase = createAdminClient()
+  // Using an explicit inner join (!inner) to be more robust against schema cache issues.
+  // This will prevent the "Could not find a relationship" error.
   const { data, error } = await supabase
     .from("payout_requests")
-    .update({ status: status, processed_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
+    .select(
+      `
+      id,
+      amount,
+      status,
+      payment_details,
+      created_at,
+      processed_at,
+      operator: profiles!inner (
+        id,
+        full_name,
+        email
+      )
+    `,
+    )
+    .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: "Impossibile aggiornare lo stato della richiesta." }
+    console.error("Error fetching payout requests:", error)
+    return { error: `Errore nel caricamento delle richieste di pagamento: ${error.message}.` }
+  }
+  return { data }
+}
+
+export async function updatePayoutStatus(payoutId: string, newStatus: "processing" | "paid" | "rejected" | "on_hold") {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("payout_requests")
+    .update({ status: newStatus, processed_at: new Date().toISOString() })
+    .eq("id", payoutId)
+
+  if (error) {
+    console.error("Error updating payout status:", error)
+    return { error: "Impossibile aggiornare lo stato del pagamento." }
   }
 
   revalidatePath("/admin/payouts")
-  return { success: "Stato aggiornato con successo." }
+  return { success: "Stato del pagamento aggiornato con successo." }
 }
