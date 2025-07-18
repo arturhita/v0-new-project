@@ -1,144 +1,125 @@
 "use client"
 
+import { useFormState, useFormStatus } from "react-dom"
 import { updateOperatorByAdmin } from "@/lib/actions/operator.actions"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useEffect } from "react"
+import { toast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/components/ui/use-toast"
-import { useRouter } from "next/navigation"
-import { useTransition } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Save } from "lucide-react"
 
+// Definisce il tipo di dato per l'operatore basato sullo schema del DB
 type Operator = {
   id: string
   full_name: string | null
   email: string | null
   phone: string | null
-  status: string | null
-  commission_rate: number | null
-  specialties: string[] | null
   bio: string | null
+  specialties: string[] | null
+  status: "pending" | "approved" | "rejected" | "active" | "suspended"
+  commission_rate: number | null
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" disabled={pending}>
+      <Save className="mr-2 h-4 w-4" />
+      {pending ? "Salvataggio..." : "Salva Modifiche"}
+    </Button>
+  )
 }
 
 export default function EditOperatorForm({ operator }: { operator: Operator }) {
-  const { toast } = useToast()
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const initialState = { message: null, success: false }
+  const updateOperatorWithId = updateOperatorByAdmin.bind(null, operator.id)
+  const [state, dispatch] = useFormState(updateOperatorWithId, initialState)
 
-  const handleSubmit = (formData: FormData) => {
-    startTransition(async () => {
-      const result = await updateOperatorByAdmin(operator.id, formData)
-      if (result.success) {
-        toast({
-          title: "Successo",
-          description: result.message,
-          className: "bg-green-500 text-white",
-        })
-        router.refresh()
-      } else {
-        toast({
-          title: "Errore",
-          description: result.message,
-          variant: "destructive",
-        })
-      }
-    })
-  }
+  useEffect(() => {
+    if (state.message) {
+      toast({
+        title: state.success ? "Successo" : "Errore",
+        description: state.message,
+        variant: state.success ? "default" : "destructive",
+      })
+    }
+  }, [state])
 
   return (
-    <form action={handleSubmit} className="space-y-6 bg-gray-800 p-6 rounded-lg border border-gray-700">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="full_name" className="text-white">
-            Nome Completo
-          </Label>
-          <Input
-            id="full_name"
-            name="full_name"
-            defaultValue={operator.full_name ?? ""}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
+    <form action={dispatch}>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Informazioni Personali</CardTitle>
+            <CardDescription>Dati anagrafici e di contatto dell'operatore.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="full_name">Nome Completo</Label>
+                <Input id="full_name" name="full_name" defaultValue={operator.full_name ?? ""} />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" defaultValue={operator.email ?? ""} readOnly />
+              </div>
+              <div>
+                <Label htmlFor="phone">Telefono</Label>
+                <Input id="phone" name="phone" defaultValue={operator.phone ?? ""} />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea id="bio" name="bio" defaultValue={operator.bio ?? ""} rows={5} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Impostazioni Piattaforma</CardTitle>
+            <CardDescription>Configurazioni relative allo stato e alle commissioni.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="status">Stato Account</Label>
+                <Select name="status" defaultValue={operator.status}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona uno stato" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Attivo</SelectItem>
+                    <SelectItem value="suspended">Sospeso</SelectItem>
+                    <SelectItem value="pending">In Attesa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="commission_rate">Commissione (%)</Label>
+                <Input
+                  id="commission_rate"
+                  name="commission_rate"
+                  type="number"
+                  step="0.01"
+                  defaultValue={operator.commission_rate ?? 0}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="specialties">Specializzazioni (separate da virgola)</Label>
+              <Input id="specialties" name="specialties" defaultValue={operator.specialties?.join(", ") ?? ""} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end">
+          <SubmitButton />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-white">
-            Email
-          </Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            defaultValue={operator.email ?? ""}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="phone" className="text-white">
-            Telefono
-          </Label>
-          <Input
-            id="phone"
-            name="phone"
-            defaultValue={operator.phone ?? ""}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="status" className="text-white">
-            Stato
-          </Label>
-          <Select name="status" defaultValue={operator.status ?? "pending"}>
-            <SelectTrigger className="bg-gray-900 border-gray-600 text-white">
-              <SelectValue placeholder="Seleziona stato" />
-            </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-white">
-              <SelectItem value="active">Attivo</SelectItem>
-              <SelectItem value="pending">In attesa</SelectItem>
-              <SelectItem value="suspended">Sospeso</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="commission_rate" className="text-white">
-            Tasso di Commissione (%)
-          </Label>
-          <Input
-            id="commission_rate"
-            name="commission_rate"
-            type="number"
-            step="0.1"
-            defaultValue={operator.commission_rate ?? 0}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="specialties" className="text-white">
-            Specialità (separate da virgola)
-          </Label>
-          <Input
-            id="specialties"
-            name="specialties"
-            defaultValue={operator.specialties?.join(", ") ?? ""}
-            className="bg-gray-900 border-gray-600 text-white"
-          />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="bio" className="text-white">
-          Biografia
-        </Label>
-        <Textarea
-          id="bio"
-          name="bio"
-          defaultValue={operator.bio ?? ""}
-          className="bg-gray-900 border-gray-600 text-white"
-          rows={5}
-        />
-      </div>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-          {isPending ? "Salvataggio..." : "Salva Modifiche"}
-        </Button>
       </div>
     </form>
   )

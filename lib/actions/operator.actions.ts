@@ -33,7 +33,7 @@ export async function getOperatorDetailsForAdmin(operatorId: string) {
   return data
 }
 
-export async function updateOperatorByAdmin(operatorId: string, formData: FormData) {
+export async function updateOperatorByAdmin(operatorId: string, previousState: any, formData: FormData) {
   const supabase = createClient()
 
   const updates = {
@@ -50,7 +50,7 @@ export async function updateOperatorByAdmin(operatorId: string, formData: FormDa
 
   if (error) {
     console.error("Error updating operator:", error)
-    return { success: false, message: "Errore durante l'aggiornamento dell'operatore." }
+    return { success: false, message: `Errore durante l'aggiornamento dell'operatore: ${error.message}` }
   }
 
   revalidatePath("/admin/operators")
@@ -71,7 +71,8 @@ export async function getPendingOperatorApplications() {
 
 export async function approveOperatorApplication(applicationId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.rpc("approve_operator", { p_application_id: applicationId })
+  // La funzione RPC 'approve_operator' gestisce la logica complessa di creazione utente, operatore, etc.
+  const { error } = await supabase.rpc("approve_operator", { p_application_id: applicationId })
 
   if (error) {
     console.error("Error approving operator:", error)
