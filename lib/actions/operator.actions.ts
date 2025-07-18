@@ -3,17 +3,14 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+// Funzione per ottenere tutti gli operatori per il pannello admin
 export async function getOperatorsForAdmin() {
   const supabase = createClient()
-  const { data, error } = await supabase.from("operators").select(`
-    id,
-    full_name,
-    email,
-    phone,
-    status,
-    commission_rate,
-    created_at
-  `)
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`id, full_name, email, status, commission_rate, created_at`)
+    .eq("role", "operator")
+    .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching operators for admin:", error)
@@ -22,9 +19,15 @@ export async function getOperatorsForAdmin() {
   return data
 }
 
+// Funzione per ottenere i dettagli di un singolo operatore
 export async function getOperatorById(operatorId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("operators").select("*").eq("id", operatorId).single()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", operatorId)
+    .eq("role", "operator")
+    .single()
 
   if (error) {
     console.error(`Error fetching operator by ID ${operatorId}:`, error)
@@ -33,6 +36,7 @@ export async function getOperatorById(operatorId: string) {
   return data
 }
 
+// Funzione per aggiornare un operatore dall'admin
 export async function updateOperatorByAdmin(operatorId: string, previousState: any, formData: FormData) {
   const supabase = createClient()
 
@@ -46,11 +50,11 @@ export async function updateOperatorByAdmin(operatorId: string, previousState: a
     bio: formData.get("bio") as string,
   }
 
-  const { error } = await supabase.from("operators").update(updates).eq("id", operatorId)
+  const { error } = await supabase.from("profiles").update(updates).eq("id", operatorId)
 
   if (error) {
     console.error("Error updating operator:", error)
-    return { success: false, message: `Errore durante l'aggiornamento dell'operatore: ${error.message}` }
+    return { success: false, message: `Errore durante l'aggiornamento: ${error.message}` }
   }
 
   revalidatePath("/admin/operators")
@@ -58,6 +62,7 @@ export async function updateOperatorByAdmin(operatorId: string, previousState: a
   return { success: true, message: "Operatore aggiornato con successo." }
 }
 
+// Funzioni per la gestione delle candidature
 export async function getPendingOperatorApplications() {
   const supabase = createClient()
   const { data, error } = await supabase.from("operator_applications").select("*").eq("status", "pending")
@@ -75,7 +80,7 @@ export async function approveOperatorApplication(applicationId: string) {
 
   if (error) {
     console.error("Error approving operator:", error)
-    return { success: false, message: "Errore durante l'approvazione." }
+    return { success: false, message: `Errore durante l'approvazione: ${error.message}` }
   }
 
   revalidatePath("/admin/operator-approvals")
@@ -91,7 +96,7 @@ export async function rejectOperatorApplication(applicationId: string, reason: s
 
   if (error) {
     console.error("Error rejecting operator:", error)
-    return { success: false, message: "Errore durante il rifiuto." }
+    return { success: false, message: `Errore durante il rifiuto: ${error.message}` }
   }
 
   revalidatePath("/admin/operator-approvals")
