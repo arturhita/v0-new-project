@@ -1,47 +1,33 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { unstable_noStore as noStore } from "next/cache"
-import { v4 as uuid_generate_v4 } from "uuid"
 
-const supabase = createClient()
-const supabaseAdmin = createAdminClient()
-
-// PUNTO 1: Cruscotto con dati reali
+// Punto 1 & 8: Dati reali per il cruscotto
 export async function getDashboardStats() {
   noStore()
-  const { count: totalOperators } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact" })
-    .eq("role", "operator")
-  const { count: totalClients } = await supabase.from("profiles").select("id", { count: "exact" }).eq("role", "client")
-  const { count: pendingApprovals } = await supabase
-    .from("operator_applications")
-    .select("id", { count: "exact" })
-    .eq("status", "pending")
-  const { count: openTickets } = await supabase
-    .from("support_tickets")
-    .select("id", { count: "exact" })
-    .eq("status", "open")
-
-  // Dati finanziari (esempio, da adattare con le tabelle reali delle transazioni)
-  const { data: monthlyRevenueData, error } = await supabase.rpc("get_monthly_revenue")
-
-  return {
-    totalOperators: totalOperators ?? 0,
-    totalClients: totalClients ?? 0,
-    pendingApprovals: pendingApprovals ?? 0,
-    openTickets: openTickets ?? 0,
-    monthlyRevenue: monthlyRevenueData?.[0]?.total_revenue ?? 0,
-    // Aggiungere altre statistiche reali qui
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_admin_dashboard_stats")
+  if (error) {
+    console.error("Error fetching dashboard stats:", error)
+    return {
+      total_users: 0,
+      total_operators: 0,
+      total_revenue: 0,
+      pending_approvals: 0,
+      pending_reviews: 0,
+      open_tickets: 0,
+    }
   }
+  return data[0]
 }
 
-// PUNTO 2: Approvazioni reali
+// Punto 2: Approvazioni reali
 export async function getPendingOperatorApplications() {
   noStore()
+  const supabase = createClient()
   const { data, error } = await supabase.from("operator_applications").select("*").eq("status", "pending")
   if (error) {
     console.error("Error fetching pending applications:", error)
@@ -51,157 +37,238 @@ export async function getPendingOperatorApplications() {
 }
 
 export async function approveOperatorApplication(applicationId: string) {
+  const supabase = createAdminClient()
   const { error } = await supabase.rpc("approve_operator", { p_application_id: applicationId })
-  if (error) {
-    return { success: false, message: `Errore approvazione: ${error.message}` }
-  }
+  if (error) return { success: false, message: `Errore approvazione: ${error.message}` }
+
   revalidatePath("/admin/operator-approvals")
+  revalidatePath("/admin/dashboard")
   return { success: true, message: "Operatore approvato con successo." }
 }
 
 export async function rejectOperatorApplication(applicationId: string) {
+  const supabase = createClient()
   const { error } = await supabase.from("operator_applications").update({ status: "rejected" }).eq("id", applicationId)
-  if (error) {
-    return { success: false, message: `Errore nel rifiutare la candidatura: ${error.message}` }
-  }
+  if (error) return { success: false, message: `Errore: ${error.message}` }
   revalidatePath("/admin/operator-approvals")
   return { success: true, message: "Candidatura rifiutata." }
 }
 
-// PUNTO 3: Gestione Operatori Reale
+// Punto 3: Elenco operatori reale con modifiche
+export async function getOperatorsForAdmin() {
+  noStore()
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`id, full_name, stage_name, email, status, commission_rate, avatar_url, created_at`)
+    .eq("role", "operator")
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("Error fetching operators for admin:", error)
+    return []
+  }
+  return data
+}
+
 export async function getOperatorForEdit(operatorId: string) {
   noStore()
+  const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("id", operatorId).single()
-
   if (error) {
-    console.error(`Error fetching operator for edit: ${error.message}`)
+    console.error(`Error fetching operator ${operatorId} for edit:`, error)
     return null
   }
   return data
 }
 
 export async function updateOperatorByAdmin(operatorId: string, formData: FormData) {
+  const supabase = createClient()
   const updates = {
     full_name: formData.get("full_name") as string,
     stage_name: formData.get("stage_name") as string,
-    email: formData.get("email") as string,
-    phone: formData.get("phone") as string,
     status: formData.get("status") as string,
     commission_rate: Number(formData.get("commission_rate")),
     bio: formData.get("bio") as string,
   }
-
   const { error } = await supabase.from("profiles").update(updates).eq("id", operatorId)
-
-  if (error) {
-    return { success: false, message: `Errore durante l'aggiornamento: ${error.message}` }
-  }
-
+  if (error) return { success: false, message: `Errore: ${error.message}` }
   revalidatePath("/admin/operators")
   revalidatePath(`/admin/operators/${operatorId}/edit`)
   return { success: true, message: "Operatore aggiornato con successo." }
 }
 
-// PUNTO 4: Gestione Utenti Reale
-export async function getAllUsers() {
+// Punto 4: Elenco utenti reale
+export async function getUsersForAdmin() {
   noStore()
-  const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false })
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`id, full_name, email, created_at, avatar_url`)
+    .eq("role", "client")
+    .order("created_at", { ascending: false })
   if (error) {
-    console.error("Error fetching users:", error)
+    console.error("Error fetching users for admin:", error)
     return []
   }
   return data
 }
 
-// PUNTO 5: Promozioni Reali
+// Punto 5: Promozioni reali
 export async function getPromotions() {
   noStore()
-  const { data, error } = await supabase.from("promotions").select("*")
-  if (error) return []
+  const supabase = createClient()
+  const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
+  if (error) {
+    console.error("Error fetching promotions:", error)
+    return []
+  }
   return data
 }
 
 export async function createPromotion(formData: FormData) {
+  const supabase = createClient()
   const newPromo = {
     code: formData.get("code") as string,
     description: formData.get("description") as string,
-    discount_type: formData.get("discount_type") as "percentage" | "fixed_amount",
-    value: Number(formData.get("value")),
-    start_date: new Date(formData.get("start_date") as string).toISOString(),
-    end_date: formData.get("end_date") ? new Date(formData.get("end_date") as string).toISOString() : null,
-    is_active: formData.get("is_active") === "on",
+    discount_type: formData.get("discount_type") as string,
+    discount_value: Number(formData.get("discount_value")),
+    start_date: formData.get("start_date") as string,
+    end_date: formData.get("end_date") as string,
+    is_active: (formData.get("is_active") as string) === "true",
   }
   const { error } = await supabase.from("promotions").insert(newPromo)
-  if (error) return { success: false, message: error.message }
+  if (error) return { success: false, message: `Errore: ${error.message}` }
   revalidatePath("/admin/promotions")
-  return { success: true, message: "Promozione creata." }
+  return { success: true, message: "Promozione creata con successo." }
 }
 
-// PUNTO 7: Fatture Reali
+// Punto 7: Fatture reali
 export async function getInvoices() {
   noStore()
-  const { data, error } = await supabase.from("invoices").select(`
-            *,
-            client:user_id ( full_name, email ),
-            operator:operator_id ( stage_name )
-        `)
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("invoices")
+    .select(`*, operator:profiles(stage_name)`)
+    .order("created_at", { ascending: false })
   if (error) {
-    console.error("ERRORE RECUPERO FATTURE:", error.message)
+    console.error("Error fetching invoices:", error)
     return []
   }
   return data
 }
 
-// PUNTO 10: Gestione Blog Reale
-export async function createBlogPost(formData: FormData) {
-  const newPost = {
-    title: formData.get("title") as string,
-    slug: (formData.get("title") as string).toLowerCase().replace(/\s+/g, "-"),
-    content: JSON.parse(formData.get("content") as string),
-    category: formData.get("category") as string,
-    status: formData.get("status") as "draft" | "published",
-    cover_image_url: formData.get("cover_image_url") as string,
-    published_at: formData.get("status") === "published" ? new Date().toISOString() : null,
-  }
-  const { error } = await supabase.from("blog_posts").insert(newPost)
-  if (error) return { success: false, message: error.message }
-  revalidatePath("/admin/blog-management")
-  revalidatePath("/astromag")
-  return { success: true, message: "Articolo creato." }
-}
-
-export async function uploadBlogImage(file: File) {
-  const fileName = `${uuid_generate_v4()}-${file.name}`
-  const { data, error } = await supabase.storage.from("blog_images").upload(fileName, file)
-  if (error) return { success: false, url: null, message: error.message }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("blog_images").getPublicUrl(fileName)
-  return { success: true, url: publicUrl, message: "Immagine caricata." }
-}
-
-// PUNTO 13 & 14: Impostazioni Reali
-export async function getCompanySettings() {
+// Punto 9: Recensioni reali
+export async function getPendingReviews() {
   noStore()
-  const { data, error } = await supabase.from("company_settings").select("*").single()
-  if (error) return null
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(
+      `*, client:profiles!reviews_user_id_fkey(full_name), operator:profiles!reviews_operator_id_fkey(stage_name)`,
+    )
+    .eq("status", "pending")
+  if (error) {
+    console.error("Error fetching pending reviews:", error)
+    return []
+  }
   return data
 }
 
-export async function updateCompanySettings(formData: FormData) {
-  const updates = {
-    company_name: formData.get("company_name") as string,
-    vat_number: formData.get("vat_number") as string,
-    address: formData.get("address") as string,
-    email: formData.get("email") as string,
-    phone: formData.get("phone") as string,
+export async function updateReviewStatus(reviewId: string, status: "approved" | "rejected") {
+  const supabase = createClient()
+  const { error } = await supabase.from("reviews").update({ status }).eq("id", reviewId)
+  if (error) return { success: false, message: `Errore: ${error.message}` }
+  revalidatePath("/admin/reviews")
+  return { success: true, message: `Recensione ${status === "approved" ? "approvata" : "rifiutata"}.` }
+}
+
+// Punto 10: Blog reale
+export async function getBlogPosts() {
+  noStore()
+  const supabase = createClient()
+  const { data, error } = await supabase.from("blog_posts").select("*").order("created_at", { ascending: false })
+  if (error) {
+    console.error("Error fetching blog posts:", error)
+    return []
   }
-  const { error } = await supabase
-    .from("company_settings")
-    .update(updates)
-    .eq("id", "00000000-0000-0000-0000-000000000001") // ID fisso
-  if (error) return { success: false, message: error.message }
-  revalidatePath("/admin/company-details")
-  return { success: true, message: "Dati aziendali salvati." }
+  return data
+}
+
+export async function uploadBlogImage(formData: FormData) {
+  const supabase = createClient()
+  const file = formData.get("image") as File
+  if (!file) return { success: false, message: "Nessun file fornito." }
+
+  const filePath = `public/${Date.now()}-${file.name}`
+  const { error: uploadError } = await supabase.storage.from("blog_images").upload(filePath, file)
+  if (uploadError) return { success: false, message: `Errore di caricamento: ${uploadError.message}` }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("blog_images").getPublicUrl(filePath)
+  return { success: true, url: publicUrl }
+}
+
+export async function createBlogPost(formData: FormData) {
+  const supabase = createClient()
+  const newPost = {
+    title: formData.get("title") as string,
+    content: formData.get("content") as string,
+    category: formData.get("category") as string,
+    image_url: formData.get("image_url") as string,
+    status: formData.get("status") as string,
+    published_at: formData.get("status") === "published" ? new Date().toISOString() : null,
+  }
+  const { error } = await supabase.from("blog_posts").insert(newPost)
+  if (error) return { success: false, message: `Errore creazione post: ${error.message}` }
+  revalidatePath("/admin/blog-management")
+  revalidatePath("/astromag")
+  revalidatePath(`/astromag/${newPost.category}`)
+  return { success: true, message: "Articolo creato con successo." }
+}
+
+// Punto 11: Notifiche reali
+export async function sendNotification(formData: FormData) {
+  const supabase = createClient()
+  const newNotification = {
+    recipient_type: formData.get("recipient_type") as string,
+    title: formData.get("title") as string,
+    message: formData.get("message") as string,
+  }
+  const { error } = await supabase.from("notifications").insert(newNotification)
+  if (error) return { success: false, message: `Errore: ${error.message}` }
+  revalidatePath("/admin/notifications")
+  return { success: true, message: "Notifica inviata." }
+}
+
+// Punto 12: Ticket di supporto reali
+export async function getSupportTickets() {
+  noStore()
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("support_tickets")
+    .select(`*, user:profiles(full_name)`)
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("Error fetching tickets:", error)
+    return []
+  }
+  return data
+}
+
+// Punto 13, 14, 15: Impostazioni reali
+export async function getSettings(key: string) {
+  noStore()
+  const supabase = createClient()
+  const { data, error } = await supabase.from("platform_settings").select("settings").eq("id", key).single()
+  if (error || !data) return {}
+  return data.settings
+}
+
+export async function saveSettings(key: string, settings: any) {
+  const supabase = createClient()
+  const { error } = await supabase.from("platform_settings").upsert({ id: key, settings })
+  if (error) return { success: false, message: `Errore: ${error.message}` }
+  revalidatePath(`/admin/settings/${key === "companyDetails" ? "company-details" : "legal"}`)
+  return { success: true, message: "Impostazioni salvate." }
 }
