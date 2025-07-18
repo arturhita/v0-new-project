@@ -1,16 +1,21 @@
 "use client"
 
-import { updatePayoutRequestStatus } from "@/lib/actions/payouts.actions"
-import { Button } from "@/components/ui/button"
 import { useTransition } from "react"
+import { Button } from "@/components/ui/button"
+import { updatePayoutStatus } from "@/lib/actions/payouts.actions"
 import { toast } from "sonner"
 
-export function PayoutActions({ requestId }: { requestId: string }) {
+interface PayoutActionsProps {
+  requestId: string
+  currentStatus: string
+}
+
+export function PayoutActions({ requestId, currentStatus }: PayoutActionsProps) {
   const [isPending, startTransition] = useTransition()
 
-  const handleApprove = () => {
+  const handleUpdate = (status: "completed" | "rejected") => {
     startTransition(async () => {
-      const result = await updatePayoutRequestStatus(requestId, "completed")
+      const result = await updatePayoutStatus(requestId, status)
       if (result.success) {
         toast.success(result.message)
       } else {
@@ -19,24 +24,17 @@ export function PayoutActions({ requestId }: { requestId: string }) {
     })
   }
 
-  const handleReject = () => {
-    startTransition(async () => {
-      const result = await updatePayoutRequestStatus(requestId, "rejected")
-      if (result.success) {
-        toast.success(result.message)
-      } else {
-        toast.error(result.message)
-      }
-    })
+  if (currentStatus !== "pending") {
+    return null
   }
 
   return (
-    <div className="flex gap-2">
-      <Button size="sm" onClick={handleApprove} disabled={isPending} variant="default">
-        {isPending ? "..." : "Approva"}
+    <div className="flex gap-2 justify-end">
+      <Button size="sm" onClick={() => handleUpdate("completed")} disabled={isPending}>
+        Approva
       </Button>
-      <Button size="sm" onClick={handleReject} disabled={isPending} variant="destructive">
-        {isPending ? "..." : "Rifiuta"}
+      <Button size="sm" variant="destructive" onClick={() => handleUpdate("rejected")} disabled={isPending}>
+        Rifiuta
       </Button>
     </div>
   )

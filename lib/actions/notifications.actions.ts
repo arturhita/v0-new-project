@@ -29,7 +29,7 @@ export async function sendBroadcastNotification(formData: FormData) {
 
   if (error) {
     console.error("Error sending broadcast notification:", error)
-    return { success: false, message: "Errore durante l'invio della notifica." }
+    return { success: false, message: "Impossibile inviare la notifica." }
   }
 
   revalidatePath("/admin/notifications")

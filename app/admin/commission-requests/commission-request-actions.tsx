@@ -1,16 +1,21 @@
 "use client"
 
-import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
-import { Button } from "@/components/ui/button"
 import { useTransition } from "react"
+import { Button } from "@/components/ui/button"
+import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
 import { toast } from "sonner"
 
-export function CommissionRequestActions({ requestId }: { requestId: string }) {
+interface CommissionRequestActionsProps {
+  requestId: string
+  currentStatus: string
+}
+
+export function CommissionRequestActions({ requestId, currentStatus }: CommissionRequestActionsProps) {
   const [isPending, startTransition] = useTransition()
 
-  const handleApprove = () => {
+  const handleUpdate = (status: "approved" | "rejected") => {
     startTransition(async () => {
-      const result = await updateCommissionRequestStatus(requestId, "approved")
+      const result = await updateCommissionRequestStatus(requestId, status)
       if (result.success) {
         toast.success(result.message)
       } else {
@@ -19,24 +24,17 @@ export function CommissionRequestActions({ requestId }: { requestId: string }) {
     })
   }
 
-  const handleReject = () => {
-    startTransition(async () => {
-      const result = await updateCommissionRequestStatus(requestId, "rejected")
-      if (result.success) {
-        toast.success(result.message)
-      } else {
-        toast.error(result.message)
-      }
-    })
+  if (currentStatus !== "pending") {
+    return null
   }
 
   return (
-    <div className="flex gap-2">
-      <Button size="sm" onClick={handleApprove} disabled={isPending} variant="default">
-        {isPending ? "..." : "Approva"}
+    <div className="flex gap-2 justify-end">
+      <Button size="sm" onClick={() => handleUpdate("approved")} disabled={isPending}>
+        Approva
       </Button>
-      <Button size="sm" onClick={handleReject} disabled={isPending} variant="destructive">
-        {isPending ? "..." : "Rifiuta"}
+      <Button size="sm" variant="destructive" onClick={() => handleUpdate("rejected")} disabled={isPending}>
+        Rifiuta
       </Button>
     </div>
   )

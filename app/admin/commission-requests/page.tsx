@@ -9,61 +9,62 @@ export default async function CommissionRequestsPage() {
   noStore()
   const requests = await getCommissionRequests()
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("it-IT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Richieste Aumento Commissione</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Operatore</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Nuova % Richiesta</TableHead>
-              <TableHead>Data Richiesta</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead>Azioni</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.length > 0 ? (
-              requests.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell>{req.profiles?.full_name ?? "N/A"}</TableCell>
-                  <TableCell>{req.profiles?.email ?? "N/A"}</TableCell>
-                  <TableCell>{req.new_rate}%</TableCell>
-                  <TableCell>{formatDate(req.created_at)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        req.status === "approved" ? "default" : req.status === "rejected" ? "destructive" : "secondary"
-                      }
-                    >
-                      {req.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{req.status === "pending" && <CommissionRequestActions requestId={req.id} />}</TableCell>
-                </TableRow>
-              ))
-            ) : (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Richieste Aumento Commissione</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle>Richieste degli Operatori</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
-                  Nessuna richiesta trovata.
-                </TableCell>
+                <TableHead>Operatore</TableHead>
+                <TableHead>% Richiesta</TableHead>
+                <TableHead>% Attuale</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {requests.length > 0 ? (
+                requests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>{req.profiles?.full_name ?? "N/A"}</TableCell>
+                    <TableCell>{req.requested_percentage}%</TableCell>
+                    <TableCell>{req.current_percentage}%</TableCell>
+                    <TableCell>{new Date(req.created_at).toLocaleDateString("it-IT")}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          req.status === "approved"
+                            ? "default"
+                            : req.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {req.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <CommissionRequestActions requestId={req.id} currentStatus={req.status} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    Nessuna richiesta trovata.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

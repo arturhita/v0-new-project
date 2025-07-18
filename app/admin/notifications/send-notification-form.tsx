@@ -1,24 +1,25 @@
 "use client"
 
-import { useTransition } from "react"
-import { sendBroadcastNotification } from "@/lib/actions/notifications.actions"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTransition, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { sendBroadcastNotification } from "@/lib/actions/notifications.actions"
 import { toast } from "sonner"
 
 export function SendNotificationForm() {
   const [isPending, startTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
 
   const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
       const result = await sendBroadcastNotification(formData)
       if (result.success) {
         toast.success(result.message)
-        // Ideally, reset the form here. For now, a page reload will show the new notification.
+        formRef.current?.reset()
       } else {
         toast.error(result.message)
       }
@@ -28,11 +29,11 @@ export function SendNotificationForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Invia Notifica Broadcast</CardTitle>
-        <CardDescription>Invia un messaggio a tutti gli utenti, operatori o entrambi.</CardDescription>
+        <CardTitle>Invia Nuova Notifica</CardTitle>
+        <CardDescription>Il messaggio apparirà nel centro notifiche degli utenti target.</CardDescription>
       </CardHeader>
-      <form action={handleSubmit}>
-        <CardContent className="space-y-4">
+      <CardContent>
+        <form ref={formRef} action={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="title">Titolo</Label>
             <Input id="title" name="title" required />
@@ -54,13 +55,11 @@ export function SendNotificationForm() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-        <CardFooter>
           <Button type="submit" disabled={isPending}>
             {isPending ? "Invio in corso..." : "Invia Notifica"}
           </Button>
-        </CardFooter>
-      </form>
+        </form>
+      </CardContent>
     </Card>
   )
 }
