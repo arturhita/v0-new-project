@@ -1,35 +1,21 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-export interface BlogPost {
-  id?: string
-  title: string
-  slug: string
-  content: string
-  excerpt?: string
-  category: string
-  tags?: string[]
-  status: "draft" | "published" | "scheduled"
-  featured_image_url?: string
-  author_id: string
-  published_at?: string
-  seo_title?: string
-  seo_description?: string
-}
+const PostSchema = z.object({
+  title: z.string().min(1, "Il titolo è obbligatorio."),
+  slug: z.string().min(1, "Lo slug è obbligatorio."),
+  content: z.string().optional(),
+  excerpt: z.string().optional(),
+  category: z.string().optional(),
+  status: z.enum(["draft", "published"]),
+  featured_image_url: z.string().url().optional().or(z.literal("")),
+})
 
-function createSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-}
-
-// Recupera tutti i post
 export async function getPosts() {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
   if (error) {
     console.error("Error fetching posts:", error)
@@ -38,67 +24,106 @@ export async function getPosts() {
   return data
 }
 
-// Crea un nuovo post
-export async function createPost(postData: Omit<BlogPost, "slug">, authorId: string) {
-  const supabase = createAdminClient()
-  const slug = createSlug(postData.title)
-
-  const { error } = await supabase.from("posts").insert([
-    {
-      ...postData,
-      slug,
-      author_id: authorId,
-      published_at: postData.status === "published" ? new Date().toISOString() : null,
-    },
-  ])
-
+export async function getPostById(id: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("posts").select("*").eq("id", id).single()
   if (error) {
-    return { success: false, message: "Errore nella creazione del post.", error }
+    console.error("Error fetching post by id:", error)
+    return null
   }
-
-  revalidatePath("/admin/blog-management")
-  revalidatePath("/(platform)/astromag")
-  return { success: true, message: "Post creato con successo." }
+  return data
 }
 
-// Aggiorna un post esistente
-export async function updatePost(postId: string, postData: Partial<BlogPost>) {
-  const supabase = createAdminClient()
-
-  // Se il titolo cambia, ricalcola lo slug
-  if (postData.title) {
-    postData.slug = createSlug(postData.title)
+export async function createPost(formData: FormData) {
+  const supabase = createClient()
+  const rawData = {
+    title: formData.get("title"),
+    slug: formData.get("slug"),
+    content: formData.get("content"),
+    excerpt: formData.get("excerpt"),
+    category: formData.get("category"),
+    status: formData.get("status"),
+    featured_image_url: formData.get("featured_image_url"),
   }
 
-  // Se lo stato diventa 'published' e non c'è una data di pubblicazione, impostala
-  if (postData.status === "published" && !postData.published_at) {
-    postData.published_at = new Date().toISOString()
+  const validatedFields = PostSchema.safeParse(rawData)
+
+  if (!validatedFields.success) {
+    return { error: "Dati non validi.", fieldErrors: validatedFields.error.flatten().fieldErrors }
   }
 
-  const { error } = await supabase.from("posts").update(postData).eq("id", postId)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Utente non autenticato." }
+
+  const postData = {
+    ...validatedFields.data,
+    author_id: user.id,
+    published_at: validatedFields.data.status === "published" ? new Date().toISOString() : null,
+  }
+
+  const { error } = await supabase.from("posts").insert([postData])
 
   if (error) {
-    return { success: false, message: "Errore nell'aggiornamento del post.", error }
+    console.error("Error creating post:", error)
+    return { error: "Impossibile creare l'articolo." }
   }
 
   revalidatePath("/admin/blog-management")
-  revalidatePath("/(platform)/astromag")
-  if (postData.slug) {
-    revalidatePath(`/(platform)/astromag/articolo/${postData.slug}`)
-  }
-  return { success: true, message: "Post aggiornato con successo." }
+  revalidatePath("/astromag")
+  revalidatePath(`/astromag/${postData.category}`)
+  return { success: "Articolo creato con successo." }
 }
 
-// Elimina un post
-export async function deletePost(postId: string) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("posts").delete().eq("id", postId)
+export async function updatePost(id: string, formData: FormData) {
+  const supabase = createClient()
+  const rawData = {
+    title: formData.get("title"),
+    slug: formData.get("slug"),
+    content: formData.get("content"),
+    excerpt: formData.get("excerpt"),
+    category: formData.get("category"),
+    status: formData.get("status"),
+    featured_image_url: formData.get("featured_image_url"),
+  }
+
+  const validatedFields = PostSchema.safeParse(rawData)
+
+  if (!validatedFields.success) {
+    return { error: "Dati non validi.", fieldErrors: validatedFields.error.flatten().fieldErrors }
+  }
+
+  const postData = {
+    ...validatedFields.data,
+    updated_at: new Date().toISOString(),
+    published_at: validatedFields.data.status === "published" ? new Date().toISOString() : null,
+  }
+
+  const { error } = await supabase.from("posts").update(postData).eq("id", id)
 
   if (error) {
-    return { success: false, message: "Errore nell'eliminazione del post.", error }
+    console.error("Error updating post:", error)
+    return { error: "Impossibile aggiornare l'articolo." }
   }
 
   revalidatePath("/admin/blog-management")
-  revalidatePath("/(platform)/astromag")
-  return { success: true, message: "Post eliminato con successo." }
+  revalidatePath("/astromag")
+  revalidatePath(`/astromag/${postData.category}`)
+  revalidatePath(`/astromag/articolo/${postData.slug}`)
+  return { success: "Articolo aggiornato con successo." }
+}
+
+export async function deletePost(id: string) {
+  const supabase = createClient()
+  const { error } = await supabase.from("posts").delete().eq("id", id)
+
+  if (error) {
+    console.error("Error deleting post:", error)
+    return { error: "Impossibile eliminare l'articolo." }
+  }
+
+  revalidatePath("/admin/blog-management")
+  revalidatePath("/astromag")
+  return { success: "Articolo eliminato con successo." }
 }
