@@ -1,51 +1,50 @@
-import { getBroadcastHistory } from "@/lib/actions/notifications.actions"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SendNotificationForm } from "./send-notification-form"
+import { getBroadcastNotifications } from "@/lib/actions/notifications.actions"
+import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { SendNotificationForm } from "./send-notification-form"
 import { format } from "date-fns"
 
 export default async function NotificationsPage() {
-  const history = await getBroadcastHistory()
+  const notifications = await getBroadcastNotifications()
 
   return (
     <div className="container mx-auto p-4 grid gap-8 md:grid-cols-3">
       <div className="md:col-span-1">
-        <h1 className="text-3xl font-bold mb-6">Notifiche Broadcast</h1>
+        <h2 className="text-2xl font-bold mb-4">Invia Notifica</h2>
         <Card>
-          <CardHeader>
-            <CardTitle>Invia Nuova Notifica</CardTitle>
-            <CardDescription>
-              Invia un messaggio a tutti gli utenti, solo ai clienti o solo agli operatori.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <SendNotificationForm />
           </CardContent>
         </Card>
       </div>
       <div className="md:col-span-2">
-        <h2 className="text-2xl font-bold mb-6">Storico Notifiche</h2>
+        <h2 className="text-2xl font-bold mb-4">Notifiche Inviate</h2>
         <Card>
-          <CardContent className="mt-6">
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Titolo</TableHead>
                   <TableHead>Destinatari</TableHead>
-                  <TableHead>Data Invio</TableHead>
+                  <TableHead>Data</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {history.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.title}</TableCell>
-                    <TableCell>
-                      <Badge>{item.target_role}</Badge>
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <TableRow key={notification.id}>
+                      <TableCell className="font-medium">{notification.title}</TableCell>
+                      <TableCell>{notification.target_role}</TableCell>
+                      <TableCell>{format(new Date(notification.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center">
+                      Nessuna notifica inviata.
                     </TableCell>
-                    <TableCell>{format(new Date(item.sent_at), "dd/MM/yyyy HH:mm")}</TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </CardContent>

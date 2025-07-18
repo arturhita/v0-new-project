@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
-export function PayoutActions({ requestId, currentStatus }: { requestId: string; currentStatus: string }) {
+export function PayoutActions({ requestId }: { requestId: string }) {
   const [isPending, startTransition] = useTransition()
 
   const handleApprove = () => {
     startTransition(async () => {
       const result = await updatePayoutStatus(requestId, "completed")
-      if (result.success) {
-        toast.success(result.message)
+      if (result.error) {
+        toast.error(result.error)
       } else {
-        toast.error(result.message)
+        toast.success("Pagamento approvato.")
       }
     })
   }
@@ -22,25 +22,21 @@ export function PayoutActions({ requestId, currentStatus }: { requestId: string;
   const handleReject = () => {
     startTransition(async () => {
       const result = await updatePayoutStatus(requestId, "rejected")
-      if (result.success) {
-        toast.success(result.message)
+      if (result.error) {
+        toast.error(result.error)
       } else {
-        toast.error(result.message)
+        toast.warning("Pagamento rifiutato.")
       }
     })
   }
 
-  if (currentStatus !== "pending") {
-    return <span className="text-sm text-muted-foreground">Processato</span>
-  }
-
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 justify-end">
       <Button size="sm" onClick={handleApprove} disabled={isPending}>
-        Approva
+        {isPending ? "..." : "Approva"}
       </Button>
       <Button size="sm" variant="destructive" onClick={handleReject} disabled={isPending}>
-        Rifiuta
+        {isPending ? "..." : "Rifiuta"}
       </Button>
     </div>
   )

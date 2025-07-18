@@ -1,25 +1,26 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export async function getCommissionRequests() {
-  const supabase = createServerClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("commission_increase_requests")
-    .select(`
+    .select(
+      `
       id,
-      current_rate,
-      requested_rate,
+      operator_id,
+      current_commission_rate,
+      requested_commission_rate,
       reason,
       status,
       created_at,
       profiles (
-        id,
-        username,
-        email
+        username
       )
-    `)
+    `,
+    )
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -30,22 +31,17 @@ export async function getCommissionRequests() {
 }
 
 export async function updateCommissionRequestStatus(id: string, status: "approved" | "rejected") {
-  const supabase = createServerClient()
-
-  // TODO: If approved, update the operator's commission rate in the profiles table.
-  // This requires a transaction or a more complex serverless function.
-  // For now, we just update the status.
-
-  const { data, error } = await supabase
+  const supabase = createAdminClient()
+  const { error } = await supabase
     .from("commission_increase_requests")
-    .update({ status, processed_at: new Date().toISOString() })
+    .update({ status, reviewed_at: new Date().toISOString() })
     .eq("id", id)
 
   if (error) {
-    console.error("Error updating commission request:", error)
-    return { success: false, message: error.message }
+    console.error("Error updating commission request status:", error)
+    return { error: "Impossibile aggiornare la richiesta." }
   }
 
   revalidatePath("/admin/commission-requests")
-  return { success: true, message: `Richiesta ${status}.` }
+  return { success: true }
 }

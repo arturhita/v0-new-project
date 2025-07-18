@@ -16,41 +16,47 @@ export default async function PromotionsPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Promozioni Esistenti</CardTitle>
+          <CardTitle>Promozioni Attive e Passate</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Titolo</TableHead>
+                <TableHead>Codice</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Valore</TableHead>
-                <TableHead>Inizio</TableHead>
-                <TableHead>Fine</TableHead>
                 <TableHead>Stato</TableHead>
-                <TableHead>Azioni</TableHead>
+                <TableHead>Scadenza</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {promotions.map((promo) => (
-                <TableRow key={promo.id}>
-                  <TableCell>{promo.title}</TableCell>
-                  <TableCell>{promo.special_price ? "Prezzo Fisso" : "Sconto %"}</TableCell>
-                  <TableCell>
-                    {promo.special_price ? `€${promo.special_price}` : `${promo.discount_percentage}%`}
-                  </TableCell>
-                  <TableCell>{format(new Date(promo.start_date), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>{format(new Date(promo.end_date), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>
-                    <Badge variant={promo.is_active ? "default" : "destructive"}>
-                      {promo.is_active ? "Attiva" : "Inattiva"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <PromotionFormModal promotion={promo} />
+              {promotions.length > 0 ? (
+                promotions.map((promo) => (
+                  <TableRow key={promo.id}>
+                    <TableCell className="font-medium">{promo.code}</TableCell>
+                    <TableCell>{promo.type}</TableCell>
+                    <TableCell>
+                      {promo.type === "percentage" ? `${promo.value}%` : `€${promo.value.toFixed(2)}`}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={promo.is_active ? "default" : "secondary"}>
+                        {promo.is_active ? "Attiva" : "Non Attiva"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{format(new Date(promo.expires_at), "dd/MM/yyyy")}</TableCell>
+                    <TableCell className="text-right">
+                      <PromotionFormModal promotion={promo} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    Nessuna promozione trovata.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>

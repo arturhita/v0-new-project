@@ -20,28 +20,46 @@ export default async function CommissionRequestsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Operatore</TableHead>
-                <TableHead>Attuale</TableHead>
-                <TableHead>Richiesta</TableHead>
-                <TableHead>Stato</TableHead>
+                <TableHead>Commissione Attuale</TableHead>
+                <TableHead>Commissione Richiesta</TableHead>
                 <TableHead>Data</TableHead>
-                <TableHead>Azioni</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell>{req.profiles?.username || "N/A"}</TableCell>
-                  <TableCell>{req.current_rate}%</TableCell>
-                  <TableCell>{req.requested_rate}%</TableCell>
-                  <TableCell>
-                    <Badge variant={req.status === "approved" ? "default" : "secondary"}>{req.status}</Badge>
-                  </TableCell>
-                  <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy")}</TableCell>
-                  <TableCell>
-                    <CommissionRequestActions requestId={req.id} currentStatus={req.status} />
+              {requests.length > 0 ? (
+                requests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>{req.profiles?.username ?? "N/A"}</TableCell>
+                    <TableCell>{req.current_commission_rate}%</TableCell>
+                    <TableCell>{req.requested_commission_rate}%</TableCell>
+                    <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          req.status === "approved"
+                            ? "default"
+                            : req.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {req.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {req.status === "pending" && <CommissionRequestActions requestId={req.id} />}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    Nessuna richiesta trovata.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>

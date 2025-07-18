@@ -21,25 +21,43 @@ export default async function PayoutsPage() {
               <TableRow>
                 <TableHead>Operatore</TableHead>
                 <TableHead>Importo</TableHead>
+                <TableHead>Data</TableHead>
                 <TableHead>Stato</TableHead>
-                <TableHead>Data Richiesta</TableHead>
-                <TableHead>Azioni</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell>{req.profiles?.username || "N/A"}</TableCell>
-                  <TableCell>€{req.amount.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Badge variant={req.status === "completed" ? "default" : "secondary"}>{req.status}</Badge>
-                  </TableCell>
-                  <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
-                  <TableCell>
-                    <PayoutActions requestId={req.id} currentStatus={req.status} />
+              {requests.length > 0 ? (
+                requests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>{req.profiles?.username ?? "N/A"}</TableCell>
+                    <TableCell>€{req.amount.toFixed(2)}</TableCell>
+                    <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          req.status === "completed"
+                            ? "default"
+                            : req.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {req.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {req.status === "pending" && <PayoutActions requestId={req.id} />}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    Nessuna richiesta di pagamento trovata.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
