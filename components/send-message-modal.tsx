@@ -1,4 +1,6 @@
-'use client';
+"use client"
+
+import type React from "react"
 
 import {
   Dialog,
@@ -7,63 +9,57 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { sendInternalMessage } from '@/lib/actions/messaging.actions';
-import { useRef, useState } from 'react';
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
+import { sendInternalMessage } from "@/lib/actions/messaging.actions"
+import { useRef, useState } from "react"
 
 interface SendMessageModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  recipientId: string;
-  recipientName: string;
+  isOpen: boolean
+  onClose: () => void
+  recipientId: string
+  recipientName: string
 }
 
-export function SendMessageModal({
-  isOpen,
-  onClose,
-  recipientId,
-  recipientName,
-}: SendMessageModalProps) {
-  const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+// Correzione: cambiato da "export function" a "export default function"
+export default function SendMessageModal({ isOpen, onClose, recipientId, recipientName }: SendMessageModalProps) {
+  const { toast } = useToast()
+  const formRef = useRef<HTMLFormElement>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
-    const result = await sendInternalMessage(formData);
+    event.preventDefault()
+    setIsSubmitting(true)
+    const formData = new FormData(event.currentTarget)
+    const result = await sendInternalMessage(formData)
 
     if (result.error) {
       toast({
-        title: 'Errore',
+        title: "Errore",
         description: result.error,
-        variant: 'destructive',
-      });
+        variant: "destructive",
+      })
     } else {
       toast({
-        title: 'Successo',
+        title: "Successo",
         description: result.success,
-      });
-      formRef.current?.reset();
-      onClose();
+      })
+      formRef.current?.reset()
+      onClose()
     }
-    setIsSubmitting(false);
-  };
+    setIsSubmitting(false)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invia Messaggio a {recipientName}</DialogTitle>
-          <DialogDescription>
-            Scrivi e invia un messaggio interno.
-          </DialogDescription>
+          <DialogDescription>Scrivi e invia un messaggio interno.</DialogDescription>
         </DialogHeader>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="recipientId" value={recipientId} />
@@ -80,11 +76,11 @@ export function SendMessageModal({
               Annulla
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Invio in corso...' : 'Invia Messaggio'}
+              {isSubmitting ? "Invio in corso..." : "Invia Messaggio"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

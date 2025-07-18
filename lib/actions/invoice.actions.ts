@@ -6,36 +6,46 @@ import { revalidatePath } from "next/cache"
 export async function createInvoice(formData: FormData) {
   const supabase = createClient()
 
-  const operatorId = formData.get("operator_id") as string
-  const amount = formData.get("amount") as string
-  const description = formData.get("description") as string
-  const status = "pending" // Default status
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!operatorId || !amount || !description) {
-    return { error: { message: "Tutti i campi sono obbligatori." } }
+  if (!user) {
+    return { error: "Utente non autenticato" }
+  }
+
+  const rawFormData = {
+    operator_id: formData.get("operator_id") as string,
+    amount: Number(formData.get("amount")),
+    due_date: formData.get("due_date") as string,
+    description: formData.get("description") as string,
+  }
+
+  // Basic validation
+  if (!rawFormData.operator_id || !rawFormData.amount || !rawFormData.due_date) {
+    return { error: "Dati mancanti per la creazione della fattura." }
   }
 
   const { data, error } = await supabase
     .from("invoices")
-    .insert([
-      {
-        operator_id: operatorId,
-        amount: Number.parseFloat(amount),
-        description,
-        status,
-        // issued_at e due_date vengono impostati di default dal DB
-      },
-    ])
+    .insert({
+      operator_id: rawFormData.operator_id,
+      amount: rawFormData.amount,
+      due_date: rawFormData.due_date,
+      status: "pending",
+      description: rawFormData.description,
+      generated_by: user.id,
+    })
     .select()
     .single()
 
   if (error) {
     console.error("Errore creazione fattura:", error)
-    return { error }
+    return { error: "Impossibile creare la fattura." }
   }
 
   revalidatePath("/admin/invoices")
-  return { data }
+  return { success: `Fattura #${data.id} creata con successo.` }
 }
 
 export async function getInvoices() {
@@ -45,23 +55,21 @@ export async function getInvoices() {
     .select(`
       *,
       profiles:operator_id (
-        username,
-        avatar_url
+        full_name
       )
     `)
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Errore nel recuperare le fatture:", error)
-    return { data: [], error }
+    console.error("Errore nel recupero delle fatture:", error)
+    return { error: "Impossibile recuperare le fatture." }
   }
 
-  // Supabase con il join restituisce `profiles` come oggetto, lo normalizziamo
-  const invoices = data.map((inv) => ({
-    ...inv,
-    operator_username: inv.profiles?.username || "N/A",
-    operator_avatar_url: inv.profiles?.avatar_url,
+  // The join returns profiles as an object, let's flatten it
+  const invoices = data.map((invoice) => ({
+    ...invoice,
+    operator_name: (invoice.profiles as any)?.full_name || "N/A",
   }))
 
-  return { data: invoices, error: null }
+  return { invoices }
 }
