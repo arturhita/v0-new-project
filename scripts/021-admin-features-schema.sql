@@ -1,6 +1,24 @@
 -- Abilita l'estensione se non già presente
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Creiamo la tabella operator_profiles se non esiste, per risolvere l'errore.
+-- Questa tabella conterrà tutte le informazioni specifiche degli operatori.
+CREATE TABLE IF NOT EXISTS operator_profiles (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    display_name TEXT,
+    bio TEXT,
+    profile_image_url TEXT,
+    availability JSONB,
+    services JSONB,
+    specialties TEXT[],
+    categories TEXT[],
+    commission_rate NUMERIC(5, 2) DEFAULT 70.00,
+    payout_info JSONB,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+
 -- 1. Tabella per le Impostazioni della Piattaforma
 CREATE TABLE IF NOT EXISTS platform_settings (
     id TEXT PRIMARY KEY DEFAULT 'singleton',
@@ -136,5 +154,12 @@ EXECUTE FUNCTION trigger_set_timestamp();
 DROP TRIGGER IF EXISTS set_timestamp ON invoices;
 CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON invoices
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_timestamp();
+
+-- Applichiamo il trigger alla tabella dei profili operatore
+DROP TRIGGER IF EXISTS set_timestamp ON operator_profiles;
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON operator_profiles
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_timestamp();
