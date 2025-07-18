@@ -1,12 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import type { User } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, FileText } from 'lucide-react'
+import { PlusCircle, FileText } from "lucide-react"
 import CreateInvoiceModal from "@/components/create-invoice-modal"
 
 type Invoice = {
@@ -19,37 +18,32 @@ type Invoice = {
   operatorName: string
 }
 
-interface InvoicesClientPageProps {
-  initialInvoices: Invoice[]
+type Recipient = {
+  id: string
+  name: string
+  type: "client" | "operator"
 }
 
-export default function InvoicesClientPage({ initialInvoices }: InvoicesClientPageProps) {
-  const [invoices, setInvoices] = useState(initialInvoices)
+interface InvoicesClientPageProps {
+  initialInvoices: Invoice[]
+  recipients: Recipient[]
+}
+
+export default function InvoicesClientPage({ initialInvoices, recipients }: InvoicesClientPageProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [users, setUsers] = useState<User[]>([]) // Da popolare con una chiamata API
 
-  // TODO: Caricare utenti (clienti e operatori) per il modal di creazione
-  // useEffect(() => {
-  //   async function fetchUsers() {
-  //     // Sostituire con la tua server action per prendere gli utenti
-  //     // const fetchedUsers = await getUsersForInvoicing();
-  //     // setUsers(fetchedUsers);
-  //   }
-  //   fetchUsers();
-  // }, []);
-
-  const handleInvoiceCreated = (newInvoice: any) => {
-    // Per ora, ricarichiamo la pagina per vedere la nuova fattura.
-    // In futuro si potrebbe aggiornare lo stato locale.
+  const handleInvoiceCreated = () => {
+    // Ricarica la pagina per mostrare la nuova fattura.
+    // Una soluzione più avanzata potrebbe aggiornare lo stato locale.
     window.location.reload()
   }
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "paid":
-        return <Badge variant="success">Pagata</Badge>
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Pagata</Badge>
       case "sent":
-        return <Badge variant="default">Inviata</Badge>
+        return <Badge>Inviata</Badge>
       case "overdue":
         return <Badge variant="destructive">Scaduta</Badge>
       case "draft":
@@ -59,7 +53,7 @@ export default function InvoicesClientPage({ initialInvoices }: InvoicesClientPa
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Fatture</h1>
@@ -92,8 +86,8 @@ export default function InvoicesClientPage({ initialInvoices }: InvoicesClientPa
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length > 0 ? (
-                invoices.map((invoice) => (
+              {initialInvoices.length > 0 ? (
+                initialInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.invoice_number || "N/D"}</TableCell>
                     <TableCell>{invoice.clientName}</TableCell>
@@ -119,7 +113,7 @@ export default function InvoicesClientPage({ initialInvoices }: InvoicesClientPa
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onInvoiceCreated={handleInvoiceCreated}
-        users={users} // Passa la lista di utenti
+        recipients={recipients}
       />
     </div>
   )

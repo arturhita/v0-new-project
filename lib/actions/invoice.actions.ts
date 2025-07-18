@@ -4,8 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export interface InvoiceData {
-  clientId: string
-  operatorId: string
+  clientId: string | null
+  operatorId: string | null
   amount: number
   dueDate: string
   details: Record<string, any>
@@ -24,11 +24,13 @@ export async function getInvoices() {
       due_date,
       client:client_id (
         id,
-        raw_user_meta_data->>full_name
+        email
       ),
       operator:operator_id (
-        id,
-        raw_user_meta_data->>full_name
+        user_id,
+        profiles (
+          full_name
+        )
       )
     `,
     )
@@ -39,10 +41,14 @@ export async function getInvoices() {
     return []
   }
 
-  return data.map((inv) => ({
-    ...inv,
-    clientName: inv.client?.full_name || "N/A",
-    operatorName: inv.operator?.full_name || "N/A",
+  return data.map((inv: any) => ({
+    id: inv.id,
+    invoice_number: inv.invoice_number,
+    amount: inv.amount,
+    status: inv.status,
+    due_date: inv.due_date,
+    clientName: inv.client?.email || "N/A",
+    operatorName: inv.operator?.profiles?.full_name || "N/A",
   }))
 }
 
