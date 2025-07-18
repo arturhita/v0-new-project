@@ -25,8 +25,8 @@ import {
   Eye,
   Smile,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { sendNewsletter } from "@/lib/actions/messaging.actions"
+import { toast } from "@/hooks/use-toast"
+import { sendNewsletter } from "@/lib/actions/settings.actions"
 
 interface SendNewsletterModalProps {
   isOpen: boolean
@@ -39,15 +39,15 @@ const templates = [
     name: "Benvenuto",
     subject: "Benvenuto su Unveilly! ✨",
     content: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; border-radius: 15px;">
- <h1 style="text-align: center; font-size: 28px; margin-bottom: 20px;">✨ Benvenuto su Unveilly! ✨</h1>
- <p style="font-size: 18px; line-height: 1.6; text-align: center;">Scopri il tuo futuro con i nostri esperti consulenti</p>
- <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
-   <h3>🎁 Offerta Speciale per te:</h3>
-   <p>Prima consulenza a soli <strong>€0.99</strong> invece di €1.99!</p>
- </div>
- <div style="text-align: center; margin-top: 30px;">
-   <a href="#" style="background: #ff6b6b; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">Inizia Ora</a>
- </div>
+  <h1 style="text-align: center; font-size: 28px; margin-bottom: 20px;">✨ Benvenuto su Unveilly! ✨</h1>
+  <p style="font-size: 18px; line-height: 1.6; text-align: center;">Scopri il tuo futuro con i nostri esperti consulenti</p>
+  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
+    <h3>🎁 Offerta Speciale per te:</h3>
+    <p>Prima consulenza a soli <strong>€0.99</strong> invece di €1.99!</p>
+  </div>
+  <div style="text-align: center; margin-top: 30px;">
+    <a href="#" style="background: #ff6b6b; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">Inizia Ora</a>
+  </div>
 </div>`,
   },
   {
@@ -55,20 +55,20 @@ const templates = [
     name: "Promozione",
     subject: "🔥 Offerta Limitata - Solo per te!",
     content: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%); padding: 30px; border-radius: 20px;">
- <h1 style="text-align: center; color: #d63384; font-size: 32px;">🔥 OFFERTA SPECIALE 🔥</h1>
- <div style="background: white; padding: 25px; border-radius: 15px; margin: 20px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-   <h2 style="color: #d63384; text-align: center;">Weekend Magico</h2>
-   <p style="font-size: 18px; text-align: center; color: #666;">Consulenze a prezzo speciale</p>
-   <div style="text-align: center; margin: 20px 0;">
-     <span style="font-size: 36px; color: #28a745; font-weight: bold;">€0.99</span>
-     <span style="font-size: 18px; color: #999; text-decoration: line-through; margin-left: 10px;">€1.99</span>
-     <div style="background: #28a745; color: white; display: inline-block; padding: 5px 15px; border-radius: 20px; margin-left: 10px;">-50%</div>
-   </div>
-   <p style="text-align: center; color: #666;">Valido solo Sabato e Domenica</p>
- </div>
- <div style="text-align: center;">
-   <a href="#" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; padding: 15px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 18px;">Approfitta Ora!</a>
- </div>
+  <h1 style="text-align: center; color: #d63384; font-size: 32px;">🔥 OFFERTA SPECIALE 🔥</h1>
+  <div style="background: white; padding: 25px; border-radius: 15px; margin: 20px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+    <h2 style="color: #d63384; text-align: center;">Weekend Magico</h2>
+    <p style="font-size: 18px; text-align: center; color: #666;">Consulenze a prezzo speciale</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <span style="font-size: 36px; color: #28a745; font-weight: bold;">€0.99</span>
+      <span style="font-size: 18px; color: #999; text-decoration: line-through; margin-left: 10px;">€1.99</span>
+      <div style="background: #28a745; color: white; display: inline-block; padding: 5px 15px; border-radius: 20px; margin-left: 10px;">-50%</div>
+    </div>
+    <p style="text-align: center; color: #666;">Valido solo Sabato e Domenica</p>
+  </div>
+  <div style="text-align: center;">
+    <a href="#" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; padding: 15px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 18px;">Approfitta Ora!</a>
+  </div>
 </div>`,
   },
   {
@@ -76,19 +76,19 @@ const templates = [
     name: "Aggiornamenti",
     subject: "📱 Novità su Unveilly - Scopri le nuove funzioni!",
     content: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white; padding: 40px 20px; border-radius: 15px;">
- <h1 style="text-align: center; font-size: 28px;">📱 Novità su Unveilly</h1>
- <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
-   <h3>🆕 Nuove Funzionalità:</h3>
-   <ul style="line-height: 1.8;">
-     <li>💬 Chat migliorata con emoji</li>
-     <li>📞 Chiamate di qualità superiore</li>
-     <li>⭐ Sistema di recensioni avanzato</li>
-     <li>🎯 Ricerca operatori più precisa</li>
-   </ul>
- </div>
- <div style="text-align: center; margin-top: 30px;">
-   <a href="#" style="background: #00b894; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">Scopri le Novità</a>
- </div>
+  <h1 style="text-align: center; font-size: 28px;">📱 Novità su Unveilly</h1>
+  <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
+    <h3>🆕 Nuove Funzionalità:</h3>
+    <ul style="line-height: 1.8;">
+      <li>💬 Chat migliorata con emoji</li>
+      <li>📞 Chiamate di qualità superiore</li>
+      <li>⭐ Sistema di recensioni avanzato</li>
+      <li>🎯 Ricerca operatori più precisa</li>
+    </ul>
+  </div>
+  <div style="text-align: center; margin-top: 30px;">
+    <a href="#" style="background: #00b894; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">Scopri le Novità</a>
+  </div>
 </div>`,
   },
 ]
@@ -96,7 +96,6 @@ const templates = [
 const emojis = ["✨", "🔥", "💫", "⭐", "🎯", "💎", "🌟", "🎁", "💝", "🎉", "🚀", "💖", "🌙", "☀️", "🦋"]
 
 export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterModalProps) {
-  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("compose")
   const [selectedTemplate, setSelectedTemplate] = useState("")
   const [formData, setFormData] = useState({
@@ -181,7 +180,6 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
           description: "Compila oggetto e contenuto della newsletter.",
           variant: "destructive",
         })
-        setIsSending(false)
         return
       }
 
@@ -191,7 +189,6 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
           description: "Seleziona almeno una categoria di destinatari.",
           variant: "destructive",
         })
-        setIsSending(false)
         return
       }
 
@@ -217,7 +214,7 @@ export default function SendNewsletterModal({ isOpen, onClose }: SendNewsletterM
       if (result.success) {
         toast({
           title: "🚀 Newsletter inviata!",
-          description: result.message,
+          description: `Inviata con successo a ${getTotalRecipients()} destinatari`,
         })
 
         setFormData({

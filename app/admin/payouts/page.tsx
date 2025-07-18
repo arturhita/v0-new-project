@@ -1,68 +1,83 @@
 import { getPayoutRequests } from "@/lib/actions/payouts.actions"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PayoutActions } from "./payout-actions"
-import { unstable_noStore as noStore } from "next/cache"
+import { PayoutActions } from "./payout-actions" // Componente client per le azioni
+import { DollarSign } from 'lucide-react'
 
-export default async function PayoutsPage() {
-  noStore()
-  const requests = await getPayoutRequests()
+export default async function ManagePayoutsPage() {
+  const payoutRequests = await getPayoutRequests()
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return (
+          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+            In Attesa
+          </Badge>
+        )
+      case "processing":
+        return (
+          <Badge variant="outline" className="border-blue-500 text-blue-600">
+            In Elaborazione
+          </Badge>
+        )
+      case "paid":
+        return (
+          <Badge variant="default" className="bg-emerald-500 text-white">
+            Pagato
+          </Badge>
+        )
+      case "rejected":
+        return <Badge variant="destructive">Rifiutato</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Richieste di Pagamento</h1>
-      <Card>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Pagamenti Operatori</h1>
+      <CardDescription className="text-slate-500 -mt-4">
+        Visualizza, processa e gestisci le richieste di pagamento inviate dagli operatori.
+      </CardDescription>
+
+      <Card className="shadow-xl rounded-2xl">
         <CardHeader>
-          <CardTitle>Storico Richieste</CardTitle>
+          <CardTitle className="text-xl text-slate-700 flex items-center">
+            <DollarSign className="h-5 w-5 mr-2 text-primary" />
+            Richieste di Payout
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Operatore</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Importo</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {requests.length > 0 ? (
-                requests.map((req) => (
+          {payoutRequests.length === 0 ? (
+            <p className="text-slate-500 text-center py-4">Nessuna richiesta di pagamento al momento.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Operatore</TableHead>
+                  <TableHead className="text-right">Importo</TableHead>
+                  <TableHead>Data Richiesta</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead className="text-right">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payoutRequests.map((req) => (
                   <TableRow key={req.id}>
-                    <TableCell>{req.profiles?.full_name ?? "N/A"}</TableCell>
-                    <TableCell>{req.profiles?.email ?? "N/A"}</TableCell>
-                    <TableCell>€{req.amount.toFixed(2)}</TableCell>
+                    <TableCell className="font-medium">{req.operatorName}</TableCell>
+                    <TableCell className="text-right">€{Number(req.amount).toFixed(2)}</TableCell>
                     <TableCell>{new Date(req.created_at).toLocaleDateString("it-IT")}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          req.status === "completed"
-                            ? "default"
-                            : req.status === "rejected"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                      >
-                        {req.status}
-                      </Badge>
-                    </TableCell>
+                    <TableCell>{getStatusBadge(req.status)}</TableCell>
                     <TableCell className="text-right">
                       <PayoutActions requestId={req.id} currentStatus={req.status} />
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center">
-                    Nessuna richiesta di pagamento trovata.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

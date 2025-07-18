@@ -1,69 +1,93 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { approveReview, rejectReview } from "@/lib/actions/reviews.actions"
-import { getInitials } from "@/lib/utils"
-import { Star, ThumbsDown, ThumbsUp } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Star, CheckCircle, XCircle, MessageCircle } from "lucide-react"
+import { moderateReview } from "@/lib/actions/reviews.actions"
 import { useToast } from "@/components/ui/use-toast"
+import { useState } from "react"
 
-export function ReviewModerationCard({ review }: { review: any }) {
+// I dati della recensione arrivano dalla pagina server
+export interface Review {
+  id: string
+  user_name: string
+  operator_name: string
+  rating: number
+  comment: string
+  created_at: string
+  status: "Pending" | "Approved" | "Rejected"
+}
+
+interface ReviewModerationCardProps {
+  review: Review
+}
+
+export function ReviewModerationCard({ review }: ReviewModerationCardProps) {
+  const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
 
-  const handleApprove = async () => {
-    const result = await approveReview(review.id)
-    if (result.success) {
-      toast({ title: "Recensione Approvata" })
-    } else {
-      toast({ title: "Errore", description: result.message, variant: "destructive" })
-    }
-  }
+  const handleReviewAction = async (approved: boolean) => {
+    setIsProcessing(true)
+    const result = await moderateReview(review.id, approved)
+    setIsProcessing(false)
 
-  const handleReject = async () => {
-    const result = await rejectReview(review.id)
     if (result.success) {
-      toast({ title: "Recensione Rifiutata" })
+      toast({
+        title: "Azione completata",
+        description: `Recensione ${approved ? "approvata e pubblicata" : "rifiutata"}. La pagina si aggiornerà.`,
+        className: "bg-green-100 border-green-300 text-green-700",
+      })
     } else {
-      toast({ title: "Errore", description: result.message, variant: "destructive" })
+      toast({
+        title: "Errore",
+        description: "Si è verificato un errore durante la moderazione.",
+        variant: "destructive",
+      })
     }
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start gap-4">
-        <Avatar>
-          <AvatarImage src={review.client.avatar_url ?? undefined} />
-          <AvatarFallback>{getInitials(review.client.full_name)}</AvatarFallback>
-        </Avatar>
-        <div>
-          <CardTitle className="text-lg">{review.client.full_name}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Recensione per <strong>{review.operator.full_name}</strong>
-          </p>
-          <div className="flex items-center gap-1 mt-1">
+    <Card className="shadow-lg rounded-xl">
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center">
+          <CardTitle className="text-lg text-slate-700 flex items-center">
+            <MessageCircle className="h-5 w-5 mr-2 text-[hsl(var(--primary-medium))]" />
+            Recensione per {review.operator_name}
+          </CardTitle>
+          <div className="flex items-center gap-1 mt-1 sm:mt-0">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
-                className={`h-5 w-5 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+                className={`h-5 w-5 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-slate-300"}`}
               />
             ))}
+            <span className="ml-1 text-sm text-slate-600">({review.rating}/5)</span>
           </div>
         </div>
+        <CardDescription className="text-sm text-slate-500 pt-1">
+          Da: {review.user_name} - Data: {new Date(review.created_at).toLocaleDateString("it-IT")}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="italic">"{review.comment}"</p>
+        <p className="text-sm text-slate-600 mb-4 bg-slate-50 p-3 rounded-md">{review.comment}</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            onClick={() => handleReviewAction(true)}
+            disabled={isProcessing}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" /> {isProcessing ? "Processando..." : "Approva e Pubblica"}
+          </Button>
+          <Button
+            onClick={() => handleReviewAction(false)}
+            disabled={isProcessing}
+            variant="destructive"
+            className="bg-red-500 hover:bg-red-600 text-white"
+          >
+            <XCircle className="mr-2 h-4 w-4" /> {isProcessing ? "Processando..." : "Rifiuta Recensione"}
+          </Button>
+        </div>
       </CardContent>
-      <CardFooter className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={handleReject}>
-          <ThumbsDown className="mr-2 h-4 w-4" />
-          Rifiuta
-        </Button>
-        <Button size="sm" onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
-          <ThumbsUp className="mr-2 h-4 w-4" />
-          Approva
-        </Button>
-      </CardFooter>
     </Card>
   )
 }

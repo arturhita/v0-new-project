@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
-import { z } from "zod"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -32,7 +31,7 @@ type OperatorData = {
     emailPrice: string
   }
   availability: any
-  status: "active" | "pending" | "suspended"
+  status: "Attivo" | "In Attesa" | "Sospeso"
   isOnline: boolean
   commission: string
 }
@@ -165,12 +164,12 @@ export async function getOperatorPublicProfile(username: string) {
     .select("*")
     .ilike("stage_name", username)
     .eq("role", "operator")
-    .eq("status", "active") // Mostra solo operatori attivi
+    .eq("status", "Attivo") // Mostra solo operatori attivi
     .single()
 
   if (profileError || !profile) {
     console.error(
-      `[DB-FETCH] Profilo REALE non trovato per "${username}" (o non è 'active'). Errore: ${profileError?.message}`,
+      `[DB-FETCH] Profilo REALE non trovato per "${username}" (o non è 'Attivo'). Errore: ${profileError?.message}`,
     )
     return null
   }
@@ -209,78 +208,6 @@ export async function getOperatorPublicProfile(username: string) {
   }
 
   return combinedData
-}
-
-// Recupera tutti gli operatori (indipendentemente dallo stato) per il pannello admin
-export async function getAllOperatorsForAdmin() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, stage_name, status, commission_rate, created_at, avatar_url")
-    .eq("role", "operator")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching all operators for admin:", error)
-    return []
-  }
-  return data
-}
-
-// Recupera solo gli operatori in attesa di approvazione
-export async function getPendingOperators() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, created_at, application_data")
-    .eq("role", "operator")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-
-  if (error) {
-    console.error("Error fetching pending operators:", error)
-    return []
-  }
-  return data
-}
-
-// Azione per approvare un operatore
-export async function approveOperator(operatorId: string) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("profiles").update({ status: "active" }).eq("id", operatorId)
-
-  if (error) return { success: false, message: error.message }
-  revalidatePath("/admin/operator-approvals")
-  return { success: true }
-}
-
-// Azione per rifiutare una richiesta
-export async function rejectOperator(operatorId: string) {
-  const supabase = createAdminClient()
-  // Potremmo voler eliminare il profilo o spostarlo in uno stato "Rifiutato"
-  // Per ora, lo eliminiamo per pulizia.
-  const { error } = await supabase.from("profiles").update({ status: "rejected" }).eq("id", operatorId)
-
-  if (error) {
-    return { success: false, message: error.message }
-  }
-
-  revalidatePath("/admin/operator-approvals")
-  return { success: true }
-}
-
-// Azione per sospendere/riattivare un operatore
-export async function toggleOperatorStatus(userId: string, currentStatus: "active" | "suspended") {
-  const supabase = createAdminClient()
-  const newStatus = currentStatus === "active" ? "suspended" : "active"
-  const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", userId)
-
-  if (error) {
-    return { success: false, message: error.message }
-  }
-
-  revalidatePath("/admin/operators")
-  return { success: true, message: `Stato operatore aggiornato a ${newStatus}.` }
 }
 
 export async function getAllOperators() {
@@ -343,61 +270,4 @@ export async function updateOperatorAvailability(userId: string, availability: a
   revalidatePath("/(platform)/dashboard/operator/availability")
 
   return { data }
-}
-
-const OperatorUpdateSchema = z.object({
-  full_name: z.string().min(3, "Il nome è richiesto"),
-  status: z.enum(["pending", "active", "suspended", "rejected"]),
-  commission_rate: z.coerce.number().min(0).max(1),
-  featured: z.boolean(),
-})
-
-export async function getOperatorForAdmin(operatorId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", operatorId)
-    .eq("role", "operator")
-    .single()
-
-  if (error) {
-    console.error("Error fetching operator for admin:", error)
-    return null
-  }
-  return data
-}
-
-export async function updateOperatorByAdmin(operatorId: string, formData: FormData) {
-  const supabase = createAdminClient()
-
-  const rawData = Object.fromEntries(formData.entries())
-  const parsed = OperatorUpdateSchema.safeParse({
-    ...rawData,
-    commission_rate: Number.parseFloat(rawData.commission_rate as string),
-    featured: rawData.featured === "on",
-  })
-
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.flatten().fieldErrors }
-  }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: parsed.data.full_name,
-      status: parsed.data.status,
-      commission_rate: parsed.data.commission_rate,
-      featured: parsed.data.featured,
-    })
-    .eq("id", operatorId)
-
-  if (error) {
-    console.error("Error updating operator:", error)
-    return { success: false, error: { form: ["Errore durante l'aggiornamento."] } }
-  }
-
-  revalidatePath("/admin/operators")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: true }
 }

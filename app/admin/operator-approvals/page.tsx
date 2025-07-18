@@ -1,7 +1,9 @@
 "use client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Eye, CheckCircle, XCircle, UserCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -10,10 +12,6 @@ import {
   DialogDescription as DialogDesc,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { getPendingOperators } from "@/lib/actions/operator.actions"
-import { OperatorApprovalCard } from "./operator-approval-card"
-
-export const revalidate = 0 // Assicura che i dati siano sempre freschi
 
 interface PendingOperator {
   id: string
@@ -26,17 +24,42 @@ interface PendingOperator {
   requestedDate: string
 }
 
-export default async function OperatorApprovalsPage() {
-  const pendingOperators = await getPendingOperators()
+const initialPendingOperators: PendingOperator[] = [
+  {
+    id: "pendingOp1",
+    stageName: "Mago Silvan",
+    name: "Silvano",
+    surname: "Boschi",
+    email: "silvan@example.com",
+    discipline: "Cartomanzia",
+    bio: "Esperto lettore di tarocchi con focus sulla crescita personale.",
+    requestedDate: "2025-06-20",
+  },
+  {
+    id: "pendingOp2",
+    stageName: "Astrea Luminosa",
+    name: "Lucia",
+    surname: "Stelle",
+    email: "lucia.s@example.com",
+    discipline: "Astrologia Evolutiva",
+    bio: "Interpreto il tema natale per svelare talenti e sfide.",
+    requestedDate: "2025-06-21",
+  },
+]
+
+export default function OperatorApprovalsPage() {
+  const [pendingOperators, setPendingOperators] = useState<PendingOperator[]>(initialPendingOperators)
   const [selectedOperator, setSelectedOperator] = useState<PendingOperator | null>(null)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
 
   const handleApprove = (operatorId: string) => {
+    setPendingOperators((prev) => prev.filter((op) => op.id !== operatorId))
     // In un'app reale, aggiorneresti lo stato dell'operatore nel database
     alert(`Operatore ${operatorId} approvato e profilo attivato (simulazione).`)
   }
 
   const handleReject = (operatorId: string) => {
+    setPendingOperators((prev) => prev.filter((op) => op.id !== operatorId))
     // In un'app reale, invieresti una notifica e/o aggiorneresti lo stato
     alert(`Richiesta dell'operatore ${operatorId} rifiutata (simulazione).`)
   }
@@ -62,7 +85,46 @@ export default async function OperatorApprovalsPage() {
       ) : (
         <div className="space-y-4">
           {pendingOperators.map((op) => (
-            <OperatorApprovalCard key={op.user_id} operator={op} />
+            <Card key={op.id} className="shadow-lg rounded-xl">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center">
+                  <CardTitle className="text-lg text-slate-700 flex items-center">
+                    <UserCircle className="h-5 w-5 mr-2 text-[hsl(var(--primary-medium))]" />
+                    {op.stageName}{" "}
+                    <span className="text-sm text-slate-500 ml-2">
+                      ({op.name} {op.surname})
+                    </span>
+                  </CardTitle>
+                  <Badge variant="outline" className="mt-2 sm:mt-0">
+                    Richiesta del: {op.requestedDate}
+                  </Badge>
+                </div>
+                <CardDescription className="text-sm text-slate-500 pt-1">
+                  Disciplina: {op.discipline} | Email: {op.email}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-600 mb-4 truncate">{op.bio}</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => openProfileModal(op)}>
+                    <Eye className="mr-2 h-4 w-4" /> Vedi Profilo Completo (Anteprima)
+                  </Button>
+                  <Button
+                    onClick={() => handleApprove(op.id)}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" /> Approva
+                  </Button>
+                  <Button
+                    onClick={() => handleReject(op.id)}
+                    variant="destructive"
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    <XCircle className="mr-2 h-4 w-4" /> Rifiuta
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

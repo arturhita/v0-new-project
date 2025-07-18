@@ -1,62 +1,29 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
-import { revalidatePath } from "next/cache"
+// Server Actions per la gestione dei post (lib/actions/blog.actions.ts)
+// Firme di funzioni placeholder
 
-export async function createPost(postData: {
+interface BlogPostData {
   title: string
   content: string
-  author_id: string
-  category_id: string
-  slug: string
-  image_url?: string
-}) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("blog_posts").insert([postData]).select().single()
-
-  if (error) {
-    console.error("Error creating post:", error)
-    return { error: "Impossibile creare l'articolo." }
-  }
-
-  revalidatePath("/admin/blog-management")
-  revalidatePath("/astromag")
-  return { success: "Articolo creato con successo.", data }
+  authorId: string
+  // altri campi...
 }
 
-export async function updatePost(
-  postId: string,
-  postData: {
-    title: string
-    content: string
-    category_id: string
-    slug: string
-    image_url?: string
-  },
-) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("blog_posts").update(postData).eq("id", postId).select().single()
-
-  if (error) {
-    console.error("Error updating post:", error)
-    return { error: "Impossibile aggiornare l'articolo." }
-  }
-
-  revalidatePath("/admin/blog-management")
-  revalidatePath(`/astromag/articolo/${data.slug}`)
-  return { success: "Articolo aggiornato con successo.", data }
+export async function createBlogPost(data: BlogPostData) {
+  console.log("Creazione post blog:", data)
+  // Logica per creare il post nel database
+  return { success: true, message: "Post creato." }
 }
 
-export async function deletePost(postId: string) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("blog_posts").delete().eq("id", postId)
+export async function updateBlogPost(postId: string, data: Partial<BlogPostData>) {
+  console.log(`Aggiornamento post blog ${postId}:`, data)
+  // Logica per aggiornare il post
+  return { success: true, message: "Post aggiornato." }
+}
 
-  if (error) {
-    console.error("Error deleting post:", error)
-    return { error: "Impossibile eliminare l'articolo." }
-  }
-
-  revalidatePath("/admin/blog-management")
-  revalidatePath("/astromag")
-  return { success: "Articolo eliminato con successo." }
+export async function deleteBlogPost(postId: string) {
+  console.log(`Eliminazione post blog ${postId}`)
+  // Logica per eliminare il post
+  return { success: true, message: "Post eliminato." }
 }

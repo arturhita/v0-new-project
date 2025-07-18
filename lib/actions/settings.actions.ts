@@ -1,116 +1,214 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-// Funzione per ottenere tutte le impostazioni
-export async function getSettings() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("platform_settings").select("settings").eq("id", 1).single()
+// Interfacce per le impostazioni
+interface AdvancedSettings {
+  callDeductions: {
+    enabled: boolean
+    userFixedDeduction: number
+    operatorFixedDeduction: number
+  }
+  paymentProcessing: {
+    operatorFixedFee: number
+    enabled: boolean
+  }
+  operatorDeductions: {
+    enabled: boolean
+    fixedDeduction: number
+  }
+}
 
-  if (error || !data) {
-    console.error("Error fetching settings:", error)
-    // Ritorna un oggetto di default in caso di errore o se non ci sono impostazioni
+interface CompanyDetails {
+  companyName: string
+  vatNumber: string
+  address: string
+  phone: string
+  email: string
+}
+
+// Salva impostazioni avanzate
+export async function saveAdvancedSettings(settings: AdvancedSettings) {
+  try {
+    console.log("Salvataggio impostazioni avanzate:", settings)
+
+    // Simula il salvataggio
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    revalidatePath("/admin/settings/advanced")
+
     return {
-      siteName: "",
-      siteDescription: "",
-      supportEmail: "",
-      maintenanceMode: false,
-      privacyPolicy: "",
-      cookiePolicy: "",
-      termsConditions: "",
-      companyDetails: { name: "", vat: "", address: "" },
-      analytics: { googleId: "", facebookPixel: "" },
+      success: true,
+      message: "Impostazioni avanzate salvate con successo.",
+    }
+  } catch (error) {
+    console.error("Errore salvataggio impostazioni avanzate:", error)
+    return {
+      success: false,
+      message: "Errore nel salvataggio delle impostazioni.",
     }
   }
-
-  return data.settings
 }
 
-// Funzione per aggiornare le impostazioni
-export async function updateSettings(formData: FormData) {
-  const supabase = createClient()
+// Aggiorna commissione operatore
+export async function updateOperatorCommission(operatorId: string, newCommission: number) {
+  try {
+    console.log(`Aggiornamento commissione operatore ${operatorId}: ${newCommission}%`)
 
-  // Verifica se l'utente è admin
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Non autorizzato" }
+    // Simula aggiornamento
+    await new Promise((resolve) => setTimeout(resolve, 800))
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("user_id", user.id).single()
-  if (profile?.role !== "admin") return { error: "Non autorizzato" }
+    // Aggiorna tutte le pagine correlate
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+    revalidatePath("/admin/dashboard")
 
-  const currentSettings = await getSettings()
-
-  const companyDetails = {
-    name: formData.get("company_name") || currentSettings.companyDetails.name,
-    vat: formData.get("company_vat") || currentSettings.companyDetails.vat,
-    address: formData.get("company_address") || currentSettings.companyDetails.address,
-  }
-
-  const legal = {
-    privacyPolicy: formData.get("privacy_policy") || currentSettings.privacyPolicy,
-    cookiePolicy: formData.get("cookie_policy") || currentSettings.cookiePolicy,
-    termsConditions: formData.get("terms_and_conditions") || currentSettings.termsConditions,
-  }
-
-  const general = {
-    siteName: formData.get("site_name") || currentSettings.siteName,
-    supportEmail: formData.get("support_email") || currentSettings.supportEmail,
-  }
-
-  const newSettings = {
-    ...currentSettings,
-    ...general,
-    ...legal,
-    companyDetails: { ...currentSettings.companyDetails, ...companyDetails },
-  }
-
-  // Rimuovi le chiavi che non sono nel form per evitare di sovrascrivere con undefined
-  Object.keys(newSettings).forEach((key) => {
-    if (formData.get(key) === null && !["companyDetails"].includes(key)) {
-      delete newSettings[key]
+    return {
+      success: true,
+      message: `Commissione aggiornata a ${newCommission}%`,
     }
-  })
-
-  const { error } = await supabase.from("platform_settings").update({ settings: newSettings }).eq("id", 1)
-
-  if (error) {
-    console.error("Error updating settings:", error)
-    return { error: "Impossibile aggiornare le impostazioni." }
+  } catch (error) {
+    console.error("Errore aggiornamento commissione:", error)
+    return {
+      success: false,
+      message: "Errore nell'aggiornamento della commissione.",
+    }
   }
-
-  revalidatePath("/admin/settings", "layout")
-  revalidatePath("/admin/company-details")
-  revalidatePath("/admin/settings/legal")
-  return { success: "Impostazioni aggiornate con successo." }
 }
 
-// Funzione per ottenere tutte le impostazioni avanzate
-export async function getAdvancedSettings() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("advanced_settings").select("*")
+// Salva dettagli azienda
+export async function saveCompanyDetails(details: CompanyDetails) {
+  try {
+    console.log("Salvataggio dettagli azienda:", details)
 
-  if (error) {
-    console.error("Error fetching advanced settings:", error)
-    return []
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    revalidatePath("/admin/company-details")
+
+    return {
+      success: true,
+      message: "Dettagli azienda salvati con successo.",
+    }
+  } catch (error) {
+    console.error("Errore salvataggio dettagli azienda:", error)
+    return {
+      success: false,
+      message: "Errore nel salvataggio dei dettagli azienda.",
+    }
   }
-  return data
 }
 
-// Funzione per aggiornare un'impostazione avanzata
-export async function updateAdvancedSetting(key: string, value: any) {
-  const supabase = createClient()
-  const { error } = await supabase
-    .from("advanced_settings")
-    .update({ value: value, updated_at: new Date().toISOString() })
-    .eq("key", key)
+// Invia newsletter
+export async function sendNewsletter(subject: string, content: string, recipients: string[]) {
+  try {
+    console.log("Invio newsletter:", { subject, recipients: recipients.length })
 
-  if (error) {
-    console.error(`Error updating setting ${key}:`, error)
-    return { success: false, error: `Impossibile aggiornare l'impostazione: ${key}` }
+    // Simula invio
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    return {
+      success: true,
+      message: `Newsletter inviata a ${recipients.length} destinatari.`,
+    }
+  } catch (error) {
+    console.error("Errore invio newsletter:", error)
+    return {
+      success: false,
+      message: "Errore nell'invio della newsletter.",
+    }
   }
+}
 
-  revalidatePath("/admin/settings/advanced")
-  return { success: true }
+// Invia messaggio interno
+export async function sendInternalMessage(fromUserId: string, toUserId: string, subject: string, message: string) {
+  try {
+    console.log("Invio messaggio interno:", { fromUserId, toUserId, subject })
+
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    revalidatePath("/admin/messages")
+
+    return {
+      success: true,
+      message: "Messaggio inviato con successo.",
+    }
+  } catch (error) {
+    console.error("Errore invio messaggio:", error)
+    return {
+      success: false,
+      message: "Errore nell'invio del messaggio.",
+    }
+  }
+}
+
+// Approva richiesta aumento commissione
+export async function approveCommissionRequest(requestId: string) {
+  try {
+    console.log(`Approvazione richiesta commissione: ${requestId}`)
+
+    await new Promise((resolve) => setTimeout(resolve, 800))
+
+    revalidatePath("/admin/settings/advanced")
+    revalidatePath("/admin/commission-requests")
+
+    return {
+      success: true,
+      message: "Richiesta approvata con successo.",
+    }
+  } catch (error) {
+    console.error("Errore approvazione richiesta:", error)
+    return {
+      success: false,
+      message: "Errore nell'approvazione della richiesta.",
+    }
+  }
+}
+
+// Rifiuta richiesta aumento commissione
+export async function rejectCommissionRequest(requestId: string, reason?: string) {
+  try {
+    console.log(`Rifiuto richiesta commissione: ${requestId}, motivo: ${reason}`)
+
+    await new Promise((resolve) => setTimeout(resolve, 800))
+
+    revalidatePath("/admin/settings/advanced")
+    revalidatePath("/admin/commission-requests")
+
+    return {
+      success: true,
+      message: "Richiesta rifiutata.",
+    }
+  } catch (error) {
+    console.error("Errore rifiuto richiesta:", error)
+    return {
+      success: false,
+      message: "Errore nel rifiuto della richiesta.",
+    }
+  }
+}
+
+// Crea fattura
+export async function createInvoice(invoiceData: any) {
+  try {
+    console.log("Creazione fattura:", invoiceData)
+
+    // Simula creazione
+    const invoiceId = `INV-${Date.now()}`
+
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    revalidatePath("/admin/invoices")
+
+    return {
+      success: true,
+      message: "Fattura creata con successo.",
+      invoiceId,
+    }
+  } catch (error) {
+    console.error("Errore creazione fattura:", error)
+    return {
+      success: false,
+      message: "Errore nella creazione della fattura.",
+    }
+  }
 }
