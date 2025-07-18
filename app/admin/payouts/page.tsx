@@ -32,8 +32,10 @@ export default async function ManagePayoutsPage() {
         )
       case "rejected":
         return <Badge variant="destructive">Rifiutato</Badge>
+      case "on_hold":
+        return <Badge variant="secondary">In Sospeso</Badge>
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        return <Badge>Sconosciuto</Badge>
     }
   }
 
