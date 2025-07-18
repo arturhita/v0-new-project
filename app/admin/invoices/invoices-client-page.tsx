@@ -1,91 +1,154 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { PlusCircle, FileText, MoreHorizontal } from "lucide-react"
 import { CreateInvoiceModal } from "@/components/create-invoice-modal"
-import { updateInvoiceStatus } from "@/lib/actions/invoice.actions"
-import { useToast } from "@/components/ui/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { updateInvoiceStatus } from "@/lib/actions/invoice.actions"
 
-export default function InvoicesClientPage({ invoices }: { invoices: any[] }) {
+type Invoice = {
+  id: string
+  invoice_number: string | null
+  amount: number | null
+  status: string | null
+  due_date: string | null
+  client: { full_name: string } | null
+  operator: { full_name: string } | null
+}
+
+type Recipient = {
+  id: string
+  name: string
+  type: "client" | "operator"
+}
+
+interface InvoicesClientPageProps {
+  initialInvoices: Invoice[]
+  recipients: Recipient[]
+}
+
+export default function InvoicesClientPage({ initialInvoices, recipients }: InvoicesClientPageProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { toast } = useToast()
 
-  const handleStatusChange = async (invoiceId: string, status: "pending" | "paid" | "cancelled") => {
+  const handleInvoiceCreated = () => {
+    window.location.reload()
+  }
+
+  const handleStatusChange = async (invoiceId: string, status: "paid" | "pending" | "cancelled") => {
     const result = await updateInvoiceStatus(invoiceId, status)
     if (result.success) {
-      toast({ title: "Stato aggiornato" })
+      toast({ title: "Stato aggiornato", description: "Lo stato della fattura è stato modificato." })
+      window.location.reload() // Ricarica per vedere il cambiamento
     } else {
-      toast({ title: "Errore", description: result.message, variant: "destructive" })
+      toast({ title: "Errore", description: result.error, variant: "destructive" })
     }
   }
 
-  const getStatusVariant = (status: string) => {
+  const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "paid":
-        return "bg-green-100 text-green-800"
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Pagata</Badge>
       case "pending":
-        return "bg-yellow-100 text-yellow-800"
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">In Attesa</Badge>
       case "cancelled":
-        return "bg-red-100 text-red-800"
+        return <Badge variant="destructive">Annullata</Badge>
       default:
-        return "bg-gray-100 text-gray-800"
+        return <Badge variant="secondary">Bozza</Badge>
     }
   }
 
   return (
-    <>
-      <div className="flex justify-end mb-4">
-        <Button onClick={() => setIsModalOpen(true)}>Crea Nuova Fattura</Button>
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Fatture</h1>
+          <p className="text-slate-600">Crea e monitora le fatture per clienti e operatori.</p>
+        </div>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-sky-600 hover:bg-sky-700">
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Crea Fattura
+        </Button>
       </div>
-      <CreateInvoiceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Numero</TableHead>
-            <TableHead>Cliente</TableHead>
-            <TableHead>Operatore</TableHead>
-            <TableHead>Importo</TableHead>
-            <TableHead>Data Scadenza</TableHead>
-            <TableHead>Stato</TableHead>
-            <TableHead className="text-right">Azioni</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {invoices.map((invoice) => (
-            <TableRow key={invoice.id}>
-              <TableCell className="font-mono">{invoice.invoice_number}</TableCell>
-              <TableCell>{invoice.client?.full_name ?? "N/A"}</TableCell>
-              <TableCell>{invoice.operator?.full_name ?? "N/A"}</TableCell>
-              <TableCell>€{invoice.amount.toFixed(2)}</TableCell>
-              <TableCell>{new Date(invoice.due_date).toLocaleDateString("it-IT")}</TableCell>
-              <TableCell>
-                <Badge className={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "paid")}>
-                      Segna come Pagata
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "cancelled")}>
-                      Annulla
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-sky-600" />
+            Elenco Fatture
+          </CardTitle>
+          <CardDescription>Visualizza tutte le fatture generate sulla piattaforma.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Numero</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Operatore</TableHead>
+                <TableHead className="text-right">Importo</TableHead>
+                <TableHead>Scadenza</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {initialInvoices.length > 0 ? (
+                initialInvoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium">{invoice.invoice_number || "N/D"}</TableCell>
+                    <TableCell>{invoice.client?.full_name || "N/A"}</TableCell>
+                    <TableCell>{invoice.operator?.full_name || "N/A"}</TableCell>
+                    <TableCell className="text-right">€{invoice.amount?.toFixed(2)}</TableCell>
+                    <TableCell>
+                      {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("it-IT") : "N/D"}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "paid")}>
+                            Segna come Pagata
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "pending")}>
+                            Segna come In Attesa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "cancelled")}>
+                            Annulla Fattura
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10">
+                    Nessuna fattura trovata.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <CreateInvoiceModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onInvoiceCreated={handleInvoiceCreated}
+        recipients={recipients}
+      />
+    </div>
   )
 }

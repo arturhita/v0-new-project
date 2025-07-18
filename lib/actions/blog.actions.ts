@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import type { Post } from "@/lib/blog-data" // Assumendo che il tipo Post sia definito qui
 
 const PostSchema = z.object({
   title: z.string().min(1, "Il titolo è obbligatorio."),
@@ -34,17 +35,8 @@ export async function getPostById(id: string) {
   return data
 }
 
-export async function createPost(formData: FormData) {
+export async function createPost(rawData: Partial<Post>) {
   const supabase = createClient()
-  const rawData = {
-    title: formData.get("title"),
-    slug: formData.get("slug"),
-    content: formData.get("content"),
-    excerpt: formData.get("excerpt"),
-    category: formData.get("category"),
-    status: formData.get("status"),
-    featured_image_url: formData.get("featured_image_url"),
-  }
 
   const validatedFields = PostSchema.safeParse(rawData)
 
@@ -72,21 +64,14 @@ export async function createPost(formData: FormData) {
 
   revalidatePath("/admin/blog-management")
   revalidatePath("/astromag")
-  revalidatePath(`/astromag/${postData.category}`)
+  if (postData.category) {
+    revalidatePath(`/astromag/${postData.category}`)
+  }
   return { success: "Articolo creato con successo." }
 }
 
-export async function updatePost(id: string, formData: FormData) {
+export async function updatePost(id: string, rawData: Partial<Post>) {
   const supabase = createClient()
-  const rawData = {
-    title: formData.get("title"),
-    slug: formData.get("slug"),
-    content: formData.get("content"),
-    excerpt: formData.get("excerpt"),
-    category: formData.get("category"),
-    status: formData.get("status"),
-    featured_image_url: formData.get("featured_image_url"),
-  }
 
   const validatedFields = PostSchema.safeParse(rawData)
 
@@ -109,8 +94,12 @@ export async function updatePost(id: string, formData: FormData) {
 
   revalidatePath("/admin/blog-management")
   revalidatePath("/astromag")
-  revalidatePath(`/astromag/${postData.category}`)
-  revalidatePath(`/astromag/articolo/${postData.slug}`)
+  if (postData.category) {
+    revalidatePath(`/astromag/${postData.category}`)
+  }
+  if (postData.slug) {
+    revalidatePath(`/astromag/articolo/${postData.slug}`)
+  }
   return { success: "Articolo aggiornato con successo." }
 }
 

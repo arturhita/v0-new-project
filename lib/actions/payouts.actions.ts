@@ -16,6 +16,7 @@ export async function getPayoutRequests() {
       status,
       payment_details,
       created_at,
+      processed_at,
       operator:profiles (
         id,
         full_name,
