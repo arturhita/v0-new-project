@@ -1,64 +1,79 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { getAllUsersWithProfiles } from "@/lib/actions/users.actions"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getUsers } from "@/lib/actions/users.actions"
 import { UserActions } from "./user-actions"
+import { getInitials } from "@/lib/utils"
 
-export default async function AdminUsersPage() {
-  const users = await getAllUsersWithProfiles()
+export default async function UsersPage() {
+  const { data: users, error } = await getUsers()
 
-  const getRoleVariant = (role: string) => {
-    switch (role) {
-      case "admin":
-        return "destructive"
-      case "operator":
-        return "default"
-      case "client":
-      default:
-        return "secondary"
-    }
+  if (error) {
+    return <div className="p-4 text-red-500">{error}</div>
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6">
       <Card>
         <CardHeader>
           <CardTitle>Gestione Utenti</CardTitle>
-          <CardDescription>Visualizza e gestisci tutti gli utenti della piattaforma.</CardDescription>
+          <CardDescription>Visualizza e gestisci tutti gli utenti registrati sulla piattaforma.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Utente</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Ruolo</TableHead>
-                <TableHead>Data Registrazione</TableHead>
-                <TableHead>Ultimo Accesso</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead>Registrato il</TableHead>
                 <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.length > 0 ? (
+              {users && users.length > 0 ? (
                 users.map((user) => (
-                  <TableRow key={user.user_id}>
-                    <TableCell className="font-medium">{user.full_name || "N/D"}</TableCell>
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={user.avatar_url ?? undefined} />
+                          <AvatarFallback>{getInitials(user.full_name ?? user.email)}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{user.full_name ?? "N/A"}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={getRoleVariant(user.role)}>{user.role}</Badge>
+                      <Badge variant={user.role === "admin" ? "destructive" : "secondary"}>{user.role}</Badge>
                     </TableCell>
-                    <TableCell>{new Date(user.profile_created_at).toLocaleDateString("it-IT")}</TableCell>
                     <TableCell>
-                      {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString("it-IT") : "Mai"}
+                      <Badge
+                        variant={
+                          user.status === "active" ? "default" : user.status === "pending" ? "outline" : "secondary"
+                        }
+                        className={
+                          user.status === "active"
+                            ? "bg-green-100 text-green-800"
+                            : user.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                        }
+                      >
+                        {user.status ?? "N/A"}
+                      </Badge>
                     </TableCell>
+                    <TableCell>{new Date(user.user_created_at).toLocaleDateString("it-IT")}</TableCell>
                     <TableCell className="text-right">
-                      <UserActions userId={user.user_id} currentRole={user.role} />
+                      <UserActions userId={user.id} currentRole={user.role} />
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10">
+                  <TableCell colSpan={6} className="text-center">
                     Nessun utente trovato.
                   </TableCell>
                 </TableRow>

@@ -1,33 +1,33 @@
-import { getReviewsForModeration } from "@/lib/actions/reviews.actions"
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getPendingReviews } from "@/lib/actions/reviews.actions"
 import { ReviewModerationCard } from "./review-moderation-card"
 
-export default async function AdminReviewsPage() {
-  const reviews = await getReviewsForModeration()
+export default async function ReviewsPage() {
+  const { data: reviews, error } = await getPendingReviews()
+
+  if (error) {
+    return <div className="p-4 text-red-500">{error}</div>
+  }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Moderazione Recensioni</CardTitle>
-          <CardDescription>
-            Approva o rifiuta le recensioni lasciate dagli utenti. Le recensioni approvate saranno visibili
-            pubblicamente.
-          </CardDescription>
+          <CardDescription>Approva o rifiuta le recensioni lasciate dagli utenti.</CardDescription>
         </CardHeader>
+        <CardContent>
+          {reviews && reviews.length > 0 ? (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <ReviewModerationCard key={review.id} review={review} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">Nessuna recensione in attesa di moderazione.</p>
+          )}
+        </CardContent>
       </Card>
-
-      {reviews.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {reviews.map((review) => (
-            <ReviewModerationCard key={review.id} review={review} />
-          ))}
-        </div>
-      ) : (
-        <Card className="flex items-center justify-center h-48">
-          <p className="text-muted-foreground">Nessuna recensione da moderare.</p>
-        </Card>
-      )}
     </div>
   )
 }

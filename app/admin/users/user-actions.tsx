@@ -2,25 +2,20 @@
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MoreHorizontal } from "lucide-react"
 import { updateUserRole } from "@/lib/actions/users.actions"
 import { useToast } from "@/components/ui/use-toast"
-import { useTransition } from "react"
-import { MoreHorizontal } from "lucide-react"
 
 export function UserActions({ userId, currentRole }: { userId: string; currentRole: string }) {
   const { toast } = useToast()
-  const [isPending, startTransition] = useTransition()
 
-  const handleRoleChange = (newRole: "client" | "operator" | "admin") => {
-    if (newRole === currentRole) return
-    startTransition(async () => {
-      const result = await updateUserRole(userId, newRole)
-      if (result.success) {
-        toast({ title: "Successo", description: "Ruolo utente aggiornato." })
-      } else {
-        toast({ title: "Errore", description: result.error, variant: "destructive" })
-      }
-    })
+  const handleRoleChange = async (newRole: "admin" | "client" | "operator") => {
+    const result = await updateUserRole(userId, newRole)
+    if (result.success) {
+      toast({ title: "Successo", description: result.message })
+    } else {
+      toast({ title: "Errore", description: result.message, variant: "destructive" })
+    }
   }
 
   return (
@@ -32,17 +27,14 @@ export function UserActions({ userId, currentRole }: { userId: string; currentRo
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleRoleChange("client")} disabled={isPending || currentRole === "client"}>
-          Imposta come Cliente
+        <DropdownMenuItem onClick={() => handleRoleChange("admin")} disabled={currentRole === "admin"}>
+          Rendi Amministratore
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => handleRoleChange("operator")}
-          disabled={isPending || currentRole === "operator"}
-        >
-          Imposta come Operatore
+        <DropdownMenuItem onClick={() => handleRoleChange("client")} disabled={currentRole === "client"}>
+          Rendi Cliente
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleRoleChange("admin")} disabled={isPending || currentRole === "admin"}>
-          Imposta come Admin
+        <DropdownMenuItem onClick={() => handleRoleChange("operator")} disabled={currentRole === "operator"}>
+          Rendi Operatore
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,41 +1,31 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-export async function getAllUsersWithProfiles() {
+export async function getUsers() {
   const supabase = createAdminClient()
-  // Usiamo la nuova VIEW 'detailed_users' per ottenere i dati combinati
   const { data, error } = await supabase
     .from("detailed_users")
-    .select(`*`)
-    .order("profile_created_at", { ascending: false })
+    .select("*")
+    .order("user_created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching users from detailed_users view:", error)
-    return []
+    console.error("Error fetching users:", error)
+    return { error: "Impossibile recuperare gli utenti." }
   }
-  return data
+  return { data }
 }
 
-export async function updateUserRole(userId: string, role: "client" | "operator" | "admin") {
+export async function updateUserRole(userId: string, newRole: "admin" | "client" | "operator") {
   const supabase = createAdminClient()
-  const { error } = await supabase.from("profiles").update({ role }).eq("user_id", userId)
+  const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId)
 
   if (error) {
     console.error("Error updating user role:", error)
-    return { error: "Impossibile aggiornare il ruolo." }
+    return { success: false, message: "Errore durante l'aggiornamento del ruolo." }
   }
 
   revalidatePath("/admin/users")
-  return { success: "Ruolo aggiornato con successo." }
-}
-
-export async function suspendUser(userId: string) {
-  // Logica per sospendere un utente.
-  // Potrebbe significare impostare un flag in 'profiles' o usare le funzioni di Supabase Auth.
-  // Per ora, simuliamo con un log e rivalidiamo.
-  console.log(`Simulating suspension for user: ${userId}`)
-  revalidatePath("/admin/users")
-  return { success: "Utente sospeso (simulazione)." }
+  return { success: true, message: "Ruolo utente aggiornato con successo." }
 }
