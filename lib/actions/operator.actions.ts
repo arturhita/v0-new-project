@@ -220,16 +220,11 @@ export async function getAllOperators() {
   return data
 }
 
-export async function getOperatorById(operatorId: string) {
+export async function getOperatorById(id: string) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", operatorId)
-    .eq("role", "operator")
-    .single()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
   if (error) {
-    console.error(`Error fetching operator by ID ${operatorId}:`, error)
+    console.error(`Error fetching operator ${id}:`, error)
     return null
   }
   return data
@@ -275,70 +270,4 @@ export async function updateOperatorAvailability(userId: string, availability: a
   revalidatePath("/(platform)/dashboard/operator/availability")
 
   return { data }
-}
-
-export async function getOperatorsForAdmin() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`id, full_name, email, status, commission_rate, created_at`)
-    .eq("role", "operator")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching operators for admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function updateOperatorByAdmin(operatorId: string, formData: FormData) {
-  const supabase = createClient()
-  const updates = {
-    full_name: formData.get("full_name") as string,
-    stage_name: formData.get("stage_name") as string,
-    email: formData.get("email") as string,
-    phone: formData.get("phone") as string,
-    status: formData.get("status") as string,
-    commission_rate: Number(formData.get("commission_rate")),
-    specialties: (formData.get("specialties") as string).split(",").map((s) => s.trim()),
-    bio: formData.get("bio") as string,
-  }
-  const { error } = await supabase.from("profiles").update(updates).eq("id", operatorId)
-  if (error) {
-    return { success: false, message: `Errore: ${error.message}` }
-  }
-  revalidatePath("/admin/operators")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: true, message: "Operatore aggiornato." }
-}
-
-export async function getPendingOperatorApplications() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("operator_applications").select("*").eq("status", "pending")
-  if (error) {
-    console.error("Error fetching pending applications:", error)
-    return []
-  }
-  return data
-}
-
-export async function approveOperatorApplication(applicationId: string) {
-  const supabase = createClient()
-  const { error } = await supabase.rpc("approve_operator", { p_application_id: applicationId })
-  if (error) {
-    return { success: false, message: `Errore approvazione: ${error.message}` }
-  }
-  revalidatePath("/admin/operator-approvals")
-  return { success: true, message: "Operatore approvato." }
-}
-
-export async function rejectOperatorApplication(applicationId: string) {
-  const supabase = createClient()
-  const { error } = await supabase.from("operator_applications").update({ status: "rejected" }).eq("id", applicationId)
-  if (error) {
-    return { success: false, message: `Errore rifiuto: ${error.message}` }
-  }
-  revalidatePath("/admin/operator-approvals")
-  return { success: true, message: "Candidatura rifiutata." }
 }
