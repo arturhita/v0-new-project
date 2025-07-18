@@ -1,31 +1,25 @@
-import type { Metadata } from "next"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getInvoices } from "@/lib/actions/invoice.actions"
-import InvoicesClientPage from "./invoices-client-page"
-import { createAdminClient } from "@/lib/supabase/admin"
-
-export const metadata: Metadata = {
-  title: "Gestione Fatture | Admin",
-  description: "Visualizza e gestisci tutte le fatture della piattaforma.",
-}
-
-export const revalidate = 0 // Assicura che i dati siano sempre freschi
+import { InvoicesClientPage } from "./invoices-client-page"
 
 export default async function AdminInvoicesPage() {
-  const invoices = await getInvoices()
+  const { data: invoices, error } = await getInvoices()
 
-  const supabase = createAdminClient()
-  const { data: usersData, error: usersError } = await supabase.from("users").select("id, email")
-  const { data: operatorsData, error: operatorsError } = await supabase.from("profiles").select("user_id, full_name")
-
-  if (usersError || operatorsError) {
-    console.error("Error fetching users/operators:", usersError || operatorsError)
+  if (error) {
+    return <div className="p-4 text-red-500">{error}</div>
   }
 
-  const clients = usersData?.map((u) => ({ id: u.id, name: u.email || "N/A", type: "client" as const })) || []
-  const operators =
-    operatorsData?.map((o) => ({ id: o.user_id, name: o.full_name || "Operatore", type: "operator" as const })) || []
-
-  const allRecipients = [...clients, ...operators]
-
-  return <InvoicesClientPage initialInvoices={invoices} recipients={allRecipients} />
+  return (
+    <div className="p-4 md:p-6 space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Gestione Fatture</CardTitle>
+          <CardDescription>Visualizza e gestisci tutte le fatture generate nel sistema.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InvoicesClientPage invoices={invoices ?? []} />
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

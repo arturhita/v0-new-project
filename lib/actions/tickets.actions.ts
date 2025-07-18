@@ -1,86 +1,89 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 
-export async function getTicketsForAdmin() {
-  const supabase = createClient()
+export async function getTickets() {
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("support_tickets")
-    .select(`
-      *,
-      profile:profiles(full_name, avatar_url)
-    `)
+    .select(
+      `
+      id,
+      subject,
+      status,
+      created_at,
+      client:profiles (full_name)
+    `,
+    )
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching tickets for admin:", error)
-    return []
+    console.error("Error fetching tickets:", error)
+    return { error: "Impossibile recuperare i ticket." }
   }
-  return data
+  return { data }
 }
 
 export async function getTicketDetails(ticketId: string) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("support_tickets")
-    .select(`
+    .select(
+      `
       *,
-      profile:profiles(full_name, avatar_url),
-      replies:ticket_replies(
+      client:profiles (full_name, avatar_url),
+      replies:ticket_replies (
         *,
-        profile:profiles(full_name, avatar_url, role)
+        author:profiles (full_name, avatar_url, role)
       )
-    `)
+    `,
+    )
     .eq("id", ticketId)
     .order("created_at", { referencedTable: "ticket_replies", ascending: true })
     .single()
 
   if (error) {
     console.error("Error fetching ticket details:", error)
-    return null
+    return { error: "Impossibile trovare il ticket." }
   }
-  return data
+  return { data }
 }
 
-export async function addReplyToTicket(ticketId: string, message: string) {
+export async function addReply(ticketId: string, formData: FormData) {
   const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Utente non autenticato." }
+  if (!user) return { success: false, message: "Non autorizzato" }
 
-  const { error } = await supabase.from("ticket_replies").insert({ ticket_id: ticketId, user_id: user.id, message })
+  const message = formData.get("message") as string
+  if (!message) return { success: false, message: "Il messaggio non può essere vuoto." }
 
-  if (error) {
-    console.error("Error adding reply:", error)
-    return { error: "Impossibile inviare la risposta." }
-  }
+  const { error } = await supabase.from("ticket_replies").insert({
+    ticket_id: ticketId,
+    user_id: user.id,
+    message,
+  })
 
-  // Aggiorna lo stato del ticket a 'in_progress' se l'admin risponde
-  await supabase
-    .from("support_tickets")
-    .update({ status: "in_progress", updated_at: new Date().toISOString() })
-    .eq("id", ticketId)
+  if (error) return { success: false, message: "Errore nell'invio della risposta." }
+
+  // Se risponde un admin, lo stato passa a "in_progress"
+  await supabase.from("support_tickets").update({ status: "in_progress" }).eq("id", ticketId)
 
   revalidatePath(`/admin/tickets/${ticketId}`)
-  return { success: "Risposta inviata." }
+  return { success: true }
 }
 
 export async function updateTicketStatus(ticketId: string, status: "open" | "in_progress" | "closed") {
-  const supabase = createClient()
-  const { error } = await supabase
-    .from("support_tickets")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", ticketId)
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("support_tickets").update({ status }).eq("id", ticketId)
 
-  if (error) {
-    console.error("Error updating ticket status:", error)
-    return { error: "Impossibile aggiornare lo stato del ticket." }
-  }
+  if (error) return { success: false, message: "Errore nell'aggiornamento dello stato." }
 
-  revalidatePath("/admin/tickets")
+  revalidatePath(`/admin/tickets`)
   revalidatePath(`/admin/tickets/${ticketId}`)
-  return { success: "Stato aggiornato." }
+  return { success: true }
 }
