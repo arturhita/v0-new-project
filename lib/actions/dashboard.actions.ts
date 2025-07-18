@@ -20,5 +20,6 @@ export async function getAdminDashboardStats() {
     }
   }
 
+  // The RPC function returns a single object in an array
   return data[0]
 }

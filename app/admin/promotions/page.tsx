@@ -1,73 +1,78 @@
 import { getPromotions } from "@/lib/actions/promotions.actions"
-import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { PlusCircle } from "lucide-react"
 import { PromotionFormModal } from "./promotion-form-modal"
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default async function AdminPromotionsPage() {
+export default async function PromotionsPage() {
   const promotions = await getPromotions()
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Gestione Promozioni</h1>
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Gestione Promozioni</h1>
         <PromotionFormModal>
-          <Button>Crea Promozione</Button>
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Crea Promozione
+          </Button>
         </PromotionFormModal>
       </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Titolo</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Valore</TableHead>
-              <TableHead>Inizio</TableHead>
-              <TableHead>Fine</TableHead>
-              <TableHead>Stato</TableHead>
-              <TableHead className="text-right">Azioni</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {promotions.length > 0 ? (
-              promotions.map((promo) => (
-                <TableRow key={promo.id}>
-                  <TableCell className="font-medium">{promo.title}</TableCell>
-                  <TableCell>{promo.special_price ? "Prezzo Fisso" : "Sconto %"}</TableCell>
-                  <TableCell>
-                    {promo.special_price
-                      ? `€${Number(promo.special_price).toFixed(2)}`
-                      : `${promo.discount_percentage}%`}
-                  </TableCell>
-                  <TableCell>{format(new Date(promo.start_date), "d MMM yyyy", { locale: it })}</TableCell>
-                  <TableCell>{format(new Date(promo.end_date), "d MMM yyyy", { locale: it })}</TableCell>
-                  <TableCell>
-                    <Badge variant={promo.is_active ? "success" : "secondary"}>
-                      {promo.is_active ? "Attiva" : "Inattiva"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <PromotionFormModal promotion={promo}>
-                      <Button variant="outline" size="sm">
-                        Modifica
-                      </Button>
-                    </PromotionFormModal>
+      <Card>
+        <CardHeader>
+          <CardTitle>Promozioni Attive e Programmate</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Titolo</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Valore</TableHead>
+                <TableHead>Inizio</TableHead>
+                <TableHead>Fine</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {promotions.length > 0 ? (
+                promotions.map((promo) => (
+                  <TableRow key={promo.id}>
+                    <TableCell className="font-medium">{promo.title}</TableCell>
+                    <TableCell>{promo.special_price ? "Prezzo Fisso" : "Sconto %"}</TableCell>
+                    <TableCell>
+                      {promo.special_price ? `€${promo.special_price.toFixed(2)}` : `${promo.discount_percentage}%`}
+                    </TableCell>
+                    <TableCell>{new Date(promo.start_date).toLocaleString("it-IT")}</TableCell>
+                    <TableCell>{new Date(promo.end_date).toLocaleString("it-IT")}</TableCell>
+                    <TableCell>
+                      <Badge variant={promo.is_active ? "default" : "secondary"}>
+                        {promo.is_active ? "Attiva" : "Inattiva"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <PromotionFormModal promotion={promo}>
+                        <Button variant="ghost" size="sm">
+                          Modifica
+                        </Button>
+                      </PromotionFormModal>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center">
+                    Nessuna promozione trovata.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center">
-                  Nessuna promozione trovata.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

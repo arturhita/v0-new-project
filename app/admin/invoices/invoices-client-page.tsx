@@ -3,19 +3,13 @@
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
+import { Button } from "@/components/ui/button"
+import { PlusCircle } from "lucide-react"
 import { CreateInvoiceModal } from "@/components/create-invoice-modal"
+import type { getInvoices } from "@/lib/actions/invoice.actions"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-type Invoice = {
-  id: string
-  invoice_number: string
-  amount: number
-  status: string
-  due_date: string
-  created_at: string
-  client: { full_name: string | null } | null
-}
+type Invoice = Awaited<ReturnType<typeof getInvoices>>[0]
 
 interface InvoicesClientPageProps {
   initialInvoices: Invoice[]
@@ -24,59 +18,56 @@ interface InvoicesClientPageProps {
 const InvoicesClientPage = ({ initialInvoices }: InvoicesClientPageProps) => {
   const [invoices, setInvoices] = useState(initialInvoices)
 
-  const getBadgeVariant = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "success"
-      case "pending":
-        return "secondary"
-      case "overdue":
-        return "destructive"
-      default:
-        return "outline"
-    }
-  }
-
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Gestione Fatture</h1>
-        <CreateInvoiceModal />
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Fatture</h1>
+        <CreateInvoiceModal>
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Crea Fattura
+          </Button>
+        </CreateInvoiceModal>
       </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Numero Fattura</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Importo</TableHead>
-              <TableHead>Data Scadenza</TableHead>
-              <TableHead>Stato</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {invoices.length > 0 ? (
-              invoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                  <TableCell>{invoice.client?.full_name ?? "N/A"}</TableCell>
-                  <TableCell>€{Number(invoice.amount).toFixed(2)}</TableCell>
-                  <TableCell>{format(new Date(invoice.due_date), "d MMM yyyy", { locale: it })}</TableCell>
-                  <TableCell>
-                    <Badge variant={getBadgeVariant(invoice.status)}>{invoice.status}</Badge>
+      <Card>
+        <CardHeader>
+          <CardTitle>Elenco Fatture</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Numero</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Importo</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Stato</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {invoices.length > 0 ? (
+                invoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                    <TableCell>{invoice.client?.full_name || "N/A"}</TableCell>
+                    <TableCell>€{invoice.amount.toFixed(2)}</TableCell>
+                    <TableCell>{new Date(invoice.created_at).toLocaleDateString("it-IT")}</TableCell>
+                    <TableCell>
+                      <Badge variant={invoice.status === "paid" ? "default" : "destructive"}>{invoice.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    Nessuna fattura trovata.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center">
-                  Nessuna fattura trovata.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

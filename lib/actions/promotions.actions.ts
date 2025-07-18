@@ -2,47 +2,83 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
-import { unstable_noStore as noStore } from "next/cache"
+import { z } from "zod"
+
+const PromotionSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    title: z.string().min(1, "Il titolo è obbligatorio."),
+    description: z.string().optional(),
+    special_price: z.coerce.number().positive().optional(),
+    discount_percentage: z.coerce.number().int().min(1).max(100).optional(),
+    start_date: z.string().min(1, "La data di inizio è obbligatoria."),
+    end_date: z.string().min(1, "La data di fine è obbligatoria."),
+    is_active: z.boolean(),
+  })
+  .refine((data) => data.special_price != null || data.discount_percentage != null, {
+    message: "Devi specificare un prezzo speciale o una percentuale di sconto.",
+    path: ["special_price"],
+  })
 
 export async function getPromotions() {
-  noStore()
   const supabase = createAdminClient()
   const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching promotions:", error)
-    return []
+    throw new Error("Impossibile caricare le promozioni.")
   }
   return data
 }
 
-export async function createOrUpdatePromotion(formData: FormData) {
+export async function savePromotion(formData: FormData) {
   const supabase = createAdminClient()
-  const rawData = {
-    id: formData.get("id") as string | null,
-    title: formData.get("title") as string,
-    description: formData.get("description") as string,
-    special_price: formData.get("special_price") ? Number(formData.get("special_price")) : null,
-    discount_percentage: formData.get("discount_percentage") ? Number(formData.get("discount_percentage")) : null,
-    start_date: formData.get("start_date") as string,
-    end_date: formData.get("end_date") as string,
-    is_active: formData.get("is_active") === "on",
+
+  const rawData = Object.fromEntries(formData.entries())
+
+  // Convert checkbox value
+  rawData.is_active = rawData.is_active === "on"
+
+  // Clean up empty values for validation
+  if (rawData.special_price === "") delete rawData.special_price
+  if (rawData.discount_percentage === "") delete rawData.discount_percentage
+
+  const validation = PromotionSchema.safeParse(rawData)
+
+  if (!validation.success) {
+    console.error("Validation errors:", validation.error.flatten().fieldErrors)
+    return {
+      error: "Dati non validi.",
+      fieldErrors: validation.error.flatten().fieldErrors,
+    }
   }
 
-  const { id, ...updateData } = rawData
+  const { id, ...promoData } = validation.data
+
+  const dataToUpsert = {
+    ...promoData,
+    special_price: promoData.special_price || null,
+    discount_percentage: promoData.discount_percentage || null,
+  }
 
   if (id) {
-    // Update existing promotion
-    const { error } = await supabase.from("promotions").update(updateData).eq("id", id)
-    if (error) return { error: `Errore durante l'aggiornamento della promozione: ${error.message}` }
+    // Update
+    const { error } = await supabase.from("promotions").update(dataToUpsert).eq("id", id)
+    if (error) {
+      console.error("Error updating promotion:", error)
+      return { error: "Impossibile aggiornare la promozione." }
+    }
   } else {
-    // Create new promotion
-    const { error } = await supabase.from("promotions").insert(updateData)
-    if (error) return { error: `Errore durante la creazione della promozione: ${error.message}` }
+    // Create
+    const { error } = await supabase.from("promotions").insert(dataToUpsert)
+    if (error) {
+      console.error("Error creating promotion:", error)
+      return { error: "Impossibile creare la promozione." }
+    }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: "Promozione salvata con successo." }
+  return { success: true }
 }
 
 export async function deletePromotion(id: string) {
@@ -50,9 +86,10 @@ export async function deletePromotion(id: string) {
   const { error } = await supabase.from("promotions").delete().eq("id", id)
 
   if (error) {
-    return { error: `Errore durante l'eliminazione della promozione: ${error.message}` }
+    console.error("Error deleting promotion:", error)
+    return { error: "Impossibile eliminare la promozione." }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: "Promozione eliminata con successo." }
+  return { success: true }
 }

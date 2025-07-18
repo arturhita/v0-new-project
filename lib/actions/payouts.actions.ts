@@ -2,10 +2,8 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
-import { unstable_noStore as noStore } from "next/cache"
 
 export async function getPayoutRequests() {
-  noStore()
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("payout_requests")
@@ -16,10 +14,11 @@ export async function getPayoutRequests() {
       status,
       created_at,
       processed_at,
-      profiles (
+      operator:profiles (
         id,
+        username,
         full_name,
-        email
+        avatar_url
       )
     `,
     )
@@ -27,23 +26,25 @@ export async function getPayoutRequests() {
 
   if (error) {
     console.error("Error fetching payout requests:", error)
-    return { error: `Impossibile caricare le richieste di pagamento: ${error.message}` }
+    throw new Error("Impossibile caricare le richieste di pagamento. " + error.message)
   }
-  return { data }
+  return data
 }
 
-export async function updatePayoutRequestStatus(requestId: string, newStatus: "approved" | "rejected") {
+export async function updatePayoutStatus(payoutId: string, newStatus: "completed" | "rejected") {
   const supabase = createAdminClient()
-
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("payout_requests")
     .update({ status: newStatus, processed_at: new Date().toISOString() })
-    .eq("id", requestId)
+    .eq("id", payoutId)
+    .select()
+    .single()
 
   if (error) {
-    return { error: "Impossibile aggiornare lo stato della richiesta." }
+    console.error("Error updating payout status:", error)
+    return { error: "Impossibile aggiornare lo stato del pagamento." }
   }
 
   revalidatePath("/admin/payouts")
-  return { success: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"} con successo.` }
+  return { success: true, data }
 }

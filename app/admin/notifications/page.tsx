@@ -1,47 +1,62 @@
 import { getBroadcastNotifications } from "@/lib/actions/notifications.actions"
 import { SendNotificationForm } from "./send-notification-form"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 
-export default async function AdminNotificationsPage() {
+export default async function NotificationsPage() {
   const notifications = await getBroadcastNotifications()
 
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Invia Notifica Globale</h1>
-        <p className="text-muted-foreground">
-          Invia un messaggio a tutti gli utenti, solo ai clienti o solo agli operatori.
-        </p>
-        <SendNotificationForm />
+    <div className="container mx-auto py-10 grid gap-8 md:grid-cols-3">
+      <div className="md:col-span-1">
+        <Card>
+          <CardHeader>
+            <CardTitle>Invia Notifica</CardTitle>
+            <CardDescription>Invia un messaggio a tutti gli utenti, operatori o entrambi.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SendNotificationForm />
+          </CardContent>
+        </Card>
       </div>
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Storico Notifiche Inviate</h2>
-        <div className="space-y-4">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <Card key={notification.id}>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>{notification.title}</span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {format(new Date(notification.sent_at), "d MMM yyyy, HH:mm", { locale: it })}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{notification.message}</p>
-                  <p className="text-xs mt-2">
-                    Inviato a: <span className="font-semibold capitalize">{notification.target_role}</span>
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <p>Nessuna notifica inviata.</p>
-          )}
-        </div>
+      <div className="md:col-span-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifiche Recenti</CardTitle>
+            <CardDescription>Le ultime 100 notifiche inviate.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Titolo</TableHead>
+                  <TableHead>Destinatari</TableHead>
+                  <TableHead>Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {notifications.length > 0 ? (
+                  notifications.map((n) => (
+                    <TableRow key={n.id}>
+                      <TableCell className="font-medium">{n.title}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{n.target_role}</Badge>
+                      </TableCell>
+                      <TableCell>{new Date(n.sent_at).toLocaleString("it-IT")}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center">
+                      Nessuna notifica inviata.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
