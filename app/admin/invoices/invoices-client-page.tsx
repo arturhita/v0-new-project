@@ -3,19 +3,10 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { CreateInvoiceModal } from "@/components/create-invoice-modal"
-import { PlusCircle } from "lucide-react"
-
-type Invoice = {
-  id: string
-  invoice_number: string
-  amount: number
-  status: string
-  due_date: string
-  client_name: string
-}
+import type { InvoiceWithDetails } from "@/lib/actions/invoice.actions"
 
 interface InvoicesClientPageProps {
-  invoices: Invoice[]
+  invoices: InvoiceWithDetails[]
 }
 
 export default function InvoicesClientPage({ invoices }: InvoicesClientPageProps) {
@@ -24,13 +15,10 @@ export default function InvoicesClientPage({ invoices }: InvoicesClientPageProps
   return (
     <div>
       <div className="flex justify-end mb-4">
-        <Button onClick={() => setIsModalOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Crea Fattura
-        </Button>
+        <Button onClick={() => setIsModalOpen(true)}>Crea Nuova Fattura</Button>
       </div>
       <CreateInvoiceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-      {/* La tabella delle fatture è renderizzata dal componente server `page.tsx` */}
+      {/* Qui andrà la tabella delle fatture, per ora il modale è la parte client-side */}
     </div>
   )
 }

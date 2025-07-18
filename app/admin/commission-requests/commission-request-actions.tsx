@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
 import { useTransition } from "react"
-import { toast } from "sonner"
+import { useToast } from "@/components/ui/use-toast"
 
 type CommissionRequest = {
   id: string
@@ -23,14 +23,22 @@ type CommissionRequest = {
 
 export function CommissionRequestActions({ request }: { request: CommissionRequest }) {
   const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
 
   const handleAction = (status: "approved" | "rejected") => {
     startTransition(async () => {
       const result = await updateCommissionRequestStatus(request.id, status)
       if (result.success) {
-        toast.success(result.success)
+        toast({
+          title: "Successo!",
+          description: result.success,
+        })
       } else {
-        toast.error(result.error)
+        toast({
+          title: "Errore",
+          description: result.error,
+          variant: "destructive",
+        })
       }
     })
   }
@@ -63,7 +71,7 @@ export function CommissionRequestActions({ request }: { request: CommissionReque
         </AlertDialogContent>
       </AlertDialog>
 
-      <Button size="sm" variant="success" onClick={() => handleAction("approved")} disabled={isPending}>
+      <Button size="sm" variant="default" onClick={() => handleAction("approved")} disabled={isPending}>
         {isPending ? "Approvo..." : "Approva"}
       </Button>
       <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isPending}>

@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { getCommissionRequests } from "@/lib/actions/commission.actions"
 import { format } from "date-fns"
+import { it } from "date-fns/locale"
 import { CommissionRequestActions } from "./commission-request-actions"
 
 export default async function CommissionRequestsPage() {
@@ -42,11 +43,11 @@ export default async function CommissionRequestsPage() {
                     <TableCell>{req.profiles?.full_name ?? "N/D"}</TableCell>
                     <TableCell>{req.current_commission}%</TableCell>
                     <TableCell className="font-bold">{req.requested_commission}%</TableCell>
-                    <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy", { locale: it })}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          req.status === "pending" ? "secondary" : req.status === "approved" ? "success" : "destructive"
+                          req.status === "pending" ? "secondary" : req.status === "approved" ? "default" : "destructive"
                         }
                       >
                         {req.status}

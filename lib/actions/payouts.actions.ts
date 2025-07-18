@@ -15,7 +15,8 @@ export async function getPayoutRequests() {
       amount,
       status,
       created_at,
-      operator:profiles (
+      processed_at,
+      profiles (
         id,
         full_name,
         email
@@ -33,16 +34,16 @@ export async function getPayoutRequests() {
 
 export async function updatePayoutRequestStatus(requestId: string, newStatus: "approved" | "rejected") {
   const supabase = createAdminClient()
+
   const { error } = await supabase
     .from("payout_requests")
     .update({ status: newStatus, processed_at: new Date().toISOString() })
     .eq("id", requestId)
 
   if (error) {
-    console.error("Error updating payout status:", error)
     return { error: "Impossibile aggiornare lo stato della richiesta." }
   }
 
   revalidatePath("/admin/payouts")
-  return { success: `Richiesta di pagamento ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
+  return { success: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"} con successo.` }
 }
