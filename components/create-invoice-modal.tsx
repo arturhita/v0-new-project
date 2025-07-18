@@ -1,4 +1,6 @@
-'use client';
+"use client"
+
+import type React from "react"
 
 import {
   Dialog,
@@ -7,87 +9,83 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { createInvoice } from '@/lib/actions/invoice.actions';
-import { useRef, useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
+import { createInvoice } from "@/lib/actions/invoice.actions"
+import { useRef, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface CreateInvoiceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  users: { id: string; email: string | undefined; type: 'client' | 'operator' }[];
+  isOpen: boolean
+  onClose: () => void
+  users: { id: string; email: string | undefined; type: "client" | "operator" }[]
 }
 
-export function CreateInvoiceModal({
-  isOpen,
-  onClose,
-  users,
-}: CreateInvoiceModalProps) {
-  const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<{id: string, type: 'client' | 'operator'} | null>(null);
+export function CreateInvoiceModal({ isOpen, onClose, users }: CreateInvoiceModalProps) {
+  const { toast } = useToast()
+  const formRef = useRef<HTMLFormElement>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<{ id: string; type: "client" | "operator" } | null>(null)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+    event.preventDefault()
     if (!selectedUser) {
-        toast({ title: 'Errore', description: 'Seleziona un destinatario.', variant: 'destructive' });
-        return;
+      toast({ title: "Errore", description: "Seleziona un destinatario.", variant: "destructive" })
+      return
     }
-    setIsSubmitting(true);
-    const formData = new FormData(event.currentTarget);
-    formData.append('recipientId', selectedUser.id);
-    formData.append('recipientType', selectedUser.type);
+    setIsSubmitting(true)
+    const formData = new FormData(event.currentTarget)
+    formData.append("recipientId", selectedUser.id)
+    formData.append("recipientType", selectedUser.type)
 
-    const result = await createInvoice(formData);
+    const result = await createInvoice(formData)
 
     if (result.error) {
       toast({
-        title: 'Errore',
+        title: "Errore",
         description: result.error,
-        variant: 'destructive',
-      });
+        variant: "destructive",
+      })
     } else {
       toast({
-        title: 'Successo',
+        title: "Successo",
         description: result.success,
-      });
-      formRef.current?.reset();
-      onClose();
+      })
+      formRef.current?.reset()
+      onClose()
     }
-    setIsSubmitting(false);
-  };
+    setIsSubmitting(false)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Crea Nuova Fattura</DialogTitle>
-          <DialogDescription>
-            Compila i dettagli per creare una nuova fattura manuale.
-          </DialogDescription>
+          <DialogDescription>Compila i dettagli per creare una nuova fattura manuale.</DialogDescription>
         </DialogHeader>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="recipientId">Destinatario</Label>
-            <Select onValueChange={(value) => {
-                const [id, type] = value.split(':');
-                setSelectedUser({ id, type: type as 'client' | 'operator' });
-            }}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Seleziona un utente..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {users.map(user => (
-                        <SelectItem key={user.id} value={`${user.id}:${user.type}`}>
-                            {user.email} ({user.type === 'operator' ? 'Operatore' : 'Cliente'})
-                        </SelectItem>
-                    ))}
-                </SelectContent>
+            <Select
+              onValueChange={(value) => {
+                const [id, type] = value.split(":")
+                setSelectedUser({ id, type: type as "client" | "operator" })
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleziona un utente..." />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={`${user.id}:${user.type}`}>
+                    {user.email} ({user.type === "operator" ? "Operatore" : "Cliente"})
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
@@ -98,7 +96,7 @@ export function CreateInvoiceModal({
             <Label htmlFor="dueDate">Data di Scadenza</Label>
             <Input id="dueDate" name="dueDate" type="date" required />
           </div>
-           <div>
+          <div>
             <Label htmlFor="description">Descrizione</Label>
             <Input id="description" name="description" required />
           </div>
@@ -107,11 +105,11 @@ export function CreateInvoiceModal({
               Annulla
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creazione...' : 'Crea Fattura'}
+              {isSubmitting ? "Creazione..." : "Crea Fattura"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
