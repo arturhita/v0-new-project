@@ -38,7 +38,6 @@ const mapProfileToOperator = (profile: any): Operator => {
 export async function getHomepageData() {
   const supabase = createClient()
 
-  // Recupera gli operatori da mostrare in home
   const { data: operatorsData, error: operatorsError } = await supabase
     .from("profiles")
     .select(`*`)
@@ -52,7 +51,6 @@ export async function getHomepageData() {
   }
   const operators = (operatorsData || []).map(mapProfileToOperator)
 
-  // Recupera le recensioni recenti approvate
   const { data: reviewsData, error: reviewsError } = await supabase
     .from("reviews")
     .select(
@@ -87,14 +85,13 @@ export async function getHomepageData() {
 }
 
 /**
- * Recupera gli operatori attivi per una specifica categoria in modo case-insensitive.
- * @param categorySlug - Lo slug della categoria (es. 'cartomanzia').
+ * Recupera gli operatori attivi per una specifica categoria in modo case-insensitive e accent-insensitive.
+ * @param categorySlug - Lo slug della categoria (es. 'cartomanzia' o 'medianità').
  */
 export async function getOperatorsByCategory(categorySlug: string) {
   const supabase = createClient()
   const slug = decodeURIComponent(categorySlug)
 
-  // Utilizza la funzione RPC per una ricerca case-insensitive
   const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
     category_slug: slug,
   })
@@ -104,8 +101,26 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  // Ordina i risultati in JavaScript poiché RPC non supporta .order()
-  const sortedData = (data || []).sort((a, b) => (b.is_online ? 1 : -1) - (a.is_online ? 1 : -1))
+  return (data || []).map(mapProfileToOperator)
+}
 
-  return sortedData.map(mapProfileToOperator)
+/**
+ * Recupera tutti gli operatori attivi.
+ */
+export async function getAllOperators() {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`*`)
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+    .order("is_online", { ascending: false })
+
+  if (error) {
+    console.error(`Error fetching all operators:`, error.message)
+    return []
+  }
+
+  return (data || []).map(mapProfileToOperator)
 }

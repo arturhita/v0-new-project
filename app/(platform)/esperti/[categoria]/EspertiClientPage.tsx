@@ -31,6 +31,11 @@ const getCategoryDetails = (slug: string) => {
       description:
         "Comunica con il mondo spirituale in un ambiente sicuro e protetto. I nostri medium offrono conforto e messaggi dai tuoi cari.",
     },
+    // Caso speciale per la pagina "tutti gli esperti"
+    tutti: {
+      title: "Tutti i Nostri Esperti",
+      description: "Esplora la lista completa dei nostri professionisti. Trova la guida giusta per te.",
+    },
   }
   return (
     details[decodedSlug] || {
