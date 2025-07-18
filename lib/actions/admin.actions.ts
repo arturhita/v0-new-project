@@ -58,13 +58,11 @@ export async function rejectOperatorApplication(applicationId: string) {
 export async function getOperatorsForAdmin() {
   noStore()
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`id, full_name, stage_name, email, status, commission_rate, avatar_url, created_at`)
-    .eq("role", "operator")
-    .order("created_at", { ascending: false })
+  // Chiamiamo la nuova funzione RPC sicura invece di fare una select diretta
+  const { data, error } = await supabase.rpc("get_operators_for_admin_list")
+
   if (error) {
-    console.error("Error fetching operators for admin:", error)
+    console.error("Error fetching operators for admin via RPC:", error.message)
     return []
   }
   return data

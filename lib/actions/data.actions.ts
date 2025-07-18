@@ -92,11 +92,13 @@ export async function getOperatorsByCategory(categorySlug: string) {
   const supabase = createClient()
   const slug = decodeURIComponent(categorySlug)
 
+  // La funzione SQL è stata ricreata e ora dovrebbe essere trovata.
   const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
     category_slug: slug,
   })
 
   if (error) {
+    // This error message is what you saw. It should be fixed now.
     console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
     return []
   }

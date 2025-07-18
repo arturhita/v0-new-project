@@ -67,6 +67,7 @@ export default async function OperatorsPage() {
                   <TableHead>Operatore</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Commissione</TableHead>
+                  <TableHead>Data Iscrizione</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
@@ -92,6 +93,7 @@ export default async function OperatorsPage() {
                       <TableCell>
                         {operator.commission_rate !== null ? `${operator.commission_rate}%` : "N/A"}
                       </TableCell>
+                      <TableCell>{new Date(operator.created_at).toLocaleDateString("it-IT")}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -118,7 +120,7 @@ export default async function OperatorsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       Nessun operatore trovato.
                     </TableCell>
                   </TableRow>
