@@ -38,7 +38,7 @@ const mapProfileToOperator = (profile: any): Operator => {
 export async function getHomepageData() {
   const supabase = createClient()
 
-  // Usiamo la nuova funzione RPC per gli operatori, più robusta e sicura
+  // Usiamo la nuova funzione RPC per gli operatori, che è sicura e non causa ricorsione.
   const { data: operatorsData, error: operatorsError } = await supabase.rpc("get_featured_operators_public")
 
   if (operatorsError) {
@@ -80,7 +80,7 @@ export async function getHomepageData() {
 }
 
 /**
- * Recupera gli operatori attivi per una specifica categoria.
+ * Recupera gli operatori attivi per una specifica categoria in modo case-insensitive e accent-insensitive.
  */
 export async function getOperatorsByCategory(categorySlug: string) {
   const supabase = createClient()

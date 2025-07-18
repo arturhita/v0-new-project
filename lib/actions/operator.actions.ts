@@ -230,8 +230,7 @@ export async function getAllOperators() {
   // ma dobbiamo mapparli per far corrispondere i nomi dei campi con il tipo client-side.
   return data.map((op) => ({
     id: op.id,
-    name: op.full_name, // Mappiamo full_name a name
-    surname: null, // La nostra funzione non restituisce un cognome separato
+    full_name: op.full_name,
     stage_name: op.stage_name,
     email: op.email,
     status: op.status,
