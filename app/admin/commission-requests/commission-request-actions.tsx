@@ -1,49 +1,45 @@
 "use client"
 
-import { useTransition } from "react"
-import { Button } from "@/components/ui/button"
 import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
-import { useToast } from "@/components/ui/use-toast"
-import { Check, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useTransition } from "react"
+import { toast } from "sonner"
 
-type Request = {
-  id: string
-  operator: { id: string }
-  requested_rate: number
-}
-
-interface CommissionRequestActionsProps {
-  request: Request
-}
-
-export function CommissionRequestActions({ request }: CommissionRequestActionsProps) {
+export function CommissionRequestActions({ requestId, currentStatus }: { requestId: string; currentStatus: string }) {
   const [isPending, startTransition] = useTransition()
-  const { toast } = useToast()
 
-  const handleAction = (status: "approved" | "rejected") => {
+  const handleApprove = () => {
     startTransition(async () => {
-      const result = await updateCommissionRequestStatus(
-        request.id,
-        status,
-        request.operator.id,
-        request.requested_rate,
-      )
-      if (result.error) {
-        toast({ title: "Errore", description: result.error, variant: "destructive" })
+      const result = await updateCommissionRequestStatus(requestId, "approved")
+      if (result.success) {
+        toast.success(result.message)
       } else {
-        toast({ title: "Successo", description: `Richiesta ${status === "approved" ? "approvata" : "rifiutata"}.` })
+        toast.error(result.message)
       }
     })
   }
 
+  const handleReject = () => {
+    startTransition(async () => {
+      const result = await updateCommissionRequestStatus(requestId, "rejected")
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message)
+      }
+    })
+  }
+
+  if (currentStatus !== "pending") {
+    return <span className="text-sm text-muted-foreground">Processato</span>
+  }
+
   return (
-    <div className="flex gap-2 justify-end">
-      <Button size="sm" variant="outline" onClick={() => handleAction("approved")} disabled={isPending}>
-        <Check className="h-4 w-4 mr-2" />
+    <div className="flex gap-2">
+      <Button size="sm" onClick={handleApprove} disabled={isPending}>
         Approva
       </Button>
-      <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isPending}>
-        <X className="h-4 w-4 mr-2" />
+      <Button size="sm" variant="destructive" onClick={handleReject} disabled={isPending}>
         Rifiuta
       </Button>
     </div>

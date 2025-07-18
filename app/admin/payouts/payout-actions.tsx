@@ -1,43 +1,45 @@
 "use client"
 
-import { useTransition } from "react"
+import { updatePayoutStatus } from "@/lib/actions/payouts.actions"
 import { Button } from "@/components/ui/button"
-import { updatePayoutRequestStatus } from "@/lib/actions/payouts.actions"
-import { useToast } from "@/components/ui/use-toast"
-import { CheckCircle, XCircle } from "lucide-react"
+import { useTransition } from "react"
+import { toast } from "sonner"
 
-interface PayoutActionsProps {
-  requestId: string
-  currentStatus: string
-}
-
-export function PayoutActions({ requestId, currentStatus }: PayoutActionsProps) {
+export function PayoutActions({ requestId, currentStatus }: { requestId: string; currentStatus: string }) {
   const [isPending, startTransition] = useTransition()
-  const { toast } = useToast()
 
-  const handleAction = (status: "approved" | "rejected") => {
+  const handleApprove = () => {
     startTransition(async () => {
-      const result = await updatePayoutRequestStatus(requestId, status)
-      if (result.error) {
-        toast({ title: "Errore", description: result.error, variant: "destructive" })
+      const result = await updatePayoutStatus(requestId, "completed")
+      if (result.success) {
+        toast.success(result.message)
       } else {
-        toast({ title: "Successo", description: `Richiesta ${status === "approved" ? "approvata" : "rifiutata"}.` })
+        toast.error(result.message)
+      }
+    })
+  }
+
+  const handleReject = () => {
+    startTransition(async () => {
+      const result = await updatePayoutStatus(requestId, "rejected")
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message)
       }
     })
   }
 
   if (currentStatus !== "pending") {
-    return null
+    return <span className="text-sm text-muted-foreground">Processato</span>
   }
 
   return (
-    <div className="flex gap-2 justify-end">
-      <Button size="sm" variant="outline" onClick={() => handleAction("approved")} disabled={isPending}>
-        <CheckCircle className="h-4 w-4 mr-2" />
+    <div className="flex gap-2">
+      <Button size="sm" onClick={handleApprove} disabled={isPending}>
         Approva
       </Button>
-      <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isPending}>
-        <XCircle className="h-4 w-4 mr-2" />
+      <Button size="sm" variant="destructive" onClick={handleReject} disabled={isPending}>
         Rifiuta
       </Button>
     </div>

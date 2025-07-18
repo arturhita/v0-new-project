@@ -1,20 +1,20 @@
-import { getBroadcastNotifications } from "@/lib/actions/notifications.actions"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { getBroadcastHistory } from "@/lib/actions/notifications.actions"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SendNotificationForm } from "./send-notification-form"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
-import { it } from "date-fns/locale"
-import { SendNotificationForm } from "./send-notification-form"
 
 export default async function NotificationsPage() {
-  const notifications = await getBroadcastNotifications()
+  const history = await getBroadcastHistory()
 
   return (
-    <div className="grid md:grid-cols-3 gap-6">
+    <div className="container mx-auto p-4 grid gap-8 md:grid-cols-3">
       <div className="md:col-span-1">
+        <h1 className="text-3xl font-bold mb-6">Notifiche Broadcast</h1>
         <Card>
           <CardHeader>
-            <CardTitle>Invia Notifica Broadcast</CardTitle>
+            <CardTitle>Invia Nuova Notifica</CardTitle>
             <CardDescription>
               Invia un messaggio a tutti gli utenti, solo ai clienti o solo agli operatori.
             </CardDescription>
@@ -25,12 +25,9 @@ export default async function NotificationsPage() {
         </Card>
       </div>
       <div className="md:col-span-2">
+        <h2 className="text-2xl font-bold mb-6">Storico Notifiche</h2>
         <Card>
-          <CardHeader>
-            <CardTitle>Storico Notifiche</CardTitle>
-            <CardDescription>Le ultime notifiche broadcast inviate.</CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="mt-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -40,27 +37,15 @@ export default async function NotificationsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {notifications.length > 0 ? (
-                  notifications.map((notification) => (
-                    <TableRow key={notification.id}>
-                      <TableCell className="font-medium">{notification.title}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize">
-                          {notification.target_role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(notification.sent_at), "dd/MM/yyyy HH:mm", { locale: it })}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8">
-                      Nessuna notifica inviata.
+                {history.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.title}</TableCell>
+                    <TableCell>
+                      <Badge>{item.target_role}</Badge>
                     </TableCell>
+                    <TableCell>{format(new Date(item.sent_at), "dd/MM/yyyy HH:mm")}</TableCell>
                   </TableRow>
-                )}
+                ))}
               </TableBody>
             </Table>
           </CardContent>

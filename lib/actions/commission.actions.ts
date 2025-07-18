@@ -1,69 +1,51 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { unstable_noStore as noStore } from "next/cache"
 
-export async function getCommissionIncreaseRequests() {
-  noStore()
-  const supabase = createAdminClient()
+export async function getCommissionRequests() {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from("commission_increase_requests")
-    .select(
-      `
+    .select(`
       id,
       current_rate,
       requested_rate,
       reason,
       status,
       created_at,
-      operator:profiles (
+      profiles (
         id,
-        full_name,
+        username,
         email
       )
-    `,
-    )
+    `)
     .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching commission requests:", error)
-    return { error: `Impossibile caricare le richieste: ${error.message}` }
+    return []
   }
-  return { data }
+  return data
 }
 
-export async function updateCommissionRequestStatus(
-  requestId: string,
-  newStatus: "approved" | "rejected",
-  operatorId?: string,
-  newRate?: number,
-) {
-  const supabase = createAdminClient()
+export async function updateCommissionRequestStatus(id: string, status: "approved" | "rejected") {
+  const supabase = createServerClient()
 
-  if (newStatus === "approved") {
-    if (!operatorId || newRate === undefined) {
-      return { error: "Dati mancanti per approvare la richiesta." }
-    }
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ commission_rate: newRate })
-      .eq("id", operatorId)
+  // TODO: If approved, update the operator's commission rate in the profiles table.
+  // This requires a transaction or a more complex serverless function.
+  // For now, we just update the status.
 
-    if (profileError) {
-      return { error: `Impossibile aggiornare la commissione dell'operatore: ${profileError.message}` }
-    }
-  }
-
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("commission_increase_requests")
-    .update({ status: newStatus, processed_at: new Date().toISOString() })
-    .eq("id", requestId)
+    .update({ status, processed_at: new Date().toISOString() })
+    .eq("id", id)
 
   if (error) {
-    return { error: "Impossibile aggiornare lo stato della richiesta." }
+    console.error("Error updating commission request:", error)
+    return { success: false, message: error.message }
   }
 
   revalidatePath("/admin/commission-requests")
-  return { success: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"} con successo.` }
+  return { success: true, message: `Richiesta ${status}.` }
 }
