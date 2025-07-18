@@ -1,4 +1,3 @@
-"use client"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { getOperatorForAdmin } from "@/lib/actions/operator.actions"
 import { notFound } from "next/navigation"

@@ -32,7 +32,7 @@ type OperatorData = {
     emailPrice: string
   }
   availability: any
-  status: "Attivo" | "In Attesa" | "Sospeso"
+  status: "active" | "pending" | "suspended"
   isOnline: boolean
   commission: string
 }
@@ -216,7 +216,7 @@ export async function getAllOperatorsForAdmin() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, full_name, stage_name, status, commission_rate, created_at, avatar_url")
+    .select("id, full_name, stage_name, status, commission_rate, created_at, avatar_url")
     .eq("role", "operator")
     .order("created_at", { ascending: false })
 
