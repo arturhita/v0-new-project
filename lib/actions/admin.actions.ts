@@ -17,21 +17,16 @@ export type UserProfileRescueInfo = {
 export async function getDataForRescuePage(): Promise<UserProfileRescueInfo[]> {
   const supabaseAdmin = createAdminClient()
 
-  // 1. Get all users from Auth
   const {
     data: { users },
     error: authError,
-  } = await supabaseAdmin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000, // Adjust if you have more users
-  })
+  } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
 
   if (authError) {
     console.error("Error fetching auth users:", authError)
     throw new Error("Impossibile recuperare gli utenti da Auth.")
   }
 
-  // 2. Get all profiles
   const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*")
 
   if (profilesError) {
@@ -39,10 +34,8 @@ export async function getDataForRescuePage(): Promise<UserProfileRescueInfo[]> {
     throw new Error("Impossibile recuperare i profili.")
   }
 
-  // 3. Create a map of profiles for easy lookup
   const profilesMap = new Map(profiles.map((p) => [p.id, p]))
 
-  // 4. Combine the data
   const combinedData = users.map((user) => {
     const profile = profilesMap.get(user.id)
     return {
@@ -67,7 +60,6 @@ export async function forceUserRoleAndStatus(
 ): Promise<{ success: boolean; message: string }> {
   const supabaseAdmin = createAdminClient()
 
-  // Check if a profile exists for this user
   const { data: existingProfile, error: fetchError } = await supabaseAdmin
     .from("profiles")
     .select("id")
@@ -75,7 +67,6 @@ export async function forceUserRoleAndStatus(
     .single()
 
   if (fetchError && fetchError.code !== "PGRST116") {
-    // PGRST116 = 'single row not found'
     console.error("Error checking for existing profile:", fetchError)
     return { success: false, message: "Errore durante la verifica del profilo." }
   }
@@ -83,17 +74,17 @@ export async function forceUserRoleAndStatus(
   let finalError
 
   if (existingProfile) {
-    // Profile exists, update it
     const { error } = await supabaseAdmin.from("profiles").update({ role, status }).eq("id", userId)
     finalError = error
   } else {
-    // Profile does not exist, create it
     const {
       data: { user },
     } = await supabaseAdmin.auth.admin.getUserById(userId)
+
+    // **ECCO LA CORREZIONE: Rimuovo il campo 'email' che non esiste nella tabella 'profiles'**
     const { error } = await supabaseAdmin.from("profiles").insert({
       id: userId,
-      email: user?.email,
+      // email: user?.email, // <-- QUESTA RIGA SBAGLIATA È STATA RIMOSSA
       full_name: user?.user_metadata.full_name || "Nome da definire",
       stage_name: user?.user_metadata.stage_name || "Nome d'arte da definire",
       role,
