@@ -2,8 +2,10 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { unstable_noStore as noStore } from "next/cache"
 
 export async function getCommissionRequests() {
+  noStore()
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("commission_requests")
@@ -17,7 +19,8 @@ export async function getCommissionRequests() {
       created_at,
       operator:profiles (
         id,
-        stage_name
+        full_name,
+        email
       )
     `,
     )
@@ -25,49 +28,45 @@ export async function getCommissionRequests() {
 
   if (error) {
     console.error("Error fetching commission requests:", error)
-    return []
+    return { error: "Impossibile caricare le richieste di commissione." }
   }
-
-  // @ts-ignore - Supabase TS inference can be tricky with nested selects
-  return data.map((req) => ({ ...req, operatorName: req.operator.stage_name, operatorId: req.operator.id }))
+  return { data }
 }
 
-export async function handleCommissionRequest(requestId: string, newStatus: "approved" | "rejected") {
+export async function updateCommissionRequestStatus(requestId: string, newStatus: "approved" | "rejected") {
   const supabase = createAdminClient()
 
-  const { data: request, error: fetchError } = await supabase
-    .from("commission_requests")
-    .select("operator_id, requested_rate")
-    .eq("id", requestId)
-    .single()
-
-  if (fetchError || !request) {
-    console.error("Commission request not found:", fetchError)
-    return { success: false, message: "Richiesta non trovata." }
-  }
-
+  // If approved, we also need to update the operator's profile
   if (newStatus === "approved") {
+    const { data: requestData, error: requestError } = await supabase
+      .from("commission_requests")
+      .select("operator_id, requested_rate")
+      .eq("id", requestId)
+      .single()
+
+    if (requestError || !requestData) {
+      return { error: "Richiesta non trovata." }
+    }
+
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ commission_rate: request.requested_rate })
-      .eq("id", request.operator_id) // CORREZIONE: usa 'id'
+      .update({ commission_rate: requestData.requested_rate })
+      .eq("id", requestData.operator_id)
 
     if (profileError) {
-      console.error("Error updating operator profile:", profileError)
-      return { success: false, message: "Errore nell'aggiornare il profilo operatore." }
+      return { error: "Impossibile aggiornare la commissione dell'operatore." }
     }
   }
 
-  const { error: updateError } = await supabase
+  const { error } = await supabase
     .from("commission_requests")
     .update({ status: newStatus, reviewed_at: new Date().toISOString() })
     .eq("id", requestId)
 
-  if (updateError) {
-    console.error("Error updating commission request status:", updateError)
-    return { success: false, message: "Errore nell'aggiornare lo stato della richiesta." }
+  if (error) {
+    return { error: "Impossibile aggiornare lo stato della richiesta." }
   }
 
   revalidatePath("/admin/commission-requests-log")
-  return { success: true, message: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
+  return { success: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"} con successo.` }
 }

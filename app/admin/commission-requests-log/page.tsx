@@ -1,88 +1,76 @@
-import { getCommissionRequests } from "@/lib/actions/commission.actions"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText } from "lucide-react"
-import CommissionRequestActions from "./commission-request-actions"
 import { Badge } from "@/components/ui/badge"
+import { getCommissionRequests } from "@/lib/actions/commission.actions"
+import CommissionRequestActions from "./commission-request-actions"
+import { format } from "date-fns"
 
-export const revalidate = 0
+export default async function CommissionRequestsLogPage() {
+  const { data: requests, error } = await getCommissionRequests()
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "pending":
-      return (
-        <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-          In Attesa
-        </Badge>
-      )
-    case "approved":
-      return (
-        <Badge variant="default" className="bg-emerald-500 text-white">
-          Approvata
-        </Badge>
-      )
-    case "rejected":
-      return <Badge variant="destructive">Rifiutata</Badge>
-    default:
-      return <Badge>Sconosciuto</Badge>
+  if (error) {
+    return <div className="p-4 text-red-500">{error}</div>
   }
-}
 
-export default async function ManageCommissionRequestsPage() {
-  const requests = await getCommissionRequests()
+  if (!requests || requests.length === 0) {
+    return (
+      <div className="p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Log Richieste Commissione</CardTitle>
+            <CardDescription>Nessuna richiesta di modifica commissione trovata.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Richieste Modifica Commissione</h1>
-      <CardDescription className="text-slate-500 -mt-4">
-        Valuta le richieste di modifica della percentuale di commissione inviate dagli operatori.
-      </CardDescription>
-
-      <Card className="shadow-xl rounded-2xl">
+    <div className="p-4">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-[hsl(var(--primary-medium))]" />
-            Richieste Pendenti e Storico
-          </CardTitle>
+          <CardTitle>Log Richieste Commissione</CardTitle>
+          <CardDescription>
+            Visualizza e gestisci le richieste di modifica della commissione da parte degli operatori.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {requests.length === 0 ? (
-            <p className="text-center text-slate-500 py-4">Nessuna richiesta di modifica commissione presente.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Operatore</TableHead>
-                  <TableHead className="text-center">Comm. Attuale</TableHead>
-                  <TableHead className="text-center">Comm. Richiesta</TableHead>
-                  <TableHead>Data Richiesta</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Operatore</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Tasso Attuale</TableHead>
+                <TableHead>Tasso Richiesto</TableHead>
+                <TableHead>Data Richiesta</TableHead>
+                <TableHead>Stato</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {requests.map((req) => (
+                <TableRow key={req.id}>
+                  <TableCell>{req.operator.full_name}</TableCell>
+                  <TableCell>{req.operator.email}</TableCell>
+                  <TableCell>{req.current_rate}%</TableCell>
+                  <TableCell className="font-bold">{req.requested_rate}%</TableCell>
+                  <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        req.status === "pending" ? "secondary" : req.status === "approved" ? "default" : "destructive"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {req.status === "pending" && <CommissionRequestActions requestId={req.id} />}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((req: any) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium">
-                      {req.operatorName}
-                      <p className="text-xs text-slate-500 truncate max-w-xs mt-1" title={req.justification}>
-                        Motivazione: {req.justification}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-center">{req.current_rate}%</TableCell>
-                    <TableCell className="text-center font-semibold text-[hsl(var(--primary-dark))]">
-                      {req.requested_rate}%
-                    </TableCell>
-                    <TableCell>{new Date(req.created_at).toLocaleDateString("it-IT")}</TableCell>
-                    <TableCell>{getStatusBadge(req.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <CommissionRequestActions request={req} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

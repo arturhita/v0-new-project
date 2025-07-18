@@ -1,70 +1,74 @@
 "use client"
 
-import { useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, CheckCircle, Clock, XCircle, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 import { updatePayoutStatus } from "@/lib/actions/payouts.actions"
-import { useToast } from "@/hooks/use-toast"
+import { MoreHorizontal } from "lucide-react"
+import { useTransition } from "react"
 
 type PayoutStatus = "pending" | "processing" | "paid" | "rejected" | "on_hold"
 
-interface PayoutRequest {
-  id: string
-  status: PayoutStatus
+interface PayoutActionsProps {
+  payoutId: string
+  currentStatus: PayoutStatus
 }
 
-export default function PayoutActions({ request }: { request: PayoutRequest }) {
-  const [isPending, startTransition] = useTransition()
+export default function PayoutActions({ payoutId, currentStatus }: PayoutActionsProps) {
   const { toast } = useToast()
+  const [isPending, startTransition] = useTransition()
 
-  const onAction = (newStatus: PayoutStatus) => {
+  const handleUpdate = (newStatus: PayoutStatus) => {
+    if (newStatus === currentStatus) return
+
     startTransition(async () => {
-      const result = await updatePayoutStatus(request.id, newStatus)
-      toast({
-        title: result.success ? "Successo" : "Stato aggiornato",
-        description: result.message,
-        variant: result.success ? "default" : "destructive",
-      })
+      const result = await updatePayoutStatus(payoutId, newStatus)
+      if (result.error) {
+        toast({
+          title: "Errore",
+          description: result.error,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Successo",
+          description: result.success,
+        })
+      }
     })
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={isPending}>
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-          <span className="sr-only">Azioni Pagamento</span>
+        <Button variant="ghost" className="h-8 w-8 p-0" disabled={isPending}>
+          <span className="sr-only">Apri menu</span>
+          <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Modifica Stato</DropdownMenuLabel>
-        {request.status !== "processing" && request.status !== "paid" && (
-          <DropdownMenuItem onClick={() => onAction("processing")}>
-            <CheckCircle className="mr-2 h-4 w-4 text-blue-500" /> Processa Pagamento
-          </DropdownMenuItem>
-        )}
-        {request.status !== "paid" && (
-          <DropdownMenuItem onClick={() => onAction("paid")}>
-            <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> Segna come Pagato
-          </DropdownMenuItem>
-        )}
-        {request.status !== "on_hold" && (
-          <DropdownMenuItem onClick={() => onAction("on_hold")}>
-            <Clock className="mr-2 h-4 w-4 text-orange-500" /> Metti in Sospeso
-          </DropdownMenuItem>
-        )}
-        {request.status !== "rejected" && (
-          <DropdownMenuItem onClick={() => onAction("rejected")} className="text-red-600 focus:text-red-600">
-            <XCircle className="mr-2 h-4 w-4" /> Rifiuta Pagamento
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuLabel>Cambia Stato</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleUpdate("processing")} disabled={isPending}>
+          In Lavorazione
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleUpdate("paid")} disabled={isPending}>
+          Pagato
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleUpdate("on_hold")} disabled={isPending}>
+          In Sospeso
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-red-600" onClick={() => handleUpdate("rejected")} disabled={isPending}>
+          Rifiuta
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

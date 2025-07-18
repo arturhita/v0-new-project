@@ -1,54 +1,43 @@
 "use client"
 
-import { useTransition } from "react"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, Loader2 } from "lucide-react"
-import { handleCommissionRequest } from "@/lib/actions/commission.actions"
-import { useToast } from "@/hooks/use-toast"
+import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
+import { useToast } from "@/components/ui/use-toast"
+import { useTransition } from "react"
 
-export default function CommissionRequestActions({ request }: { request: any }) {
-  const [isPending, startTransition] = useTransition()
+interface CommissionRequestActionsProps {
+  requestId: string
+}
+
+export default function CommissionRequestActions({ requestId }: CommissionRequestActionsProps) {
   const { toast } = useToast()
+  const [isPending, startTransition] = useTransition()
 
-  const onAction = (status: "approved" | "rejected") => {
+  const handleAction = async (action: "approved" | "rejected") => {
     startTransition(async () => {
-      const result = await handleCommissionRequest(request.id, status)
-      toast({
-        title: result.success ? "Successo" : "Errore",
-        description: result.message,
-        variant: result.success ? "default" : "destructive",
-      })
+      const result = await updateCommissionRequestStatus(requestId, action)
+      if (result.error) {
+        toast({
+          title: "Errore",
+          description: result.error,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Successo",
+          description: result.success,
+        })
+      }
     })
-  }
-
-  if (request.status !== "pending") {
-    return <span className="text-xs text-slate-400">Gestita</span>
   }
 
   return (
     <div className="flex gap-2 justify-end">
-      <Button
-        size="sm"
-        onClick={() => onAction("approved")}
-        disabled={isPending}
-        className="bg-emerald-500 hover:bg-emerald-600 text-white"
-      >
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <>
-            <CheckCircle className="mr-1.5 h-4 w-4" /> Approva
-          </>
-        )}
+      <Button size="sm" variant="outline" onClick={() => handleAction("approved")} disabled={isPending}>
+        {isPending ? "..." : "Approva"}
       </Button>
-      <Button size="sm" variant="destructive" onClick={() => onAction("rejected")} disabled={isPending}>
-        {isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <>
-            <XCircle className="mr-1.5 h-4 w-4" /> Rifiuta
-          </>
-        )}
+      <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isPending}>
+        {isPending ? "..." : "Rifiuta"}
       </Button>
     </div>
   )
