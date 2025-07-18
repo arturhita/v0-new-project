@@ -1,42 +1,37 @@
 "use server"
+
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { unstable_noStore as noStore } from "next/cache"
 
 export async function getPromotions() {
+  noStore()
   const supabase = createSupabaseServerClient()
-  const { data, error } = await supabase.from("promotions").select("*")
-  if (error) {
-    console.error("Error fetching promotions:", error)
-    return { promotions: [], error: error.message }
-  }
-  return { promotions: data, error: null }
+  const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
+  if (error) return []
+  return data
 }
 
 export async function createPromotion(formData: FormData) {
   const supabase = createSupabaseServerClient()
-  const promotionData = {
-    code: formData.get("code") as string,
-    description: formData.get("description") as string,
-    discount_type: formData.get("discount_type") as "percentage" | "fixed",
-    discount_value: Number(formData.get("discount_value")),
-    start_date: formData.get("start_date") as string,
-    end_date: formData.get("end_date") as string,
-    is_active: formData.get("is_active") === "on",
+  const rawData = Object.fromEntries(formData.entries())
+
+  const dataToInsert = {
+    title: rawData.title as string,
+    description: rawData.description as string,
+    special_price: Number(rawData.special_price),
+    original_price: Number(rawData.original_price),
+    start_date: new Date(rawData.start_date as string).toISOString(),
+    end_date: new Date(rawData.end_date as string).toISOString(),
+    valid_days: formData.getAll("valid_days"),
+    is_active: rawData.is_active === "on",
   }
 
-  // Basic validation
-  if (!promotionData.code || !promotionData.discount_value) {
-    return { success: false, error: "Code and discount value are required." }
-  }
-
-  const { error } = await supabase.from("promotions").insert(promotionData)
-
-  if (error) {
-    console.error("Error creating promotion:", error)
-    return { success: false, error: error.message }
-  }
+  const { error } = await supabase.from("promotions").insert(dataToInsert)
+  if (error) return { success: false, message: error.message }
 
   revalidatePath("/admin/promotions")
-  revalidatePath("/admin/dashboard")
-  return { success: true, error: null }
+  return { success: true, message: "Promozione creata." }
 }
+
+// Aggiungere funzioni per update e delete

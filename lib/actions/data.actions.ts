@@ -1,6 +1,6 @@
 "use server"
 
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 
@@ -36,7 +36,7 @@ const mapProfileToOperator = (profile: any): Operator => {
  * Recupera tutti i dati necessari per la homepage (operatori e recensioni).
  */
 export async function getHomepageData() {
-  const supabase = createSupabaseServerClient()
+  const supabase = createClient()
 
   const { data: operatorsData, error: operatorsError } = await supabase
     .from("profiles")
@@ -55,10 +55,10 @@ export async function getHomepageData() {
     .from("reviews")
     .select(
       `
-     id, rating, comment, created_at,
-     client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-     operator:profiles!reviews_operator_id_fkey (stage_name)
-   `,
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+      operator:profiles!reviews_operator_id_fkey (stage_name)
+    `,
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })
@@ -89,7 +89,7 @@ export async function getHomepageData() {
  * @param categorySlug - Lo slug della categoria (es. 'cartomanzia' o 'medianità').
  */
 export async function getOperatorsByCategory(categorySlug: string) {
-  const supabase = createSupabaseServerClient()
+  const supabase = createClient()
   const slug = decodeURIComponent(categorySlug)
 
   const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
@@ -108,7 +108,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
  * Recupera tutti gli operatori attivi.
  */
 export async function getAllOperators() {
-  const supabase = createSupabaseServerClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("profiles")

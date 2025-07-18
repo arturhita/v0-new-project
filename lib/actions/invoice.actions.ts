@@ -1,10 +1,11 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { unstable_noStore as noStore } from "next/cache"
 
 export async function createInvoice(formData: FormData) {
-  const supabase = createClient()
+  const supabase = createSupabaseServerClient()
 
   const {
     data: { user },
@@ -49,27 +50,22 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function getInvoices() {
-  const supabase = createClient()
+  noStore()
+  const supabase = createSupabaseServerClient()
   const { data, error } = await supabase
     .from("invoices")
-    .select(`
-      *,
-      profiles:operator_id (
-        full_name
-      )
-    `)
+    .select(`*, profile:profiles!user_id(full_name, stage_name)`)
     .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Errore nel recupero delle fatture:", error)
-    return { error: "Impossibile recuperare le fatture." }
+    return []
   }
 
-  // The join returns profiles as an object, let's flatten it
-  const invoices = data.map((invoice) => ({
-    ...invoice,
-    operator_name: (invoice.profiles as any)?.full_name || "N/A",
+  return data.map((inv) => ({
+    ...inv,
+    operator_name: inv.profile?.stage_name || inv.profile?.full_name || "N/D",
   }))
-
-  return { invoices }
 }
+
+// ... altre azioni per fatture
