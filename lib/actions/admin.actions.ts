@@ -60,50 +60,68 @@ export async function forceUserRoleAndStatus(
 ): Promise<{ success: boolean; message: string }> {
   const supabaseAdmin = createAdminClient()
 
-  const { data: existingProfile, error: fetchError } = await supabaseAdmin
+  // 1. Recupera l'utente completo da Auth per accedere ai metadati
+  const {
+    data: { user },
+    error: authError,
+  } = await supabaseAdmin.auth.admin.getUserById(userId)
+  if (authError || !user) {
+    console.error("Error fetching user from Auth:", authError)
+    return { success: false, message: "Impossibile trovare l'utente nel sistema di autenticazione." }
+  }
+
+  // 2. Recupera il profilo attuale dal database, se esiste
+  const { data: existingProfile, error: profileFetchError } = await supabaseAdmin
     .from("profiles")
-    .select("id")
+    .select("*")
     .eq("id", userId)
     .single()
 
-  if (fetchError && fetchError.code !== "PGRST116") {
-    console.error("Error checking for existing profile:", fetchError)
-    return { success: false, message: "Errore durante la verifica del profilo." }
+  // Ignora l'errore solo se è "nessuna riga trovata", altrimenti segnala un problema reale.
+  if (profileFetchError && profileFetchError.code !== "PGRST116") {
+    console.error("Error fetching existing profile:", profileFetchError)
+    return { success: false, message: "Errore nel recupero del profilo esistente." }
   }
 
-  let finalError
+  // 3. Prepara i dati finali, unendo le informazioni in modo sicuro
+  // Dà priorità ai dati già presenti nel profilo, poi ai metadati, e infine a un valore di default.
+  const metadata = user.user_metadata || {}
+  const profileData = {
+    id: userId, // Chiave primaria per l'operazione
+    role, // Nuovo ruolo
+    status, // Nuovo stato
 
-  if (existingProfile) {
-    const { error } = await supabaseAdmin.from("profiles").update({ role, status }).eq("id", userId)
-    finalError = error
-  } else {
-    const {
-      data: { user },
-    } = await supabaseAdmin.auth.admin.getUserById(userId)
-
-    // **ECCO LA CORREZIONE: Rimuovo il campo 'email' che non esiste nella tabella 'profiles'**
-    const { error } = await supabaseAdmin.from("profiles").insert({
-      id: userId,
-      // email: user?.email, // <-- QUESTA RIGA SBAGLIATA È STATA RIMOSSA
-      full_name: user?.user_metadata.full_name || "Nome da definire",
-      stage_name: user?.user_metadata.stage_name || "Nome d'arte da definire",
-      role,
-      status,
-    })
-    finalError = error
+    // Unione sicura dei dati: non si perde nulla
+    full_name: existingProfile?.full_name || metadata.full_name || "Nome da definire",
+    stage_name: existingProfile?.stage_name || metadata.stage_name || "Nome d'arte da definire",
+    avatar_url: existingProfile?.avatar_url || metadata.avatar_url || null,
+    bio: existingProfile?.bio || metadata.bio || null,
+    specialties: existingProfile?.specialties || metadata.specialties || [],
+    categories: existingProfile?.categories || metadata.categories || [],
+    services: existingProfile?.services || metadata.services || {},
+    availability: existingProfile?.availability || metadata.availability || {},
+    phone: existingProfile?.phone || metadata.phone || null,
+    commission_rate: existingProfile?.commission_rate, // Mantiene la commissione esistente
   }
 
-  if (finalError) {
-    console.error("Error updating/creating profile:", finalError)
-    return { success: false, message: `Errore database: ${finalError.message}` }
+  // 4. Usa "upsert" per aggiornare il profilo se esiste, o crearlo se non esiste, in un'unica operazione sicura.
+  const { error: upsertError } = await supabaseAdmin.from("profiles").upsert(profileData, { onConflict: "id" })
+
+  if (upsertError) {
+    console.error("Error upserting profile:", upsertError)
+    return { success: false, message: `Errore database durante l'aggiornamento: ${upsertError.message}` }
   }
 
+  // 5. Aggiorna le pagine rilevanti per mostrare subito le modifiche
   revalidatePath("/admin/data-rescue")
   revalidatePath("/admin/operators")
   revalidatePath("/")
   revalidatePath("/esperti", "layout")
+  if (profileData.stage_name) {
+    revalidatePath(`/operator/${profileData.stage_name}`)
+  }
 
-  return { success: true, message: `Utente ${userId} aggiornato con successo.` }
+  return { success: true, message: `Utente ${profileData.stage_name || userId} aggiornato con successo.` }
 }
 
 export async function approveOperator(operatorId: string) {
