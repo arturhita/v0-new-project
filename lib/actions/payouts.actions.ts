@@ -25,27 +25,24 @@ export async function getPayoutRequests() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching payout requests:", error.message)
-    return {
-      error: `Errore nel caricamento delle richieste di pagamento: ${error.message}`,
-    }
+    console.error("Error fetching payout requests:", error)
+    return { error: "Impossibile caricare le richieste di pagamento." }
   }
-
   return { data }
 }
 
-export async function updatePayoutStatus(payoutId: string, newStatus: "processing" | "paid" | "rejected" | "on_hold") {
+export async function updatePayoutRequestStatus(requestId: string, newStatus: "approved" | "rejected") {
   const supabase = createAdminClient()
   const { error } = await supabase
     .from("payout_requests")
     .update({ status: newStatus, processed_at: new Date().toISOString() })
-    .eq("id", payoutId)
+    .eq("id", requestId)
 
   if (error) {
     console.error("Error updating payout status:", error)
-    return { error: "Impossibile aggiornare lo stato del pagamento." }
+    return { error: "Impossibile aggiornare lo stato della richiesta." }
   }
 
   revalidatePath("/admin/payouts")
-  return { success: "Stato del pagamento aggiornato con successo." }
+  return { success: `Richiesta di pagamento ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
 }
