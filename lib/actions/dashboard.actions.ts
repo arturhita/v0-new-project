@@ -1,8 +1,10 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { unstable_noStore as noStore } from "next/cache"
 
 export async function getAdminDashboardStats() {
+  noStore()
   const supabase = createClient()
   const { data, error } = await supabase.rpc("get_admin_dashboard_stats")
 
@@ -17,6 +19,5 @@ export async function getAdminDashboardStats() {
     }
   }
 
-  // The RPC function returns an array with a single object
   return data[0]
 }

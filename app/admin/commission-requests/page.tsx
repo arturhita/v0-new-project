@@ -21,8 +21,8 @@ export default async function CommissionRequestsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Operatore</TableHead>
-                <TableHead>% Richiesta</TableHead>
                 <TableHead>% Attuale</TableHead>
+                <TableHead>% Richiesta</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead className="text-right">Azioni</TableHead>
@@ -33,8 +33,8 @@ export default async function CommissionRequestsPage() {
                 requests.map((req) => (
                   <TableRow key={req.id}>
                     <TableCell>{req.profiles?.full_name ?? "N/A"}</TableCell>
-                    <TableCell>{req.requested_percentage}%</TableCell>
-                    <TableCell>{req.current_percentage}%</TableCell>
+                    <TableCell>{req.current_rate}%</TableCell>
+                    <TableCell>{req.requested_rate}%</TableCell>
                     <TableCell>{new Date(req.created_at).toLocaleDateString("it-IT")}</TableCell>
                     <TableCell>
                       <Badge

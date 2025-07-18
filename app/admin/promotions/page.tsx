@@ -32,7 +32,7 @@ export default async function PromotionsPage() {
                 <TableHead>Stato</TableHead>
                 <TableHead>Inizio</TableHead>
                 <TableHead>Fine</TableHead>
-                <TableHead>Azioni</TableHead>
+                <TableHead className="text-right">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -47,7 +47,7 @@ export default async function PromotionsPage() {
                     </TableCell>
                     <TableCell>{formatDate(promo.start_date)}</TableCell>
                     <TableCell>{formatDate(promo.end_date)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <PromotionFormModal promotion={promo} />
                     </TableCell>
                   </TableRow>

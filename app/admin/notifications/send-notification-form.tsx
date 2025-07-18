@@ -2,7 +2,7 @@
 
 import { useTransition, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -32,8 +32,8 @@ export function SendNotificationForm() {
         <CardTitle>Invia Nuova Notifica</CardTitle>
         <CardDescription>Il messaggio apparirà nel centro notifiche degli utenti target.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form ref={formRef} action={handleSubmit} className="space-y-4">
+      <form ref={formRef} action={handleSubmit}>
+        <CardContent className="space-y-4">
           <div>
             <Label htmlFor="title">Titolo</Label>
             <Input id="title" name="title" required />
@@ -55,11 +55,13 @@ export function SendNotificationForm() {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+        <CardFooter>
           <Button type="submit" disabled={isPending}>
             {isPending ? "Invio in corso..." : "Invia Notifica"}
           </Button>
-        </form>
-      </CardContent>
+        </CardFooter>
+      </form>
     </Card>
   )
 }

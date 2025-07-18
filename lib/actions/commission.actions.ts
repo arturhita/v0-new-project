@@ -11,8 +11,8 @@ export async function getCommissionRequests() {
       `
       id,
       created_at,
-      requested_percentage,
-      current_percentage,
+      requested_rate,
+      current_rate,
       reason,
       status,
       operator_id,
@@ -34,7 +34,34 @@ export async function getCommissionRequests() {
 
 export async function updateCommissionRequestStatus(id: string, status: "approved" | "rejected") {
   const supabase = createClient()
-  const { error } = await supabase.from("commission_increase_requests").update({ status }).eq("id", id)
+
+  if (status === "approved") {
+    const { data: request, error: fetchError } = await supabase
+      .from("commission_increase_requests")
+      .select("operator_id, requested_rate")
+      .eq("id", id)
+      .single()
+
+    if (fetchError || !request) {
+      console.error("Error fetching request to approve:", fetchError)
+      return { success: false, message: "Impossibile trovare la richiesta da approvare." }
+    }
+
+    const { error: profileUpdateError } = await supabase
+      .from("profiles")
+      .update({ commission_rate: request.requested_rate })
+      .eq("id", request.operator_id)
+
+    if (profileUpdateError) {
+      console.error("Error updating profile commission:", profileUpdateError)
+      return { success: false, message: "Impossibile aggiornare la commissione del profilo." }
+    }
+  }
+
+  const { error } = await supabase
+    .from("commission_increase_requests")
+    .update({ status, processed_at: new Date().toISOString() })
+    .eq("id", id)
 
   if (error) {
     console.error("Error updating commission request status:", error)

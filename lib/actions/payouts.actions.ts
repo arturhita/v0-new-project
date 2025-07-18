@@ -13,7 +13,6 @@ export async function getPayoutRequests() {
       created_at,
       amount,
       status,
-      operator_id,
       profiles (
         full_name,
         email
@@ -32,7 +31,10 @@ export async function getPayoutRequests() {
 
 export async function updatePayoutStatus(id: string, status: "completed" | "rejected") {
   const supabase = createClient()
-  const { error } = await supabase.from("payout_requests").update({ status }).eq("id", id)
+  const { error } = await supabase
+    .from("payout_requests")
+    .update({ status, processed_at: new Date().toISOString() })
+    .eq("id", id)
 
   if (error) {
     console.error("Error updating payout status:", error)
