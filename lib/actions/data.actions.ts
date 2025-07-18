@@ -92,17 +92,19 @@ export async function getHomepageData() {
  */
 export async function getOperatorsByCategory(categorySlug: string) {
   const supabase = createClient()
+  // Sanitize the slug to ensure it matches the database value
+  const slug = decodeURIComponent(categorySlug).toLowerCase()
 
   const { data, error } = await supabase
     .from("profiles")
     .select(`*`)
     .eq("role", "operator")
     .eq("status", "Attivo")
-    .contains("categories", [categorySlug])
+    .contains("categories", [slug])
     .order("is_online", { ascending: false })
 
   if (error) {
-    console.error(`Error fetching operators for category ${categorySlug}:`, error.message)
+    console.error(`Error fetching operators for category ${slug}:`, error.message)
     return []
   }
 

@@ -39,8 +39,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020] relative overflow-hidden flex items-center justify-center p-4">
-      <ConstellationBackground goldVisible={true} />
+    <div className="w-full flex-grow flex items-center justify-center p-4 relative">
+      <ConstellationBackground />
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/">
