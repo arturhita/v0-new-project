@@ -2,8 +2,6 @@
 
 import * as React from "react"
 import Link from "next/link"
-
-import { cn } from "@/lib/utils"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -13,41 +11,42 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { BookOpen, Users, Sparkles, Home } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Users, Star } from "lucide-react"
 
-const expertCategories: { title: string; href: string; description: string }[] = [
+const expertCategories = [
   {
-    title: "Cartomanti",
+    title: "Cartomanzia",
     href: "/esperti/cartomanzia",
-    description: "Lettura delle carte per svelare passato, presente e futuro.",
+    description: "Svela i segreti del tuo destino con i nostri esperti cartomanti.",
   },
   {
-    title: "Astrologi",
+    title: "Astrologia",
     href: "/esperti/astrologia",
-    description: "Interpretazione del tema natale e dei transiti planetari.",
+    description: "Interpreta il linguaggio delle stelle e l'influenza dei pianeti.",
   },
   {
-    title: "Sensitivi",
+    title: "Medianità",
     href: "/esperti/medianita",
-    description: "Connessioni e percezioni per offrirti una guida spirituale.",
+    description: "Comunica con il mondo spirituale in un ambiente sicuro e protetto.",
   },
   {
-    title: "Numerologi",
+    title: "Numerologia",
     href: "/esperti/numerologia",
-    description: "Scopri il potere nascosto nei numeri e nella tua data di nascita.",
+    description: "Scopri il potere nascosto nei numeri e le loro vibrazioni.",
   },
 ]
 
-const astromagLinks: { title: string; href: string; description: string }[] = [
+const astroMagLinks = [
   {
     title: "AstroMag",
     href: "/astromag",
-    description: "Leggi articoli, approfondimenti e curiosità dal mondo dell'esoterismo.",
+    description: "Leggi gli ultimi articoli e approfondimenti dal nostro magazine.",
   },
   {
     title: "Oroscopo del Giorno",
     href: "/oroscopo",
-    description: "Scopri cosa ti riservano le stelle oggi, segno per segno.",
+    description: "Scopri cosa hanno in serbo le stelle per te oggi.",
   },
 ]
 
@@ -57,56 +56,45 @@ export function NavigationMenuDemo() {
       <NavigationMenuList>
         <NavigationMenuItem>
           <Link href="/" legacyBehavior passHref>
-            <NavigationMenuLink
-              className={cn(
-                navigationMenuTriggerStyle(),
-                "text-white bg-transparent hover:bg-white/10 focus:bg-white/10",
-              )}
-            >
-              <Home className="mr-2 h-4 w-4" />
-              Home
-            </NavigationMenuLink>
+            <NavigationMenuLink className={navigationMenuTriggerStyle()}>Home</NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
+
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="text-white bg-transparent hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10">
-            <Users className="mr-2 h-4 w-4" />
-            Esperti
+          <NavigationMenuTrigger>
+            <Users className="mr-2 h-4 w-4" /> Esperti
           </NavigationMenuTrigger>
           <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-              <li className="row-span-3">
-                <NavigationMenuLink asChild>
-                  <a
-                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-indigo-900/50 to-indigo-800 p-6 no-underline outline-none focus:shadow-md"
-                    href="/esperti"
-                  >
-                    <Sparkles className="h-6 w-6 text-yellow-400" />
-                    <div className="mb-2 mt-4 text-lg font-medium text-white">Trova il tuo Esperto</div>
-                    <p className="text-sm leading-tight text-white/80">
-                      Connettiti con i migliori professionisti del settore esoterico.
-                    </p>
+            <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-[.75fr_1fr]">
+              <div className="row-span-3 flex flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md">
+                <div className="mb-2 mt-4 text-lg font-medium text-white">I nostri Esperti</div>
+                <p className="text-sm leading-tight text-white/80">
+                  Trova la guida giusta per te. Cartomanti, astrologi e sensitivi pronti ad ascoltarti.
+                </p>
+                <Link href="/esperti" passHref legacyBehavior>
+                  <a className="mt-4 text-sm font-bold text-yellow-300 hover:text-yellow-400">
+                    Vedi tutti gli esperti →
                   </a>
-                </NavigationMenuLink>
-              </li>
+                </Link>
+              </div>
               {expertCategories.map((component) => (
-                <ListItem key={component.title} title={component.title} href={component.href}>
+                <ListItem key={component.title} href={component.href} title={component.title}>
                   {component.description}
                 </ListItem>
               ))}
-            </ul>
+            </div>
           </NavigationMenuContent>
         </NavigationMenuItem>
+
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="text-white bg-transparent hover:bg-white/10 focus:bg-white/10 data-[active]:bg-white/10 data-[state=open]:bg-white/10">
-            <BookOpen className="mr-2 h-4 w-4" />
-            AstroMag
+          <NavigationMenuTrigger>
+            <Star className="mr-2 h-4 w-4" /> AstroMag
           </NavigationMenuTrigger>
           <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px]">
-              {astromagLinks.map((link) => (
-                <ListItem key={link.title} title={link.title} href={link.href}>
-                  {link.description}
+            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2">
+              {astroMagLinks.map((component) => (
+                <ListItem key={component.title} href={component.href} title={component.title}>
+                  {component.description}
                 </ListItem>
               ))}
             </ul>

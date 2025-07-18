@@ -1,158 +1,116 @@
 "use client"
 
-import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
-import Link from "next/link"
-import Image from "next/image"
-
-import { RegisterSchema } from "@/lib/schemas"
-import { register } from "@/lib/actions/auth.actions"
-
 import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { register } from "@/lib/actions/auth.actions"
+import { toast } from "sonner"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
+import Link from "next/link"
+import { RegisterSchema } from "@/lib/schemas"
+import { useRouter } from "next/navigation"
 
 export default function RegisterPage() {
-  const [error, setError] = useState<string | undefined>("")
-  const [success, setSuccess] = useState<string | undefined>("")
-  const [isPending, startTransition] = useTransition()
-
+  const router = useRouter()
   const form = useForm<z.infer<typeof RegisterSchema>>({
     resolver: zodResolver(RegisterSchema),
     defaultValues: {
-      name: "",
+      fullName: "",
       email: "",
       password: "",
     },
   })
 
-  const onSubmit = (values: z.infer<typeof RegisterSchema>) => {
-    setError("")
-    setSuccess("")
-    startTransition(() => {
-      register(values).then((data) => {
-        setError(data.error)
-        setSuccess(data.success)
-      })
-    })
+  async function onSubmit(values: z.infer<typeof RegisterSchema>) {
+    const result = await register(values)
+    if (result.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Registrazione avvenuta con successo! Controlla la tua email per la conferma.")
+      router.push("/") // Reindirizza alla home
+    }
   }
 
   return (
-    <div className="w-full flex-grow flex items-center justify-center p-4 relative">
-      <ConstellationBackground goldVisible={true} />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/">
-            <Image
-              src="/images/moonthir-logo-white.png"
-              alt="Moonthir Logo"
-              width={180}
-              height={50}
-              className="mx-auto"
+    <div className="relative flex min-h-[calc(100vh-80px)] items-center justify-center py-12">
+      <ConstellationBackground />
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-yellow-600/20 bg-blue-900/50 p-8 shadow-lg backdrop-blur-sm">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-white">Inizia Ora</h1>
+          <p className="mt-2 text-white/70">Crea il tuo account per connetterti con i nostri esperti.</p>
+        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-6">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white/80">Nome Completo</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Mario Rossi"
+                      {...field}
+                      className="bg-blue-800/60 border-yellow-600/30 text-white placeholder:text-white/50 focus:ring-yellow-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white/80">Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="tua@email.com"
+                      {...field}
+                      className="bg-blue-800/60 border-yellow-600/30 text-white placeholder:text-white/50 focus:ring-yellow-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white/80">Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      className="bg-blue-800/60 border-yellow-600/30 text-white placeholder:text-white/50 focus:ring-yellow-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="submit"
+              className="w-full bg-yellow-500 text-blue-950 hover:bg-yellow-400"
+              disabled={form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting ? "Creazione account..." : "Crea Account"}
+            </Button>
+          </form>
+        </Form>
+        <p className="mt-6 text-center text-sm text-white/70">
+          Hai già un account?{" "}
+          <Link href="/login" className="font-medium text-yellow-300 hover:text-yellow-200">
+            Accedi
           </Link>
-        </div>
-
-        <div className="backdrop-blur-sm bg-white/5 border border-blue-500/20 rounded-2xl p-8 shadow-2xl">
-          <div className="grid gap-2 text-center mb-6">
-            <h1 className="text-3xl font-bold text-white">Crea un Account</h1>
-            <p className="text-balance text-slate-300">Inizia il tuo viaggio con noi.</p>
-          </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-              {!success && (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <Label className="text-slate-200">Nome Completo</Label>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            disabled={isPending}
-                            placeholder="Mario Rossi"
-                            className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <Label className="text-slate-200">Email</Label>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            disabled={isPending}
-                            placeholder="mario@esempio.com"
-                            type="email"
-                            className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <Label className="text-slate-200">Password</Label>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            disabled={isPending}
-                            placeholder="******"
-                            type="password"
-                            className="bg-slate-900/50 border-blue-800 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/30"
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
-                </>
-              )}
-
-              {error && (
-                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm text-center">
-                  {error}
-                </div>
-              )}
-              {success && (
-                <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 text-green-200 text-sm text-center">
-                  {success}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={isPending || !!success}
-                className="w-full bg-gradient-to-r from-gray-100 to-white text-[#1E3C98] font-bold hover:from-gray-200 hover:to-gray-100 shadow-lg disabled:opacity-50"
-              >
-                {isPending ? "Creazione account..." : "Registrati"}
-              </Button>
-            </form>
-          </Form>
-          <div className="mt-6 text-center text-sm text-slate-300">
-            Hai già un account?{" "}
-            <Link href="/login" className="underline text-blue-400 hover:text-blue-300 font-semibold">
-              Accedi
-            </Link>
-          </div>
-        </div>
+        </p>
       </div>
     </div>
   )

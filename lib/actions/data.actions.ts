@@ -87,26 +87,25 @@ export async function getHomepageData() {
 }
 
 /**
- * Recupera gli operatori attivi per una specifica categoria.
+ * Recupera gli operatori attivi per una specifica categoria in modo case-insensitive.
  * @param categorySlug - Lo slug della categoria (es. 'cartomanzia').
  */
 export async function getOperatorsByCategory(categorySlug: string) {
   const supabase = createClient()
-  // Sanitize the slug to ensure it matches the database value
-  const slug = decodeURIComponent(categorySlug).toLowerCase()
+  const slug = decodeURIComponent(categorySlug)
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`*`)
-    .eq("role", "operator")
-    .eq("status", "Attivo")
-    .contains("categories", [slug])
-    .order("is_online", { ascending: false })
+  // Utilizza la funzione RPC per una ricerca case-insensitive
+  const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
+    category_slug: slug,
+  })
 
   if (error) {
-    console.error(`Error fetching operators for category ${slug}:`, error.message)
+    console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
     return []
   }
 
-  return (data || []).map(mapProfileToOperator)
+  // Ordina i risultati in JavaScript poiché RPC non supporta .order()
+  const sortedData = (data || []).sort((a, b) => (b.is_online ? 1 : -1) - (a.is_online ? 1 : -1))
+
+  return sortedData.map(mapProfileToOperator)
 }
