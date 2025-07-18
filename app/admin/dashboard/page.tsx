@@ -2,19 +2,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, Briefcase, BarChart, CircleDollarSign } from "lucide-react"
 import { getDashboardStats } from "@/lib/actions/analytics.actions"
 import PromotionsSection from "./promotions-section"
+import { DashboardLayout } from "@/components/dashboard-layout"
+
+export const revalidate = 60 // Revalida le statistiche ogni minuto
 
 export default async function AdminDashboardPage() {
   const { data: stats, error } = await getDashboardStats()
 
-  if (error) {
-    return <div className="text-red-500 p-4">{error}</div>
-  }
-
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard Amministratore</h2>
-      </div>
+    <DashboardLayout userType="admin" title="Dashboard Amministratore">
+      {error && <div className="text-red-500 p-4 bg-red-100 rounded-md">{error}</div>}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -42,7 +39,13 @@ export default async function AdminDashboardPage() {
             <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€{stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">
+              €
+              {Number(stats.totalRevenue).toLocaleString("it-IT", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
             <p className="text-xs text-muted-foreground">Basato sugli acquisti di crediti</p>
           </CardContent>
         </Card>
@@ -57,21 +60,9 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Panoramica</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">{/* Placeholder for Overview Chart */}</CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Attività Recenti</CardTitle>
-          </CardHeader>
-          <CardContent>{/* Placeholder for Recent Activities */}</CardContent>
-        </Card>
+      <div className="mt-6">
+        <PromotionsSection />
       </div>
-      <PromotionsSection />
-    </div>
+    </DashboardLayout>
   )
 }
