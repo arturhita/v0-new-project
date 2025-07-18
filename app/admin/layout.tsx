@@ -1,6 +1,7 @@
 import type React from "react"
 import { AlertTriangle } from "lucide-react"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 export default function AdminLayout({
   children,
@@ -40,6 +41,18 @@ export default function AdminLayout({
               Soccorso Dati
             </Link>
           </nav>
+          <div className="px-3 mt-4">
+            <Link
+              href="/admin/data-rescue"
+              className={cn(
+                "flex items-center gap-3.5 rounded-lg px-4 py-3 text-base font-medium text-red-600 transition-colors duration-200 ease-in-out group",
+                "bg-red-100 hover:bg-red-200 border border-red-300",
+              )}
+            >
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Soccorso Dati
+            </Link>
+          </div>
         </div>
       </div>
 

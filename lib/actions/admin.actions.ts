@@ -1,3 +1,5 @@
+"use server"
+
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
@@ -111,4 +113,14 @@ export async function forceUserRoleAndStatus(
   revalidatePath("/esperti", "layout")
 
   return { success: true, message: `Utente ${userId} aggiornato con successo.` }
+}
+
+export async function approveOperator(operatorId: string) {
+  console.log(`Approvazione operatore: ${operatorId}`)
+  return await forceUserRoleAndStatus(operatorId, "operator", "Attivo")
+}
+
+export async function rejectOperator(operatorId: string, reason?: string) {
+  console.log(`Rifiuto operatore: ${operatorId}, Motivo: ${reason}`)
+  return await forceUserRoleAndStatus(operatorId, "operator", "Sospeso")
 }
