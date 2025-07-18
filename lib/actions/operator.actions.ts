@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { z } from "zod";
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number | null => {
@@ -216,6 +218,29 @@ export async function getOperatorPublicProfile(username: string) {
   return combinedData
 }
 
+export async function getPendingOperators() {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+      .from('operator_applications')
+      .select(`
+          id,
+          user_id,
+          status,
+          created_at,
+          profiles (
+              full_name,
+              email
+          )
+      `)
+      .eq('status', 'Pending');
+
+  if (error) {
+      console.error('Error fetching pending operators:', error);
+      return [];
+  }
+  return data;
+}
+
 // --- FUNZIONI DI SCRITTURA ---
 
 export async function updateOperatorProfile(operatorId: string, formData: FormData) {
@@ -257,4 +282,43 @@ export async function updateOperatorCommission(operatorId: string, formData: For
   } catch (error: any) {
     return { success: false, message: `Errore nell'aggiornamento della commissione: ${error.message}` }
   }
+}
+
+const OperatorStatusSchema = z.object({
+  operatorId: z.string().uuid(),
+  status: z.enum(['Pending', 'Approved', 'Rejected']),
+});
+
+export async function updateOperatorStatus(formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+
+  const validatedFields = OperatorStatusSchema.safeParse({
+    operatorId: formData.get('operatorId'),
+    status: formData.get('status'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      error: "Invalid data provided.",
+    };
+  }
+
+  const { operatorId, status } = validatedFields.data;
+
+  const { error } = await supabase
+    .from('operator_applications')
+    .update({ status: status })
+    .eq('id', operatorId);
+
+  if (error) {
+    console.error("Error updating operator status:", error);
+    return {
+      error: "Could not update operator status.",
+    };
+  }
+
+  revalidatePath('/admin/operator-approvals');
+  return {
+    success: "Operator status updated successfully.",
+  };
 }
