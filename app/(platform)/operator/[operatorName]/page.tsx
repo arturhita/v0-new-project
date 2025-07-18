@@ -1,12 +1,13 @@
 import { getOperatorPublicProfile } from "@/lib/actions/operator.actions"
 import { notFound } from "next/navigation"
 import Image from "next/image"
-import { Star, Calendar } from "lucide-react"
+import { Star, Calendar, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import OperatorAvailabilityCalendar from "@/components/operator-availability-calendar"
 import { ReviewCard, type Review } from "@/components/review-card"
 import { OperatorProfileClientSection } from "@/components/operator-profile-client-section"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { cn } from "@/lib/utils"
 
 type OperatorProfilePageProps = {
   params: {
@@ -38,31 +39,38 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
   } = profileData
 
   return (
-    <div className="relative text-white min-h-screen">
+    <div className="relative text-white min-h-screen overflow-hidden">
       <ConstellationBackground />
-      <div className="relative z-10 container mx-auto px-4 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+      <div className="relative z-10 container mx-auto px-4 py-12 md:py-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
           {/* Colonna Sinistra - Profilo e Azioni */}
-          <div className="lg:col-span-1 flex flex-col items-center lg:items-start">
-            <div className="relative w-48 h-48 mb-4">
+          <div className="lg:col-span-4 flex flex-col items-center text-center lg:items-start lg:text-left">
+            <div className="relative w-48 h-48 mb-6">
               <Image
                 src={avatar_url || "/placeholder.svg?width=192&height=192"}
                 alt={`Foto di ${stage_name}`}
                 width={192}
                 height={192}
-                className="rounded-full object-cover border-4 border-yellow-500 shadow-lg"
+                className="rounded-full object-cover border-4 border-yellow-500/80 shadow-lg shadow-yellow-500/20"
               />
               {is_online && (
-                <span className="absolute bottom-2 right-2 block h-6 w-6 rounded-full bg-green-500 border-2 border-gray-900 ring-2 ring-green-500 animate-pulse" />
+                <div className="absolute bottom-3 right-3">
+                  <span className="relative flex h-5 w-5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-5 w-5 bg-green-500 border-2 border-slate-900"></span>
+                  </span>
+                </div>
               )}
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-center lg:text-left">{stage_name}</h1>
-            <p className="text-lg text-amber-400 mb-4 text-center lg:text-left">{(specialization || []).join(", ")}</p>
+            <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-2">
+              {stage_name}
+            </h1>
+            <p className="text-lg text-indigo-300 mb-4">{(specialization || []).join(", ")}</p>
 
             <div className="flex items-center space-x-2 mb-6">
               <div className="flex text-amber-400">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-5 h-5 ${i < (rating || 0) ? "fill-current" : "text-gray-400"}`} />
+                  <Star key={i} className={cn("w-5 h-5", i < (rating || 0) ? "fill-current" : "text-slate-600")} />
                 ))}
               </div>
               <span className="text-slate-300">
@@ -70,68 +78,61 @@ export default async function OperatorProfilePage({ params }: OperatorProfilePag
               </span>
             </div>
 
-            <OperatorProfileClientSection
-              operator={{
-                id,
-                stageName: stage_name || "",
-                services: services || [],
-              }}
-            />
-
-            <div className="mt-8 w-full bg-gray-900/50 backdrop-blur-sm border border-yellow-600/20 rounded-2xl p-4">
-              <h3 className="text-xl font-semibold mb-3 text-amber-400">Servizi Offerti</h3>
-              <ul className="space-y-2 text-slate-300">
-                {services?.map((service: any) => (
-                  <li key={service.service_type} className="flex justify-between">
-                    <span>
-                      {
-                        { chat: "Chat al minuto", call: "Chiamata al minuto", written: "Consulto Scritto" }[
-                          service.service_type
-                        ]
-                      }
-                    </span>
-                    <span className="font-semibold text-white">€{service.price?.toFixed(2)}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="w-full max-w-xs mx-auto lg:mx-0">
+              <OperatorProfileClientSection
+                operator={{
+                  id,
+                  stageName: stage_name || "",
+                  services: services || [],
+                  isOnline: is_online || false,
+                }}
+              />
             </div>
           </div>
 
           {/* Colonna Destra - Dettagli e Recensioni */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-yellow-600/20 rounded-2xl p-6">
-              <h2 className="text-2xl font-bold mb-4">Chi sono</h2>
+          <div className="lg:col-span-8 space-y-10">
+            <section>
+              <h2 className="text-2xl font-bold mb-4 border-b-2 border-yellow-500/30 pb-2 flex items-center gap-3">
+                <Sparkles className="text-amber-400" />
+                <span>Chi sono</span>
+              </h2>
               <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{bio}</p>
-              <div className="flex flex-wrap gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-6">
                 {tags?.map((tag: string) => (
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="bg-blue-900/50 text-slate-200 border border-yellow-600/20"
+                    className="bg-indigo-900/50 text-slate-200 border border-indigo-400/30"
                   >
                     {tag}
                   </Badge>
                 ))}
               </div>
-            </div>
+            </section>
 
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-yellow-600/20 rounded-2xl p-6">
-              <h2 className="text-2xl font-bold mb-4 flex items-center">
-                <Calendar className="mr-3 text-amber-400" /> La mia disponibilità
+            <section>
+              <h2 className="text-2xl font-bold mb-4 border-b-2 border-yellow-500/30 pb-2 flex items-center gap-3">
+                <Calendar className="text-amber-400" />
+                <span>La mia disponibilità</span>
               </h2>
-              <OperatorAvailabilityCalendar availability={availability} />
-            </div>
+              <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4">
+                <OperatorAvailabilityCalendar availability={availability} />
+              </div>
+            </section>
 
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-yellow-600/20 rounded-2xl p-6">
-              <h2 className="text-2xl font-bold mb-4">Ultime Recensioni</h2>
+            <section>
+              <h2 className="text-2xl font-bold mb-4 border-b-2 border-yellow-500/30 pb-2">Ultime Recensioni</h2>
               <div className="space-y-6">
                 {reviews && reviews.length > 0 ? (
                   reviews.map((review: any) => <ReviewCard key={review.id} review={review as Review} />)
                 ) : (
-                  <p className="text-slate-400">Nessuna recensione ancora.</p>
+                  <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 text-center text-slate-400">
+                    <p>Questo esperto non ha ancora ricevuto recensioni.</p>
+                  </div>
                 )}
               </div>
-            </div>
+            </section>
           </div>
         </div>
       </div>
