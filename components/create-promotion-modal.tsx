@@ -3,26 +3,32 @@
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { Promotion } from "@/lib/promotions"
+import type { Promotion } from "@/lib/actions/promotions.actions"
 import { createPromotion, updatePromotion } from "@/lib/actions/promotions.actions"
 import { toast } from "sonner"
 import { useEffect } from "react"
 
-const promotionSchema = z.object({
-  title: z.string().min(1, "Il titolo è obbligatorio"),
-  description: z.string().optional(),
-  specialPrice: z.coerce.number().positive("Il prezzo speciale deve essere positivo"),
-  originalPrice: z.coerce.number().positive("Il prezzo originale deve essere positivo"),
-  startDate: z.string().min(1, "La data di inizio è obbligatoria"),
-  endDate: z.string().min(1, "La data di fine è obbligatoria"),
-  validDays: z.array(z.string()).min(1, "Seleziona almeno un giorno"),
-})
+const promotionSchema = z
+  .object({
+    title: z.string().min(1, "Il titolo è obbligatorio"),
+    description: z.string().optional(),
+    special_price: z.coerce.number().positive("Il prezzo speciale deve essere positivo"),
+    original_price: z.coerce.number().positive("Il prezzo originale deve essere positivo"),
+    start_date: z.string().min(1, "La data di inizio è obbligatoria"),
+    end_date: z.string().min(1, "La data di fine è obbligatoria"),
+    valid_days: z.array(z.string()).min(1, "Seleziona almeno un giorno"),
+    is_active: z.boolean().default(false),
+  })
+  .refine((data) => data.special_price < data.original_price, {
+    message: "Il prezzo speciale deve essere inferiore a quello originale",
+    path: ["special_price"],
+  })
 
 type PromotionFormData = z.infer<typeof promotionSchema>
 
@@ -52,52 +58,49 @@ export function CreatePromotionModal({ isOpen, onClose, promotion, onSuccess }: 
     formState: { errors, isSubmitting },
   } = useForm<PromotionFormData>({
     resolver: zodResolver(promotionSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      special_price: 0,
+      original_price: 0,
+      start_date: "",
+      end_date: "",
+      valid_days: [],
+      is_active: false,
+    },
   })
 
   useEffect(() => {
-    if (promotion) {
-      reset({
-        title: promotion.title,
-        description: promotion.description || "",
-        specialPrice: promotion.specialPrice,
-        originalPrice: promotion.originalPrice,
-        startDate: new Date(promotion.startDate).toISOString().split("T")[0],
-        endDate: new Date(promotion.endDate).toISOString().split("T")[0],
-        validDays: promotion.validDays,
-      })
-    } else {
-      reset({
-        title: "",
-        description: "",
-        specialPrice: 0,
-        originalPrice: 0,
-        startDate: "",
-        endDate: "",
-        validDays: [],
-      })
+    if (isOpen) {
+      if (promotion) {
+        reset({
+          title: promotion.title,
+          description: promotion.description || "",
+          special_price: promotion.special_price,
+          original_price: promotion.original_price,
+          start_date: new Date(promotion.start_date).toISOString().split("T")[0],
+          end_date: new Date(promotion.end_date).toISOString().split("T")[0],
+          valid_days: promotion.valid_days,
+          is_active: promotion.is_active,
+        })
+      } else {
+        reset()
+      }
     }
   }, [promotion, reset, isOpen])
 
   const onSubmit = async (data: PromotionFormData) => {
-    const discountPercentage = Math.round(((data.originalPrice - data.specialPrice) / data.originalPrice) * 100)
+    const discountPercentage = Math.round(((data.original_price - data.special_price) / data.original_price) * 100)
 
-    const promotionData = {
-      title: data.title,
-      description: data.description,
-      special_price: data.specialPrice,
-      original_price: data.originalPrice,
-      discount_percentage: discountPercentage,
-      start_date: data.startDate,
-      end_date: data.endDate,
-      valid_days: data.validDays,
-    }
+    const promotionData = { ...data, discount_percentage: discountPercentage }
 
-    const result = promotion ? await updatePromotion(promotion.id, promotionData) : await createPromotion(promotionData)
+    const result = promotion
+      ? await updatePromotion(promotion.id, promotionData)
+      : await createPromotion(promotionData)
 
     if (result.success) {
       toast.success(promotion ? "Promozione aggiornata!" : "Promozione creata!")
       onSuccess()
-      onClose()
     } else {
       toast.error(`Errore: ${result.message}`)
     }
@@ -108,98 +111,85 @@ export function CreatePromotionModal({ isOpen, onClose, promotion, onSuccess }: 
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{promotion ? "Modifica Promozione" : "Crea Nuova Promozione"}</DialogTitle>
+          <DialogDescription>
+            Imposta un prezzo speciale che verrà applicato automaticamente a tutti gli operatori.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
-          {/* Info generale */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">
-              Titolo
-            </Label>
-            <div className="col-span-3">
-              <Input id="title" {...register("title")} />
-              {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Descrizione
-            </Label>
-            <Textarea id="description" {...register("description")} className="col-span-3" />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Titolo</Label>
+            <Input id="title" {...register("title")} />
+            {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
           </div>
 
-          {/* Prezzi */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="specialPrice">Prezzo Speciale (€)</Label>
-              <Input id="specialPrice" type="number" step="0.01" {...register("specialPrice")} />
-              {errors.specialPrice && <p className="text-red-500 text-xs mt-1">{errors.specialPrice.message}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="special_price">Prezzo Speciale (€)</Label>
+              <Input id="special_price" type="number" step="0.01" {...register("special_price")} />
+              {errors.special_price && <p className="text-red-500 text-xs mt-1">{errors.special_price.message}</p>}
             </div>
-            <div>
-              <Label htmlFor="originalPrice">Prezzo Originale (€)</Label>
-              <Input id="originalPrice" type="number" step="0.01" {...register("originalPrice")} />
-              {errors.originalPrice && <p className="text-red-500 text-xs mt-1">{errors.originalPrice.message}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="original_price">Prezzo Originale (€)</Label>
+              <Input id="original_price" type="number" step="0.01" {...register("original_price")} />
+              {errors.original_price && <p className="text-red-500 text-xs mt-1">{errors.original_price.message}</p>}
             </div>
           </div>
 
-          {/* Giorni della settimana */}
-          <div>
+          <div className="space-y-2">
             <Label>Giorni Validi</Label>
             <Controller
-              name="validDays"
+              name="valid_days"
               control={control}
               render={({ field }) => (
-                <div className="grid grid-cols-4 gap-2 mt-2">
+                <div className="grid grid-cols-4 gap-2 pt-2">
                   {daysOfWeek.map((day) => (
                     <div key={day.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={day.id}
                         checked={field.value?.includes(day.id)}
                         onCheckedChange={(checked) => {
-                          return checked
-                            ? field.onChange([...(field.value || []), day.id])
-                            : field.onChange((field.value || []).filter((value) => value !== day.id))
+                          const currentDays = field.value || []
+                          const newDays = checked
+                            ? [...currentDays, day.id]
+                            : currentDays.filter((value) => value !== day.id)
+                          field.onChange(newDays)
                         }}
                       />
-                      <label htmlFor={day.id} className="text-sm font-medium">
+                      <Label htmlFor={day.id} className="text-sm font-medium">
                         {day.label}
-                      </label>
+                      </Label>
                     </div>
                   ))}
                 </div>
               )}
             />
-            {errors.validDays && <p className="text-red-500 text-xs mt-1">{errors.validDays.message}</p>}
+            {errors.valid_days && <p className="text-red-500 text-xs mt-1">{errors.valid_days.message}</p>}
           </div>
 
-          {/* Date */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="startDate">Data Inizio</Label>
-              <Input id="startDate" type="date" {...register("startDate")} />
-              {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate.message}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="start_date">Data Inizio</Label>
+              <Input id="start_date" type="date" {...register("start_date")} />
+              {errors.start_date && <p className="text-red-500 text-xs mt-1">{errors.start_date.message}</p>}
             </div>
-            <div>
-              <Label htmlFor="endDate">Data Fine</Label>
-              <Input id="endDate" type="date" {...register("endDate")} />
-              {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate.message}</p>}
+            <div className="space-y-2">
+              <Label htmlFor="end_date">Data Fine</Label>
+              <Input id="end_date" type="date" {...register("end_date")} />
+              {errors.end_date && <p className="text-red-500 text-xs mt-1">{errors.end_date.message}</p>}
             </div>
           </div>
 
-          {/* Info sistema automatico */}
-          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Label htmlFor="systemInfo" className="text-yellow-800">
-                Sistema Automatico
-              </Label>
-            </div>
-            <p className="text-sm text-yellow-700">
-              Quando questa promozione sarà attiva, i prezzi di <strong>tutti i 73 operatori</strong> verranno
-              automaticamente aggiornati al prezzo speciale. Quando scadrà, i prezzi torneranno automaticamente ai
-              valori originali.
-            </p>
+          <div className="flex items-center space-x-2">
+            <Controller
+              name="is_active"
+              control={control}
+              render={({ field }) => (
+                <Checkbox id="is_active" checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
+            <Label htmlFor="is_active">Attiva questa promozione</Label>
           </div>
 
-          {/* Azioni */}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Annulla

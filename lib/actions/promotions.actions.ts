@@ -2,19 +2,36 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import type { Promotion } from "@/lib/promotions" // Assumendo che il tipo sia definito qui
 
-export async function getPromotions() {
+// Definizione del tipo Promotion per coerenza
+export interface Promotion {
+  id: string
+  title: string
+  description?: string | null
+  special_price: number
+  original_price: number
+  discount_percentage?: number | null
+  start_date: string
+  end_date: string
+  valid_days: string[]
+  is_active: boolean
+  created_at: string
+  updated_at?: string | null
+}
+
+type PromotionInput = Omit<Promotion, "id" | "created_at" | "updated_at">
+
+export async function getPromotions(): Promise<Promotion[]> {
   const supabase = createClient()
   const { data, error } = await supabase.rpc("get_all_promotions")
   if (error) {
     console.error("Error fetching promotions:", error)
     return []
   }
-  return data
+  return data as Promotion[]
 }
 
-export async function createPromotion(promotionData: Omit<Promotion, "id" | "created_at">) {
+export async function createPromotion(promotionData: PromotionInput) {
   const supabase = createClient()
   const { data, error } = await supabase.from("promotions").insert([promotionData]).select().single()
 
@@ -26,9 +43,14 @@ export async function createPromotion(promotionData: Omit<Promotion, "id" | "cre
   return { success: true, message: "Promozione creata con successo!", data }
 }
 
-export async function updatePromotion(id: string, promotionData: Partial<Promotion>) {
+export async function updatePromotion(id: string, promotionData: Partial<PromotionInput>) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("promotions").update(promotionData).eq("id", id).select().single()
+  const { data, error } = await supabase
+    .from("promotions")
+    .update({ ...promotionData, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single()
 
   if (error) {
     console.error("Error updating promotion:", error)

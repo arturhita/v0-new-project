@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Briefcase, BarChart, CircleDollarSign } from "lucide-react"
+import { Users, Briefcase, BarChart, CircleDollarSign } from 'lucide-react'
 import { getDashboardStats } from "@/lib/actions/analytics.actions"
-import PromotionsSection from "./promotions-section"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export const revalidate = 60 // Revalida le statistiche ogni minuto
 
@@ -61,7 +62,19 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
       <div className="mt-6">
-        <PromotionsSection />
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestione Promozioni</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Crea e gestisci prezzi speciali che si applicano automaticamente a tutti gli operatori.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/promotions">
+              <Button>Vai alla Gestione Promozioni</Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   )

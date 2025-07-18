@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useTransition } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CreatePromotionModal } from "@/components/create-promotion-modal"
-import type { Promotion } from "@/lib/promotions"
-import { Plus, Edit, Trash2, Target, Zap } from "lucide-react"
+import type { Promotion } from "@/lib/actions/promotions.actions"
+import { Plus, Edit, Trash2, Target, Zap, Loader2 } from 'lucide-react'
 import { toast } from "sonner"
 import * as promotionActions from "@/lib/actions/promotions.actions"
-import LoadingSpinner from "@/components/loading-spinner"
+import { DashboardLayout } from "@/components/dashboard-layout"
 
 const dayLabels: { [key: string]: string } = {
   monday: "Lun",
@@ -23,15 +23,16 @@ const dayLabels: { [key: string]: string } = {
 
 export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const loadPromotions = async () => {
-    setLoading(true)
+    setIsLoading(true)
     const data = await promotionActions.getPromotions()
-    setPromotions(data as Promotion[])
-    setLoading(false)
+    setPromotions(data)
+    setIsLoading(false)
   }
 
   useEffect(() => {
@@ -48,50 +49,43 @@ export default function PromotionsPage() {
     setIsModalOpen(true)
   }
 
-  const handleDelete = async (id: string) => {
-    const result = await promotionActions.deletePromotion(id)
-    if (result.success) {
-      toast.success("Promozione eliminata con successo")
-      loadPromotions()
-    } else {
-      toast.error(`Errore: ${result.message}`)
-    }
+  const handleDelete = (id: string) => {
+    startTransition(async () => {
+      const result = await promotionActions.deletePromotion(id)
+      if (result.success) {
+        toast.success("Promozione eliminata con successo")
+        loadPromotions()
+      } else {
+        toast.error(`Errore: ${result.message}`)
+      }
+    })
   }
 
-  const handleToggleActive = async (promotion: Promotion) => {
-    const result = await promotionActions.updatePromotion(promotion.id, { isActive: !promotion.isActive })
-    if (result.success) {
-      toast.success(`Promozione ${result.data?.isActive ? "attivata" : "disattivata"}`)
-      loadPromotions()
-    } else {
-      toast.error(`Errore: ${result.message}`)
-    }
+  const handleToggleActive = (promotion: Promotion) => {
+    startTransition(async () => {
+      const result = await promotionActions.updatePromotion(promotion.id, { is_active: !promotion.is_active })
+      if (result.success) {
+        toast.success(`Promozione ${result.data?.is_active ? "attivata" : "disattivata"}`)
+        loadPromotions()
+      } else {
+        toast.error(`Errore: ${result.message}`)
+      }
+    })
   }
 
-  const activePromotions = promotions.filter((p) => p.isActive)
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <LoadingSpinner />
-      </div>
-    )
-  }
+  const activePromotions = promotions.filter((p) => p.is_active)
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Gestione Promozioni</h1>
-          <p className="text-muted-foreground">Crea e gestisci prezzi speciali per tutti gli operatori.</p>
-        </div>
+    <DashboardLayout userType="admin" title="Gestione Promozioni">
+      <div className="flex justify-between items-center mb-6">
+        <p className="text-muted-foreground">Crea e gestisci prezzi speciali per tutti gli operatori.</p>
         <Button onClick={handleOpenCreateModal}>
           <Plus className="h-4 w-4 mr-2" />
           Nuova Promozione
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Promozioni Attive</CardTitle>
@@ -117,26 +111,31 @@ export default function PromotionsPage() {
           <CardTitle>Elenco Promozioni</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
-            {promotions.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">Nessuna promozione trovata.</p>
-                <Button onClick={handleOpenCreateModal} className="mt-4">
-                  Crea la prima promozione
-                </Button>
-              </div>
-            ) : (
-              promotions.map((promo) => (
-                <Card key={promo.id} className={promo.isActive ? "bg-green-50 border-green-200" : ""}>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+              <p className="mt-2">Caricamento promozioni...</p>
+            </div>
+          ) : promotions.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Nessuna promozione trovata.</p>
+              <Button onClick={handleOpenCreateModal} className="mt-4">
+                Crea la prima promozione
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {promotions.map((promo) => (
+                <Card key={promo.id} className={promo.is_active ? "bg-green-50 border-green-200" : ""}>
                   <CardContent className="p-4 flex justify-between items-center">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-semibold">{promo.title}</h3>
                       <p className="text-sm text-muted-foreground">{promo.description}</p>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="font-bold text-green-600">€{promo.specialPrice}</span>
-                        <span className="line-through text-muted-foreground">€{promo.originalPrice}</span>
+                      <div className="flex items-center flex-wrap gap-4 mt-2 text-sm">
+                        <span className="font-bold text-green-600">€{promo.special_price}</span>
+                        <span className="line-through text-muted-foreground">€{promo.original_price}</span>
                         <div className="flex gap-1">
-                          {promo.validDays.map((day) => (
+                          {promo.valid_days.map((day) => (
                             <Badge key={day} variant="outline" className="text-xs">
                               {dayLabels[day] || day}
                             </Badge>
@@ -145,24 +144,39 @@ export default function PromotionsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={promo.isActive ? "default" : "secondary"}>
-                        {promo.isActive ? "Attiva" : "Inattiva"}
+                      <Badge variant={promo.is_active ? "default" : "secondary"}>
+                        {promo.is_active ? "Attiva" : "Inattiva"}
                       </Badge>
-                      <Button variant="outline" size="sm" onClick={() => handleToggleActive(promo)}>
-                        {promo.isActive ? "Disattiva" : "Attiva"}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleActive(promo)}
+                        disabled={isPending}
+                      >
+                        {promo.is_active ? "Disattiva" : "Attiva"}
                       </Button>
-                      <Button variant="outline" size="icon" onClick={() => handleOpenEditModal(promo)}>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleOpenEditModal(promo)}
+                        disabled={isPending}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="destructive" size="icon" onClick={() => handleDelete(promo.id)}>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => handleDelete(promo.id)}
+                        disabled={isPending}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -175,6 +189,6 @@ export default function PromotionsPage() {
           loadPromotions()
         }}
       />
-    </div>
+    </DashboardLayout>
   )
 }

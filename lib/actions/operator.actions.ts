@@ -218,39 +218,22 @@ export async function getOperatorPublicProfile(username: string) {
 
 // --- FUNZIONI DI SCRITTURA ---
 
-type OperatorProfileUpdate = {
-  full_name: string
-  stage_name: string
-  email: string
-  phone: string
-  bio: string
-  status: "Attivo" | "In Attesa" | "Sospeso"
-  is_active: boolean // Aggiunto per coerenza con il form
-}
-
 export async function updateOperatorProfile(operatorId: string, formData: FormData) {
   const supabase = createClient()
 
-  const profileData: Partial<OperatorProfileUpdate> = {
+  const profileData = {
     full_name: formData.get("name") as string,
     stage_name: formData.get("stage_name") as string,
     phone: formData.get("phone") as string,
     bio: formData.get("description") as string,
     status: formData.get("status") as "Attivo" | "In Attesa" | "Sospeso",
-    is_active: formData.get("isActive") === "true",
   }
-
-  // Non aggiorniamo l'email qui per evitare problemi con l'utente auth
-  // Per quello serve una procedura separata e più sicura
 
   try {
     const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
-
     if (error) throw error
-
     revalidatePath("/admin/operators")
     revalidatePath(`/admin/operators/${operatorId}/edit`)
-
     return { success: true, message: "Profilo operatore aggiornato con successo." }
   } catch (error: any) {
     return { success: false, message: `Errore nell'aggiornamento del profilo: ${error.message}` }
@@ -267,12 +250,9 @@ export async function updateOperatorCommission(operatorId: string, formData: For
 
   try {
     const { error } = await supabase.from("profiles").update({ commission_rate: commissionValue }).eq("id", operatorId)
-
     if (error) throw error
-
     revalidatePath("/admin/operators")
     revalidatePath(`/admin/operators/${operatorId}/edit`)
-
     return { success: true, message: `Commissione aggiornata a ${commissionValue}%.` }
   } catch (error: any) {
     return { success: false, message: `Errore nell'aggiornamento della commissione: ${error.message}` }
