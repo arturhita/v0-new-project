@@ -1,111 +1,109 @@
 "use client"
 
-import type React from "react"
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { createInvoice } from "@/lib/actions/invoice.actions"
-import { useRef, useState } from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { createInvoice, type InvoiceData } from "@/lib/actions/invoice.actions"
+import type { User } from "@supabase/supabase-js"
 
 interface CreateInvoiceModalProps {
   isOpen: boolean
   onClose: () => void
-  users: { id: string; email: string | undefined; type: "client" | "operator" }[]
+  onInvoiceCreated: (invoice: any) => void
+  users: User[] // Riceve la lista di utenti
 }
 
-export function CreateInvoiceModal({ isOpen, onClose, users }: CreateInvoiceModalProps) {
+export default function CreateInvoiceModal({ isOpen, onClose, onInvoiceCreated, users }: CreateInvoiceModalProps) {
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const formRef = useRef<HTMLFormElement>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<{ id: string; type: "client" | "operator" } | null>(null)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selectedUser) {
-      toast({ title: "Errore", description: "Seleziona un destinatario.", variant: "destructive" })
-      return
-    }
-    setIsSubmitting(true)
+    setIsLoading(true)
+
     const formData = new FormData(event.currentTarget)
-    formData.append("recipientId", selectedUser.id)
-    formData.append("recipientType", selectedUser.type)
+    const invoiceData: InvoiceData = {
+      clientId: formData.get("clientId") as string,
+      operatorId: formData.get("operatorId") as string,
+      amount: parseFloat(formData.get("amount") as string),
+      dueDate: formData.get("dueDate") as string,
+      details: {
+        description: formData.get("description") as string,
+      },
+    }
 
-    const result = await createInvoice(formData)
-
-    if (result.error) {
+    // Validazione base
+    if (!invoiceData.clientId || !invoiceData.amount || !invoiceData.dueDate) {
       toast({
         title: "Errore",
-        description: result.error,
+        description: "Cliente, importo e data di scadenza sono obbligatori.",
         variant: "destructive",
       })
-    } else {
+      setIsLoading(false)
+      return
+    }
+
+    const result = await createInvoice(invoiceData)
+
+    if (result.success) {
       toast({
         title: "Successo",
-        description: result.success,
+        description: result.message,
       })
-      formRef.current?.reset()
+      onInvoiceCreated(result)
       onClose()
+    } else {
+      toast({
+        title: "Errore",
+        description: result.message,
+        variant: "destructive",
+      })
     }
-    setIsSubmitting(false)
+
+    setIsLoading(false)
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Crea Nuova Fattura</DialogTitle>
-          <DialogDescription>Compila i dettagli per creare una nuova fattura manuale.</DialogDescription>
+          <DialogDescription>Compila i dettagli per generare una nuova fattura.</DialogDescription>
         </DialogHeader>
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="recipientId">Destinatario</Label>
-            <Select
-              onValueChange={(value) => {
-                const [id, type] = value.split(":")
-                setSelectedUser({ id, type: type as "client" | "operator" })
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleziona un utente..." />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.id} value={`${user.id}:${user.type}`}>
-                    {user.email} ({user.type === "operator" ? "Operatore" : "Cliente"})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="clientId">Cliente</Label>
+            {/* In un'app reale, questo sarebbe un dropdown con ricerca */}
+            <Input id="clientId" name="clientId" placeholder="ID Cliente (UUID)" required />
           </div>
-          <div>
-            <Label htmlFor="amount">Importo (€)</Label>
-            <Input id="amount" name="amount" type="number" step="0.01" required />
+          <div className="space-y-2">
+            <Label htmlFor="operatorId">Operatore (Opzionale)</Label>
+            <Input id="operatorId" name="operatorId" placeholder="ID Operatore (UUID)" />
           </div>
-          <div>
-            <Label htmlFor="dueDate">Data di Scadenza</Label>
-            <Input id="dueDate" name="dueDate" type="date" required />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Importo (€)</Label>
+              <Input id="amount" name="amount" type="number" step="0.01" placeholder="Es. 150.00" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Data Scadenza</Label>
+              <Input id="dueDate" name="dueDate" type="date" required />
+            </div>
           </div>
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="description">Descrizione</Label>
-            <Input id="description" name="description" required />
+            <Textarea id="description" name="description" placeholder="Descrizione dei servizi fatturati..." />
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
               Annulla
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creazione..." : "Crea Fattura"}
+            <Button type="submit" disabled={isLoading} className="bg-sky-600 hover:bg-sky-700">
+              {isLoading ? "Creazione..." : "Crea Fattura"}
             </Button>
           </DialogFooter>
         </form>

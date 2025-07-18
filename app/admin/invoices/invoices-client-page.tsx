@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import type { User } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { CreateInvoiceModal } from "@/components/create-invoice-modal"
+import { PlusCircle, FileText } from 'lucide-react'
+import CreateInvoiceModal from "@/components/create-invoice-modal"
 
 type Invoice = {
   id: string
@@ -13,104 +15,112 @@ type Invoice = {
   amount: number | null
   status: string | null
   due_date: string | null
-  client: { email: string | null } | null
-  operator: { email: string | null } | null
-}
-
-type User = {
-  id: string
-  email: string | undefined
-  type: "client" | "operator"
+  clientName: string
+  operatorName: string
 }
 
 interface InvoicesClientPageProps {
   initialInvoices: Invoice[]
-  users: User[]
 }
 
-export default function InvoicesClientPage({ initialInvoices, users }: InvoicesClientPageProps) {
+export default function InvoicesClientPage({ initialInvoices }: InvoicesClientPageProps) {
+  const [invoices, setInvoices] = useState(initialInvoices)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [users, setUsers] = useState<User[]>([]) // Da popolare con una chiamata API
 
-  const getStatusVariant = (status: string | null): "default" | "secondary" | "destructive" | "outline" => {
+  // TODO: Caricare utenti (clienti e operatori) per il modal di creazione
+  // useEffect(() => {
+  //   async function fetchUsers() {
+  //     // Sostituire con la tua server action per prendere gli utenti
+  //     // const fetchedUsers = await getUsersForInvoicing();
+  //     // setUsers(fetchedUsers);
+  //   }
+  //   fetchUsers();
+  // }, []);
+
+  const handleInvoiceCreated = (newInvoice: any) => {
+    // Per ora, ricarichiamo la pagina per vedere la nuova fattura.
+    // In futuro si potrebbe aggiornare lo stato locale.
+    window.location.reload()
+  }
+
+  const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "paid":
-        return "default"
-      case "pending":
-        return "secondary"
+        return <Badge variant="success">Pagata</Badge>
+      case "sent":
+        return <Badge variant="default">Inviata</Badge>
       case "overdue":
-        return "destructive"
+        return <Badge variant="destructive">Scaduta</Badge>
       case "draft":
-        return "outline"
       default:
-        return "secondary"
+        return <Badge variant="secondary">Bozza</Badge>
     }
   }
 
   return (
-    <>
-      <div className="space-y-6 p-4 md:p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Gestione Fatture</h1>
-          <Button onClick={() => setIsModalOpen(true)}>Crea Fattura</Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Fatture</h1>
+          <p className="text-slate-600">Crea e monitora le fatture per clienti e operatori.</p>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Elenco Fatture</CardTitle>
-            <CardDescription>{initialInvoices.length} fatture trovate.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Numero</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Operatore</TableHead>
-                  <TableHead className="text-right">Importo</TableHead>
-                  <TableHead>Stato</TableHead>
-                  <TableHead>Scadenza</TableHead>
-                  <TableHead className="text-center">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {initialInvoices.length > 0 ? (
-                  initialInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">{invoice.invoice_number || "N/A"}</TableCell>
-                      <TableCell>{invoice.client?.email || "N/A"}</TableCell>
-                      <TableCell>{invoice.operator?.email || "N/A"}</TableCell>
-                      <TableCell className="text-right">€{(invoice.amount || 0).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={getStatusVariant(invoice.status)}
-                          className={invoice.status === "paid" ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
-                        >
-                          {invoice.status || "sconosciuto"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("it-IT") : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button variant="outline" size="sm">
-                          Dettagli
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center">
-                      Nessuna fattura trovata.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-sky-600 hover:bg-sky-700">
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Crea Fattura
+        </Button>
       </div>
-      <CreateInvoiceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} users={users} />
-    </>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-sky-600" />
+            Elenco Fatture
+          </CardTitle>
+          <CardDescription>Visualizza tutte le fatture generate sulla piattaforma.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Numero</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Operatore</TableHead>
+                <TableHead className="text-right">Importo</TableHead>
+                <TableHead>Scadenza</TableHead>
+                <TableHead>Stato</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {invoices.length > 0 ? (
+                invoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium">{invoice.invoice_number || "N/D"}</TableCell>
+                    <TableCell>{invoice.clientName}</TableCell>
+                    <TableCell>{invoice.operatorName}</TableCell>
+                    <TableCell className="text-right">€{invoice.amount?.toFixed(2)}</TableCell>
+                    <TableCell>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "N/D"}</TableCell>
+                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-10">
+                    Nessuna fattura trovata.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <CreateInvoiceModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onInvoiceCreated={handleInvoiceCreated}
+        users={users} // Passa la lista di utenti
+      />
+    </div>
   )
 }
