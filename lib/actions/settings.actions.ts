@@ -85,3 +85,32 @@ export async function updateSettings(formData: FormData) {
   revalidatePath("/admin/settings/legal")
   return { success: "Impostazioni aggiornate con successo." }
 }
+
+// Funzione per ottenere tutte le impostazioni avanzate
+export async function getAdvancedSettings() {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("advanced_settings").select("*")
+
+  if (error) {
+    console.error("Error fetching advanced settings:", error)
+    return []
+  }
+  return data
+}
+
+// Funzione per aggiornare un'impostazione avanzata
+export async function updateAdvancedSetting(key: string, value: any) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("advanced_settings")
+    .update({ value: value, updated_at: new Date().toISOString() })
+    .eq("key", key)
+
+  if (error) {
+    console.error(`Error updating setting ${key}:`, error)
+    return { success: false, error: `Impossibile aggiornare l'impostazione: ${key}` }
+  }
+
+  revalidatePath("/admin/settings/advanced")
+  return { success: true }
+}
