@@ -1,86 +1,91 @@
-"use client"
+'use client';
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useState } from "react"
-import { sendNewsletter } from "@/lib/actions/messaging.actions"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
+import { sendNewsletter } from '@/lib/actions/messaging.actions';
+import { useRef, useState } from 'react';
 
-export function SendNewsletterModal() {
-  const [email, setEmail] = useState("")
-  const [subject, setSubject] = useState("")
-  const [body, setBody] = useState("")
-  const [open, setOpen] = useState(false)
+interface SendNewsletterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-  const handleSendNewsletter = async () => {
-    await sendNewsletter({ email, subject, body })
-    setOpen(false)
-  }
+export function SendNewsletterModal({
+  isOpen,
+  onClose,
+}: SendNewsletterModalProps) {
+  const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
+    const result = await sendNewsletter(formData);
+
+    if (result.error) {
+      toast({
+        title: 'Errore',
+        description: result.error,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Successo',
+        description: result.success,
+      });
+      formRef.current?.reset();
+      onClose();
+    }
+    setIsSubmitting(false);
+  };
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline">Send Newsletter</Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Send Newsletter</AlertDialogTitle>
-          <AlertDialogDescription>Are you sure you want to send a newsletter?</AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="email" className="text-right">
-              Email
-            </Label>
-            <Input
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="col-span-3"
-              placeholder="Email Address"
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[625px]">
+        <DialogHeader>
+          <DialogTitle>Invia Newsletter</DialogTitle>
+          <DialogDescription>
+            Crea e invia una newsletter a tutti gli iscritti.
+          </DialogDescription>
+        </DialogHeader>
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="subject">Oggetto</Label>
+            <Input id="subject" name="subject" required />
+          </div>
+          <div>
+            <Label htmlFor="content">Contenuto</Label>
+            <Textarea
+              id="content"
+              name="content"
+              required
+              rows={10}
+              placeholder="Scrivi qui il contenuto della tua newsletter. Puoi usare Markdown."
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="subject" className="text-right">
-              Subject
-            </Label>
-            <Input
-              id="subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="col-span-3"
-              placeholder="Subject"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="body" className="text-right">
-              Body
-            </Label>
-            <Input
-              id="body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="col-span-3"
-              placeholder="Body"
-            />
-          </div>
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleSendNewsletter}>Continue</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Invio in corso...' : 'Invia Newsletter'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }

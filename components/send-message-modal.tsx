@@ -1,72 +1,90 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { useState } from "react"
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Input, Textarea } from "@nextui-org/react"
-import { sendInternalMessage } from "@/lib/actions/messaging.actions"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
+import { sendInternalMessage } from '@/lib/actions/messaging.actions';
+import { useRef, useState } from 'react';
 
 interface SendMessageModalProps {
-  isOpen: boolean
-  onClose: () => void
-  recipientId: string
+  isOpen: boolean;
+  onClose: () => void;
+  recipientId: string;
+  recipientName: string;
 }
 
-const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, recipientId }) => {
-  const [messageContent, setMessageContent] = useState("")
-  const [subject, setSubject] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+export function SendMessageModal({
+  isOpen,
+  onClose,
+  recipientId,
+  recipientName,
+}: SendMessageModalProps) {
+  const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSendMessage = async () => {
-    setIsLoading(true)
-    try {
-      await sendInternalMessage({
-        recipientId: recipientId,
-        content: messageContent,
-        subject: subject,
-      })
-      onClose()
-    } catch (error) {
-      console.error("Error sending message:", error)
-      // Optionally display an error message to the user
-    } finally {
-      setIsLoading(false)
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
+    const result = await sendInternalMessage(formData);
+
+    if (result.error) {
+      toast({
+        title: 'Errore',
+        description: result.error,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Successo',
+        description: result.success,
+      });
+      formRef.current?.reset();
+      onClose();
     }
-  }
+    setIsSubmitting(false);
+  };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalContent>
-        {(close) => (
-          <>
-            <ModalHeader className="flex flex-col gap-1">Send Message</ModalHeader>
-            <ModalBody>
-              <Input
-                type="text"
-                label="Subject"
-                placeholder="Enter subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-              <Textarea
-                label="Message"
-                placeholder="Enter your message"
-                value={messageContent}
-                onChange={(e) => setMessageContent(e.target.value)}
-              />
-            </ModalBody>
-            <ModalFooter>
-              <Button color="danger" variant="flat" onPress={close}>
-                Close
-              </Button>
-              <Button color="primary" onPress={handleSendMessage} isLoading={isLoading}>
-                Send
-              </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
-    </Modal>
-  )
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invia Messaggio a {recipientName}</DialogTitle>
+          <DialogDescription>
+            Scrivi e invia un messaggio interno.
+          </DialogDescription>
+        </DialogHeader>
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+          <input type="hidden" name="recipientId" value={recipientId} />
+          <div>
+            <Label htmlFor="subject">Oggetto</Label>
+            <Input id="subject" name="subject" required />
+          </div>
+          <div>
+            <Label htmlFor="body">Messaggio</Label>
+            <Textarea id="body" name="body" required rows={5} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Invio in corso...' : 'Invia Messaggio'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
-
-export default SendMessageModal

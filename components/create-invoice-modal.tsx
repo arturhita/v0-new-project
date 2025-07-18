@@ -1,270 +1,117 @@
-"use client"
+'use client';
 
 import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { CalendarIcon } from "@radix-ui/react-icons"
-import { format } from "date-fns"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Calendar } from "@/components/ui/calendar"
-import { cn } from "@/lib/utils"
-import { useState } from "react"
-import { toast } from "sonner"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
-import { createInvoice } from "@/lib/actions/invoice.actions"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
+import { createInvoice } from '@/lib/actions/invoice.actions';
+import { useRef, useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-const formSchema = z.object({
-  customerName: z.string().min(2, {
-    message: "Customer name must be at least 2 characters.",
-  }),
-  customerEmail: z.string().email({
-    message: "Invalid email address.",
-  }),
-  invoiceNumber: z.string().min(5, {
-    message: "Invoice number must be at least 5 characters.",
-  }),
-  invoiceDate: z.date(),
-  dueDate: z.date(),
-  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, {
-    message: "Amount must be a valid number with up to 2 decimal places.",
-  }),
-  status: z.enum(["pending", "paid", "draft"]),
-  notes: z.string().optional(),
-})
-
-const CreateInvoiceModal = () => {
-  const [open, setOpen] = useState(false)
-  const router = useRouter()
-  const { data: session } = useSession()
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      customerName: "",
-      customerEmail: "",
-      invoiceNumber: "",
-      invoiceDate: new Date(),
-      dueDate: new Date(),
-      amount: "",
-      status: "pending",
-      notes: "",
-    },
-  })
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      if (session?.user?.id) {
-        await createInvoice({
-          ...values,
-          userId: session.user.id,
-        })
-        toast.success("Invoice created successfully!")
-        router.refresh()
-        form.reset()
-        setOpen(false)
-      }
-    } catch (error) {
-      toast.error("Something went wrong!")
-    }
-  }
-
-  return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline">Create Invoice</Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Create Invoice</AlertDialogTitle>
-          <AlertDialogDescription>Fill in the information below to create a new invoice.</AlertDialogDescription>
-        </AlertDialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormField
-              control={form.control}
-              name="customerName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Customer Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="customerEmail"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Customer Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="johndoe@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="invoiceNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Invoice Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="INV-2024-001" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex flex-col md:flex-row gap-4">
-              <FormField
-                control={form.control}
-                name="invoiceDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Invoice Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-[240px] pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground",
-                            )}
-                          >
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date > new Date()}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Due Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-[240px] pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground",
-                            )}
-                          >
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Amount</FormLabel>
-                  <FormControl>
-                    <Input placeholder="100.00" type="number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Add any relevant notes here." className="resize-none" {...field} />
-                  </FormControl>
-                  <FormDescription>These notes will be visible to the customer.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button type="submit">Create</Button>
-            </AlertDialogFooter>
-          </form>
-        </Form>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+interface CreateInvoiceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  users: { id: string; email: string | undefined; type: 'client' | 'operator' }[];
 }
 
-export default CreateInvoiceModal
+export function CreateInvoiceModal({
+  isOpen,
+  onClose,
+  users,
+}: CreateInvoiceModalProps) {
+  const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{id: string, type: 'client' | 'operator'} | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedUser) {
+        toast({ title: 'Errore', description: 'Seleziona un destinatario.', variant: 'destructive' });
+        return;
+    }
+    setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
+    formData.append('recipientId', selectedUser.id);
+    formData.append('recipientType', selectedUser.type);
+
+    const result = await createInvoice(formData);
+
+    if (result.error) {
+      toast({
+        title: 'Errore',
+        description: result.error,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Successo',
+        description: result.success,
+      });
+      formRef.current?.reset();
+      onClose();
+    }
+    setIsSubmitting(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Crea Nuova Fattura</DialogTitle>
+          <DialogDescription>
+            Compila i dettagli per creare una nuova fattura manuale.
+          </DialogDescription>
+        </DialogHeader>
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="recipientId">Destinatario</Label>
+            <Select onValueChange={(value) => {
+                const [id, type] = value.split(':');
+                setSelectedUser({ id, type: type as 'client' | 'operator' });
+            }}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Seleziona un utente..." />
+                </SelectTrigger>
+                <SelectContent>
+                    {users.map(user => (
+                        <SelectItem key={user.id} value={`${user.id}:${user.type}`}>
+                            {user.email} ({user.type === 'operator' ? 'Operatore' : 'Cliente'})
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="amount">Importo (€)</Label>
+            <Input id="amount" name="amount" type="number" step="0.01" required />
+          </div>
+          <div>
+            <Label htmlFor="dueDate">Data di Scadenza</Label>
+            <Input id="dueDate" name="dueDate" type="date" required />
+          </div>
+           <div>
+            <Label htmlFor="description">Descrizione</Label>
+            <Input id="description" name="description" required />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Creazione...' : 'Crea Fattura'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
