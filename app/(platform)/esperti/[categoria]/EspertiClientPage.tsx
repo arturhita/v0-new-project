@@ -26,26 +26,6 @@ const getCategoryDetails = (slug: string) => {
       description:
         "Scopri il potere nascosto nei numeri. I nostri numerologi analizzano le vibrazioni numeriche legate al tuo nome e alla tua data di nascita.",
     },
-    canalizzazione: {
-      title: "Esperti di Canalizzazione",
-      description:
-        "Connettiti con guide spirituali e energie superiori. I nostri canalizzatori fungono da ponte per ricevere messaggi illuminanti per il tuo cammino.",
-    },
-    "guarigione-energetica": {
-      title: "Esperti di Guarigione Energetica",
-      description:
-        "Riequilibra i tuoi chakra e armonizza la tua energia vitale. Sessioni di guarigione per il benessere di corpo, mente e spirito.",
-    },
-    rune: {
-      title: "Esperti di Rune",
-      description:
-        "Interroga gli antichi simboli nordici. I nostri esperti di rune ti guideranno attraverso la saggezza e i misteri delle rune.",
-    },
-    cristalloterapia: {
-      title: "Esperti di Cristalloterapia",
-      description:
-        "Sfrutta il potere curativo di cristalli e pietre. I nostri esperti ti aiuteranno a scegliere e utilizzare i cristalli per il tuo benessere.",
-    },
     medianita: {
       title: "Esperti di Medianità",
       description:
