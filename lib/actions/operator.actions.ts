@@ -6,10 +6,10 @@ import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
-const safeParseFloat = (value: any): number => {
-  if (value === null || value === undefined || String(value).trim() === "") return 0
+const safeParseFloat = (value: any): number | null => {
+  if (value === null || value === undefined || String(value).trim() === "") return null
   const num = Number.parseFloat(String(value))
-  return isNaN(num) ? 0 : num
+  return isNaN(num) ? null : num
 }
 
 type OperatorData = {
@@ -122,29 +122,96 @@ export async function createOperator(operatorData: OperatorData) {
   }
 }
 
-export async function updateOperatorCommission(operatorId: string, commission: string) {
+// --- FUNZIONI DI LETTURA ---
+
+export async function getAllOperators() {
+  noStore()
   const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`*, "user_metadata"`) // Assumendo che user_metadata sia una colonna o relazione
+    .eq("role", "operator")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
+  }
+  return data
+}
+
+export async function getOperatorById(id: string) {
+  noStore()
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+
+  if (error) {
+    console.error(`Error fetching operator ${id}:`, error)
+    return null
+  }
+  return data
+}
+
+// --- FUNZIONI DI SCRITTURA ---
+
+type OperatorProfileUpdate = {
+  full_name: string
+  stage_name: string
+  email: string
+  phone: string
+  bio: string
+  status: "Attivo" | "In Attesa" | "Sospeso"
+  is_active: boolean // Aggiunto per coerenza con il form
+}
+
+export async function updateOperatorProfile(operatorId: string, formData: FormData) {
+  const supabase = createClient()
+
+  const profileData: Partial<OperatorProfileUpdate> = {
+    full_name: formData.get("name") as string,
+    stage_name: formData.get("stage_name") as string,
+    phone: formData.get("phone") as string,
+    bio: formData.get("description") as string,
+    status: formData.get("status") as "Attivo" | "In Attesa" | "Sospeso",
+    is_active: formData.get("isActive") === "true",
+  }
+
+  // Non aggiorniamo l'email qui per evitare problemi con l'utente auth
+  // Per quello serve una procedura separata e più sicura
+
   try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ commission_rate: safeParseFloat(commission) })
-      .eq("id", operatorId)
+    const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
 
     if (error) throw error
 
     revalidatePath("/admin/operators")
     revalidatePath(`/admin/operators/${operatorId}/edit`)
 
-    return {
-      success: true,
-      message: "Commissione aggiornata con successo!",
-    }
-  } catch (error) {
-    console.error("Errore aggiornamento commissione:", error)
-    return {
-      success: false,
-      message: "Errore nell'aggiornamento della commissione",
-    }
+    return { success: true, message: "Profilo operatore aggiornato con successo." }
+  } catch (error: any) {
+    return { success: false, message: `Errore nell'aggiornamento del profilo: ${error.message}` }
+  }
+}
+
+export async function updateOperatorCommission(operatorId: string, formData: FormData) {
+  const supabase = createClient()
+  const commissionValue = safeParseFloat(formData.get("commission"))
+
+  if (commissionValue === null) {
+    return { success: false, message: "Valore commissione non valido." }
+  }
+
+  try {
+    const { error } = await supabase.from("profiles").update({ commission_rate: commissionValue }).eq("id", operatorId)
+
+    if (error) throw error
+
+    revalidatePath("/admin/operators")
+    revalidatePath(`/admin/operators/${operatorId}/edit`)
+
+    return { success: true, message: `Commissione aggiornata a ${commissionValue}%.` }
+  } catch (error: any) {
+    return { success: false, message: `Errore nell'aggiornamento della commissione: ${error.message}` }
   }
 }
 
@@ -208,51 +275,6 @@ export async function getOperatorPublicProfile(username: string) {
   }
 
   return combinedData
-}
-
-export async function getAllOperators() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
-  if (error) {
-    console.error("Error fetching operators:", error)
-    return []
-  }
-  return data
-}
-
-export async function getOperatorById(id: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
-  if (error) {
-    console.error(`Error fetching operator ${id}:`, error)
-    return null
-  }
-  return data
-}
-
-export async function updateOperatorProfile(
-  userId: string,
-  profileData: {
-    full_name?: string
-    bio?: string
-    specialization?: string[]
-    tags?: string[]
-  },
-) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").update(profileData).eq("id", userId).select().single()
-
-  if (error) {
-    console.error("Error updating operator profile:", error)
-    return { error: "Impossibile aggiornare il profilo." }
-  }
-
-  if (data.stage_name) {
-    revalidatePath(`/operator/${data.stage_name}`)
-  }
-  revalidatePath("/(platform)/dashboard/operator/profile")
-
-  return { data }
 }
 
 export async function updateOperatorAvailability(userId: string, availability: any) {

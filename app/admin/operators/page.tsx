@@ -12,19 +12,9 @@ import { Input } from "@/components/ui/input"
 import { getAllOperators } from "@/lib/actions/operator.actions"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import LoadingSpinner from "@/components/loading-spinner"
+import type { Tables } from "@/types_db"
 
-// Definiamo un tipo più completo per l'operatore, basato sullo schema del DB
-type OperatorProfile = {
-  id: string
-  name: string | null
-  surname: string | null
-  stage_name: string | null
-  email: string | null
-  status: "Attivo" | "In Attesa" | "Sospeso" | null
-  commission_rate: number | null
-  created_at: string
-  avatar_url: string | null
-}
+type OperatorProfile = Tables<"profiles">
 
 export default function OperatorsPage() {
   const [operators, setOperators] = useState<OperatorProfile[]>([])
@@ -35,7 +25,6 @@ export default function OperatorsPage() {
     const fetchOperators = async () => {
       setLoading(true)
       try {
-        // Usiamo la Server Action per prendere i dati reali
         const data = await getAllOperators()
         setOperators(data as OperatorProfile[])
       } catch (error) {
@@ -78,8 +67,7 @@ export default function OperatorsPage() {
   const filteredOperators = operators.filter(
     (op) =>
       op.stage_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.surname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       op.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
