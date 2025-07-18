@@ -37,7 +37,7 @@ export async function sendInternalMessage(formData: FormData) {
     return { error: "Impossibile inviare il messaggio." }
   }
 
-  revalidatePath("/admin/dashboard") // O un'altra pagina rilevante
+  revalidatePath("/admin/dashboard")
   return { success: "Messaggio inviato con successo." }
 }
 

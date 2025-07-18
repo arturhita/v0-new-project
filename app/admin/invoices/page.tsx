@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Visualizza e gestisci tutte le fatture della piattaforma.",
 }
 
+export const revalidate = 0 // Assicura che i dati siano sempre freschi
+
 export default async function AdminInvoicesPage() {
   const invoices = await getInvoices()
 
@@ -19,11 +21,11 @@ export default async function AdminInvoicesPage() {
     console.error("Error fetching users/operators:", usersError || operatorsError)
   }
 
-  const users = usersData?.map((u) => ({ id: u.id, name: u.email || "N/A", type: "client" as const })) || []
+  const clients = usersData?.map((u) => ({ id: u.id, name: u.email || "N/A", type: "client" as const })) || []
   const operators =
     operatorsData?.map((o) => ({ id: o.user_id, name: o.full_name || "Operatore", type: "operator" as const })) || []
 
-  const allRecipients = [...users, ...operators]
+  const allRecipients = [...clients, ...operators]
 
   return <InvoicesClientPage initialInvoices={invoices} recipients={allRecipients} />
 }

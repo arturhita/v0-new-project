@@ -41,6 +41,7 @@ export async function getInvoices() {
     return []
   }
 
+  // La mappatura dei dati viene fatta per semplificare l'oggetto per il client
   return data.map((inv: any) => ({
     id: inv.id,
     invoice_number: inv.invoice_number,

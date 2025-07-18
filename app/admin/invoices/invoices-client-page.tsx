@@ -33,8 +33,6 @@ export default function InvoicesClientPage({ initialInvoices, recipients }: Invo
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const handleInvoiceCreated = () => {
-    // Ricarica la pagina per mostrare la nuova fattura.
-    // Una soluzione più avanzata potrebbe aggiornare lo stato locale.
     window.location.reload()
   }
 
@@ -93,7 +91,9 @@ export default function InvoicesClientPage({ initialInvoices, recipients }: Invo
                     <TableCell>{invoice.clientName}</TableCell>
                     <TableCell>{invoice.operatorName}</TableCell>
                     <TableCell className="text-right">€{invoice.amount?.toFixed(2)}</TableCell>
-                    <TableCell>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "N/D"}</TableCell>
+                    <TableCell>
+                      {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("it-IT") : "N/D"}
+                    </TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   </TableRow>
                 ))
