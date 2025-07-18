@@ -15,60 +15,34 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { getTicketsForAdmin } from "@/lib/actions/tickets.actions"
 
 type TicketStatus = "Aperto" | "In Lavorazione" | "Risposto" | "Chiuso"
 
 interface Ticket {
   id: string
   subject: string
-  userName: string
-  userType: "Utente" | "Operatore"
-  lastUpdate: string
-  status: TicketStatus
+  profile?: { full_name: string }
+  priority: "high" | "low" | "medium"
+  status: string
   description: string
+  created_at: string
   history?: { user: string; message: string; date: string }[]
 }
 
-const initialTickets: Ticket[] = [
-  {
-    id: "tkt1",
-    subject: "Problema con ricarica portafoglio",
-    userName: "Alice Bianchi",
-    userType: "Utente",
-    lastUpdate: "2025-06-21 10:30",
-    status: "Aperto",
-    description: "Ho provato a ricaricare il portafoglio ma l'operazione non è andata a buon fine.",
-    history: [{ user: "Alice Bianchi", message: "Ho provato a ricaricare...", date: "2025-06-21 10:30" }],
-  },
-  {
-    id: "tkt2",
-    subject: "Richiesta info su commissioni",
-    userName: "Stella Divina",
-    userType: "Operatore",
-    lastUpdate: "2025-06-20 15:00",
-    status: "Risposto",
-    description: "Vorrei chiarimenti sulle percentuali di commissione applicate.",
-    history: [
-      { user: "Stella Divina", message: "Vorrei chiarimenti...", date: "2025-06-20 15:00" },
-      { user: "Admin Support", message: "Gentile Stella, le commissioni sono...", date: "2025-06-20 18:00" },
-    ],
-  },
-  {
-    id: "tkt3",
-    subject: "Feedback su consulto",
-    userName: "Marco Verdi",
-    userType: "Utente",
-    lastUpdate: "2025-06-19 09:15",
-    status: "Chiuso",
-    description: "Il consulto è stato ottimo, grazie!",
-    history: [
-      { user: "Marco Verdi", message: "Il consulto è stato ottimo...", date: "2025-06-19 09:15" },
-      { user: "Admin Support", message: "Grazie per il suo feedback!", date: "2025-06-19 11:00" },
-    ],
-  },
-]
+export default async function AdminTicketsPage() {
+  const ticketsData = await getTicketsForAdmin()
+  const initialTickets: Ticket[] = ticketsData.map((ticket) => ({
+    id: ticket.id,
+    subject: ticket.subject,
+    profile: ticket.profile,
+    priority: ticket.priority,
+    status: ticket.status,
+    description: ticket.description,
+    created_at: ticket.created_at,
+    history: ticket.history,
+  }))
 
-export default function ManageSupportTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets)
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -84,7 +58,7 @@ export default function ManageSupportTicketsPage() {
     if (!selectedTicket || !replyMessage) return
     const updatedTicket = {
       ...selectedTicket,
-      status: "Risposto" as TicketStatus,
+      status: "Risposto",
       lastUpdate: new Date().toLocaleString("it-IT"),
       history: [
         ...(selectedTicket.history || []),
@@ -94,15 +68,14 @@ export default function ManageSupportTicketsPage() {
     setTickets(tickets.map((t) => (t.id === selectedTicket.id ? updatedTicket : t)))
     alert(`Risposta inviata per il ticket ${selectedTicket.id} (simulazione).`)
     setReplyMessage("")
-    // Potresti voler chiudere la modale o aggiornarla
-    setSelectedTicket(updatedTicket) // Aggiorna la modale con la nuova history
+    setSelectedTicket(updatedTicket)
   }
 
   const handleCloseTicket = () => {
     if (!selectedTicket) return
     const updatedTicket = {
       ...selectedTicket,
-      status: "Chiuso" as TicketStatus,
+      status: "Chiuso",
       lastUpdate: new Date().toLocaleString("it-IT"),
     }
     setTickets(tickets.map((t) => (t.id === selectedTicket.id ? updatedTicket : t)))
@@ -110,30 +83,21 @@ export default function ManageSupportTicketsPage() {
     setIsModalOpen(false)
   }
 
-  const getStatusBadge = (status: TicketStatus) => {
+  const getStatusBadge = (status: string) => {
+    const statusVariant = getStatusVariant(status)
+    return <Badge className={statusVariant}>{status}</Badge>
+  }
+
+  const getStatusVariant = (status: string) => {
     switch (status) {
-      case "Aperto":
-        return <Badge variant="destructive">Aperto</Badge>
-      case "In Lavorazione":
-        return (
-          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-            In Lavorazione
-          </Badge>
-        )
-      case "Risposto":
-        return (
-          <Badge variant="outline" className="border-blue-500 text-blue-600">
-            Risposto
-          </Badge>
-        )
-      case "Chiuso":
-        return (
-          <Badge variant="default" className="bg-slate-500 text-white">
-            Chiuso
-          </Badge>
-        )
+      case "open":
+        return "bg-green-100 text-green-800"
+      case "in_progress":
+        return "bg-yellow-100 text-yellow-800"
+      case "closed":
+        return "bg-gray-100 text-gray-800"
       default:
-        return <Badge>Sconosciuto</Badge>
+        return "secondary"
     }
   }
 
@@ -156,20 +120,22 @@ export default function ManageSupportTicketsPage() {
                 <TableRow>
                   <TableHead>Oggetto</TableHead>
                   <TableHead>Utente</TableHead>
-                  <TableHead>Tipo Utente</TableHead>
-                  <TableHead>Ultimo Aggiornamento</TableHead>
+                  <TableHead>Priorità</TableHead>
                   <TableHead>Stato</TableHead>
-                  <TableHead className="text-right">Azioni</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Azione</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tickets.map((ticket) => (
                   <TableRow key={ticket.id}>
                     <TableCell className="font-medium truncate max-w-xs">{ticket.subject}</TableCell>
-                    <TableCell>{ticket.userName}</TableCell>
-                    <TableCell>{ticket.userType}</TableCell>
-                    <TableCell>{ticket.lastUpdate}</TableCell>
+                    <TableCell>{ticket.profile?.full_name || "Utente non trovato"}</TableCell>
+                    <TableCell>
+                      <Badge variant={ticket.priority === "high" ? "destructive" : "outline"}>{ticket.priority}</Badge>
+                    </TableCell>
                     <TableCell>{getStatusBadge(ticket.status)}</TableCell>
+                    <TableCell>{new Date(ticket.created_at).toLocaleString("it-IT")}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => openTicketModal(ticket)}>
                         <Eye className="mr-1.5 h-4 w-4" /> Vedi / Rispondi
@@ -189,7 +155,8 @@ export default function ManageSupportTicketsPage() {
             <DialogHeader>
               <DialogTitle>Dettaglio Ticket: {selectedTicket.subject}</DialogTitle>
               <DialogDesc>
-                Inviato da: {selectedTicket.userName} ({selectedTicket.userType}) - Stato: {selectedTicket.status}
+                Inviato da: {selectedTicket.profile?.full_name || "Utente non trovato"} ({selectedTicket.priority}) -
+                Stato: {selectedTicket.status}
               </DialogDesc>
             </DialogHeader>
             <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">

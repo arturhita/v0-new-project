@@ -4,16 +4,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Moon, Gift, RefreshCw, MessageSquare, Ban } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -24,37 +14,71 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { getAllUsersWithProfiles } from "@/lib/actions/users.actions"
+import { UserActions } from "./user-actions"
 
-const initialSeekers = [
-  {
-    id: "user1",
-    name: "Alice Bianchi",
-    email: "alice.b@example.com",
-    joined: "2025-06-15",
-    spent: "€ 150.00",
-    status: "Attivo",
-  },
-  {
-    id: "user2",
-    name: "Marco Verdi",
-    email: "marco.v@example.com",
-    joined: "2025-06-12",
-    spent: "€ 75.50",
-    status: "Attivo",
-  },
-  {
-    id: "user3",
-    name: "Sofia Neri",
-    email: "sofia.n@example.com",
-    joined: "2025-05-01",
-    spent: "€ 0.00",
-    status: "Inattivo",
-  },
-]
+type Seeker = {
+  id: string
+  name: string
+  email: string
+  joined: string
+  spent: string
+  status: string
+}
 
-type Seeker = (typeof initialSeekers)[0]
+type User = {
+  user_id: string
+  full_name: string | null
+  email: string
+  role: string
+  created_at: string
+  user: {
+    last_sign_in_at: string | null
+  }
+}
 
-export default function ManageSeekersPage() {
+export default async function AdminUsersPage() {
+  const users = await getAllUsersWithProfiles()
+
+  const getRoleVariant = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "destructive"
+      case "operator":
+        return "default"
+      case "client":
+      default:
+        return "secondary"
+    }
+  }
+
+  const initialSeekers: Seeker[] = [
+    {
+      id: "user1",
+      name: "Alice Bianchi",
+      email: "alice.b@example.com",
+      joined: "2025-06-15",
+      spent: "€ 150.00",
+      status: "Attivo",
+    },
+    {
+      id: "user2",
+      name: "Marco Verdi",
+      email: "marco.v@example.com",
+      joined: "2025-06-12",
+      spent: "€ 75.50",
+      status: "Attivo",
+    },
+    {
+      id: "user3",
+      name: "Sofia Neri",
+      email: "sofia.n@example.com",
+      joined: "2025-05-01",
+      spent: "€ 0.00",
+      status: "Inattivo",
+    },
+  ]
+
   const [seekers, setSeekers] = useState<Seeker[]>(initialSeekers)
   const [selectedSeeker, setSelectedSeeker] = useState<Seeker | null>(null)
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
@@ -102,89 +126,47 @@ export default function ManageSeekersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Elenco Cercatori</h1>
-      <Card className="shadow-xl rounded-2xl">
-        <CardHeader>
-          <CardTitle>Cercatori di Conoscenza</CardTitle>
-          <CardDescription>Visualizza e gestisci gli utenti della piattaforma.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cercatore</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Registrato il</TableHead>
-                <TableHead>Spesa Totale</TableHead>
-                <TableHead>Stato</TableHead>
-                <TableHead>
-                  <span className="sr-only">Azioni</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {seekers.map((seeker) => (
-                <TableRow key={seeker.id}>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <Moon className="h-4 w-4 text-slate-400" />
-                    {seeker.name}
-                  </TableCell>
-                  <TableCell>{seeker.email}</TableCell>
-                  <TableCell>{seeker.joined}</TableCell>
-                  <TableCell>{seeker.spent}</TableCell>
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Utenti</h1>
+      <div className="bg-white rounded-lg shadow-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Ruolo</TableHead>
+              <TableHead>Data Registrazione</TableHead>
+              <TableHead>Ultimo Accesso</TableHead>
+              <TableHead className="text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.length > 0 ? (
+              users.map((user) => (
+                <TableRow key={user.user_id}>
+                  <TableCell className="font-medium">{user.full_name || "N/D"}</TableCell>
+                  <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        seeker.status === "Attivo"
-                          ? "default"
-                          : seeker.status === "Sospeso"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {seeker.status}
-                    </Badge>
+                    <Badge variant={getRoleVariant(user.role)}>{user.role}</Badge>
                   </TableCell>
+                  <TableCell>{new Date(user.created_at).toLocaleDateString("it-IT")}</TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Azioni Utente</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => alert(`Vedi Dettagli per ${seeker.name} (simulazione)`)}>
-                          Vedi Dettagli
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => alert(`Invia Messaggio a ${seeker.name} (simulazione)`)}>
-                          <MessageSquare className="mr-2 h-4 w-4" /> Invia Messaggio
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => openVoucherModal(seeker)}>
-                          <Gift className="mr-2 h-4 w-4" /> Assegna Buono
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openRefundModal(seeker)}>
-                          <RefreshCw className="mr-2 h-4 w-4" /> Emetti Rimborso
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleSuspendSeeker(seeker.id)}
-                          className={seeker.status === "Sospeso" ? "text-emerald-600" : "text-red-600"}
-                        >
-                          <Ban className="mr-2 h-4 w-4" />{" "}
-                          {seeker.status === "Sospeso" ? "Riattiva Utente" : "Sospendi Utente"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {user.user?.last_sign_in_at ? new Date(user.user.last_sign_in_at).toLocaleString("it-IT") : "Mai"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <UserActions userId={user.user_id} currentRole={user.role} />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-10">
+                  Nessun utente trovato.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Modale Assegna Buono */}
       {selectedSeeker && (
