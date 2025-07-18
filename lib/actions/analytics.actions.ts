@@ -1,28 +1,24 @@
-'use server'
+"use server"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { unstable_noStore as noStore } from 'next/cache';
-
-export async function getAdminDashboardStats() {
-  noStore();
-  const supabase = await createSupabaseServerClient();
-  
-  const { data, error } = await supabase.rpc('get_admin_dashboard_stats');
-
-  if (error) {
-    console.error('Error fetching admin dashboard stats:', error);
-    return {
-      total_users: 0,
-      total_operators: 0,
-      total_revenue: 0,
-      total_consultations: 0,
-    };
+export async function getAnalyticsData() {
+  const supabase = createSupabaseServerClient()
+  const { data: kpis, error: kpisError } = await supabase.rpc("get_admin_kpis")
+  if (kpisError) {
+    console.error("Error fetching KPIs:", kpisError)
+    return { kpis: null, recentActivities: null, error: kpisError.message }
   }
 
-  return data[0] || {
-    total_users: 0,
-    total_operators: 0,
-    total_revenue: 0,
-    total_consultations: 0,
-  };
+  const { data: recentActivities, error: activityError } = await supabase
+    .from("audit_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(10)
+
+  if (activityError) {
+    console.error("Error fetching recent activities:", activityError)
+    // Non bloccare tutto se solo le attività recenti falliscono
+  }
+
+  return { kpis: kpis?.[0] || {}, recentActivities, error: null }
 }
