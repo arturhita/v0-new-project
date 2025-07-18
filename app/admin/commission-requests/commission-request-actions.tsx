@@ -1,56 +1,40 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal } from "lucide-react"
-import { approveCommissionRequest, rejectCommissionRequest } from "@/lib/actions/commission.actions"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
+import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
+import { useState } from "react"
 
-type CommissionRequest = {
-  id: string
-  operator_id: string
-  requested_commission: number
-  status: string
-}
-
-export function CommissionRequestActions({ request }: { request: CommissionRequest }) {
+export function CommissionRequestActions({ requestId }: { requestId: string }) {
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
-  const handleApprove = async () => {
-    const result = await approveCommissionRequest(request.id, request.operator_id, request.requested_commission)
+  const handleAction = async (status: "approved" | "rejected") => {
+    setIsLoading(true)
+    const result = await updateCommissionRequestStatus(requestId, status)
     if (result.success) {
-      toast({ title: "Richiesta Approvata", description: "La commissione dell'operatore è stata aggiornata." })
+      toast({
+        title: "Successo",
+        description: `Richiesta ${status === "approved" ? "approvata" : "rifiutata"}.`,
+      })
     } else {
-      toast({ title: "Errore", description: result.error, variant: "destructive" })
+      toast({
+        title: "Errore",
+        description: result.error,
+        variant: "destructive",
+      })
     }
-  }
-
-  const handleReject = async () => {
-    const reason = prompt("Inserisci una motivazione per il rifiuto (opzionale):")
-    const result = await rejectCommissionRequest(request.id, reason || undefined)
-    if (result.success) {
-      toast({ title: "Richiesta Rifiutata" })
-    } else {
-      toast({ title: "Errore", description: result.error, variant: "destructive" })
-    }
+    setIsLoading(false)
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
-          <span className="sr-only">Apri menu</span>
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleApprove} disabled={request.status !== "pending"}>
-          Approva
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleReject} disabled={request.status !== "pending"}>
-          Rifiuta
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="space-x-2">
+      <Button size="sm" variant="outline" onClick={() => handleAction("approved")} disabled={isLoading}>
+        Approva
+      </Button>
+      <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isLoading}>
+        Rifiuta
+      </Button>
+    </div>
   )
 }

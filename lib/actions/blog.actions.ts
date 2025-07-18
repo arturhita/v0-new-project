@@ -3,59 +3,42 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import type { Post } from "@/lib/blog-data" // Assumendo che il tipo Post sia definito qui
 
-const PostSchema = z.object({
-  title: z.string().min(1, "Il titolo è obbligatorio."),
-  slug: z.string().min(1, "Lo slug è obbligatorio."),
-  content: z.string().optional(),
-  excerpt: z.string().optional(),
-  category: z.string().optional(),
-  status: z.enum(["draft", "published"]),
-  featured_image_url: z.string().url().optional().or(z.literal("")),
+const postSchema = z.object({
+  title: z.string().min(3, "Il titolo deve avere almeno 3 caratteri."),
+  content: z.string().min(10, "Il contenuto deve avere almeno 10 caratteri."),
+  category: z.string().min(1, "La categoria è richiesta."),
+  imageUrl: z.string().url("URL immagine non valido.").optional().or(z.literal("")),
+  authorId: z.string().uuid("ID autore non valido."),
 })
 
-export async function getPosts() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("posts").select("*").order("created_at", { ascending: false })
-  if (error) {
-    console.error("Error fetching posts:", error)
-    return []
-  }
-  return data
-}
-
-export async function getPostById(id: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("posts").select("*").eq("id", id).single()
-  if (error) {
-    console.error("Error fetching post by id:", error)
-    return null
-  }
-  return data
-}
-
-export async function createPost(rawData: Partial<Post>) {
+export async function createPost(postData: {
+  title: string
+  content: string
+  category: string
+  imageUrl?: string
+  authorId: string
+}) {
   const supabase = createClient()
 
-  const validatedFields = PostSchema.safeParse(rawData)
-
-  if (!validatedFields.success) {
-    return { error: "Dati non validi.", fieldErrors: validatedFields.error.flatten().fieldErrors }
+  const validation = postSchema.safeParse(postData)
+  if (!validation.success) {
+    return { error: validation.error.flatten().fieldErrors }
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Utente non autenticato." }
+  const { title, content, category, imageUrl, authorId } = validation.data
 
-  const postData = {
-    ...validatedFields.data,
-    author_id: user.id,
-    published_at: validatedFields.data.status === "published" ? new Date().toISOString() : null,
-  }
-
-  const { error } = await supabase.from("posts").insert([postData])
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .insert({
+      title,
+      content,
+      category,
+      image_url: imageUrl,
+      author_id: authorId,
+    })
+    .select()
+    .single()
 
   if (error) {
     console.error("Error creating post:", error)
@@ -64,28 +47,64 @@ export async function createPost(rawData: Partial<Post>) {
 
   revalidatePath("/admin/blog-management")
   revalidatePath("/astromag")
-  if (postData.category) {
-    revalidatePath(`/astromag/${postData.category}`)
-  }
-  return { success: "Articolo creato con successo." }
+  revalidatePath(`/astromag/${category}`)
+  return { success: "Articolo creato con successo.", post: data }
 }
 
-export async function updatePost(id: string, rawData: Partial<Post>) {
+export async function getPosts() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select(
+      `
+      *,
+      profiles (
+        username
+      )
+    `,
+    )
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching posts:", error)
+    return []
+  }
+  return data
+}
+
+export async function updatePost(
+  id: string,
+  postData: {
+    title: string
+    content: string
+    category: string
+    imageUrl?: string
+  },
+) {
   const supabase = createClient()
 
-  const validatedFields = PostSchema.safeParse(rawData)
+  // We don't need to validate authorId on update
+  const updateSchema = postSchema.omit({ authorId: true })
+  const validation = updateSchema.safeParse(postData)
 
-  if (!validatedFields.success) {
-    return { error: "Dati non validi.", fieldErrors: validatedFields.error.flatten().fieldErrors }
+  if (!validation.success) {
+    return { error: validation.error.flatten().fieldErrors }
   }
 
-  const postData = {
-    ...validatedFields.data,
-    updated_at: new Date().toISOString(),
-    published_at: validatedFields.data.status === "published" ? new Date().toISOString() : null,
-  }
+  const { title, content, category, imageUrl } = validation.data
 
-  const { error } = await supabase.from("posts").update(postData).eq("id", id)
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .update({
+      title,
+      content,
+      category,
+      image_url: imageUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single()
 
   if (error) {
     console.error("Error updating post:", error)
@@ -94,18 +113,14 @@ export async function updatePost(id: string, rawData: Partial<Post>) {
 
   revalidatePath("/admin/blog-management")
   revalidatePath("/astromag")
-  if (postData.category) {
-    revalidatePath(`/astromag/${postData.category}`)
-  }
-  if (postData.slug) {
-    revalidatePath(`/astromag/articolo/${postData.slug}`)
-  }
-  return { success: "Articolo aggiornato con successo." }
+  revalidatePath(`/astromag/${category}`)
+  revalidatePath(`/astromag/articolo/${id}`)
+  return { success: "Articolo aggiornato con successo.", post: data }
 }
 
 export async function deletePost(id: string) {
   const supabase = createClient()
-  const { error } = await supabase.from("posts").delete().eq("id", id)
+  const { error } = await supabase.from("blog_posts").delete().eq("id", id)
 
   if (error) {
     console.error("Error deleting post:", error)

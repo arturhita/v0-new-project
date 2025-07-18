@@ -1,40 +1,27 @@
+import { getCommissionIncreaseRequests } from "@/lib/actions/commission.actions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { getCommissionRequests } from "@/lib/actions/commission.actions"
-import { CommissionRequestActions } from "./commission-request-actions"
 import { format } from "date-fns"
-import { Percent } from "lucide-react"
+import { it } from "date-fns/locale"
+import { CommissionRequestActions } from "./commission-request-actions"
 
 export default async function CommissionRequestsPage() {
-  const { data: requests, error } = await getCommissionRequests()
-
-  if (error) {
-    return <div className="p-6 text-red-500">{error}</div>
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-green-100 text-green-800">Approvata</Badge>
-      case "rejected":
-        return <Badge variant="destructive">Rifiutata</Badge>
-      case "pending":
-      default:
-        return <Badge variant="secondary">In Attesa</Badge>
-    }
-  }
+  const requests = await getCommissionIncreaseRequests()
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Richieste Aumento Commissione</h1>
+        <p className="text-muted-foreground">
+          Approva o rifiuta le richieste degli operatori per una commissione migliore.
+        </p>
+      </div>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Percent className="h-5 w-5 text-sky-600" />
-            Richieste Aumento Commissione
-          </CardTitle>
+          <CardTitle>Richieste in Sospeso</CardTitle>
           <CardDescription>
-            Visualizza e gestisci le richieste di aumento percentuale inviate dagli operatori.
+            Lista di tutte le richieste di aumento commissione da parte degli operatori.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -51,21 +38,33 @@ export default async function CommissionRequestsPage() {
             </TableHeader>
             <TableBody>
               {requests && requests.length > 0 ? (
-                requests.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium">{req.operator?.full_name || "N/D"}</TableCell>
-                    <TableCell>{req.current_commission}%</TableCell>
-                    <TableCell className="font-bold text-green-600">{req.requested_commission}%</TableCell>
-                    <TableCell>{format(new Date(req.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
-                    <TableCell>{getStatusBadge(req.status)}</TableCell>
+                requests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell className="font-medium">{request.profiles?.username ?? "N/A"}</TableCell>
+                    <TableCell>{request.current_commission}%</TableCell>
+                    <TableCell>{request.requested_commission}%</TableCell>
+                    <TableCell>{format(new Date(request.created_at), "d MMM yyyy", { locale: it })}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          request.status === "approved"
+                            ? "default"
+                            : request.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {request.status}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right">
-                      <CommissionRequestActions request={req} />
+                      {request.status === "pending" && <CommissionRequestActions requestId={request.id} />}
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10">
+                  <TableCell colSpan={6} className="text-center">
                     Nessuna richiesta trovata.
                   </TableCell>
                 </TableRow>

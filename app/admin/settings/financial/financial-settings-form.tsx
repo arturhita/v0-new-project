@@ -1,107 +1,117 @@
 "use client"
 
-import type React from "react"
-
-import { useFormState, useFormStatus } from "react-dom"
-import { updateAdvancedSetting } from "@/lib/actions/settings.actions"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import { useEffect } from "react"
-import { useToast } from "@/hooks/use-toast"
-import { Percent, Euro } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
+import { updateAdvancedSetting } from "@/lib/actions/settings.actions"
+import { useState } from "react"
 
-const initialState = {
-  success: false,
-  error: null,
-}
+const financialSettingsSchema = z.object({
+  platform_commission_percentage: z
+    .number()
+    .min(0, "La commissione non può essere negativa")
+    .max(100, "La commissione non può superare 100"),
+  call_transfer_fee_client: z.number().min(0, "La tariffa non può essere negativa"),
+  call_transfer_fee_operator: z.number().min(0, "La tariffa non può essere negativa"),
+})
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" disabled={pending} size="sm">
-      {pending ? "Salvataggio..." : "Salva"}
-    </Button>
-  )
-}
+type FinancialSettingsFormValues = z.infer<typeof financialSettingsSchema>
 
-const settingLabels: Record<string, { label: string; description: string; icon: React.ElementType }> = {
-  platform_commission_percentage: {
-    label: "Commissione Piattaforma (%)",
-    description: "Percentuale trattenuta su ogni consulto.",
-    icon: Percent,
-  },
-  call_transfer_fee_client: {
-    label: "Costo Trasferimento (Cliente)",
-    description: "Costo fisso addebitato al cliente.",
-    icon: Euro,
-  },
-  call_transfer_fee_operator: {
-    label: "Costo Trasferimento (Operatore)",
-    description: "Costo fisso addebitato all'operatore.",
-    icon: Euro,
-  },
-}
-
-export function FinancialSettingsForm({
-  currentSettings,
-  settingKey,
-}: {
-  currentSettings: any
-  settingKey: string
-}) {
-  const updateSettingAction = updateAdvancedSetting.bind(null, "financials")
-  const [state, dispatch] = useFormState(updateSettingAction, initialState)
+export function FinancialSettingsForm({ initialSettings }: { initialSettings: FinancialSettingsFormValues }) {
   const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FinancialSettingsFormValues>({
+    resolver: zodResolver(financialSettingsSchema),
+    defaultValues: initialSettings,
+  })
 
-  useEffect(() => {
-    if (state.success) {
+  const onSubmit = async (data: FinancialSettingsFormValues) => {
+    setIsLoading(true)
+    const result = await updateAdvancedSetting("financials", data)
+    if (result.success) {
       toast({
-        title: "Impostazioni salvate!",
-        description: "Le modifiche sono state applicate.",
+        title: "Successo",
+        description: "Impostazioni finanziarie aggiornate.",
       })
-    } else if (state.error) {
+    } else {
       toast({
         title: "Errore",
-        description: "Non è stato possibile salvare le impostazioni.",
+        description: result.error,
         variant: "destructive",
       })
     }
-  }, [state, toast])
-
-  const settingInfo = settingLabels[settingKey]
+    setIsLoading(false)
+  }
 
   return (
-    <form action={dispatch} className="p-4 border rounded-lg bg-slate-50">
-      <div className="flex justify-between items-start">
-        <div>
-          <Label htmlFor={settingKey} className="text-base font-semibold">
-            {settingInfo.label}
-          </Label>
-          <p className="text-sm text-slate-500">{settingInfo.description}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Commissioni e Tariffe</CardTitle>
+          <CardDescription>Imposta i valori finanziari di base per il funzionamento della piattaforma.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="platform_commission_percentage">Commissione Piattaforma (%)</Label>
             <Input
-              id={settingKey}
-              name={settingKey}
+              id="platform_commission_percentage"
               type="number"
-              step={settingKey === "platform_commission_percentage" ? "1" : "0.01"}
-              defaultValue={currentSettings[settingKey]}
-              className="w-32 pr-8"
+              step="1"
+              {...register("platform_commission_percentage", { valueAsNumber: true })}
             />
-            <settingInfo.icon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {errors.platform_commission_percentage && (
+              <p className="text-sm text-red-500">{errors.platform_commission_percentage.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              La percentuale trattenuta dalla piattaforma su ogni transazione.
+            </p>
           </div>
-          {/* Hidden inputs to pass other values without changing them */}
-          {Object.keys(currentSettings)
-            .filter((key) => key !== settingKey)
-            .map((key) => (
-              <input key={key} type="hidden" name={key} value={currentSettings[key]} />
-            ))}
-          <SubmitButton />
-        </div>
-      </div>
-      {state.error && <p className="text-red-500 text-sm mt-2">{state.error}</p>}
+          <div className="space-y-2">
+            <Label htmlFor="call_transfer_fee_client">Tariffa Trasferimento Chiamata (Cliente)</Label>
+            <Input
+              id="call_transfer_fee_client"
+              type="number"
+              step="0.01"
+              {...register("call_transfer_fee_client", { valueAsNumber: true })}
+            />
+            {errors.call_transfer_fee_client && (
+              <p className="text-sm text-red-500">{errors.call_transfer_fee_client.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Costo addebitato al cliente per il trasferimento di chiamata.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="call_transfer_fee_operator">Tariffa Trasferimento Chiamata (Operatore)</Label>
+            <Input
+              id="call_transfer_fee_operator"
+              type="number"
+              step="0.01"
+              {...register("call_transfer_fee_operator", { valueAsNumber: true })}
+            />
+            {errors.call_transfer_fee_operator && (
+              <p className="text-sm text-red-500">{errors.call_transfer_fee_operator.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Costo addebitato all'operatore per il trasferimento di chiamata.
+            </p>
+          </div>
+        </CardContent>
+        <CardFooter className="border-t px-6 py-4">
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? "Salvataggio..." : "Salva Impostazioni"}
+          </Button>
+        </CardFooter>
+      </Card>
     </form>
   )
 }

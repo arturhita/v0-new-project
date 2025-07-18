@@ -1,288 +1,182 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { createPromotion, updatePromotion, type Promotion } from "@/lib/actions/promotions.actions"
-import { Save, Target, Percent } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
+import { createPromotion, updatePromotion } from "@/lib/actions/promotions.actions"
+import type { Promotion } from "@/lib/actions/promotions.actions"
 
-interface CreatePromotionModalProps {
+const promotionSchema = z.object({
+  name: z.string().min(1, "Il nome è richiesto."),
+  description: z.string().min(1, "La descrizione è richiesta."),
+  discount_percentage: z
+    .number({ invalid_type_error: "Deve essere un numero" })
+    .min(1, "La percentuale deve essere almeno 1.")
+    .max(100, "La percentuale non può superare 100."),
+  start_date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Data di inizio non valida." }),
+  end_date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Data di fine non valida." }),
+})
+
+type PromotionFormValues = z.infer<typeof promotionSchema>
+
+type CreatePromotionModalProps = {
   isOpen: boolean
   onClose: () => void
+  onPromotionCreated?: (promotion: Promotion) => void
+  onPromotionUpdated?: (promotion: Promotion) => void
   promotion?: Promotion | null
-  onSuccess: () => void
 }
 
-export function CreatePromotionModal({ isOpen, onClose, promotion, onSuccess }: CreatePromotionModalProps) {
+export function CreatePromotionModal({
+  isOpen,
+  onClose,
+  onPromotionCreated,
+  onPromotionUpdated,
+  promotion,
+}: CreatePromotionModalProps) {
   const { toast } = useToast()
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    originalPrice: "1.99",
-    discountPercentage: "10",
-    validDays: [] as string[],
-    startDate: "",
-    endDate: "",
-    startTime: "",
-    endTime: "",
-    isActive: true,
+  const [isLoading, setIsLoading] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<PromotionFormValues>({
+    resolver: zodResolver(promotionSchema),
   })
-
-  const specialPrice = useMemo(() => {
-    const original = Number.parseFloat(formData.originalPrice) || 0
-    const discount = Number.parseFloat(formData.discountPercentage) || 0
-    if (original > 0 && discount > 0 && discount <= 100) {
-      const finalPrice = original * (1 - discount / 100)
-      return finalPrice.toFixed(2)
-    }
-    return formData.originalPrice
-  }, [formData.originalPrice, formData.discountPercentage])
-
-  const weekDays = [
-    { key: "monday", label: "Lunedì" },
-    { key: "tuesday", label: "Martedì" },
-    { key: "wednesday", label: "Mercoledì" },
-    { key: "thursday", label: "Giovedì" },
-    { key: "friday", label: "Venerdì" },
-    { key: "saturday", label: "Sabato" },
-    { key: "sunday", label: "Domenica" },
-  ]
 
   useEffect(() => {
     if (promotion) {
-      const discount = promotion.original_price
-        ? Math.round(((promotion.original_price - promotion.special_price) / promotion.original_price) * 100)
-        : 0
-      setFormData({
-        title: promotion.title,
-        description: promotion.description || "",
-        originalPrice: promotion.original_price.toString(),
-        discountPercentage: discount.toString(),
-        validDays: promotion.valid_days,
-        startDate: promotion.start_date,
-        endDate: promotion.end_date,
-        startTime: promotion.start_time || "",
-        endTime: promotion.end_time || "",
-        isActive: promotion.is_active,
+      reset({
+        name: promotion.name,
+        description: promotion.description,
+        discount_percentage: promotion.discount_percentage,
+        start_date: new Date(promotion.start_date).toISOString().substring(0, 16),
+        end_date: new Date(promotion.end_date).toISOString().substring(0, 16),
       })
     } else {
-      setFormData({
-        title: "",
+      reset({
+        name: "",
         description: "",
-        originalPrice: "1.99",
-        discountPercentage: "10",
-        validDays: [],
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
-        isActive: true,
+        discount_percentage: 10,
+        start_date: new Date().toISOString().substring(0, 16),
+        end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substring(0, 16),
       })
     }
-  }, [promotion, isOpen])
+  }, [promotion, reset, isOpen])
 
-  const handleDayToggle = (day: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      validDays: prev.validDays.includes(day) ? prev.validDays.filter((d) => d !== day) : [...prev.validDays, day],
-    }))
-  }
-
-  const handleSave = async (event: React.FormEvent) => {
-    event.preventDefault()
-
-    if (!formData.title || !formData.startDate || !formData.endDate) {
-      toast({ title: "Errore", description: "Compila tutti i campi obbligatori.", variant: "destructive" })
-      return
-    }
-
-    const formPayload = new FormData()
-    formPayload.append("title", formData.title)
-    formPayload.append("description", formData.description)
-    formPayload.append("original_price", formData.originalPrice)
-    formPayload.append("special_price", specialPrice)
-    formPayload.append("start_date", formData.startDate)
-    formPayload.append("end_date", formData.endDate)
-    formData.validDays.forEach((day) => formPayload.append("valid_days", day))
-    if (formData.startTime) formPayload.append("start_time", formData.startTime)
-    if (formData.endTime) formPayload.append("end_time", formData.endTime)
-    formPayload.append("is_active", formData.isActive ? "on" : "off")
-
-    const result = promotion ? await updatePromotion(promotion.id, formPayload) : await createPromotion(formPayload)
+  const onSubmit = async (data: PromotionFormValues) => {
+    setIsLoading(true)
+    const action = promotion ? updatePromotion : createPromotion
+    const result = await action(promotion ? promotion.id : undefined, data)
 
     if (result.error) {
-      toast({ title: "Errore", description: result.error, variant: "destructive" })
+      toast({
+        title: "Errore",
+        description: typeof result.error === "string" ? result.error : "Controlla i campi.",
+        variant: "destructive",
+      })
     } else {
-      toast({ title: "Successo!", description: result.success })
-      onSuccess()
+      toast({
+        title: "Successo!",
+        description: `Promozione ${promotion ? "aggiornata" : "creata"} con successo.`,
+      })
+      if (promotion && onPromotionUpdated && result.promotion) {
+        onPromotionUpdated(result.promotion)
+      } else if (!promotion && onPromotionCreated && result.promotion) {
+        onPromotionCreated(result.promotion)
+      }
       onClose()
     }
+    setIsLoading(false)
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            {promotion ? "Modifica Promozione" : "Crea Nuova Promozione"}
-          </DialogTitle>
+          <DialogTitle>{promotion ? "Modifica Promozione" : "Crea Nuova Promozione"}</DialogTitle>
           <DialogDescription>
-            Imposta uno sconto che verrà applicato automaticamente a tutti gli operatori nei giorni e orari selezionati.
+            {promotion
+              ? "Modifica i dettagli della promozione."
+              : "Inserisci i dettagli per la nuova promozione. Verrà applicata a tutti gli operatori."}
           </DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* Info generale */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Titolo Promozione *</Label>
-              <Input
-                id="title"
-                placeholder="es. Weekend Speciale"
-                value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Stato</Label>
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, isActive: checked as boolean }))}
-                />
-                <Label htmlFor="isActive">Attiva immediatamente</Label>
-              </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Nome
+            </Label>
+            <div className="col-span-3">
+              <Input id="name" {...register("name")} />
+              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrizione</Label>
-            <Textarea
-              id="description"
-              placeholder="Descrivi la promozione..."
-              value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              rows={3}
-            />
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="description" className="text-right">
+              Descrizione
+            </Label>
+            <div className="col-span-3">
+              <Textarea id="description" {...register("description")} />
+              {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
+            </div>
           </div>
-
-          {/* Prezzi e Sconto */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="originalPrice">Prezzo Originale (€/min) *</Label>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="discount_percentage" className="text-right">
+              Sconto (%)
+            </Label>
+            <div className="col-span-3">
               <Input
-                id="originalPrice"
+                id="discount_percentage"
                 type="number"
-                step="0.01"
-                min="0"
-                value={formData.originalPrice}
-                onChange={(e) => setFormData((prev) => ({ ...prev, originalPrice: e.target.value }))}
+                {...register("discount_percentage", { valueAsNumber: true })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="discountPercentage">Sconto (%) *</Label>
-              <div className="relative">
-                <Input
-                  id="discountPercentage"
-                  type="number"
-                  step="1"
-                  min="1"
-                  max="100"
-                  value={formData.discountPercentage}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, discountPercentage: e.target.value }))}
-                  className="pr-8"
-                />
-                <Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Prezzo Finale Calcolato</Label>
-              <div className="flex items-center h-10 px-3 border rounded-md bg-green-50 text-green-800 font-bold">
-                €{specialPrice} / min
-              </div>
+              {errors.discount_percentage && (
+                <p className="text-red-500 text-xs mt-1">{errors.discount_percentage.message}</p>
+              )}
             </div>
           </div>
-
-          {/* Giorni della settimana */}
-          <div className="space-y-3">
-            <Label>Giorni Validi *</Label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {weekDays.map((day) => (
-                <div key={day.key} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={day.key}
-                    checked={formData.validDays.includes(day.key)}
-                    onCheckedChange={() => handleDayToggle(day.key)}
-                  />
-                  <Label htmlFor={day.key} className="text-sm font-medium">
-                    {day.label}
-                  </Label>
-                </div>
-              ))}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="start_date" className="text-right">
+              Inizio
+            </Label>
+            <div className="col-span-3">
+              <Input id="start_date" type="datetime-local" {...register("start_date")} />
+              {errors.start_date && <p className="text-red-500 text-xs mt-1">{errors.start_date.message}</p>}
             </div>
           </div>
-
-          {/* Date e Orari */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Data Inizio *</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData((prev) => ({ ...prev, startDate: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">Data Fine *</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Ora Inizio (opzionale)</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData((prev) => ({ ...prev, startTime: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endTime">Ora Fine (opzionale)</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData((prev) => ({ ...prev, endTime: e.target.value }))}
-              />
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="end_date" className="text-right">
+              Fine
+            </Label>
+            <div className="col-span-3">
+              <Input id="end_date" type="datetime-local" {...register("end_date")} />
+              {errors.end_date && <p className="text-red-500 text-xs mt-1">{errors.end_date.message}</p>}
             </div>
           </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
               Annulla
             </Button>
-            <Button
-              type="submit"
-              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {promotion ? "Aggiorna Promozione" : "Crea Promozione"}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Salvataggio..." : promotion ? "Salva Modifiche" : "Crea Promozione"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
