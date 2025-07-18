@@ -1,17 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
-import { ArrowRight, Sparkles } from "lucide-react"
+import { Search, ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { getHomepageData, getOperatorsForShowcase } from "@/lib/actions/data.actions"
+import { getHomepageData } from "@/lib/actions/data.actions"
 
 export default async function UnveillyHomePage() {
   const { operators, reviews } = await getHomepageData()
-  const featuredOperators = await getOperatorsForShowcase({ limit: 3 })
 
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
@@ -19,7 +17,7 @@ export default async function UnveillyHomePage() {
     .slice(0, 3)
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden relative">
+    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
         @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
@@ -106,49 +104,36 @@ export default async function UnveillyHomePage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative container mx-auto px-4 py-20 md:py-32 text-center z-10">
-          <Image
-            src="/images/moonthir-logo-white.png"
-            alt="Moonthir Logo"
-            width={150}
-            height={150}
-            className="mx-auto mb-6"
-          />
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4">Il Tuo Futuro, Illuminato.</h1>
-          <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-300 mb-8">
-            Connettiti con i migliori esperti di tarocchi, astrologia e medianità. Ricevi la guida che cerchi, quando ne
-            hai più bisogno.
-          </p>
-          <Button
-            asChild
-            size="lg"
-            className="bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-indigo-900 font-bold rounded-full px-8 py-3"
+        <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/images/hero-background.png')" }}
           >
-            <Link href="/esperti">Scopri i Nostri Esperti</Link>
-          </Button>
-        </section>
+            <div className="absolute inset-0 bg-black/40"></div>
+          </div>
 
-        {/* Featured Operators Section */}
-        <section className="relative container mx-auto px-4 py-16 z-10">
-          <h2 className="text-3xl font-bold text-center mb-12">I Nostri Esperti in Primo Piano</h2>
-          {featuredOperators && featuredOperators.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredOperators.map((operator) => (
-                <OperatorCard key={operator.id} operator={operator} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-slate-400">Nessun operatore attivo trovato. Torna a trovarci presto!</p>
-          )}
-          <div className="text-center mt-12">
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 rounded-full px-8 py-3 bg-transparent"
+          <div className="relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 animate-fadeInUp">
+            <h1
+              className="font-playfair font-bold text-white text-6xl md:text-8xl"
+              style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
             >
-              <Link href="/esperti">Vedi Tutti gli Esperti</Link>
-            </Button>
+              Il Viaggio
+            </h1>
+            <h2
+              className="font-playfair text-white text-4xl md:text-5xl"
+              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
+            >
+              Inizia da Qui
+            </h2>
+            <Link href="/esperti/cartomanzia" passHref>
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
+              >
+                <Search className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                Cerca Esperti
+              </Button>
+            </Link>
           </div>
         </section>
 
@@ -396,7 +381,7 @@ export default async function UnveillyHomePage() {
                 <Button
                   asChild
                   size="lg"
-                  className="bg-gradient-to-r from-blue-500 to-yellow-500 hover:from-blue-600 hover:to-yellow-600 text-indigo-900 font-bold rounded-full px-8 py-3"
+                  className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
                 >
                   <Link href="/esperti/cartomanzia">
                     Inizia la Tua Prima Lettura
@@ -407,7 +392,7 @@ export default async function UnveillyHomePage() {
                   asChild
                   variant="outline"
                   size="lg"
-                  className="text-white border-2 border-yellow-400/60 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:border-yellow-400 text-lg px-8 py-3 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
+                  className="text-white border-2 border-yellow-400/60 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:border-yellow-400 text-lg px-8 py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
                 >
                   <Link href="/esperti/cartomanzia">Esplora i Nostri Esperti</Link>
                 </Button>

@@ -6,12 +6,14 @@ import { unstable_noStore as noStore } from "next/cache"
 export async function getDashboardStats() {
   noStore()
   const supabase = createAdminClient()
+
+  // Chiamiamo la nuova funzione RPC che calcola dati reali
   const { data, error } = await supabase.rpc("get_admin_dashboard_stats")
 
   if (error) {
-    console.error("Error fetching dashboard stats:", error)
+    console.error("Error fetching real dashboard stats:", error)
     return {
-      error: "Impossibile recuperare le statistiche.",
+      error: "Impossibile recuperare le statistiche reali.",
       data: {
         totalUsers: 0,
         totalOperators: 0,
@@ -21,15 +23,26 @@ export async function getDashboardStats() {
     }
   }
 
-  // The RPC returns an array with a single object
   const stats = data && data.length > 0 ? data[0] : null
+
+  if (!stats) {
+    return {
+      error: "Nessuna statistica restituita dal database.",
+      data: {
+        totalUsers: 0,
+        totalOperators: 0,
+        totalRevenue: 0,
+        totalConsultations: 0,
+      },
+    }
+  }
 
   return {
     data: {
-      totalUsers: stats?.total_users ?? 0,
-      totalOperators: stats?.total_operators ?? 0,
-      totalRevenue: stats?.total_revenue ?? 0,
-      totalConsultations: stats?.total_consultations ?? 0,
+      totalUsers: stats.total_users ?? 0,
+      totalOperators: stats.total_operators ?? 0,
+      totalRevenue: stats.total_revenue ?? 0,
+      totalConsultations: stats.total_consultations ?? 0,
     },
   }
 }

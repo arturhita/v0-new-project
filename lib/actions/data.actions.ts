@@ -1,68 +1,126 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
-import type { OperatorCardData } from "@/components/operator-card"
+import type { Operator } from "@/components/operator-card"
+import type { Review } from "@/components/review-card"
 
-// Definisco una stringa di selezione riutilizzabile per assicurarmi di prendere sempre tutti i dati necessari per la card.
-const OPERATOR_CARD_DATA_SELECT = `
-  id,
-  stage_name,
-  full_name,
-  avatar_url,
-  bio,
-  is_online,
-  specialties,
-  categories,
-  services,
-  average_rating,
-  reviews_count
-`
+// Funzione di supporto per mappare un profilo Supabase al tipo di dati atteso dal componente OperatorCard
+const mapProfileToOperator = (profile: any): Operator => {
+  const services = (profile.services as any) || {}
+  const chatService = services.chat || {}
+  const callService = services.call || {}
+  const emailService = services.email || {}
+
+  return {
+    id: profile.id,
+    name: profile.stage_name || "Operatore",
+    avatarUrl: profile.avatar_url || "/placeholder.svg",
+    specialization:
+      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
+    rating: profile.average_rating || 0,
+    reviewsCount: profile.reviews_count || 0,
+    description: profile.bio || "Nessuna descrizione disponibile.",
+    tags: profile.categories || [],
+    isOnline: profile.is_online || false,
+    services: {
+      chatPrice: chatService.enabled ? chatService.price_per_minute : undefined,
+      callPrice: callService.enabled ? callService.price_per_minute : undefined,
+      emailPrice: emailService.enabled ? emailService.price : undefined,
+    },
+    profileLink: `/operator/${profile.stage_name}`,
+    joinedDate: profile.created_at,
+  }
+}
 
 /**
- * Funzione universale per recuperare gli operatori da mostrare nelle vetrine (homepage, pagine di categoria).
- * @param options - Opzioni per filtrare per categoria o limitare il numero di risultati.
- * @returns Un array di operatori con tutti i dati necessari per la OperatorCard.
+ * Recupera tutti i dati necessari per la homepage (operatori e recensioni).
  */
-export async function getOperatorsForShowcase({
-  category,
-  limit,
-}: { category?: string; limit?: number } = {}): Promise<OperatorCardData[]> {
-  noStore()
+export async function getHomepageData() {
   const supabase = createClient()
 
-  let query = supabase
+  const { data: operatorsData, error: operatorsError } = await supabase
     .from("profiles")
-    .select(OPERATOR_CARD_DATA_SELECT)
+    .select(`*`)
     .eq("role", "operator")
-    .eq("status", "Attivo") // Mostra solo operatori attivi
-    .order("is_online", { ascending: false }) // Gli operatori online per primi
-    .order("average_rating", { ascending: false, nullsFirst: false }) // Poi per valutazione
+    .eq("status", "Attivo")
+    .order("is_online", { ascending: false })
+    .limit(8)
 
-  if (category) {
-    // Uso il case-insensitive e accent-insensitive per la ricerca delle categorie
-    const { data: catData, error: catError } = await supabase.rpc("get_operators_by_category_unaccent", {
-      category_name: category,
-    })
+  if (operatorsError) {
+    console.error("Error fetching homepage operators:", operatorsError)
+  }
+  const operators = (operatorsData || []).map(mapProfileToOperator)
 
-    if (catError) {
-      console.error("Error fetching operators by category via RPC:", catError)
-      return []
-    }
-    // La RPC restituisce già i dati formattati, quindi li restituisco direttamente
-    return catData as OperatorCardData[]
+  const { data: reviewsData, error: reviewsError } = await supabase
+    .from("reviews")
+    .select(
+      `
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+      operator:profiles!reviews_operator_id_fkey (stage_name)
+    `,
+    )
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(3)
+
+  if (reviewsError) {
+    console.error("Error fetching recent reviews:", reviewsError)
   }
 
-  if (limit) {
-    query = query.limit(limit)
-  }
+  const reviews = (reviewsData || []).map(
+    (review) =>
+      ({
+        id: review.id,
+        user_name: review.client?.full_name || "Utente Anonimo",
+        user_type: "Utente",
+        operator_name: review.operator?.stage_name || "Operatore",
+        rating: review.rating,
+        comment: review.comment,
+        created_at: review.created_at,
+      }) as Review,
+  )
 
-  const { data, error } = await query
+  return { operators, reviews }
+}
+
+/**
+ * Recupera gli operatori attivi per una specifica categoria in modo case-insensitive e accent-insensitive.
+ * @param categorySlug - Lo slug della categoria (es. 'cartomanzia' o 'medianità').
+ */
+export async function getOperatorsByCategory(categorySlug: string) {
+  const supabase = createClient()
+  const slug = decodeURIComponent(categorySlug)
+
+  const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
+    category_slug: slug,
+  })
 
   if (error) {
-    console.error("Error fetching operators for showcase:", error)
+    console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
     return []
   }
 
-  return data as OperatorCardData[]
+  return (data || []).map(mapProfileToOperator)
+}
+
+/**
+ * Recupera tutti gli operatori attivi.
+ */
+export async function getAllOperators() {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`*`)
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+    .order("is_online", { ascending: false })
+
+  if (error) {
+    console.error(`Error fetching all operators:`, error.message)
+    return []
+  }
+
+  return (data || []).map(mapProfileToOperator)
 }

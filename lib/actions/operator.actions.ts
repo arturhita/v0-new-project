@@ -210,34 +210,85 @@ export async function getOperatorPublicProfile(username: string) {
   return combinedData
 }
 
-/**
- * Recupera l'elenco completo degli operatori per il pannello di amministrazione.
- * Utilizza la nuova funzione RPC che risolve i problemi di permessi e colonne mancanti.
- */
-export async function getAllOperators() {
-  noStore() // Impedisce la cache di questa chiamata per avere dati sempre aggiornati
-  const supabase = createClient()
-
-  // Chiamiamo la nuova funzione RPC sicura che abbiamo creato
-  const { data, error } = await supabase.rpc("get_operators_for_admin_list")
+// Recupera tutti gli operatori (indipendentemente dallo stato) per il pannello admin
+export async function getAllOperatorsForAdmin() {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, stage_name, status, commission_rate, created_at, avatar_url")
+    .eq("role", "operator")
+    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching operators for admin via RPC:", error)
+    console.error("Error fetching all operators for admin:", error)
     return []
   }
+  return data
+}
 
-  // La funzione RPC restituisce già i dati nel formato corretto,
-  // ma dobbiamo mapparli per far corrispondere i nomi dei campi con il tipo client-side.
-  return data.map((op) => ({
-    id: op.id,
-    full_name: op.full_name,
-    stage_name: op.stage_name,
-    email: op.email,
-    status: op.status,
-    commission_rate: op.commission_rate,
-    created_at: op.created_at,
-    avatar_url: op.avatar_url,
-  }))
+// Recupera solo gli operatori in attesa di approvazione
+export async function getPendingOperators() {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator").eq("status", "In Attesa")
+
+  if (error) {
+    console.error("Error fetching pending operators:", error)
+    return []
+  }
+  return data
+}
+
+// Azione per approvare un operatore
+export async function approveOperator(userId: string) {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("profiles").update({ status: "Attivo" }).eq("user_id", userId)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin/operator-approvals")
+  revalidatePath("/admin/operators")
+  return { success: true, message: "Operatore approvato con successo." }
+}
+
+// Azione per rifiutare una richiesta
+export async function rejectOperator(userId: string) {
+  const supabase = createAdminClient()
+  // Potremmo voler eliminare il profilo o spostarlo in uno stato "Rifiutato"
+  // Per ora, lo eliminiamo per pulizia.
+  const { error } = await supabase.from("profiles").delete().eq("user_id", userId)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin/operator-approvals")
+  return { success: true, message: "Richiesta operatore rifiutata." }
+}
+
+// Azione per sospendere/riattivare un operatore
+export async function toggleOperatorStatus(userId: string, currentStatus: "Attivo" | "Sospeso") {
+  const supabase = createAdminClient()
+  const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
+  const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("user_id", userId)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin/operators")
+  return { success: true, message: `Stato operatore aggiornato a ${newStatus}.` }
+}
+
+export async function getAllOperators() {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
+  if (error) {
+    console.error("Error fetching operators:", error)
+    return []
+  }
+  return data
 }
 
 export async function getOperatorById(id: string) {

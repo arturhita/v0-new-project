@@ -50,26 +50,32 @@ export async function createInvoice(formData: FormData) {
 
 export async function getInvoices() {
   const supabase = createClient()
+  // FIX: Usiamo la sintassi di join esplicita per evitare l'errore di cache dello schema.
+  // Specifichiamo la tabella di join (profiles) e la colonna (full_name).
   const { data, error } = await supabase
     .from("invoices")
-    .select(`
+    .select(
+      `
       *,
-      profiles:operator_id (
+      profile:operator_id (
         full_name
       )
-    `)
+    `,
+    )
     .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Errore nel recupero delle fatture:", error)
-    return { error: "Impossibile recuperare le fatture." }
+    // Restituiamo un oggetto con una chiave 'error' per una gestione coerente
+    return { invoices: [], error: "Impossibile recuperare le fatture." }
   }
 
-  // The join returns profiles as an object, let's flatten it
+  // La join restituisce 'profile' come un oggetto, lo appiattiamo per comodità.
   const invoices = data.map((invoice) => ({
     ...invoice,
-    operator_name: (invoice.profiles as any)?.full_name || "N/A",
+    operator_name: (invoice.profile as any)?.full_name || "N/A",
+    profile: undefined, // Rimuoviamo l'oggetto nestato per pulizia
   }))
 
-  return { invoices }
+  return { invoices, error: null }
 }

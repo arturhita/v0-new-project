@@ -28,7 +28,6 @@ import {
   LogOut,
   PlusCircle,
   Target,
-  AlertTriangle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -77,39 +76,29 @@ const navItems = [
       { href: "/admin/settings/advanced", label: "Impostazioni Avanzate", icon: Settings },
     ],
   },
-  // **AGGIUNTA SICURA DELLO STRUMENTO DI SOCCORSO**
-  { href: "/admin/data-rescue", label: "Soccorso Dati", icon: AlertTriangle, isRescue: true },
 ]
 
 const NavItem = ({
   item,
   pathname,
 }: {
-  item: any // Usiamo 'any' per gestire la nuova proprietà 'isRescue'
+  item: (typeof navItems)[0] | (typeof navItems)[0]["subItems"][0]
   pathname: string
 }) => {
   const isActive = item.href
     ? pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
     : false
-  const isRescue = item.isRescue === true
 
   return (
     <Link
       href={item.href || "#"}
       className={cn(
-        "flex items-center gap-3.5 rounded-lg px-4 py-3 text-base font-medium transition-colors duration-200 ease-in-out group",
-        isRescue ? "text-red-700 bg-red-50 hover:bg-red-100" : "text-gray-600 hover:bg-blue-100 hover:text-blue-700",
-        isActive && !isRescue && "bg-blue-600 text-white shadow-md scale-[1.02] font-semibold",
-        isActive && isRescue && "bg-red-200 text-red-900 font-semibold",
+        "flex items-center gap-3.5 rounded-lg px-4 py-3 text-base font-medium text-gray-600 transition-colors duration-200 ease-in-out group",
+        "hover:bg-blue-100 hover:text-blue-700",
+        isActive && "bg-blue-600 text-white shadow-md scale-[1.02] font-semibold",
       )}
     >
-      <item.icon
-        className={cn(
-          "h-5 w-5",
-          isActive && !isRescue ? "text-white" : "",
-          isRescue ? "text-red-500" : "text-gray-400 group-hover:text-blue-600",
-        )}
-      />
+      <item.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-gray-400 group-hover:text-blue-600")} />
       {item.label}
     </Link>
   )
