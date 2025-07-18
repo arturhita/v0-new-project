@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -16,30 +16,45 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
+        set(name: string, value: string, options) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({ name, value, ...options })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
         },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options })
+        remove(name: string, options) {
+          request.cookies.set({
+            name,
+            value: "",
+            ...options,
+          })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({ name, value: "", ...options })
+          response.cookies.set({
+            name,
+            value: "",
+            ...options,
+          })
         },
       },
     },
   )
 
-  // Rinfresca la sessione se è scaduta. Questo si applica a tutte le rotte.
-  await supabase.auth.getUser()
+  await supabase.auth.getSession()
 
   return response
 }
@@ -47,12 +62,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
-     * - _next/static (file statici)
-     * - _next/image (file di ottimizzazione delle immagini)
-     * - favicon.ico (file favicon)
-     * - /images/ (le tue immagini)
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|images/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

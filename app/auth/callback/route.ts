@@ -4,14 +4,12 @@ import { NextResponse, type NextRequest } from "next/server"
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
-  // if "next" is in param, use it as the redirect URL
   const next = searchParams.get("next") ?? "/"
 
   if (code) {
     const supabase = createSupabaseServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Redirect to the appropriate dashboard after successful login
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -20,7 +18,7 @@ export async function GET(request: NextRequest) {
         if (profile) {
           switch (profile.role) {
             case "admin":
-              return NextResponse.redirect(`${origin}/admin/dashboard`)
+              return NextResponse.redirect(`${origin}/admin`)
             case "operator":
               return NextResponse.redirect(`${origin}/dashboard/operator`)
             default:
@@ -32,6 +30,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/login?error=Could not authenticate user`)
 }

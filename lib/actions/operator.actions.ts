@@ -127,7 +127,6 @@ export async function createOperator(operatorData: OperatorData) {
 export async function getAllOperators() {
   noStore()
   const supabase = createSupabaseServerClient()
-  // FIX: Rimosso il riferimento alla colonna inesistente 'user_metadata'
   const { data, error } = await supabase
     .from("profiles")
     .select(`*`)
@@ -136,7 +135,6 @@ export async function getAllOperators() {
 
   if (error) {
     console.error("Error fetching operators:", error.message)
-    // Restituisce un array vuoto in caso di errore per non far crashare la pagina
     return []
   }
   return data
@@ -154,35 +152,25 @@ export async function getOperatorById(id: string) {
   return data
 }
 
-/**
- * Recupera il profilo pubblico completo di un operatore per la sua pagina vetrina.
- * @param username - Lo username pubblico (stage_name) dell'operatore.
- * @returns Un oggetto contenente tutti i dati del profilo, o null se non trovato.
- */
 export async function getOperatorPublicProfile(username: string) {
   noStore()
-  const supabase = createSupabaseServerClient() // Usiamo il client standard per la lettura pubblica
-
-  console.log(`[DB-FETCH] Inizio ricerca profilo REALE per stage_name: "${username}"`)
+  const supabase = createSupabaseServerClient()
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .ilike("stage_name", username)
     .eq("role", "operator")
-    .eq("status", "Attivo") // Mostra solo operatori attivi
+    .eq("status", "Attivo")
     .single()
 
   if (profileError || !profile) {
     console.error(
-      `[DB-FETCH] Profilo REALE non trovato per "${username}" (o non è 'Attivo'). Errore: ${profileError?.message}`,
+      `[DB-FETCH] Profilo non trovato per "${username}" (o non è 'Attivo'). Errore: ${profileError?.message}`,
     )
     return null
   }
 
-  console.log(`[DB-FETCH] Profilo REALE trovato per "${username}". ID: ${profile.id}`)
-
-  // Combina i dati per la pagina
   const services = profile.services as any
   const combinedData = {
     id: profile.id,
