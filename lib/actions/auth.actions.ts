@@ -48,10 +48,9 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
   }
 
-  // Reindirizzamento gestito interamente dal server
   switch (profile.role) {
     case "admin":
-      redirect("/admin/dashboard")
+      redirect("/admin")
     case "operator":
       redirect("/dashboard/operator")
     case "client":

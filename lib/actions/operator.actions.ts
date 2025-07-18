@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 
-// Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number | null => {
   if (value === null || value === undefined || String(value).trim() === "") return null
   const num = Number.parseFloat(String(value))
@@ -42,11 +41,10 @@ export async function createOperator(operatorData: OperatorData) {
   let userId: string | undefined = undefined
 
   try {
-    // 1. Creazione dell'utente in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: operatorData.email,
       password: password,
-      email_confirm: true, // L'email è già confermata, l'operatore può accedere subito
+      email_confirm: true,
       user_metadata: {
         full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
         stage_name: operatorData.stageName,
@@ -62,9 +60,7 @@ export async function createOperator(operatorData: OperatorData) {
       return { success: false, message: `Errore Supabase Auth: ${authError?.message}` }
     }
     userId = authData.user.id
-    console.log(`Utente Auth creato con ID: ${userId}`)
 
-    // 2. Aggiornamento del profilo creato dal trigger
     const profileToUpdate = {
       full_name: `${operatorData.name} ${operatorData.surname}`.trim(),
       stage_name: operatorData.stageName,
@@ -99,7 +95,6 @@ export async function createOperator(operatorData: OperatorData) {
     if (profileError) {
       throw new Error(`Errore aggiornamento profilo: ${profileError.message}`)
     }
-    console.log(`Profilo per l'utente ${userId} aggiornato con successo.`)
 
     revalidatePath("/admin/operators")
     revalidatePath(`/operator/${operatorData.stageName}`)
@@ -109,11 +104,8 @@ export async function createOperator(operatorData: OperatorData) {
       temporaryPassword: password,
     }
   } catch (error: any) {
-    console.error("Errore nel processo di creazione operatore:", error)
-    // Se qualcosa va storto dopo la creazione dell'utente, lo eliminiamo per evitare dati orfani
     if (userId) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      console.log(`Utente Auth ${userId} eliminato a causa di un errore successivo.`)
     }
     return {
       success: false,
@@ -121,8 +113,6 @@ export async function createOperator(operatorData: OperatorData) {
     }
   }
 }
-
-// --- FUNZIONI DI LETTURA ---
 
 export async function getAllOperators() {
   noStore()
@@ -165,14 +155,11 @@ export async function getOperatorPublicProfile(username: string) {
     .single()
 
   if (profileError || !profile) {
-    console.error(
-      `[DB-FETCH] Profilo non trovato per "${username}" (o non è 'Attivo'). Errore: ${profileError?.message}`,
-    )
     return null
   }
 
   const services = profile.services as any
-  const combinedData = {
+  return {
     id: profile.id,
     full_name: profile.full_name,
     stage_name: profile.stage_name,
@@ -185,26 +172,13 @@ export async function getOperatorPublicProfile(username: string) {
     is_online: profile.is_online,
     availability: profile.availability,
     services: [
-      services?.chat?.enabled && {
-        service_type: "chat",
-        price: services.chat.price_per_minute,
-      },
-      services?.call?.enabled && {
-        service_type: "call",
-        price: services.call.price_per_minute,
-      },
-      services?.email?.enabled && {
-        service_type: "written",
-        price: services.email.price,
-      },
+      services?.chat?.enabled && { type: "chat", price: services.chat.price_per_minute },
+      services?.call?.enabled && { type: "call", price: services.call.price_per_minute },
+      services?.email?.enabled && { type: "written", price: services.email.price },
     ].filter(Boolean),
-    reviews: [], // TODO: Caricare le recensioni reali
+    reviews: [],
   }
-
-  return combinedData
 }
-
-// --- FUNZIONI DI SCRITTURA ---
 
 export async function updateOperatorProfile(operatorId: string, formData: FormData) {
   const supabase = createSupabaseServerClient()
@@ -252,7 +226,6 @@ export async function updateOperatorAvailability(userId: string, availability: a
   const { data, error } = await supabase.from("profiles").update({ availability }).eq("id", userId).select().single()
 
   if (error) {
-    console.error("Error updating availability:", error)
     return { error: "Impossibile aggiornare la disponibilità." }
   }
 
