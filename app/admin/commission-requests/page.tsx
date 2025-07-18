@@ -23,7 +23,7 @@ export default async function CommissionRequestsPage() {
         </CardHeader>
         <CardContent>
           {!requests || requests.length === 0 ? (
-            <p>Nessuna richiesta trovata.</p>
+            <p className="text-center text-muted-foreground py-8">Nessuna richiesta trovata.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -53,7 +53,7 @@ export default async function CommissionRequestsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <CommissionRequestActions requestId={req.id} currentStatus={req.status} />
+                      <CommissionRequestActions requestId={req.id} currentStatus={req.status as any} />
                     </TableCell>
                   </TableRow>
                 ))}

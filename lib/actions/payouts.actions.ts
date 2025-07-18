@@ -7,8 +7,8 @@ import { unstable_noStore as noStore } from "next/cache"
 export async function getPayoutRequests() {
   noStore()
   const supabase = createAdminClient()
-  // Using an explicit inner join (!inner) to be more robust against schema cache issues.
-  // This will prevent the "Could not find a relationship" error.
+  // The relationship is now fixed via the foreign key on operator_id.
+  // The query can now reliably join profiles.
   const { data, error } = await supabase
     .from("payout_requests")
     .select(
@@ -16,10 +16,8 @@ export async function getPayoutRequests() {
       id,
       amount,
       status,
-      payment_details,
       created_at,
-      processed_at,
-      operator: profiles!inner (
+      operator:profiles (
         id,
         full_name,
         email
@@ -29,22 +27,28 @@ export async function getPayoutRequests() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching payout requests:", error)
-    return { error: `Errore nel caricamento delle richieste di pagamento: ${error.message}.` }
+    console.error("Error fetching payout requests:", error.message)
+    // Provide a more user-friendly error message
+    return {
+      error:
+        "Errore nel caricamento delle richieste di pagamento. La relazione con i profili potrebbe essere mancante.",
+    }
   }
+
   return { data }
 }
 
-export async function updatePayoutStatus(payoutId: string, newStatus: "processing" | "paid" | "rejected" | "on_hold") {
+export async function processPayout(requestId: string, newStatus: "completed" | "rejected") {
   const supabase = createAdminClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("payout_requests")
     .update({ status: newStatus, processed_at: new Date().toISOString() })
-    .eq("id", payoutId)
+    .eq("id", requestId)
+    .select()
 
   if (error) {
-    console.error("Error updating payout status:", error)
-    return { error: "Impossibile aggiornare lo stato del pagamento." }
+    console.error("Error processing payout:", error)
+    return { error: "Impossibile elaborare la richiesta di pagamento." }
   }
 
   revalidatePath("/admin/payouts")
