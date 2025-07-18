@@ -1,5 +1,6 @@
 "use server"
 
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -124,6 +125,45 @@ export async function moderateReview(reviewId: string, approved: boolean) {
 
   revalidatePath("/admin/reviews")
   return { success: true }
+}
+
+/**
+ * Recupera le recensioni per la moderazione.
+ * Usato nella dashboard dell'amministratore.
+ */
+export async function getReviewsForModeration() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(`
+      *,
+      author:profiles!reviews_user_id_fkey(full_name),
+      operator:profiles!reviews_operator_id_fkey(full_name)
+    `)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching reviews for moderation:", error)
+    return []
+  }
+  return data
+}
+
+/**
+ * Aggiorna lo stato di una recensione.
+ * Chiamato dai bottoni nella pagina di moderazione dell'admin.
+ */
+export async function updateReviewStatus(reviewId: string, status: "approved" | "rejected") {
+  const supabase = createClient()
+  const { error } = await supabase.from("reviews").update({ status }).eq("id", reviewId)
+
+  if (error) {
+    console.error("Error updating review status:", error)
+    return { error: "Impossibile aggiornare lo stato della recensione." }
+  }
+
+  revalidatePath("/admin/reviews")
+  return { success: "Stato della recensione aggiornato." }
 }
 
 // --- Altre funzioni di supporto (già presenti, ora connesse a Supabase) ---
