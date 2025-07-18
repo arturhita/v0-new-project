@@ -1,24 +1,23 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 
 export async function getAdminDashboardStats() {
   noStore()
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase.rpc("get_admin_dashboard_stats")
 
   if (error) {
     console.error("Error fetching admin dashboard stats:", error)
     return {
-      total_users: 0,
-      total_operators: 0,
-      pending_operators: 0,
-      total_revenue: 0,
-      monthly_revenue: 0,
-      error: "Impossibile caricare le statistiche.",
+      error: "Impossibile recuperare le statistiche.",
+      stats: null,
     }
   }
 
-  return data[0]
+  return {
+    error: null,
+    stats: data && data.length > 0 ? data[0] : null,
+  }
 }

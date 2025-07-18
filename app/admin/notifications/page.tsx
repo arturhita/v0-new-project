@@ -1,41 +1,43 @@
 import { getBroadcastNotifications } from "@/lib/actions/notifications.actions"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SendNotificationForm } from "./send-notification-form"
-import { format } from "date-fns"
+import { unstable_noStore as noStore } from "next/cache"
 
 export default async function NotificationsPage() {
+  noStore()
   const notifications = await getBroadcastNotifications()
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString("it-IT")
+  }
+
   return (
-    <div className="container mx-auto p-4 grid gap-8 md:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-3">
       <div className="md:col-span-1">
-        <h2 className="text-2xl font-bold mb-4">Invia Notifica</h2>
-        <Card>
-          <CardContent className="pt-6">
-            <SendNotificationForm />
-          </CardContent>
-        </Card>
+        <SendNotificationForm />
       </div>
       <div className="md:col-span-2">
-        <h2 className="text-2xl font-bold mb-4">Notifiche Inviate</h2>
         <Card>
+          <CardHeader>
+            <CardTitle>Notifiche Inviate</CardTitle>
+          </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Titolo</TableHead>
                   <TableHead>Destinatari</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead>Data Invio</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {notifications.length > 0 ? (
-                  notifications.map((notification) => (
-                    <TableRow key={notification.id}>
-                      <TableCell className="font-medium">{notification.title}</TableCell>
-                      <TableCell>{notification.target_role}</TableCell>
-                      <TableCell>{format(new Date(notification.created_at), "dd/MM/yyyy HH:mm")}</TableCell>
+                  notifications.map((n) => (
+                    <TableRow key={n.id}>
+                      <TableCell>{n.title}</TableCell>
+                      <TableCell>{n.target_role}</TableCell>
+                      <TableCell>{formatDate(n.created_at)}</TableCell>
                     </TableRow>
                   ))
                 ) : (

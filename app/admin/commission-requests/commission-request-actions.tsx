@@ -11,10 +11,10 @@ export function CommissionRequestActions({ requestId }: { requestId: string }) {
   const handleApprove = () => {
     startTransition(async () => {
       const result = await updateCommissionRequestStatus(requestId, "approved")
-      if (result.error) {
-        toast.error(result.error)
+      if (result.success) {
+        toast.success(result.message)
       } else {
-        toast.success("Richiesta approvata.")
+        toast.error(result.message)
       }
     })
   }
@@ -22,20 +22,20 @@ export function CommissionRequestActions({ requestId }: { requestId: string }) {
   const handleReject = () => {
     startTransition(async () => {
       const result = await updateCommissionRequestStatus(requestId, "rejected")
-      if (result.error) {
-        toast.error(result.error)
+      if (result.success) {
+        toast.success(result.message)
       } else {
-        toast.warning("Richiesta rifiutata.")
+        toast.error(result.message)
       }
     })
   }
 
   return (
-    <div className="flex gap-2 justify-end">
-      <Button size="sm" onClick={handleApprove} disabled={isPending}>
+    <div className="flex gap-2">
+      <Button size="sm" onClick={handleApprove} disabled={isPending} variant="default">
         {isPending ? "..." : "Approva"}
       </Button>
-      <Button size="sm" variant="destructive" onClick={handleReject} disabled={isPending}>
+      <Button size="sm" onClick={handleReject} disabled={isPending} variant="destructive">
         {isPending ? "..." : "Rifiuta"}
       </Button>
     </div>

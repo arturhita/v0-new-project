@@ -1,11 +1,10 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import type { Promotion } from "@/lib/schemas"
 
 export async function getPromotions() {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
 
   if (error) {
@@ -15,41 +14,45 @@ export async function getPromotions() {
   return data
 }
 
-export async function createPromotion(promotionData: Omit<Promotion, "id" | "created_at">) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("promotions").insert([promotionData])
+export async function createOrUpdatePromotion(formData: FormData) {
+  const supabase = createClient()
+  const id = formData.get("id") as string | null
 
-  if (error) {
-    console.error("Error creating promotion:", error)
-    return { error: "Impossibile creare la promozione." }
+  const promotionData = {
+    title: formData.get("title") as string,
+    description: formData.get("description") as string,
+    discount_percentage: formData.get("discount_percentage") ? Number(formData.get("discount_percentage")) : null,
+    special_price: formData.get("special_price") ? Number(formData.get("special_price")) : null,
+    start_date: formData.get("start_date") as string,
+    end_date: formData.get("end_date") as string,
+    is_active: formData.get("is_active") === "on",
+  }
+
+  let response
+  if (id) {
+    response = await supabase.from("promotions").update(promotionData).eq("id", id)
+  } else {
+    response = await supabase.from("promotions").insert(promotionData)
+  }
+
+  if (response.error) {
+    console.error("Error saving promotion:", response.error)
+    return { success: false, message: "Errore durante il salvataggio della promozione." }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: true }
-}
-
-export async function updatePromotion(id: string, promotionData: Partial<Promotion>) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("promotions").update(promotionData).eq("id", id)
-
-  if (error) {
-    console.error("Error updating promotion:", error)
-    return { error: "Impossibile aggiornare la promozione." }
-  }
-
-  revalidatePath("/admin/promotions")
-  return { success: true }
+  return { success: true, message: "Promozione salvata con successo." }
 }
 
 export async function deletePromotion(id: string) {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { error } = await supabase.from("promotions").delete().eq("id", id)
 
   if (error) {
     console.error("Error deleting promotion:", error)
-    return { error: "Impossibile eliminare la promozione." }
+    return { success: false, message: "Errore durante l'eliminazione della promozione." }
   }
 
   revalidatePath("/admin/promotions")
-  return { success: true }
+  return { success: true, message: "Promozione eliminata con successo." }
 }

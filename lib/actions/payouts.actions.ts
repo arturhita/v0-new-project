@@ -1,24 +1,19 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getPayoutRequests() {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("payout_requests")
-    .select(
-      `
-      id,
-      operator_id,
-      amount,
-      status,
-      created_at,
+    .select(`
+      *,
       profiles (
-        username
+        full_name,
+        email
       )
-    `,
-    )
+    `)
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -28,18 +23,20 @@ export async function getPayoutRequests() {
   return data
 }
 
-export async function updatePayoutStatus(id: string, status: "completed" | "rejected") {
-  const supabase = createAdminClient()
-  const { error } = await supabase
+export async function updatePayoutRequestStatus(id: string, status: "completed" | "rejected") {
+  const supabase = createClient()
+  const { data, error } = await supabase
     .from("payout_requests")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status, processed_at: new Date().toISOString() })
     .eq("id", id)
+    .select()
+    .single()
 
   if (error) {
-    console.error("Error updating payout status:", error)
-    return { error: "Impossibile aggiornare lo stato del pagamento." }
+    console.error("Error updating payout request status:", error)
+    return { success: false, message: "Errore durante l'aggiornamento della richiesta." }
   }
 
   revalidatePath("/admin/payouts")
-  return { success: true }
+  return { success: true, message: `Richiesta ${status === "completed" ? "approvata" : "rifiutata"} con successo.` }
 }

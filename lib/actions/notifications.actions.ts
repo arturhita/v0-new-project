@@ -1,10 +1,10 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getBroadcastNotifications() {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("broadcast_notifications")
     .select("*")
@@ -18,22 +18,20 @@ export async function getBroadcastNotifications() {
 }
 
 export async function sendBroadcastNotification(formData: FormData) {
-  const supabase = createAdminClient()
-  const title = formData.get("title") as string
-  const message = formData.get("message") as string
-  const target_role = formData.get("target_role") as "all" | "client" | "operator"
-
-  if (!title || !message) {
-    return { error: "Titolo e messaggio sono obbligatori." }
+  const supabase = createClient()
+  const notificationData = {
+    title: formData.get("title") as string,
+    message: formData.get("message") as string,
+    target_role: formData.get("target_role") as "all" | "client" | "operator",
   }
 
-  const { error } = await supabase.from("broadcast_notifications").insert([{ title, message, target_role }])
+  const { error } = await supabase.from("broadcast_notifications").insert(notificationData)
 
   if (error) {
     console.error("Error sending broadcast notification:", error)
-    return { error: "Impossibile inviare la notifica." }
+    return { success: false, message: "Errore durante l'invio della notifica." }
   }
 
   revalidatePath("/admin/notifications")
-  return { success: "Notifica inviata con successo." }
+  return { success: true, message: "Notifica inviata con successo." }
 }
