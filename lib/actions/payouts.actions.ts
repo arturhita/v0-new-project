@@ -7,8 +7,6 @@ import { unstable_noStore as noStore } from "next/cache"
 export async function getPayoutRequests() {
   noStore()
   const supabase = createAdminClient()
-  // The relationship is now fixed via the foreign key on operator_id.
-  // The query can now reliably join profiles.
   const { data, error } = await supabase
     .from("payout_requests")
     .select(
@@ -28,27 +26,24 @@ export async function getPayoutRequests() {
 
   if (error) {
     console.error("Error fetching payout requests:", error.message)
-    // Provide a more user-friendly error message
     return {
-      error:
-        "Errore nel caricamento delle richieste di pagamento. La relazione con i profili potrebbe essere mancante.",
+      error: `Errore nel caricamento delle richieste di pagamento: ${error.message}`,
     }
   }
 
   return { data }
 }
 
-export async function processPayout(requestId: string, newStatus: "completed" | "rejected") {
+export async function updatePayoutStatus(payoutId: string, newStatus: "processing" | "paid" | "rejected" | "on_hold") {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("payout_requests")
     .update({ status: newStatus, processed_at: new Date().toISOString() })
-    .eq("id", requestId)
-    .select()
+    .eq("id", payoutId)
 
   if (error) {
-    console.error("Error processing payout:", error)
-    return { error: "Impossibile elaborare la richiesta di pagamento." }
+    console.error("Error updating payout status:", error)
+    return { error: "Impossibile aggiornare lo stato del pagamento." }
   }
 
   revalidatePath("/admin/payouts")

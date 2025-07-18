@@ -2,67 +2,73 @@
 
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useToast } from "@/components/ui/use-toast"
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { updateCommissionRequestStatus } from "@/lib/actions/commission.actions"
-import { MoreHorizontal } from "lucide-react"
 import { useTransition } from "react"
+import { toast } from "sonner"
 
-type RequestStatus = "pending" | "approved" | "rejected"
-
-interface CommissionRequestActionsProps {
-  requestId: string
-  currentStatus: RequestStatus
+type CommissionRequest = {
+  id: string
+  justification: string | null
+  status: string
 }
 
-export default function CommissionRequestActions({ requestId, currentStatus }: CommissionRequestActionsProps) {
-  const { toast } = useToast()
+export function CommissionRequestActions({ request }: { request: CommissionRequest }) {
   const [isPending, startTransition] = useTransition()
 
-  const handleUpdate = (newStatus: RequestStatus) => {
-    if (newStatus === currentStatus || currentStatus !== "pending") return
-
+  const handleAction = (status: "approved" | "rejected") => {
     startTransition(async () => {
-      const result = await updateCommissionRequestStatus(requestId, newStatus)
-      if (result.error) {
-        toast({
-          title: "Errore",
-          description: result.error,
-          variant: "destructive",
-        })
+      const result = await updateCommissionRequestStatus(request.id, status)
+      if (result.success) {
+        toast.success(result.success)
       } else {
-        toast({
-          title: "Successo",
-          description: result.success,
-        })
+        toast.error(result.error)
       }
     })
   }
 
+  if (request.status !== "pending") {
+    return <span className="text-sm text-muted-foreground">Elaborata</span>
+  }
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0" disabled={isPending || currentStatus !== "pending"}>
-          <span className="sr-only">Apri menu</span>
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Azioni</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleUpdate("approved")} disabled={isPending}>
-          Approva
-        </DropdownMenuItem>
-        <DropdownMenuItem className="text-red-600" onClick={() => handleUpdate("rejected")} disabled={isPending}>
-          Rifiuta
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex gap-2">
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button size="sm" variant="outline">
+            Dettagli
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dettagli Richiesta</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mt-4">
+                <strong>Motivazione:</strong>
+              </p>
+              <p>{request.justification || "Nessuna motivazione fornita."}</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Chiudi</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Button size="sm" variant="success" onClick={() => handleAction("approved")} disabled={isPending}>
+        {isPending ? "Approvo..." : "Approva"}
+      </Button>
+      <Button size="sm" variant="destructive" onClick={() => handleAction("rejected")} disabled={isPending}>
+        {isPending ? "Rifiuto..." : "Rifiuta"}
+      </Button>
+    </div>
   )
 }
