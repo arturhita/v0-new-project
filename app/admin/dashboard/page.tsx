@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Users, Briefcase, DollarSign, Activity } from 'lucide-react'
+import { Users, Briefcase, DollarSign, Activity } from "lucide-react"
 import { getAdminDashboardStats } from "@/lib/actions/analytics.actions"
 import PromotionsSection from "./promotions-section"
 
@@ -38,7 +38,13 @@ export default async function AdminDashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€ {Number(stats.totalRevenue).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-2xl font-bold">
+              €{" "}
+              {Number(stats.totalRevenue).toLocaleString("it-IT", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
             <p className="text-xs text-muted-foreground">Dall'inizio</p>
           </CardContent>
         </Card>

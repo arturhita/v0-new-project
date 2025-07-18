@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -9,9 +9,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { MoreHorizontal, CheckCircle, Clock, XCircle, Loader2 } from "lucide-react"
 import { updatePayoutStatus } from "@/lib/actions/payouts.actions"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 type PayoutStatus = "pending" | "processing" | "paid" | "rejected" | "on_hold"
 
@@ -21,33 +21,25 @@ interface PayoutRequest {
 }
 
 export default function PayoutActions({ request }: { request: PayoutRequest }) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
 
-  const onAction = async (newStatus: PayoutStatus) => {
-    setIsSubmitting(true)
-    const result = await updatePayoutStatus(request.id, newStatus)
-    setIsSubmitting(false)
-
-    if (result.success) {
+  const onAction = (newStatus: PayoutStatus) => {
+    startTransition(async () => {
+      const result = await updatePayoutStatus(request.id, newStatus)
       toast({
-        title: "Successo",
+        title: result.success ? "Successo" : "Stato aggiornato",
         description: result.message,
+        variant: result.success ? "default" : "destructive",
       })
-    } else {
-      toast({
-        title: "Errore",
-        description: result.message,
-        variant: "destructive",
-      })
-    }
+    })
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" disabled={isSubmitting}>
-          <MoreHorizontal className="h-4 w-4" />
+        <Button variant="ghost" size="icon" disabled={isPending}>
+          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
           <span className="sr-only">Azioni Pagamento</span>
         </Button>
       </DropdownMenuTrigger>

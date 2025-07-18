@@ -1,7 +1,7 @@
 import { getCommissionRequests } from "@/lib/actions/commission.actions"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText } from 'lucide-react'
+import { FileText } from "lucide-react"
 import CommissionRequestActions from "./commission-request-actions"
 import { Badge } from "@/components/ui/badge"
 
