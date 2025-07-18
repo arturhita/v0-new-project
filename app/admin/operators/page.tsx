@@ -1,21 +1,15 @@
-"use client"
-import { getAllOperators } from "@/lib/actions/operator.actions"
+import { getOperatorsForAdmin } from "@/lib/actions/operator.actions"
 import OperatorsClientPage from "./operators-client-page"
 
-// Definiamo un tipo più completo per l'operatore, basato sullo schema del DB
-type OperatorProfile = {
-  id: string
-  name: string | null
-  surname: string | null
-  stage_name: string | null
-  email: string | null
-  status: "Attivo" | "In Attesa" | "Sospeso" | null
-  commission_rate: number | null
-  created_at: string
-  avatar_url: string | null
-}
+export default async function AdminOperatorsPage() {
+  const operators = await getOperatorsForAdmin()
 
-export default async function OperatorsPage() {
-  const operators = await getAllOperators()
-  return <OperatorsClientPage initialOperators={operators} />
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight text-white">Gestione Operatori</h2>
+      </div>
+      <OperatorsClientPage initialOperators={operators} />
+    </div>
+  )
 }

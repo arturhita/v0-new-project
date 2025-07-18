@@ -1,165 +1,145 @@
 "use client"
 
-import { useTransition } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { updateOperator } from "@/lib/actions/operator.actions"
+import { updateOperatorByAdmin } from "@/lib/actions/operator.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { toast } from "sonner"
-import type { Tables } from "@/types_db"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { useTransition } from "react"
 
-const formSchema = z.object({
-  full_name: z.string().min(2, "Il nome è obbligatorio"),
-  stage_name: z.string().min(2, "Il nome d'arte è obbligatorio"),
-  phone: z.string().optional(),
-  bio: z.string().optional(),
-  status: z.enum(["Attivo", "Sospeso", "In Attesa"]),
-  commission_rate: z.coerce.number().min(0).max(100),
-})
+type Operator = {
+  id: string
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  status: string | null
+  commission_rate: number | null
+  specialties: string[] | null
+  bio: string | null
+}
 
-export function EditOperatorForm({ operator }: { operator: Tables<"profiles"> }) {
-  const [isPending, startTransition] = useTransition()
+export default function EditOperatorForm({ operator }: { operator: Operator }) {
+  const { toast } = useToast()
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      full_name: operator.full_name || "",
-      stage_name: operator.stage_name || "",
-      phone: operator.phone || "",
-      bio: operator.bio || "",
-      status: (operator.status as "Attivo" | "Sospeso" | "In Attesa") || "In Attesa",
-      commission_rate: operator.commission_rate || 0,
-    },
-  })
-
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
-      const formData = new FormData()
-      Object.entries(values).forEach(([key, value]) => {
-        formData.append(key, String(value))
-      })
-
-      const result = await updateOperator(operator.id, formData)
+      const result = await updateOperatorByAdmin(operator.id, formData)
       if (result.success) {
-        toast.success(result.message)
-        router.push("/admin/operators")
+        toast({
+          title: "Successo",
+          description: result.message,
+          className: "bg-green-500 text-white",
+        })
+        router.refresh()
       } else {
-        toast.error(result.message)
+        toast({
+          title: "Errore",
+          description: result.message,
+          variant: "destructive",
+        })
       }
     })
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Dati Operatore</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="full_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome Completo</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="stage_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome d'Arte</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Telefono</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="bio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Bio</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={5} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stato</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Attivo">Attivo</SelectItem>
-                      <SelectItem value="Sospeso">Sospeso</SelectItem>
-                      <SelectItem value="In Attesa">In Attesa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="commission_rate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Commissione (%)</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Salvataggio..." : "Salva Modifiche"}
-          </Button>
+    <form action={handleSubmit} className="space-y-6 bg-gray-800 p-6 rounded-lg border border-gray-700">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="full_name" className="text-white">
+            Nome Completo
+          </Label>
+          <Input
+            id="full_name"
+            name="full_name"
+            defaultValue={operator.full_name ?? ""}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
         </div>
-      </form>
-    </Form>
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-white">
+            Email
+          </Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            defaultValue={operator.email ?? ""}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone" className="text-white">
+            Telefono
+          </Label>
+          <Input
+            id="phone"
+            name="phone"
+            defaultValue={operator.phone ?? ""}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="status" className="text-white">
+            Stato
+          </Label>
+          <Select name="status" defaultValue={operator.status ?? "pending"}>
+            <SelectTrigger className="bg-gray-900 border-gray-600 text-white">
+              <SelectValue placeholder="Seleziona stato" />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-800 border-gray-700 text-white">
+              <SelectItem value="active">Attivo</SelectItem>
+              <SelectItem value="pending">In attesa</SelectItem>
+              <SelectItem value="suspended">Sospeso</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="commission_rate" className="text-white">
+            Tasso di Commissione (%)
+          </Label>
+          <Input
+            id="commission_rate"
+            name="commission_rate"
+            type="number"
+            step="0.1"
+            defaultValue={operator.commission_rate ?? 0}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="specialties" className="text-white">
+            Specialità (separate da virgola)
+          </Label>
+          <Input
+            id="specialties"
+            name="specialties"
+            defaultValue={operator.specialties?.join(", ") ?? ""}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="bio" className="text-white">
+          Biografia
+        </Label>
+        <Textarea
+          id="bio"
+          name="bio"
+          defaultValue={operator.bio ?? ""}
+          className="bg-gray-900 border-gray-600 text-white"
+          rows={5}
+        />
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+          {isPending ? "Salvataggio..." : "Salva Modifiche"}
+        </Button>
+      </div>
+    </form>
   )
 }

@@ -1,38 +1,26 @@
 "use server"
 
-import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
-import { unstable_noStore as noStore } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
 
-export async function getAllUsers() {
-  noStore()
-  const supabase = createSupabaseServerClient()
+export async function getUsersForAdmin() {
+  const supabase = createClient()
+  // We query our public profiles table instead of auth.users
   const { data, error } = await supabase
     .from("profiles")
-    .select(`*, invoices:invoices!user_id(amount)`)
+    .select(
+      `
+      id,
+      full_name,
+      email,
+      created_at
+    `,
+    )
     .eq("role", "client")
-    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching users:", error.message)
+    console.error("Error fetching users for admin:", error)
     return []
   }
 
-  // Calcola la spesa totale
-  return data.map((user) => ({
-    ...user,
-    spent: user.invoices.reduce((acc, inv) => acc + (inv.amount || 0), 0),
-  }))
-}
-
-export async function updateUserStatus(userId: string, status: "Attivo" | "Sospeso") {
-  const supabase = createSupabaseServerClient()
-  const { error } = await supabase.from("profiles").update({ status }).eq("id", userId)
-
-  if (error) {
-    return { success: false, message: error.message }
-  }
-
-  revalidatePath("/admin/users")
-  return { success: true, message: `Stato utente aggiornato a ${status}.` }
+  return data
 }

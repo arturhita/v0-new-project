@@ -1,64 +1,54 @@
+import { getAdminDashboardAnalytics } from "@/lib/actions/analytics.actions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Briefcase, BarChart, CircleDollarSign } from "lucide-react"
-import { getDashboardStats } from "@/lib/actions/analytics.actions"
-
-export const revalidate = 60 // Revalida le statistiche ogni minuto
+import { Users, UserCheck, DollarSign, Bell } from "lucide-react"
 
 export default async function AdminDashboardPage() {
-  const { data: stats, error } = await getDashboardStats()
+  const analytics = await getAdminDashboardAnalytics()
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">Cruscotto Amministratore</h1>
-      {error && <div className="text-red-500 p-4 bg-red-100 rounded-md">{error}</div>}
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight text-white">Cruscotto</h2>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Utenti Totali</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_users || 0}</div>
-            <p className="text-xs text-muted-foreground">Utenti registrati sulla piattaforma</p>
+            <div className="text-2xl font-bold">{analytics.totalUsers}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Operatori Attivi</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Operatori Totali</CardTitle>
+            <UserCheck className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_operators || 0}</div>
-            <p className="text-xs text-muted-foreground">Operatori approvati e attivi</p>
+            <div className="text-2xl font-bold">{analytics.totalOperators}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Fatturato Totale</CardTitle>
-            <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              €
-              {Number(stats?.total_revenue || 0).toLocaleString("it-IT", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground">Basato sugli acquisti di crediti</p>
+            <div className="text-2xl font-bold">€{analytics.totalRevenue.toFixed(2)}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Consulenze Effettuate</CardTitle>
-            <BarChart className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Approvazioni in Attesa</CardTitle>
+            <Bell className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_consultations || 0}</div>
-            <p className="text-xs text-muted-foreground">Numero totale di consulenze completate</p>
+            <div className="text-2xl font-bold">+{analytics.pendingApprovals}</div>
           </CardContent>
         </Card>
       </div>
+      {/* Qui si possono aggiungere altre sezioni come transazioni recenti, promozioni, etc. */}
     </div>
   )
 }

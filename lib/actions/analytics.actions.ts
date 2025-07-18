@@ -1,20 +1,56 @@
 "use server"
 
-import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
 
-export async function getDashboardStats() {
-  noStore()
-  const supabase = createSupabaseServerClient()
-  const { data, error } = await supabase.rpc("get_admin_dashboard_stats")
+export async function getAdminDashboardAnalytics() {
+  const supabase = createClient()
 
-  if (error) {
-    console.error("Error fetching dashboard stats:", error)
+  try {
+    const { count: totalUsers, error: usersError } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "client")
+
+    const { count: totalOperators, error: operatorsError } = await supabase
+      .from("operators")
+      .select("*", { count: "exact", head: true })
+
+    const { data: totalRevenueData, error: revenueError } = await supabase.rpc("get_total_revenue")
+
+    const { count: pendingApprovals, error: approvalsError } = await supabase
+      .from("operator_applications")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+
+    if (usersError || operatorsError || revenueError || approvalsError) {
+      console.error("Error fetching analytics:", {
+        usersError,
+        operatorsError,
+        revenueError,
+        approvalsError,
+      })
+      // Return zeroed data on error to avoid breaking the UI
+      return {
+        totalUsers: 0,
+        totalOperators: 0,
+        totalRevenue: 0,
+        pendingApprovals: 0,
+      }
+    }
+
     return {
-      error: "Impossibile caricare le statistiche della dashboard.",
-      data: { total_users: 0, total_operators: 0, total_revenue: 0, total_consultations: 0 },
+      totalUsers: totalUsers ?? 0,
+      totalOperators: totalOperators ?? 0,
+      totalRevenue: totalRevenueData ?? 0,
+      pendingApprovals: pendingApprovals ?? 0,
+    }
+  } catch (error) {
+    console.error("Catastrophic error in getAdminDashboardAnalytics:", error)
+    return {
+      totalUsers: 0,
+      totalOperators: 0,
+      totalRevenue: 0,
+      pendingApprovals: 0,
     }
   }
-
-  return { data: data[0], error: null }
 }
