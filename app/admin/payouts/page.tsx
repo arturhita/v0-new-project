@@ -56,7 +56,9 @@ export default async function ManagePayoutsPage() {
         </CardHeader>
         <CardContent>
           {!payoutRequests || payoutRequests.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">Nessuna richiesta di pagamento al momento.</p>
+            <div className="text-center py-10">
+              <p className="text-slate-500">Nessuna richiesta di pagamento trovata.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
