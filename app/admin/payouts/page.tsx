@@ -4,13 +4,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { PayoutActions } from "./payout-actions"
 import { DollarSign } from 'lucide-react'
+import { PayoutStatus } from "@/lib/schemas"
 
 export const dynamic = 'force-dynamic'
 
 export default async function ManagePayoutsPage() {
   const payoutRequests = await getPayoutRequests()
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: PayoutStatus) => {
     switch (status) {
       case "pending":
         return (

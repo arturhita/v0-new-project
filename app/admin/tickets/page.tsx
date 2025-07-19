@@ -5,13 +5,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Eye, MessageSquare } from 'lucide-react'
+import { TicketStatus } from "@/lib/schemas"
 
 export const dynamic = 'force-dynamic'
 
 export default async function ManageSupportTicketsPage() {
   const tickets = await getTickets()
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: TicketStatus) => {
     switch (status) {
       case "open":
         return <Badge variant="destructive">Aperto</Badge>
