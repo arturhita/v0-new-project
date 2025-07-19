@@ -74,9 +74,9 @@ export default async function ManagePayoutsPage() {
                     <TableCell className="font-medium">{req.operatorName}</TableCell>
                     <TableCell className="text-right">€{Number(req.amount).toFixed(2)}</TableCell>
                     <TableCell>{new Date(req.created_at).toLocaleDateString("it-IT")}</TableCell>
-                    <TableCell>{getStatusBadge(req.status)}</TableCell>
+                    <TableCell>{getStatusBadge(req.status as PayoutStatus)}</TableCell>
                     <TableCell className="text-right">
-                      <PayoutActions requestId={req.id} currentStatus={req.status} />
+                      <PayoutActions requestId={req.id} currentStatus={req.status as PayoutStatus} />
                     </TableCell>
                   </TableRow>
                 ))}
