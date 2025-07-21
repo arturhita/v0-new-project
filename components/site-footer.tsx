@@ -64,7 +64,7 @@ export default function SiteFooter() {
                     </Link>
                   </li>
                   <li>
-                    <Link href="/faq" className="text-base text-gray-400 hover:text-white">
+                    <Link href="#" className="text-base text-gray-400 hover:text-white">
                       FAQ
                     </Link>
                   </li>
