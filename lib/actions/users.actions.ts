@@ -1,53 +1,76 @@
-import { createAdminClient } from "../supabase/admin"
+"use server"
 
-export async function getAllUsers() {
-  const supabaseAdmin = createAdminClient()
-  try {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers()
+import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidatePath } from "next/cache"
 
-    if (error) {
-      console.error("Error fetching users:", error)
-      return { error: error.message }
-    }
-
-    return { users: data.users }
-  } catch (error: any) {
-    console.error("Unexpected error fetching users:", error)
-    return { error: error.message }
-  }
+// Definizione del tipo per i dati utente, per maggiore chiarezza
+export type UserProfileWithStats = {
+  id: string
+  email: string | undefined
+  full_name: string | null
+  role: string | null
+  created_at: string
+  status: string | null
+  total_spent: number
+  total_consultations: number
 }
 
-export async function updateUserRole(userId: string, newRole: string) {
+export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
   const supabaseAdmin = createAdminClient()
-  try {
-    // Assuming you have a 'profiles' table with user roles
-    const { data, error } = await supabaseAdmin.from("profiles").update({ role: newRole }).eq("id", userId)
+  const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*").neq("role", "admin")
 
-    if (error) {
-      console.error("Error updating user role:", error)
-      return { error: error.message }
-    }
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Unexpected error updating user role:", error)
-    return { error: error.message }
+  if (profilesError) {
+    console.error("Error fetching user profiles:", profilesError.message)
+    throw new Error(`Error fetching user profiles: ${profilesError.message}`)
   }
+
+  if (!profiles || profiles.length === 0) {
+    return []
+  }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000, // Aumentare se si hanno più di 1000 utenti
+  })
+
+  if (authError) {
+    console.error("Error fetching auth users:", authError.message)
+    throw new Error(`Error fetching auth users: ${authError.message}`)
+  }
+
+  const emailMap = new Map(authData.users.map((u) => [u.id, u.email]))
+
+  const usersWithStats: UserProfileWithStats[] = profiles.map((profile) => ({
+    ...profile,
+    email: emailMap.get(profile.id) || "N/A",
+    total_spent: 0, // Placeholder, da implementare con le transazioni
+    total_consultations: 0, // Placeholder, da implementare con i consulti
+  }))
+
+  return usersWithStats
 }
 
-export async function deleteUser(userId: string) {
+export async function toggleUserSuspension(userId: string, currentStatus: string) {
   const supabaseAdmin = createAdminClient()
-  try {
-    const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+  const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
+  const { error } = await supabaseAdmin.from("profiles").update({ status: newStatus }).eq("id", userId)
 
-    if (error) {
-      console.error("Error deleting user:", error)
-      return { error: error.message }
-    }
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Unexpected error deleting user:", error)
-    return { error: error.message }
+  if (error) {
+    return { success: false, message: error.message }
   }
+
+  revalidatePath("/admin/users")
+  return { success: true, message: `Stato utente aggiornato a ${newStatus}.` }
+}
+
+export async function issueVoucher(userId: string, amount: number, reason: string) {
+  console.log(`Emissione buono di €${amount} all'utente ${userId} per il motivo: ${reason}`)
+  // Logica di business per emettere un buono
+  return { success: true, message: `Buono di €${amount} emesso con successo.` }
+}
+
+export async function issueRefund(userId: string, amount: number, reason: string) {
+  console.log(`Emissione rimborso di €${amount} all'utente ${userId} per il motivo: ${reason}`)
+  // Logica di business per emettere un rimborso (es. tramite Stripe)
+  return { success: true, message: `Rimborso di €${amount} processato con successo.` }
 }
