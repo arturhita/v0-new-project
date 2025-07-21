@@ -2,7 +2,7 @@ import { z } from "zod"
 
 export const LoginSchema = z.object({
   email: z.string().email({
-    message: "Inserisci un'email valida.",
+    message: "L'email non è valida.",
   }),
   password: z.string().min(1, {
     message: "La password è richiesta.",
@@ -13,11 +13,11 @@ export const RegisterSchema = z.object({
   email: z.string().email({
     message: "Inserisci un'email valida.",
   }),
-  password: z.string().min(6, {
-    message: "La password deve contenere almeno 6 caratteri.",
+  password: z.string().min(8, {
+    message: "La password deve contenere almeno 8 caratteri.",
   }),
-  fullName: z.string().min(1, {
-    message: "Il nome è richiesto.",
+  fullName: z.string().min(3, {
+    message: "Il nome completo deve contenere almeno 3 caratteri.",
   }),
   terms: z.boolean().refine((val) => val === true, {
     message: "Devi accettare i Termini di Servizio e l'Informativa sulla Privacy.",

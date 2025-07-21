@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
-import { useFormStatus } from "react-dom" // Corretto: importato da "react-dom"
+import { useFormStatus } from "react-dom"
 import { login } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +31,8 @@ export default function LoginPage() {
     if (state.message) {
       if (state.success) {
         toast.success(state.message)
+        // This refresh is crucial. It tells Next.js to refetch the page,
+        // which will re-run the AuthProvider and trigger the redirect.
         router.refresh()
       } else {
         toast.error(state.message)

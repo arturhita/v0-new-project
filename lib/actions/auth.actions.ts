@@ -1,8 +1,10 @@
 "use server"
 
+import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { LoginSchema } from "@/lib/schemas"
+import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 export async function login(
   prevState: { message: string; success: boolean },
@@ -39,4 +41,42 @@ export async function login(
     message: "Login effettuato con successo! Verrai reindirizzato...",
     success: true,
   }
+}
+
+export async function register(values: z.infer<typeof RegisterSchema>): Promise<{ error?: string; success?: string }> {
+  const supabase = createClient()
+
+  const validatedFields = RegisterSchema.safeParse(values)
+
+  if (!validatedFields.success) {
+    return { error: "Dati inseriti non validi." }
+  }
+
+  const { email, password, fullName } = validatedFields.data
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+      },
+    },
+  })
+
+  if (error) {
+    console.error("Registration error:", error.message)
+    if (error.message.includes("User already registered")) {
+      return { error: "Un utente con questa email è già registrato." }
+    }
+    return { error: "Si è verificato un errore durante la registrazione." }
+  }
+
+  return { success: "Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account." }
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }

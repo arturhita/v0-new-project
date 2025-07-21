@@ -14,6 +14,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
+import { ConstellationBackground } from "@/components/constellation-background"
+import Image from "next/image"
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | undefined>("")
@@ -43,11 +45,21 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="w-full max-w-md mx-auto bg-black/30 backdrop-blur-lg rounded-2xl p-8 border border-slate-700 shadow-2xl shadow-blue-500/10">
+    <div className="relative flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900 text-white">
+      <ConstellationBackground />
+      <div className="relative z-10 w-full max-w-md mx-auto bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-indigo-500/20 shadow-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white tracking-tight">Crea il tuo Account</h1>
-          <p className="text-slate-400 mt-2">Entra a far parte della nostra community.</p>
+          <Image
+            src="/images/moonthir-logo-white.png"
+            alt="Moonthir Logo"
+            width={100}
+            height={100}
+            className="mx-auto mb-4"
+          />
+          <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+            Crea il tuo Account
+          </h1>
+          <p className="text-gray-400 mt-2">Entra a far parte della nostra community.</p>
         </div>
 
         <Form {...form}>
@@ -57,14 +69,14 @@ export default function RegisterPage() {
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-slate-300">Nome Completo</FormLabel>
+                  <FormLabel className="text-gray-300">Nome Completo</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       placeholder="Mario Rossi"
                       type="text"
                       disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -76,14 +88,14 @@ export default function RegisterPage() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-slate-300">Email</FormLabel>
+                  <FormLabel className="text-gray-300">Email</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       placeholder="mario.rossi@email.com"
                       type="email"
                       disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -95,14 +107,14 @@ export default function RegisterPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-slate-300">Password</FormLabel>
+                  <FormLabel className="text-gray-300">Password</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       placeholder="••••••••"
                       type="password"
                       disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -119,17 +131,20 @@ export default function RegisterPage() {
                       checked={field.value}
                       onCheckedChange={field.onChange}
                       disabled={isPending}
-                      className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-500"
+                      className="border-gray-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-500"
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-slate-400 font-normal">
+                    <FormLabel className="text-sm text-gray-400 font-normal">
                       Accetto i{" "}
-                      <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
+                      <Link
+                        href="/legal/terms-and-conditions"
+                        className="underline text-indigo-400 hover:text-indigo-300"
+                      >
                         Termini di Servizio
                       </Link>{" "}
                       e l'
-                      <Link href="/legal/privacy-policy" className="underline text-blue-400 hover:text-blue-300">
+                      <Link href="/legal/privacy-policy" className="underline text-indigo-400 hover:text-indigo-300">
                         Informativa sulla Privacy
                       </Link>
                       .
@@ -155,16 +170,16 @@ export default function RegisterPage() {
               </Alert>
             )}
 
-            <Button type="submit" className="w-full" variant="gradient" disabled={isPending}>
+            <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={isPending}>
               {isPending ? "Creazione Account..." : "Registrati"}
             </Button>
           </form>
         </Form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-gray-400">
             Hai già un account?{" "}
-            <Link href="/login" className="font-semibold text-blue-400 hover:text-blue-300">
+            <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
               Accedi qui
             </Link>
           </p>
