@@ -1,11 +1,12 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { useContext, useEffect, useState, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { useRouter, usePathname } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { logout as logoutAction } from "@/lib/actions/auth.actions"
+import { AuthContext as AuthContextImport } from "./auth-context" // Import the AuthContext from the auth-context file
 
 type Profile = {
   id: string
@@ -21,7 +22,7 @@ type AuthContextType = {
   logout: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = AuthContextImport // Use the imported AuthContext instead of redeclaring it
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setIsLoading(true)
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    // Fetch initial session
+    // Fetch initial session to prevent flicker
     const getInitialSession = async () => {
       const {
         data: { session },
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       // If there's a session, the onAuthStateChange listener will fire and handle the rest.
+      // We just need to wait for it to finish.
     }
     getInitialSession()
 
@@ -101,10 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await logoutAction()
+    setUser(null)
+    setProfile(null)
     router.push("/login")
   }
 
-  if (isLoading) {
+  if (isLoading && (pathname === "/login" || pathname === "/register")) {
     return <LoadingSpinner fullScreen />
   }
 
