@@ -3,15 +3,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
-import { FormData } from "next/server"
 
 export async function login(prevState: any, formData: FormData) {
-  console.log("Login action started.")
   const supabase = createClient()
   const validatedFields = LoginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    console.error("Login validation failed:", validatedFields.error)
     return { error: "Campi non validi." }
   }
 
@@ -23,11 +20,8 @@ export async function login(prevState: any, formData: FormData) {
   })
 
   if (loginError || !loginData.user) {
-    console.error("Supabase signInWithPassword error:", loginError?.message)
-    return { error: "Credenziali non valide. Controlla email e password." }
+    return { error: "Credenziali non valide." }
   }
-
-  console.log("User successfully logged in. Fetching profile...")
 
   // Fetch profile to get the role for direct redirection
   const { data: profile, error: profileError } = await supabase
@@ -37,13 +31,10 @@ export async function login(prevState: any, formData: FormData) {
     .single()
 
   if (profileError || !profile) {
-    console.error("Failed to fetch user profile:", profileError?.message)
-    // This case is critical. Log the user out to prevent a broken state.
-    await supabase.auth.signOut()
-    return { error: "Accesso riuscito, ma impossibile trovare il profilo utente. Contattare l'assistenza." }
+    // This case is unlikely if RLS is correct, but good to handle
+    await supabase.auth.signOut() // Log out user if profile is missing
+    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
   }
-
-  console.log(`Profile found. User role: ${profile.role}. Redirecting...`)
 
   revalidatePath("/", "layout")
   return { success: "Accesso effettuato!", role: profile.role }
