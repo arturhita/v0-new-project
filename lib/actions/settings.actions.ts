@@ -1,5 +1,6 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 // Interfacce per le impostazioni
@@ -211,4 +212,37 @@ export async function createInvoice(invoiceData: any) {
       message: "Errore nella creazione della fattura.",
     }
   }
+}
+
+// Fetch platform settings
+export async function getPlatformSettings() {
+  const supabaseAdmin = createAdminClient()
+  const { data, error } = await supabaseAdmin.from("platform_settings").select("*").limit(1).single()
+
+  if (error && error.code !== "PGRST116") {
+    // Ignore error if table is empty
+    console.error("Error fetching platform settings:", error)
+    return null
+  }
+  return data
+}
+
+// Update platform settings
+export async function updatePlatformSettings(formData: FormData) {
+  const supabaseAdmin = createAdminClient()
+  const settingsData = {
+    id: 1, // Assuming a single row for settings
+    site_name: formData.get("site_name"),
+    maintenance_mode: formData.get("maintenance_mode") === "on",
+    // Add other settings here
+  }
+
+  const { error } = await supabaseAdmin.from("platform_settings").upsert(settingsData)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin/settings")
+  return { success: true, message: "Impostazioni aggiornate." }
 }

@@ -1,41 +1,48 @@
-import { createAdminClient } from "../supabase/admin"
+"use server"
 
-export async function getInvoices() {
+import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidatePath } from "next/cache"
+
+export async function getAllInvoices() {
   const supabaseAdmin = createAdminClient()
-  try {
-    const { data, error } = await supabaseAdmin.from("invoices").select("*")
+  const { data, error } = await supabaseAdmin
+    .from("invoices")
+    .select(
+      `
+      id,
+      invoice_number,
+      total_amount,
+      status,
+      due_date,
+      created_at,
+      profiles (full_name)
+    `,
+    )
+    .order("created_at", { ascending: false })
 
-    if (error) {
-      console.error("Error fetching invoices:", error)
-      return { data: [], error: error.message }
-    }
-
-    return { data, error: null }
-  } catch (error) {
-    console.error("Unexpected error fetching invoices:", error)
-    return { data: [], error: "Unexpected error" }
+  if (error) {
+    console.error("Error fetching invoices:", error)
+    return []
   }
+  return data
 }
 
-export async function createInvoice(customer_id: string, amount: number, status: "pending" | "paid") {
+export async function createInvoice(formData: FormData) {
   const supabaseAdmin = createAdminClient()
-  try {
-    const { data, error } = await supabaseAdmin.from("invoices").insert([
-      {
-        customer_id,
-        amount,
-        status,
-      },
-    ])
-
-    if (error) {
-      console.error("Error creating invoice:", error)
-      return { data: null, error: error.message }
-    }
-
-    return { data, error: null }
-  } catch (error) {
-    console.error("Unexpected error creating invoice:", error)
-    return { data: null, error: "Unexpected error" }
+  // This is a simplified version. A real implementation would have more complex logic.
+  const rawFormData = {
+    user_id: formData.get("user_id") as string,
+    total_amount: Number(formData.get("total_amount")),
+    due_date: formData.get("due_date") as string,
+    status: "unpaid",
   }
+
+  const { error } = await supabaseAdmin.from("invoices").insert(rawFormData)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin/invoices")
+  return { success: true, message: "Fattura creata con successo." }
 }
