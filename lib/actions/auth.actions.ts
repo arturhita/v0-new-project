@@ -20,10 +20,12 @@ export async function login(prevState: any, formData: FormData) {
   })
 
   if (loginError || !loginData.user) {
+    console.error("Login error:", loginError?.message)
     return { error: "Credenziali non valide." }
   }
 
   // Fetch profile to get the role for direct redirection
+  // This is the step that was failing due to RLS policies
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
@@ -31,9 +33,12 @@ export async function login(prevState: any, formData: FormData) {
     .single()
 
   if (profileError || !profile) {
-    // This case is unlikely if RLS is correct, but good to handle
-    await supabase.auth.signOut() // Log out user if profile is missing
-    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+    console.error("Profile fetch error after login:", profileError?.message)
+    // Log out user if profile is missing to prevent being in a broken state
+    await supabase.auth.signOut()
+    return {
+      error: "Profilo utente non trovato. La registrazione potrebbe non essere completa. Contattare l'assistenza.",
+    }
   }
 
   revalidatePath("/", "layout")
@@ -59,9 +64,6 @@ export async function register(prevState: any, formData: FormData) {
       data: {
         full_name: `${firstName} ${lastName}`,
         role: role,
-        // We can add first_name and last_name to metadata if needed
-        // first_name: firstName,
-        // last_name: lastName,
       },
     },
   })
