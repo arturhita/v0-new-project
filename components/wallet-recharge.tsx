@@ -1,105 +1,118 @@
 "use client"
 
 import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { toast } from "@/components/ui/use-toast"
-import { CreditCard, Zap, CheckCircle, Loader2 } from "lucide-react"
-import { packages, type Package } from "@/lib/packages"
-import { EmbeddedCheckoutForm } from "./embedded-checkout-form"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { CreditCard, Euro } from "lucide-react"
+import { loadStripe } from "@stripe/stripe-js"
 
-export function WalletRecharge() {
-  const { user } = useAuth()
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(packages[1])
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+
+interface WalletRechargeProps {
+  currentBalance: number
+  onRechargeComplete?: () => void
+}
+
+export function WalletRecharge({ currentBalance, onRechargeComplete }: WalletRechargeProps) {
+  const [amount, setAmount] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
 
-  const handlePreparePayment = async () => {
-    if (!user) {
-      toast({ title: "Accesso richiesto", variant: "destructive" })
-      return
-    }
-    if (!selectedPackage) {
-      toast({ title: "Nessun pacchetto selezionato", variant: "destructive" })
-      return
-    }
+  const predefinedAmounts = [10, 25, 50, 100]
 
+  const handleRecharge = async (rechargeAmount: number) => {
     setIsLoading(true)
-    setClientSecret(null)
 
     try {
       const response = await fetch("/api/payments/create-payment-intent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: selectedPackage.id, userId: user.id }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: rechargeAmount * 100, // Convert to cents
+          currency: "eur",
+          type: "wallet_recharge",
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error("Impossibile preparare il pagamento.")
-      }
-
       const { clientSecret } = await response.json()
-      setClientSecret(clientSecret)
+
+      const stripe = await stripePromise
+      if (!stripe) throw new Error("Stripe not loaded")
+
+      const { error } = await stripe.confirmPayment({
+        clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/dashboard/client/wallet?success=true`,
+        },
+      })
+
+      if (error) {
+        console.error("Payment failed:", error)
+      } else {
+        onRechargeComplete?.()
+      }
     } catch (error) {
-      console.error(error)
-      toast({ title: "Errore", description: "Impossibile avviare il pagamento. Riprova.", variant: "destructive" })
+      console.error("Error processing payment:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-2xl">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-slate-800">Ricarica il tuo Portafoglio</CardTitle>
-        <CardDescription className="text-slate-500">Scegli un pacchetto e procedi al pagamento sicuro.</CardDescription>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" />
+          Ricarica Portafoglio
+        </CardTitle>
+        <CardDescription>Saldo attuale: €{currentBalance.toFixed(2)}</CardDescription>
       </CardHeader>
-      <CardContent className="p-6">
-        {!clientSecret ? (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {packages.map((pkg) => (
-                <button
-                  key={pkg.id}
-                  onClick={() => setSelectedPackage(pkg)}
-                  className={`relative p-4 border-2 rounded-lg text-center transition-all duration-200 ${
-                    selectedPackage?.id === pkg.id
-                      ? "border-sky-500 bg-sky-50 shadow-lg scale-105"
-                      : "border-slate-200 hover:border-sky-400"
-                  }`}
-                >
-                  <p className="text-xl font-bold text-slate-700">{pkg.price}€</p>
-                  <p className="text-xs text-slate-500">{pkg.name}</p>
-                  {selectedPackage?.id === pkg.id && (
-                    <CheckCircle className="h-5 w-5 text-sky-500 absolute -top-2 -right-2 bg-white rounded-full" />
-                  )}
-                </button>
-              ))}
-            </div>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-2">
+          {predefinedAmounts.map((presetAmount) => (
             <Button
-              onClick={handlePreparePayment}
-              disabled={isLoading || !selectedPackage}
-              className="w-full text-lg py-6 bg-gradient-to-r from-sky-500 to-cyan-500 text-white"
+              key={presetAmount}
+              variant="outline"
+              onClick={() => handleRecharge(presetAmount)}
+              disabled={isLoading}
+              className="flex items-center gap-2"
             >
-              {isLoading ? (
-                <Loader2 className="animate-spin h-6 w-6" />
-              ) : (
-                <>
-                  <CreditCard className="mr-2 h-5 w-5" /> Procedi con {selectedPackage?.price}€
-                </>
-              )}
+              <Euro className="h-4 w-4" />
+              {presetAmount}
             </Button>
-          </>
-        ) : (
-          <EmbeddedCheckoutForm clientSecret={clientSecret} />
-        )}
-        <p className="text-xs text-center text-slate-400 mt-4 flex items-center justify-center">
-          <Zap className="h-3 w-3 mr-1 text-yellow-500" /> Pagamento sicuro e protetto con Stripe.
-        </p>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="custom-amount">Importo personalizzato</Label>
+          <div className="flex gap-2">
+            <Input
+              id="custom-amount"
+              type="number"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              min="1"
+              step="0.01"
+            />
+            <Button
+              onClick={() => handleRecharge(Number.parseFloat(amount))}
+              disabled={isLoading || !amount || Number.parseFloat(amount) < 1}
+            >
+              Ricarica
+            </Button>
+          </div>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          <p>• Importo minimo: €1.00</p>
+          <p>• I pagamenti sono sicuri e crittografati</p>
+          <p>• Il credito non ha scadenza</p>
+        </div>
       </CardContent>
     </Card>
   )
 }
-
-export default WalletRecharge

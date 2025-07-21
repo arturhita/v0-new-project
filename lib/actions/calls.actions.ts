@@ -1,200 +1,127 @@
 "use server"
 
-import { twilioClient, type CallSession, type CallBilling } from "@/lib/twilio"
-import { revalidatePath } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-// Mock database functions - sostituire con vero database
-const mockCallSessions = new Map<string, CallSession>()
-const mockCallBilling = new Map<string, CallBilling>()
-const mockUserWallets = new Map<string, number>()
+export async function initiateCallAction(operatorId: string) {
+  const supabase = createClient()
 
-// Inizializza wallet mock
-mockUserWallets.set("user123", 50.0) // €50 di credito
-mockUserWallets.set("user456", 25.5) // €25.50 di credito
-
-export interface InitiateCallResult {
-  success: boolean
-  sessionId?: string
-  error?: string
-  estimatedCost?: number
-}
-
-export async function initiateCallAction(
-  clientId: string,
-  operatorId: string,
-  operatorPhone: string,
-  ratePerMinute: number,
-): Promise<InitiateCallResult> {
   try {
-    console.log("🔥 Initiating call:", { clientId, operatorId, ratePerMinute })
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error("User not authenticated")
 
-    // 1. Verifica credito utente
-    const clientWallet = mockUserWallets.get(clientId) || 0
-    const minimumCredit = ratePerMinute * 2 // Minimo 2 minuti di credito
+    // Create call session
+    const { data: callSession, error } = await supabase
+      .from("call_sessions")
+      .insert({
+        client_id: user.id,
+        operator_id: operatorId,
+        status: "initiated",
+      })
+      .select()
+      .single()
 
-    if (clientWallet < minimumCredit) {
-      return {
-        success: false,
-        error: `Credito insufficiente. Necessari almeno €${minimumCredit.toFixed(2)} per questa chiamata.`,
-      }
-    }
+    if (error) throw error
 
-    // 2. Verifica disponibilità operatore (mock)
-    const isOperatorAvailable = Math.random() > 0.2 // 80% disponibilità
-    if (!isOperatorAvailable) {
-      return {
-        success: false,
-        error: "L'operatore non è al momento disponibile. Riprova più tardi.",
-      }
-    }
-
-    // 3. Crea sessione chiamata
-    const sessionId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const callSession: CallSession = {
-      id: sessionId,
-      clientId,
-      operatorId,
-      clientPhone: "+393331234567", // Mock - da prendere dal profilo utente
-      operatorPhone,
-      ratePerMinute,
-      status: "initiated",
-      createdAt: new Date(),
-    }
-
-    mockCallSessions.set(sessionId, callSession)
-
-    // 4. Inizia chiamata Twilio
-    const call = await twilioClient.calls.create({
-      to: callSession.clientPhone,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}`,
-      statusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/status`,
-      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-      statusCallbackMethod: "POST",
-      record: true,
-      recordingStatusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/recording-status`,
-    })
-
-    // 5. Aggiorna sessione con Twilio SID
-    callSession.twilioCallSid = call.sid
-    callSession.status = "ringing"
-    mockCallSessions.set(sessionId, callSession)
-
-    console.log("✅ Call initiated successfully:", call.sid)
-
-    return {
-      success: true,
-      sessionId,
-      estimatedCost: ratePerMinute * 5, // Stima 5 minuti
-    }
+    return { success: true, callSession }
   } catch (error) {
-    console.error("❌ Error initiating call:", error)
-    return {
-      success: false,
-      error: "Errore nel sistema. Riprova più tardi.",
-    }
+    console.error("Error initiating call:", error)
+    return { success: false, error: "Failed to initiate call" }
   }
 }
 
-export async function endCallAction(sessionId: string): Promise<{ success: boolean }> {
+export async function endCallAction(callSessionId: string, duration: number) {
+  const supabase = createAdminClient()
+
   try {
-    const session = mockCallSessions.get(sessionId)
-    if (!session || !session.twilioCallSid) {
-      return { success: false }
-    }
+    const { data, error } = await supabase
+      .from("call_sessions")
+      .update({
+        status: "completed",
+        end_time: new Date().toISOString(),
+        duration: duration,
+      })
+      .eq("id", callSessionId)
+      .select()
+      .single()
 
-    // Termina chiamata Twilio
-    await twilioClient.calls(session.twilioCallSid).update({ status: "completed" })
+    if (error) throw error
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error ending call:", error)
+    return { success: false, error: "Failed to end call" }
+  }
+}
 
-    // Aggiorna sessione
-    session.status = "completed"
-    session.endTime = new Date()
-    mockCallSessions.set(sessionId, session)
+export async function getUserWalletAction(userId: string) {
+  const supabase = createClient()
 
-    console.log("✅ Call ended successfully:", sessionId)
+  const { data: profile, error } = await supabase.from("profiles").select("wallet_balance").eq("id", userId).single()
+
+  if (error) {
+    console.error("Error fetching wallet balance:", error)
+    return { balance: 0 }
+  }
+
+  return { balance: profile?.wallet_balance || 0 }
+}
+
+export async function processCallBillingAction(callSessionId: string, cost: number) {
+  const supabase = createAdminClient()
+
+  try {
+    // Update call session with cost
+    const { error: callError } = await supabase.from("call_sessions").update({ cost }).eq("id", callSessionId)
+
+    if (callError) throw callError
+
+    // Get call session details
+    const { data: callSession, error: sessionError } = await supabase
+      .from("call_sessions")
+      .select("client_id, operator_id")
+      .eq("id", callSessionId)
+      .single()
+
+    if (sessionError) throw sessionError
+
+    // Deduct from client wallet
+    const { error: debitError } = await supabase.rpc("update_wallet_balance", {
+      user_id: callSession.client_id,
+      amount: -cost,
+      transaction_type: "debit",
+      description: "Call charge",
+    })
+
+    if (debitError) throw debitError
+
     return { success: true }
   } catch (error) {
-    console.error("❌ Error ending call:", error)
-    return { success: false }
+    console.error("Error processing call billing:", error)
+    return { success: false, error: "Failed to process billing" }
   }
 }
 
-export async function getCallSessionAction(sessionId: string): Promise<CallSession | null> {
-  return mockCallSessions.get(sessionId) || null
-}
+export async function getCallHistoryAction(userId: string, userRole: "client" | "operator") {
+  const supabase = createClient()
 
-export async function getUserWalletAction(userId: string): Promise<number> {
-  return mockUserWallets.get(userId) || 0
-}
+  const column = userRole === "client" ? "client_id" : "operator_id"
 
-async function getOperatorCommissionRate(operatorId: string): Promise<number> {
-  const mockOperatorCommissions = new Map<string, number>([
-    ["operator1", 40],
-    ["operator2", 35],
-    ["operator3", 45],
-  ])
+  const { data, error } = await supabase
+    .from("call_sessions")
+    .select(`
+      *,
+      client:profiles!call_sessions_client_id_fkey(full_name, avatar_url),
+      operator:profiles!call_sessions_operator_id_fkey(stage_name, avatar_url)
+    `)
+    .eq(column, userId)
+    .order("created_at", { ascending: false })
 
-  return mockOperatorCommissions.get(operatorId) || 30
-}
-
-export async function processCallBillingAction(
-  sessionId: string,
-  durationSeconds: number,
-): Promise<{ success: boolean; finalCost?: number; operatorEarning?: number; platformFee?: number }> {
-  try {
-    const session = mockCallSessions.get(sessionId)
-    if (!session) return { success: false }
-
-    const durationMinutes = Math.ceil(durationSeconds / 60)
-    const totalCost = durationMinutes * session.ratePerMinute
-
-    const operatorCommissionRate = await getOperatorCommissionRate(session.operatorId)
-
-    const operatorEarning = totalCost * (operatorCommissionRate / 100)
-    const platformFee = totalCost * ((100 - operatorCommissionRate) / 100)
-
-    const clientWallet = mockUserWallets.get(session.clientId) || 0
-    const newClientWallet = Math.max(0, clientWallet - totalCost)
-    mockUserWallets.set(session.clientId, newClientWallet)
-
-    const operatorWallet = mockUserWallets.get(session.operatorId) || 0
-    mockUserWallets.set(session.operatorId, operatorWallet + operatorEarning)
-
-    session.duration = durationSeconds
-    session.cost = totalCost
-    session.operatorEarning = operatorEarning
-    session.platformFee = platformFee
-    session.status = "completed"
-    mockCallSessions.set(sessionId, session)
-
-    console.log("💰 Call billing processed with existing commission system:", {
-      sessionId,
-      duration: durationMinutes,
-      totalCost,
-      operatorCommissionRate: `${operatorCommissionRate}%`,
-      operatorEarning,
-      platformFee,
-    })
-
-    revalidatePath("/dashboard/client/wallet")
-    revalidatePath("/dashboard/operator/earnings")
-
-    return {
-      success: true,
-      finalCost: totalCost,
-      operatorEarning,
-      platformFee,
-    }
-  } catch (error) {
-    console.error("❌ Error processing billing:", error)
-    return { success: false }
+  if (error) {
+    console.error("Error fetching call history:", error)
+    return []
   }
-}
 
-export async function getCallHistoryAction(userId: string, userType: "client" | "operator") {
-  const sessions = Array.from(mockCallSessions.values())
-
-  return sessions
-    .filter((session) => (userType === "client" ? session.clientId === userId : session.operatorId === userId))
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  return data || []
 }

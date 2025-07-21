@@ -1,147 +1,54 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 
-export interface ProfileData {
-  id: string
-  email?: string
-  name?: string | null
-  surname?: string | null
-  nickname?: string | null
-  phone?: string | null
-  dateOfBirth?: string | null
-  gender?: string | null
-  city?: string | null
-  country?: string | null
-  avatarUrl?: string | null
-  bio?: string | null
-  favoriteCategories?: string[] | null
-  preferredLanguage?: string | null
-  timezone?: string | null
-  allowMessages?: boolean | null
-  emailNotifications?: boolean | null
-  pushNotifications?: boolean | null
-  smsNotifications?: boolean | null
-  marketingEmails?: boolean | null
-  totalConsultations?: number
-  totalSpent?: number
-  averageRating?: number
-  memberSince?: string
-}
-
-function mapToClient(dbProfile: any, user: any): ProfileData {
-  return {
-    id: dbProfile.id,
-    email: user.email,
-    name: dbProfile.name,
-    surname: dbProfile.surname,
-    nickname: dbProfile.nickname,
-    phone: dbProfile.phone,
-    dateOfBirth: dbProfile.date_of_birth,
-    gender: dbProfile.gender,
-    city: dbProfile.city,
-    country: dbProfile.country,
-    avatarUrl: dbProfile.avatar_url,
-    bio: dbProfile.bio,
-    favoriteCategories: dbProfile.favorite_categories,
-    preferredLanguage: dbProfile.preferred_language,
-    timezone: dbProfile.timezone,
-    allowMessages: dbProfile.allow_messages,
-    emailNotifications: dbProfile.email_notifications,
-    pushNotifications: dbProfile.push_notifications,
-    smsNotifications: dbProfile.sms_notifications,
-    marketingEmails: dbProfile.marketing_emails,
-    memberSince: user.created_at,
-    totalConsultations: 15,
-    totalSpent: 245.5,
-    averageRating: 4.8,
-  }
-}
-
-export async function getAuthenticatedUserProfile(): Promise<ProfileData | null> {
+export async function getAuthenticatedUserProfile() {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) return null
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return null
 
-  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+    const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
-  if (error || !profile) {
-    console.error("Error fetching profile, or profile not found:", error?.message)
-    return {
-      id: user.id,
-      email: user.email,
-      memberSince: user.created_at,
-      name: "",
-      surname: "",
-      nickname: "",
-      phone: "",
-      dateOfBirth: "",
-      gender: "prefer-not-to-say",
-      city: "",
-      country: "",
-      avatarUrl: "",
-      bio: "",
-      favoriteCategories: [],
-      preferredLanguage: "it",
-      timezone: "Europe/Rome",
-      allowMessages: true,
-      emailNotifications: true,
-      pushNotifications: true,
-      smsNotifications: false,
-      marketingEmails: false,
-      totalConsultations: 0,
-      totalSpent: 0,
-      averageRating: 0,
-    }
+    if (error) throw error
+    return profile
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    return null
   }
-
-  return mapToClient(profile, user)
 }
 
-export async function updateUserProfile(profileData: ProfileData) {
+export async function updateUserProfile(profileData: {
+  fullName?: string
+  bio?: string
+  categories?: string[]
+  services?: any
+  avatarUrl?: string
+}) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) throw new Error("User not authenticated")
-  if (user.id !== profileData.id) throw new Error("Unauthorized update attempt")
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error("User not authenticated")
 
-  const dbUpdateData = {
-    name: profileData.name,
-    surname: profileData.surname,
-    nickname: profileData.nickname,
-    phone: profileData.phone,
-    date_of_birth: profileData.dateOfBirth,
-    gender: profileData.gender,
-    city: profileData.city,
-    country: profileData.country,
-    avatar_url: profileData.avatarUrl,
-    bio: profileData.bio,
-    favorite_categories: profileData.favoriteCategories,
-    preferred_language: profileData.preferredLanguage,
-    timezone: profileData.timezone,
-    allow_messages: profileData.allowMessages,
-    email_notifications: profileData.emailNotifications,
-    push_notifications: profileData.pushNotifications,
-    sms_notifications: profileData.smsNotifications,
-    marketing_emails: profileData.marketingEmails,
-  }
+    const updateData: any = {}
+    if (profileData.fullName) updateData.full_name = profileData.fullName
+    if (profileData.bio) updateData.bio = profileData.bio
+    if (profileData.categories) updateData.categories = profileData.categories
+    if (profileData.services) updateData.services = profileData.services
+    if (profileData.avatarUrl) updateData.avatar_url = profileData.avatarUrl
 
-  const { error } = await supabase.from("profiles").update(dbUpdateData).eq("id", user.id)
+    const { data, error } = await supabase.from("profiles").update(updateData).eq("id", user.id).select().single()
 
-  if (error) {
+    if (error) throw error
+    return { success: true, profile: data }
+  } catch (error) {
     console.error("Error updating profile:", error)
-    throw new Error("Could not update profile.")
+    return { success: false, error: "Failed to update profile" }
   }
-
-  revalidatePath("/(platform)/profile", "page")
-  revalidatePath("/(platform)/dashboard/client", "page")
-
-  redirect("/(platform)/dashboard/client")
 }

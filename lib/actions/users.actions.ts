@@ -1,5 +1,6 @@
 "use server"
 
+import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
@@ -12,62 +13,91 @@ export type UserProfileWithStats = {
   status: string | null
   total_spent: number
   total_consultations: number
+  chat_sessions_as_client: any[]
+  chat_sessions_as_operator: any[]
 }
 
-export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
-  const supabase = createAdminClient()
-  const { data: profiles, error: profilesError } = await supabase.from("profiles").select("*").neq("role", "admin")
+export async function getUsersWithStats() {
+  const supabase = createClient()
 
-  if (profilesError) {
-    console.error("Error fetching user profiles:", profilesError.message)
-    throw new Error(`Error fetching user profiles: ${profilesError.message}`)
-  }
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`
+      *,
+      chat_sessions_as_client:chat_sessions!chat_sessions_client_id_fkey(id),
+      chat_sessions_as_operator:chat_sessions!chat_sessions_operator_id_fkey(id)
+    `)
+    .order("created_at", { ascending: false })
 
-  if (!profiles || profiles.length === 0) {
+  if (error) {
+    console.error("Error fetching users with stats:", error)
     return []
   }
 
-  const { data: authData, error: authError } = await supabase.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  })
-
-  if (authError) {
-    console.error("Error fetching auth users:", authError.message)
-    throw new Error(`Error fetching auth users: ${authError.message}`)
-  }
-
-  const emailMap = new Map(authData.users.map((u) => [u.id, u.email]))
-
-  const usersWithStats: UserProfileWithStats[] = profiles.map((profile) => ({
-    ...profile,
-    email: emailMap.get(profile.id) || "N/A",
-    total_spent: 0,
-    total_consultations: 0,
-  }))
-
-  return usersWithStats
+  return data || []
 }
 
-export async function toggleUserSuspension(userId: string, currentStatus: string) {
+export async function toggleUserSuspension(userId: string, suspended: boolean) {
   const supabase = createAdminClient()
-  const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
-  const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", userId)
 
-  if (error) {
-    return { success: false, message: error.message }
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        is_suspended: suspended,
+        suspended_at: suspended ? new Date().toISOString() : null,
+      })
+      .eq("id", userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    revalidatePath("/admin/users")
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error toggling user suspension:", error)
+    return { success: false, error: "Failed to update user status" }
   }
-
-  revalidatePath("/admin/users")
-  return { success: true, message: `Stato utente aggiornato a ${newStatus}.` }
 }
 
-export async function issueVoucher(userId: string, amount: number, reason: string) {
-  console.log(`Emissione buono di €${amount} all'utente ${userId} per il motivo: ${reason}`)
-  return { success: true, message: `Buono di €${amount} emesso con successo.` }
+export async function issueVoucher(userId: string, amount: number, description: string) {
+  const supabase = createAdminClient()
+
+  try {
+    // Add credit to wallet
+    const { error: walletError } = await supabase.rpc("update_wallet_balance", {
+      user_id: userId,
+      amount: amount,
+      transaction_type: "credit",
+      description: `Voucher: ${description}`,
+    })
+
+    if (walletError) throw walletError
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error issuing voucher:", error)
+    return { success: false, error: "Failed to issue voucher" }
+  }
 }
 
-export async function issueRefund(userId: string, amount: number, reason: string) {
-  console.log(`Emissione rimborso di €${amount} all'utente ${userId} per il motivo: ${reason}`)
-  return { success: true, message: `Rimborso di €${amount} processato con successo.` }
+export async function issueRefund(userId: string, amount: number, description: string) {
+  const supabase = createAdminClient()
+
+  try {
+    // Add refund to wallet
+    const { error: walletError } = await supabase.rpc("update_wallet_balance", {
+      user_id: userId,
+      amount: amount,
+      transaction_type: "refund",
+      description: `Refund: ${description}`,
+    })
+
+    if (walletError) throw walletError
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error issuing refund:", error)
+    return { success: false, error: "Failed to issue refund" }
+  }
 }

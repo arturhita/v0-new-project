@@ -1,68 +1,84 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { subMonths, startOfMonth, format, endOfMonth } from "date-fns"
 
 export async function getComprehensiveAnalytics() {
   const supabase = createClient()
-  const now = new Date()
 
-  const timeSeriesPromises = Array.from({ length: 12 }).map((_, i) => {
-    const date = subMonths(now, 11 - i)
-    const monthStart = startOfMonth(date).toISOString()
-    const monthEnd = endOfMonth(date).toISOString()
-    const monthLabel = format(date, "MMM yy")
+  try {
+    // User analytics
+    const { count: totalUsers } = await supabase.from("profiles").select("*", { count: "exact", head: true })
 
-    const revenuePromise = supabase
-      .from("transactions")
-      .select("amount")
-      .eq("type", "deposit")
-      .gte("created_at", monthStart)
-      .lt("created_at", monthEnd)
-
-    const usersPromise = supabase
+    const { count: totalOperators } = await supabase
       .from("profiles")
-      .select("id", { count: "exact" })
-      .gte("created_at", monthStart)
-      .lt("created_at", monthEnd)
+      .select("*", { count: "exact", head: true })
+      .eq("role", "operator")
 
-    const consultationsPromise = supabase
-      .from("consultations")
-      .select("id", { count: "exact" })
-      .gte("created_at", monthStart)
-      .lt("created_at", monthEnd)
+    const { count: activeOperators } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "operator")
+      .eq("is_online", true)
 
-    return Promise.all([revenuePromise, usersPromise, consultationsPromise]).then(
-      ([revenueRes, usersRes, consultationsRes]) => ({
-        month: monthLabel,
-        revenue: revenueRes.data?.reduce((sum, t) => sum + t.amount, 0) || 0,
-        users: usersRes.count || 0,
-        consultations: consultationsRes.count || 0,
-      }),
-    )
-  })
+    // Session analytics
+    const { count: totalChatSessions } = await supabase
+      .from("chat_sessions")
+      .select("*", { count: "exact", head: true })
 
-  const thisMonthStart = startOfMonth(now).toISOString()
-  const topOperatorsPromise = supabase.rpc("get_top_operators_by_consultations", {
-    from_date: thisMonthStart,
-    to_date: now.toISOString(),
-    limit_count: 5,
-  })
+    const { count: totalCallSessions } = await supabase
+      .from("call_sessions")
+      .select("*", { count: "exact", head: true })
 
-  const popularCategoriesPromise = supabase.rpc("get_consultation_counts_by_category")
+    const { count: totalWrittenConsultations } = await supabase
+      .from("written_consultations")
+      .select("*", { count: "exact", head: true })
 
-  const [
-    timeSeriesData,
-    { data: topOperatorsData, error: topOperatorsError },
-    { data: popularCategoriesData, error: popularCategoriesError },
-  ] = await Promise.all([Promise.all(timeSeriesPromises), topOperatorsPromise, popularCategoriesPromise])
+    // Revenue analytics
+    const { data: revenueData } = await supabase
+      .from("wallet_transactions")
+      .select("amount, created_at, transaction_type")
+      .eq("transaction_type", "credit")
 
-  if (topOperatorsError) console.error("Error fetching top operators:", topOperatorsError)
-  if (popularCategoriesError) console.error("Error fetching popular categories:", popularCategoriesError)
+    const totalRevenue = revenueData?.reduce((sum, transaction) => sum + transaction.amount, 0) || 0
 
-  return {
-    timeSeries: timeSeriesData,
-    topOperators: topOperatorsData || [],
-    popularCategories: popularCategoriesData || [],
+    // Monthly revenue
+    const monthlyRevenue =
+      revenueData
+        ?.filter((transaction) => {
+          const transactionDate = new Date(transaction.created_at)
+          const currentMonth = new Date()
+          return (
+            transactionDate.getMonth() === currentMonth.getMonth() &&
+            transactionDate.getFullYear() === currentMonth.getFullYear()
+          )
+        })
+        .reduce((sum, transaction) => sum + transaction.amount, 0) || 0
+
+    return {
+      users: {
+        total: totalUsers || 0,
+        operators: totalOperators || 0,
+        activeOperators: activeOperators || 0,
+        clients: (totalUsers || 0) - (totalOperators || 0),
+      },
+      sessions: {
+        totalChat: totalChatSessions || 0,
+        totalCall: totalCallSessions || 0,
+        totalWritten: totalWrittenConsultations || 0,
+        total: (totalChatSessions || 0) + (totalCallSessions || 0) + (totalWrittenConsultations || 0),
+      },
+      revenue: {
+        total: totalRevenue,
+        monthly: monthlyRevenue,
+        transactions: revenueData || [],
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching comprehensive analytics:", error)
+    return {
+      users: { total: 0, operators: 0, activeOperators: 0, clients: 0 },
+      sessions: { totalChat: 0, totalCall: 0, totalWritten: 0, total: 0 },
+      revenue: { total: 0, monthly: 0, transactions: [] },
+    }
   }
 }

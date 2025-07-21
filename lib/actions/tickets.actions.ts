@@ -1,43 +1,23 @@
 "use server"
 
-export type TicketStatus = "Open" | "InProgress" | "Closed"
+import { createClient } from "@/lib/supabase/server"
 
-export interface Ticket {
-  id: string
-  title: string
-  description: string
-  status: TicketStatus
-  priority: "Low" | "Medium" | "High" | "Critical"
-  createdAt: Date
-  updatedAt: Date
-  userId: string
-  assignedTo?: string
-}
+export async function getTickets() {
+  const supabase = createClient()
 
-const mockTickets: Ticket[] = [
-  {
-    id: "ticket_1",
-    title: "Problema con il pagamento",
-    description: "Non riesco a completare il pagamento per la ricarica del credito",
-    status: "Open",
-    priority: "High",
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    userId: "user_123",
-  },
-  {
-    id: "ticket_2",
-    title: "Chat non funziona",
-    description: "La chat con l'operatore si disconnette continuamente",
-    status: "InProgress",
-    priority: "Medium",
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-    userId: "user_456",
-    assignedTo: "admin_1",
-  },
-]
+  const { data, error } = await supabase
+    .from("support_tickets")
+    .select(`
+      *,
+      user:profiles!support_tickets_user_id_fkey(full_name, role),
+      assigned_admin:profiles!support_tickets_assigned_to_fkey(full_name)
+    `)
+    .order("created_at", { ascending: false })
 
-export async function getTickets(): Promise<Ticket[]> {
-  return mockTickets
+  if (error) {
+    console.error("Error fetching tickets:", error)
+    return []
+  }
+
+  return data || []
 }

@@ -1,178 +1,109 @@
 "use server"
 
-import type { Message, ChatSessionDetails } from "@/types/chat.types"
+import { createClient } from "@/lib/supabase/server"
 
-// MOCK DATABASE - In un'app reale, questi dati verrebbero da un DB come Supabase o Neon
-const mockUsers = new Map<string, any>([
-  [
-    "user_client_123",
-    {
-      id: "user_client_123",
-      name: "Mario Rossi",
-      avatar: "/placeholder.svg?width=40&height=40",
-      role: "client",
-      balance: 50.0,
-    },
-  ],
-  [
-    "op_luna_stellare",
-    {
-      id: "op_luna_stellare",
-      name: "Luna Stellare",
-      avatar: "/placeholder.svg?width=40&height=40",
-      role: "operator",
-      ratePerMinute: 2.5,
-    },
-  ],
-  [
-    "op_sol_divino",
-    {
-      id: "op_sol_divino",
-      name: "Sol Divino",
-      avatar: "/placeholder.svg?width=40&height=40",
-      role: "operator",
-      ratePerMinute: 3.0,
-    },
-  ],
-])
-const mockChatSessions = new Map<string, ChatSessionDetails>()
+export async function respondToChatRequest(requestId: string, response: "accept" | "decline") {
+  const supabase = createClient()
 
-export interface SendMessageResult {
-  success: boolean
-  message?: Message
-  error?: string
+  try {
+    if (response === "accept") {
+      // Create chat session
+      const { data: chatSession, error } = await supabase
+        .from("chat_sessions")
+        .insert({
+          client_id: requestId, // This should be properly mapped
+          operator_id: (await supabase.auth.getUser()).data.user?.id,
+          status: "active",
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      return { success: true, chatSession }
+    } else {
+      // Handle decline logic
+      return { success: true, declined: true }
+    }
+  } catch (error) {
+    console.error("Error responding to chat request:", error)
+    return { success: false, error: "Failed to respond to chat request" }
+  }
 }
 
-export async function sendMessageAction(
-  conversationId: string,
-  text: string,
-  senderId: string,
-  senderName: string,
-  senderAvatar?: string,
-): Promise<SendMessageResult> {
-  console.log("Client to Operator - Server Action: sendMessageAction called")
-  if (!text.trim()) {
-    return { success: false, error: "Il messaggio non può essere vuoto." }
+export async function getChatSessionDetails(sessionId: string) {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .select(`
+      *,
+      client:profiles!chat_sessions_client_id_fkey(full_name, avatar_url),
+      operator:profiles!chat_sessions_operator_id_fkey(stage_name, avatar_url),
+      messages:chat_messages(*)
+    `)
+    .eq("id", sessionId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching chat session:", error)
+    return null
   }
-  const newMessage: Message = {
-    id: `msg_client_${Date.now()}`,
-    senderId,
-    senderName,
-    text,
-    timestamp: new Date(),
-    avatar: senderAvatar,
-  }
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return { success: true, message: newMessage }
+
+  return data
 }
 
-export async function sendOperatorMessageAction(
-  conversationId: string,
-  text: string,
-  senderId: string,
-  senderName: string,
-  senderAvatar?: string,
-): Promise<SendMessageResult> {
-  console.log("Operator to Client - Server Action: sendOperatorMessageAction called")
-  if (!text.trim()) {
-    return { success: false, error: "Il messaggio non può essere vuoto." }
+export async function sendMessageAction(sessionId: string, message: string) {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error("User not authenticated")
+
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: sessionId,
+        sender_id: user.id,
+        message,
+        message_type: "text",
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error sending message:", error)
+    return { success: false, error: "Failed to send message" }
   }
-  const newMessage: Message = {
-    id: `msg_op_${Date.now()}`,
-    senderId,
-    senderName,
-    text,
-    timestamp: new Date(),
-    avatar: senderAvatar,
-  }
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return { success: true, message: newMessage }
 }
 
-interface ChatRequestResult {
-  success: boolean
-  sessionId?: string
-  error?: string
-}
+export async function sendOperatorMessageAction(sessionId: string, message: string) {
+  const supabase = createClient()
 
-export async function initiateChatRequest(userId: string, operatorId: string): Promise<ChatRequestResult> {
-  const client = mockUsers.get(userId)
-  const operator = mockUsers.get(operatorId)
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error("User not authenticated")
 
-  if (!client) {
-    mockUsers.set(userId, {
-      id: userId,
-      name: "Nuovo Utente",
-      avatar: "/placeholder.svg?width=40&height=40",
-      role: "client",
-      balance: 100.0,
-    })
-    const newlyCreatedClient = mockUsers.get(userId)
-    return executeChatRequest(newlyCreatedClient, operator, operatorId)
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: sessionId,
+        sender_id: user.id,
+        message,
+        message_type: "text",
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error sending operator message:", error)
+    return { success: false, error: "Failed to send message" }
   }
-
-  return executeChatRequest(client, operator, operatorId)
-}
-
-async function executeChatRequest(client: any, operator: any, operatorId: string): Promise<ChatRequestResult> {
-  if (!operator || operator.role !== "operator") {
-    return { success: false, error: `Operatore non valido o non trovato con ID: ${operatorId}.` }
-  }
-
-  console.log(
-    `Server Action: Utente ${client.name} (${client.id}) sta richiedendo una chat con l'operatore ${operator.name} (${operatorId})`,
-  )
-
-  if (client.balance < operator.ratePerMinute) {
-    return { success: false, error: "Credito insufficiente per avviare la chat." }
-  }
-
-  const sessionId = `session_${Date.now()}`
-  const newSession: ChatSessionDetails = {
-    id: sessionId,
-    status: "active",
-    client: {
-      id: client.id,
-      name: client.name,
-      avatar: client.avatar,
-      initialBalance: client.balance,
-    },
-    operator: {
-      id: operator.id,
-      name: operator.name,
-      avatar: operator.avatar,
-      ratePerMinute: operator.ratePerMinute,
-    },
-    messages: [
-      {
-        id: `msg_sys_${Date.now()}`,
-        senderId: "system",
-        senderName: "System",
-        text: `Chat avviata con ${operator.name}. La tariffa è di €${operator.ratePerMinute.toFixed(2)}/minuto.`,
-        timestamp: new Date(),
-        type: "system",
-      },
-    ],
-    createdAt: new Date(),
-  }
-  mockChatSessions.set(sessionId, newSession)
-  console.log(`Richiesta di chat creata con ID (simulato): ${sessionId}`)
-
-  return { success: true, sessionId: sessionId }
-}
-
-export async function respondToChatRequest(
-  sessionId: string,
-  response: "accepted" | "declined",
-): Promise<{ success: boolean }> {
-  console.log(`Server Action: L'operatore ha risposto alla sessione ${sessionId} con: ${response}`)
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return { success: true }
-}
-
-export async function getChatSessionDetails(sessionId: string): Promise<ChatSessionDetails | null> {
-  console.log(`Recupero dettagli per la sessione: ${sessionId}`)
-  await new Promise((res) => setTimeout(res, 500))
-  const session = mockChatSessions.get(sessionId)
-  return session || null
 }
