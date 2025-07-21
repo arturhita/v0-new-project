@@ -15,53 +15,28 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (signInError) {
-    switch (signInError.message) {
+  if (error) {
+    switch (error.message) {
       case "Invalid login credentials":
         return { error: "Credenziali di accesso non valide." }
       case "Email not confirmed":
         return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
       default:
-        console.error("Login Error:", signInError.message)
+        console.error("Login Error:", error.message)
         return { error: "Si è verificato un errore imprevisto." }
     }
   }
 
-  if (!signInData.user) {
-    return { error: "Utente non trovato dopo il login." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", signInData.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    console.error("Profile fetch error after login:", profileError?.message)
-    // L'utente è autenticato. Il reindirizzamento avverrà lato client tramite AuthProvider.
-    // Questo previene il logout forzato se il DB è lento.
-    // La redirect qui sotto non verrà eseguita, ma il login ha avuto successo.
-    // L'AuthProvider gestirà il reindirizzamento alla dashboard corretta.
-    return { success: true }
-  }
-
-  // Reindirizzamento gestito interamente dal server per un'esperienza più rapida
-  switch (profile.role) {
-    case "admin":
-      redirect("/admin/dashboard")
-    case "operator":
-      redirect("/dashboard/operator")
-    case "client":
-      redirect("/dashboard/client")
-    default:
-      redirect("/")
-  }
+  // Rimuoviamo il reindirizzamento dal server.
+  // L'azione si limita a completare il login.
+  // L'AuthProvider sul client rileverà il cambio di stato e gestirà il reindirizzamento.
+  // Questo elimina la race condition.
+  return { success: "Login effettuato con successo! Verrai reindirizzato..." }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {

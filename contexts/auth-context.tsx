@@ -35,9 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // Dopo il logout, reindirizza sempre alla homepage o alla pagina di login
     router.push("/login")
-    router.refresh() // Assicura che lo stato del server sia aggiornato
+    router.refresh()
   }, [router])
 
   useEffect(() => {
@@ -63,7 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null)
       }
-      // Imposta isLoading a false solo dopo che la sessione e il profilo sono stati caricati
       setIsLoading(false)
     })
 
@@ -73,17 +71,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Non eseguire alcuna logica di reindirizzamento finché lo stato di autenticazione non è definito
-    if (isLoading) return
+    // Non fare nulla finché lo stato di autenticazione non è completamente risolto.
+    if (isLoading) {
+      return
+    }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Caso 1: L'utente è autenticato
-    if (user) {
-      // Se si trova su una pagina di autenticazione, reindirizzalo alla sua dashboard
+    // Caso 1: Utente autenticato (con profilo caricato).
+    if (user && profile) {
+      // Se si trova su una pagina di login/registrazione, reindirizzalo alla sua dashboard.
       if (isAuthPage) {
-        const role = profile?.role
+        const { role } = profile
         let destination = "/"
         if (role === "admin") destination = "/admin/dashboard"
         else if (role === "operator") destination = "/dashboard/operator"
@@ -91,24 +91,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.replace(destination)
       }
     }
-    // Caso 2: L'utente NON è autenticato
-    else {
-      // Se sta cercando di accedere a una rotta protetta, reindirizzalo al login
+    // Caso 2: Utente non autenticato.
+    else if (!user) {
+      // Se sta tentando di accedere a una rotta protetta, reindirizzalo al login.
       if (isProtectedRoute) {
         router.replace("/login")
       }
     }
-  }, [user, profile, isLoading, pathname, router])
-
-  const value = {
-    user,
-    profile,
-    isAuthenticated: !!user,
-    isLoading,
-    logout,
-  }
+  }, [isLoading, user, profile, pathname, router])
 
   // Mostra uno spinner a schermo intero durante il caricamento iniziale per evitare sfarfallii
+  // e reindirizzamenti errati.
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020]">
@@ -117,7 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export const useAuth = () => {
