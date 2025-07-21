@@ -1,95 +1,82 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
 import { useFormStatus } from "react-dom"
+import { useRouter } from "next/navigation"
 import { login } from "@/lib/actions/auth.actions"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useEffect, useRef } from "react"
-import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import Link from "next/link"
-import { ConstellationBackground } from "@/components/constellation-background"
-import Image from "next/image"
+import LoadingSpinner from "@/components/loading-spinner"
 
-function SubmitButton() {
+function LoginButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white" disabled={pending}>
-      {pending ? "Accesso in corso..." : "Accedi"}
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? <LoadingSpinner /> : "Accedi"}
     </Button>
   )
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, { message: "", success: false })
   const router = useRouter()
-  const formRef = useRef<HTMLFormElement>(null)
+  const [state, formAction, isPending] = useActionState(login, { message: "", success: false })
 
   useEffect(() => {
-    if (state.message) {
-      if (state.success) {
-        toast.success(state.message)
-        // This refresh is crucial. It tells Next.js to refetch the page,
-        // which will re-run the AuthProvider and trigger the redirect.
+    if (state.success) {
+      const timer = setTimeout(() => {
+        // Ricarica la pagina per far aggiornare il contesto di autenticazione
+        // e gestire il reindirizzamento alla dashboard corretta.
         router.refresh()
-      } else {
-        toast.error(state.message)
-      }
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-  }, [state, router])
+  }, [state.success, router])
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-900 text-white">
-      <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md p-8 space-y-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/20">
-        <div className="text-center">
-          <Image
-            src="/images/moonthir-logo-white.png"
-            alt="Moonthir Logo"
-            width={120}
-            height={120}
-            className="mx-auto mb-4"
-          />
-          <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
-            Bentornato
-          </h1>
-          <p className="mt-2 text-gray-400">Accedi per continuare il tuo viaggio mistico.</p>
-        </div>
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl">Login</CardTitle>
+          <CardDescription>Inserisci le tue credenziali per accedere alla piattaforma.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={formAction} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="mario.rossi@esempio.com"
+                required
+                disabled={isPending}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" required disabled={isPending} />
+            </div>
 
-        <form ref={formRef} action={formAction} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="tua@email.com"
-              required
-              className="bg-gray-900/50 border-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="bg-gray-900/50 border-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          <SubmitButton />
-        </form>
+            {state.message && (
+              <p className={`text-sm font-medium ${state.success ? "text-emerald-500" : "text-destructive"}`}>
+                {state.message}
+              </p>
+            )}
 
-        <p className="text-center text-sm text-gray-400">
-          Non hai un account?{" "}
-          <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
-            Registrati ora
-          </Link>
-        </p>
-      </div>
+            <LoginButton />
+          </form>
+          <div className="mt-4 text-center text-sm">
+            Non hai un account?{" "}
+            <Link href="/register" className="underline">
+              Registrati
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

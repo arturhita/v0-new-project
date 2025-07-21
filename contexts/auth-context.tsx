@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from("profiles")
           .select("id, role, full_name, avatar_url")
           .eq("id", session.user.id)
-          .single()
+          .maybeSingle() // CORREZIONE: Usato maybeSingle() per evitare errori se il profilo non è ancora stato creato
 
         if (profileData) setProfile(profileData)
         if (error) console.error("Error fetching initial profile:", error.message)
@@ -61,14 +61,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from("profiles")
           .select("id, role, full_name, avatar_url")
           .eq("id", session.user.id)
-          .single()
+          .maybeSingle() // CORREZIONE: Usato maybeSingle() anche qui
 
-        if (profileData) setProfile(profileData)
-        if (error) console.error("Error fetching profile on auth change:", error.message)
+        // Se il profilo esiste, lo impostiamo, altrimenti rimane null
+        setProfile(profileData ?? null)
+
+        if (error) {
+          // Logghiamo l'errore ma non blocchiamo l'app
+          console.error("Error fetching profile on auth change:", error.message)
+        }
       } else {
         setProfile(null)
       }
-      // No need to set loading here, it's a background update
     })
 
     return () => {
