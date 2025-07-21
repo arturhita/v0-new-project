@@ -1,6 +1,6 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 // Definizione del tipo per i dati utente, per maggiore chiarezza
@@ -16,7 +16,6 @@ export type UserProfileWithStats = {
 }
 
 export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
-  const supabaseAdmin = createAdminClient()
   const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*").neq("role", "admin")
 
   if (profilesError) {
@@ -51,7 +50,6 @@ export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
 }
 
 export async function toggleUserSuspension(userId: string, currentStatus: string) {
-  const supabaseAdmin = createAdminClient()
   const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
   const { error } = await supabaseAdmin.from("profiles").update({ status: newStatus }).eq("id", userId)
 

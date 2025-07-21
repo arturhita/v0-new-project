@@ -1,7 +1,7 @@
 "use server"
 
 import { z } from "zod"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 const applicationSchema = z.object({
@@ -45,7 +45,6 @@ export async function submitApplication(prevState: any, formData: FormData) {
     status: "pending",
   }
 
-  const supabaseAdmin = createAdminClient()
   const { error } = await supabaseAdmin.from("operator_applications").insert(applicationData)
 
   if (error) {

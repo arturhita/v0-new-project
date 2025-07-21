@@ -142,7 +142,7 @@ export async function getCurrentPromotionPrice(): Promise<number | null> {
 
   const { data, error } = await supabase
     .from("promotions")
-    .select("special_price")
+    .select("special_price") // CORRECTED: was discount_price
     .eq("is_active", true)
     .lte("start_date", today)
     .gte("end_date", today)
@@ -154,7 +154,6 @@ export async function getCurrentPromotionPrice(): Promise<number | null> {
     .single()
 
   if (error && error.code !== "PGRST116") {
-    // PGRST116 means no rows found, which is not an error here
     console.error("Error fetching active promotion price:", error)
     return null
   }
