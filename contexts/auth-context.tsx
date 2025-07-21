@@ -1,12 +1,11 @@
 "use client"
 
-import { useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { useRouter, usePathname } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { logout as logoutAction } from "@/lib/actions/auth.actions"
-import { AuthContext as AuthContextImport } from "./auth-context" // Import the AuthContext from the auth-context file
 
 type Profile = {
   id: string
@@ -22,7 +21,7 @@ type AuthContextType = {
   logout: () => Promise<void>
 }
 
-const AuthContext = AuthContextImport // Use the imported AuthContext instead of redeclaring it
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -70,7 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       // If there's a session, the onAuthStateChange listener will fire and handle the rest.
-      // We just need to wait for it to finish.
     }
     getInitialSession()
 
@@ -109,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login")
   }
 
+  // Show a full-screen loader only on auth pages to prevent layout shift
+  // while the initial auth check is happening.
   if (isLoading && (pathname === "/login" || pathname === "/register")) {
     return <LoadingSpinner fullScreen />
   }

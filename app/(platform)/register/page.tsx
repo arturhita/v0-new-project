@@ -1,35 +1,32 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
-import { useFormStatus } from "react-dom"
+import { useEffect, useActionState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-
+import { useFormStatus } from "react-dom"
 import { register } from "@/lib/actions/auth.actions"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { toast } from "sonner"
+import { Eye, EyeOff } from "lucide-react"
+import { useState } from "react"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button
-      type="submit"
-      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
-      disabled={pending}
-    >
-      {pending ? "Creazione account..." : "Registrati"}
+    <Button type="submit" className="w-full bg-indigo-500 hover:bg-indigo-600 text-white" disabled={pending}>
+      {pending ? "Creazione Account..." : "Crea Account"}
     </Button>
   )
 }
 
 export default function RegisterPage() {
-  const [state, formAction] = useActionState(register, undefined)
-  const router = useRouter()
+  const [state, formAction] = useActionState(register, null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
     if (state?.error) {
@@ -37,108 +34,148 @@ export default function RegisterPage() {
     }
     if (state?.success) {
       toast.success(state.success)
-      router.push("/login")
     }
-  }, [state, router])
+  }, [state])
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
       <ConstellationBackground />
       <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="text-center">
-          <Image
-            src="/images/moonthir-logo-white.png"
-            alt="Moonthir Logo"
-            width={150}
-            height={150}
-            className="mx-auto"
-          />
-          <h2 className="mt-6 text-3xl font-extrabold text-white">Crea un nuovo account</h2>
+          <Link href="/" className="inline-block">
+            <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={150} height={40} />
+          </Link>
+          <h2 className="mt-6 text-3xl font-bold tracking-tight text-white">Crea il tuo account</h2>
           <p className="mt-2 text-sm text-gray-400">
-            o{" "}
+            Hai già un account?{" "}
             <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
-              accedi al tuo account
+              Accedi qui
             </Link>
           </p>
         </div>
-
-        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-indigo-500/10">
-          <form action={formAction} className="space-y-6">
-            <input type="hidden" name="role" value="client" />
+        <form action={formAction} className="space-y-6 rounded-lg bg-gray-800/50 p-8 shadow-2xl backdrop-blur-sm">
+          <input type="hidden" name="role" value="client" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="fullName" className="text-gray-300">
-                Nome Completo
+              <Label htmlFor="firstName" className="text-gray-300">
+                Nome
               </Label>
               <Input
-                id="fullName"
-                name="fullName"
+                id="firstName"
+                name="firstName"
                 type="text"
                 required
-                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Mario Rossi"
+                className="bg-gray-900/50 border-gray-700 text-white"
               />
             </div>
             <div>
-              <Label htmlFor="email" className="text-gray-300">
-                Indirizzo Email
+              <Label htmlFor="lastName" className="text-gray-300">
+                Cognome
               </Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
+                id="lastName"
+                name="lastName"
+                type="text"
                 required
-                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="tu@esempio.com"
+                className="bg-gray-900/50 border-gray-700 text-white"
               />
             </div>
-            <div>
-              <Label htmlFor="password" className="text-gray-300">
-                Password
-              </Label>
+          </div>
+          <div>
+            <Label htmlFor="email" className="text-gray-300">
+              Indirizzo Email
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              className="bg-gray-900/50 border-gray-700 text-white"
+            />
+          </div>
+          <div>
+            <Label htmlFor="password" className="text-gray-300">
+              Password
+            </Label>
+            <div className="relative">
               <Input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 required
-                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="••••••••"
+                className="bg-gray-900/50 border-gray-700 text-white"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="terms"
-                name="terms"
+          </div>
+          <div>
+            <Label htmlFor="confirmPassword" className="text-gray-300">
+              Conferma Password
+            </Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                autoComplete="new-password"
                 required
-                className="mt-1 border-gray-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                className="bg-gray-900/50 border-gray-700 text-white"
               />
-              <div className="grid gap-1.5 leading-none">
-                <label
-                  htmlFor="terms"
-                  className="text-sm font-medium leading-none text-gray-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="terms"
+              name="terms"
+              required
+              className="mt-1 border-gray-600 data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="terms"
+                className="text-sm font-medium leading-none text-gray-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Accetto i{" "}
+                <Link
+                  href="/legal/terms-and-conditions"
+                  target="_blank"
+                  className="font-semibold text-indigo-400 underline hover:text-indigo-300"
                 >
-                  Accetto i{" "}
-                  <Link
-                    href="/legal/terms-and-conditions"
-                    target="_blank"
-                    className="font-medium text-indigo-400 hover:text-indigo-300 underline"
-                  >
-                    Termini e Condizioni
-                  </Link>{" "}
-                  e la{" "}
-                  <Link
-                    href="/legal/privacy-policy"
-                    target="_blank"
-                    className="font-medium text-indigo-400 hover:text-indigo-300 underline"
-                  >
-                    Privacy Policy
-                  </Link>
-                  .
-                </label>
-              </div>
+                  Termini e Condizioni
+                </Link>{" "}
+                e la{" "}
+                <Link
+                  href="/legal/privacy-policy"
+                  target="_blank"
+                  className="font-semibold text-indigo-400 underline hover:text-indigo-300"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </label>
             </div>
+          </div>
+
+          <div>
             <SubmitButton />
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   )
