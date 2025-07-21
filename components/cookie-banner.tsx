@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Cookie, Settings } from "lucide-react"
+import { Cookie } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -33,16 +34,12 @@ export function CookieBanner() {
   })
 
   useEffect(() => {
-    try {
-      const consent = localStorage.getItem("cookie-consent")
-      if (!consent) {
-        setShowBanner(true)
-      } else {
-        const savedPreferences = JSON.parse(consent)
-        setPreferences(savedPreferences)
-      }
-    } catch (error) {
-      console.error("Could not access localStorage:", error)
+    const consent = localStorage.getItem("cookie_consent")
+    if (consent !== "true") {
+      setShowBanner(true)
+    } else {
+      const savedPreferences = JSON.parse(localStorage.getItem("cookie-consent") || "{}")
+      setPreferences(savedPreferences)
     }
   }, [])
 
@@ -72,14 +69,10 @@ export function CookieBanner() {
   }
 
   const saveAndClose = (prefs: CookiePreferences) => {
-    try {
-      localStorage.setItem("cookie-consent", JSON.stringify(prefs))
-      setPreferences(prefs)
-      setShowBanner(false)
-      initializeServices(prefs)
-    } catch (error) {
-      console.error("Could not access localStorage:", error)
-    }
+    localStorage.setItem("cookie-consent", JSON.stringify(prefs))
+    setPreferences(prefs)
+    setShowBanner(false)
+    initializeServices(prefs)
   }
 
   const initializeServices = (prefs: CookiePreferences) => {
@@ -88,20 +81,28 @@ export function CookieBanner() {
     if (prefs.preferences) console.log("Preference services initialized.")
   }
 
+  const handleAccept = () => {
+    localStorage.setItem("cookie_consent", "true")
+    setShowBanner(false)
+  }
+
   if (!showBanner) return null
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-slate-900/80 backdrop-blur-md border-t border-slate-700 shadow-lg animate-in slide-in-from-bottom-5">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-sm text-white p-4 shadow-lg">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
             <div className="flex items-start gap-4 flex-1">
               <Cookie className="h-8 w-8 text-amber-400 mt-1 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-slate-100">La tua privacy è importante</h3>
-                <p className="text-sm text-slate-300 mt-1">
-                  Utilizziamo i cookie per migliorare la tua esperienza. Puoi personalizzare le tue preferenze in
-                  qualsiasi momento.
+                <h3 className="font-semibold text-white">La tua privacy è importante</h3>
+                <p className="text-sm text-gray-300 mt-1">
+                  Utilizziamo i cookie per migliorare la tua esperienza. Per saperne di più, consulta la nostra{" "}
+                  <Link href="/legal/cookie-policy" className="underline text-indigo-400 hover:text-indigo-300">
+                    Cookie Policy
+                  </Link>
+                  .
                 </p>
               </div>
             </div>
@@ -114,7 +115,6 @@ export function CookieBanner() {
                     size="sm"
                     className="bg-transparent border-slate-600 hover:bg-slate-800 hover:text-white"
                   >
-                    <Settings className="h-4 w-4 mr-2" />
                     Personalizza
                   </Button>
                 </DialogTrigger>
@@ -178,6 +178,9 @@ export function CookieBanner() {
               </Button>
               <Button onClick={handleAcceptAll} size="sm" className="bg-blue-600 hover:bg-blue-700">
                 Accetta Tutti
+              </Button>
+              <Button onClick={handleAccept} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6">
+                Accetta
               </Button>
             </div>
           </div>
