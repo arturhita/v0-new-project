@@ -2,178 +2,162 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-export interface CommissionRequest {
-  id: string
-  operator_id: string
-  operator_name?: string
-  current_rate: number
-  requested_rate: number
-  justification: string
-  status: "pending" | "approved" | "rejected"
-  created_at: string
-  updated_at: string
-  reviewed_by?: string
-  review_notes?: string
-}
+const CommissionRequestSchema = z.object({
+  requestedCommission: z.coerce
+    .number()
+    .min(0, "La percentuale non può essere negativa.")
+    .max(100, "La percentuale non può superare 100."),
+  justification: z
+    .string()
+    .min(10, "La motivazione deve contenere almeno 10 caratteri.")
+    .max(500, "La motivazione non può superare i 500 caratteri."),
+})
 
-export async function createCommissionRequest(requestData: {
-  requested_rate: number
-  justification: string
-}) {
+export async function submitCommissionRequest(prevState: any, formData: FormData) {
   const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get current operator profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("commission_rate")
-      .eq("id", user.id)
-      .eq("role", "operator")
-      .single()
-
-    if (profileError) throw profileError
-
-    const currentRate = profile?.commission_rate || 0.15 // Default 15%
-
-    // Create commission request
-    const { data, error } = await supabase
-      .from("commission_requests")
-      .insert({
-        operator_id: user.id,
-        current_rate: currentRate,
-        requested_rate: requestData.requested_rate,
-        justification: requestData.justification,
-        status: "pending",
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    revalidatePath("/dashboard/operator/commission-request")
-    return { success: true, request: data }
-  } catch (error) {
-    console.error("Error creating commission request:", error)
-    return { success: false, error: "Failed to create commission request" }
+  if (!user) {
+    return { success: false, message: "Utente non autenticato." }
   }
+
+  const validatedFields = CommissionRequestSchema.safeParse({
+    requestedCommission: formData.get("requestedCommission"),
+    justification: formData.get("justification"),
+  })
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Dati non validi.",
+      errors: validatedFields.error.flatten().fieldErrors,
+    }
+  }
+
+  const { requestedCommission, justification } = validatedFields.data
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("commission_rate")
+    .eq("id", user.id)
+    .single()
+
+  if (profileError || !profile) {
+    return { success: false, message: "Profilo operatore non trovato." }
+  }
+
+  const { error: insertError } = await supabase.from("commission_requests").insert({
+    operator_id: user.id,
+    current_commission_rate: profile.commission_rate || 15,
+    requested_commission_rate: requestedCommission,
+    justification,
+  })
+
+  if (insertError) {
+    console.error("Error submitting commission request:", insertError)
+    return { success: false, message: `Errore del database: ${insertError.message}` }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/commission-request")
+  revalidatePath("/admin/commission-requests-log")
+
+  return { success: true, message: "Richiesta inviata con successo!" }
 }
 
-export async function getCommissionRequests() {
+export async function getCommissionRequestsForOperator() {
   const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
 
-  try {
-    const { data, error } = await supabase
-      .from("commission_requests")
-      .select(`
-        *,
-        operator:profiles!commission_requests_operator_id_fkey(stage_name, avatar_url)
-      `)
-      .order("created_at", { ascending: false })
+  const { data, error } = await supabase
+    .from("commission_requests")
+    .select("*")
+    .eq("operator_id", user.id)
+    .order("created_at", { ascending: false })
 
-    if (error) throw error
-
-    return (data || []).map((request) => ({
-      ...request,
-      operator_name: request.operator?.stage_name || "Unknown Operator",
-    }))
-  } catch (error) {
-    console.error("Error fetching commission requests:", error)
+  if (error) {
+    console.error("Error fetching operator commission requests:", error)
     return []
   }
+  return data
+}
+
+export async function getAllCommissionRequests() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  if (profile?.role !== "admin") return []
+
+  const { data, error } = await supabase
+    .from("commission_requests")
+    .select(
+      `
+      *,
+      profile:profiles(stage_name)
+    `,
+    )
+    .order("status", { ascending: true })
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching all commission requests:", error)
+    return []
+  }
+  return data
 }
 
 export async function updateCommissionRequestStatus(
   requestId: string,
-  status: "approved" | "rejected",
-  reviewNotes?: string,
+  operatorId: string,
+  newStatus: "approved" | "rejected",
+  newCommission?: number,
 ) {
   const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non autorizzato" }
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  if (profile?.role !== "admin") return { success: false, message: "Azione non permessa" }
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get the request details
-    const { data: request, error: requestError } = await supabase
-      .from("commission_requests")
-      .select("*")
-      .eq("id", requestId)
-      .single()
-
-    if (requestError || !request) {
-      return { success: false, error: "Commission request not found" }
-    }
-
-    // Update request status
-    const { error } = await supabase
-      .from("commission_requests")
-      .update({
-        status,
-        reviewed_by: user.id,
-        review_notes: reviewNotes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", requestId)
-
-    if (error) throw error
-
-    // If approved, update operator's commission rate
-    if (status === "approved") {
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          commission_rate: request.requested_rate,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request.operator_id)
-
-      if (updateError) throw updateError
-    }
-
-    revalidatePath("/admin/commission-requests")
-    return { success: true }
-  } catch (error) {
-    console.error("Error updating commission request status:", error)
-    return { success: false, error: "Failed to update commission request status" }
+  if (newStatus === "approved" && newCommission === undefined) {
+    return { success: false, message: "La nuova commissione è richiesta per l'approvazione." }
   }
-}
 
-export async function getOperatorCommissionRequests(operatorId?: string) {
-  const supabase = createClient()
+  if (newStatus === "approved") {
+    const { error: updateProfileError } = await supabase
+      .from("profiles")
+      .update({ commission_rate: newCommission })
+      .eq("id", operatorId)
 
-  try {
-    let userId = operatorId
-    if (!userId) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return []
-      userId = user.id
+    if (updateProfileError) {
+      console.error("Error updating profile commission:", updateProfileError)
+      return { success: false, message: `Errore aggiornamento profilo: ${updateProfileError.message}` }
     }
-
-    const { data, error } = await supabase
-      .from("commission_requests")
-      .select("*")
-      .eq("operator_id", userId)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return data || []
-  } catch (error) {
-    console.error("Error fetching operator commission requests:", error)
-    return []
   }
+
+  const { error: updateRequestError } = await supabase
+    .from("commission_requests")
+    .update({ status: newStatus })
+    .eq("id", requestId)
+
+  if (updateRequestError) {
+    console.error("Error updating request status:", updateRequestError)
+    return { success: false, message: `Errore aggiornamento richiesta: ${updateRequestError.message}` }
+  }
+
+  revalidatePath("/admin/commission-requests-log")
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  revalidatePath("/admin/operators")
+
+  return { success: true, message: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
 }

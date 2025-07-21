@@ -2,229 +2,146 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
-export async function updateProfile(profileData: {
-  full_name?: string
-  stage_name?: string
-  phone?: string
-  avatar_url?: string
-  bio?: string
-  specialties?: string[]
-  categories?: string[]
-}) {
-  const supabase = createClient()
+export interface ProfileData {
+  id: string
+  email?: string
+  name?: string | null
+  surname?: string | null
+  nickname?: string | null
+  phone?: string | null
+  dateOfBirth?: string | null
+  gender?: string | null
+  city?: string | null
+  country?: string | null
+  avatarUrl?: string | null
+  bio?: string | null
+  favoriteCategories?: string[] | null
+  preferredLanguage?: string | null
+  timezone?: string | null
+  allowMessages?: boolean | null
+  emailNotifications?: boolean | null
+  pushNotifications?: boolean | null
+  smsNotifications?: boolean | null
+  marketingEmails?: boolean | null
+  totalConsultations?: number
+  totalSpent?: number
+  averageRating?: number
+  memberSince?: string
+}
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        ...profileData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-
-    if (error) throw error
-
-    revalidatePath("/profile")
-    return { success: true }
-  } catch (error) {
-    console.error("Error updating profile:", error)
-    return { success: false, error: "Failed to update profile" }
+function mapToClient(dbProfile: any, user: any): ProfileData {
+  return {
+    id: dbProfile.id,
+    email: user.email,
+    name: dbProfile.name,
+    surname: dbProfile.surname,
+    nickname: dbProfile.nickname,
+    phone: dbProfile.phone,
+    dateOfBirth: dbProfile.date_of_birth,
+    gender: dbProfile.gender,
+    city: dbProfile.city,
+    country: dbProfile.country,
+    avatarUrl: dbProfile.avatar_url,
+    bio: dbProfile.bio,
+    favoriteCategories: dbProfile.favorite_categories,
+    preferredLanguage: dbProfile.preferred_language,
+    timezone: dbProfile.timezone,
+    allowMessages: dbProfile.allow_messages,
+    emailNotifications: dbProfile.email_notifications,
+    pushNotifications: dbProfile.push_notifications,
+    smsNotifications: dbProfile.sms_notifications,
+    marketingEmails: dbProfile.marketing_emails,
+    memberSince: user.created_at,
+    totalConsultations: 15,
+    totalSpent: 245.5,
+    averageRating: 4.8,
   }
 }
 
-export async function getProfile(userId?: string) {
+export async function getAuthenticatedUserProfile(): Promise<ProfileData | null> {
   const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  try {
-    let targetUserId = userId
-    if (!targetUserId) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return null
-      targetUserId = user.id
-    }
+  if (!user) return null
 
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", targetUserId).single()
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
-    if (error) throw error
-
-    return data
-  } catch (error) {
-    console.error("Error fetching profile:", error)
-    return null
-  }
-}
-
-export async function uploadAvatar(file: File) {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    const fileExt = file.name.split(".").pop()
-    const fileName = `${user.id}-${Math.random()}.${fileExt}`
-    const filePath = `avatars/${fileName}`
-
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file)
-
-    if (uploadError) throw uploadError
-
-    const { data } = supabase.storage.from("avatars").getPublicUrl(filePath)
-
-    // Update profile with new avatar URL
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        avatar_url: data.publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-
-    if (updateError) throw updateError
-
-    revalidatePath("/profile")
-    return { success: true, avatarUrl: data.publicUrl }
-  } catch (error) {
-    console.error("Error uploading avatar:", error)
-    return { success: false, error: "Failed to upload avatar" }
-  }
-}
-
-export async function deleteAvatar() {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get current avatar URL to delete from storage
-    const { data: profile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).single()
-
-    if (profile?.avatar_url) {
-      // Extract file path from URL
-      const url = new URL(profile.avatar_url)
-      const filePath = url.pathname.split("/").slice(-2).join("/")
-
-      // Delete from storage
-      await supabase.storage.from("avatars").remove([filePath])
-    }
-
-    // Update profile to remove avatar URL
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        avatar_url: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-
-    if (error) throw error
-
-    revalidatePath("/profile")
-    return { success: true }
-  } catch (error) {
-    console.error("Error deleting avatar:", error)
-    return { success: false, error: "Failed to delete avatar" }
-  }
-}
-
-export async function getPublicProfile(stageName: string) {
-  const supabase = createClient()
-
-  try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(`
-        *,
-        reviews!reviews_operator_id_fkey(
-          id,
-          rating,
-          comment,
-          created_at,
-          user:profiles!reviews_user_id_fkey(full_name, avatar_url)
-        )
-      `)
-      .eq("stage_name", stageName)
-      .eq("role", "operator")
-      .eq("status", "Attivo")
-      .single()
-
-    if (error) throw error
-
-    // Calculate average rating
-    const reviews = data.reviews || []
-    const averageRating =
-      reviews.length > 0 ? reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length : 0
-
+  if (error || !profile) {
+    console.error("Error fetching profile, or profile not found:", error?.message)
     return {
-      ...data,
-      average_rating: Math.round(averageRating * 10) / 10,
-      reviews_count: reviews.length,
-      reviews: reviews.filter((review: any) => review.user), // Only include reviews with valid users
+      id: user.id,
+      email: user.email,
+      memberSince: user.created_at,
+      name: "",
+      surname: "",
+      nickname: "",
+      phone: "",
+      dateOfBirth: "",
+      gender: "prefer-not-to-say",
+      city: "",
+      country: "",
+      avatarUrl: "",
+      bio: "",
+      favoriteCategories: [],
+      preferredLanguage: "it",
+      timezone: "Europe/Rome",
+      allowMessages: true,
+      emailNotifications: true,
+      pushNotifications: true,
+      smsNotifications: false,
+      marketingEmails: false,
+      totalConsultations: 0,
+      totalSpent: 0,
+      averageRating: 0,
     }
-  } catch (error) {
-    console.error("Error fetching public profile:", error)
-    return null
   }
+
+  return mapToClient(profile, user)
 }
 
-export async function updateOperatorApplication(applicationData: {
-  full_name: string
-  stage_name: string
-  phone: string
-  bio: string
-  specialties: string[]
-  categories: string[]
-  services: {
-    chat?: { enabled: boolean; price_per_minute: number }
-    call?: { enabled: boolean; price_per_minute: number }
-    email?: { enabled: boolean; price: number }
-  }
-}) {
+export async function updateUserProfile(profileData: ProfileData) {
   const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
+  if (!user) throw new Error("User not authenticated")
+  if (user.id !== profileData.id) throw new Error("Unauthorized update attempt")
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        ...applicationData,
-        role: "operator",
-        status: "Pending",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-
-    if (error) throw error
-
-    revalidatePath("/diventa-esperto")
-    return { success: true }
-  } catch (error) {
-    console.error("Error updating operator application:", error)
-    return { success: false, error: "Failed to submit application" }
+  const dbUpdateData = {
+    name: profileData.name,
+    surname: profileData.surname,
+    nickname: profileData.nickname,
+    phone: profileData.phone,
+    date_of_birth: profileData.dateOfBirth,
+    gender: profileData.gender,
+    city: profileData.city,
+    country: profileData.country,
+    avatar_url: profileData.avatarUrl,
+    bio: profileData.bio,
+    favorite_categories: profileData.favoriteCategories,
+    preferred_language: profileData.preferredLanguage,
+    timezone: profileData.timezone,
+    allow_messages: profileData.allowMessages,
+    email_notifications: profileData.emailNotifications,
+    push_notifications: profileData.pushNotifications,
+    sms_notifications: profileData.smsNotifications,
+    marketing_emails: profileData.marketingEmails,
   }
+
+  const { error } = await supabase.from("profiles").update(dbUpdateData).eq("id", user.id)
+
+  if (error) {
+    console.error("Error updating profile:", error)
+    throw new Error("Could not update profile.")
+  }
+
+  revalidatePath("/(platform)/profile", "page")
+  revalidatePath("/(platform)/dashboard/client", "page")
+
+  redirect("/(platform)/dashboard/client")
 }

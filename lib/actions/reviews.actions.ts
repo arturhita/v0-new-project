@@ -1,212 +1,172 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-export interface Review {
-  id: string
+export interface NewReviewSchema {
   user_id: string
   operator_id: string
+  operator_name: string
+  user_name: string
+  user_avatar?: string
   rating: number
   comment: string
-  status: "pending" | "approved" | "rejected"
-  created_at: string
-  updated_at: string
-  user_name?: string
-  operator_name?: string
+  service_type: "chat" | "call" | "email"
+  consultation_id: string
+  is_verified: boolean
 }
 
-export async function createReview(reviewData: {
-  operator_id: string
-  rating: number
-  comment: string
-}) {
-  const supabase = createClient()
+export async function createReview(reviewData: NewReviewSchema) {
+  const supabase = createAdminClient()
+  const status = reviewData.rating >= 4 ? "Approved" : "Pending"
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
+  const { data, error } = await supabase
+    .from("reviews")
+    .insert([{ ...reviewData, status }])
+    .select()
+    .single()
 
-    const { data, error } = await supabase
-      .from("reviews")
-      .insert({
-        user_id: user.id,
-        operator_id: reviewData.operator_id,
-        rating: reviewData.rating,
-        comment: reviewData.comment,
-        status: "pending",
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    revalidatePath(`/operator/${reviewData.operator_id}`)
-    return { success: true, review: data }
-  } catch (error) {
+  if (error) {
     console.error("Error creating review:", error)
-    return { success: false, error: "Failed to create review" }
+    return { success: false, error }
   }
-}
 
-export async function getReviews() {
-  const supabase = createClient()
+  revalidatePath("/")
+  revalidatePath(`/operator/${reviewData.operator_name}`)
+  revalidatePath(`/admin/reviews`)
 
-  try {
-    const { data, error } = await supabase
-      .from("reviews")
-      .select(`
-        *,
-        user:profiles!reviews_user_id_fkey(full_name, avatar_url),
-        operator:profiles!reviews_operator_id_fkey(stage_name, avatar_url)
-      `)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return (data || []).map((review) => ({
-      ...review,
-      user_name: review.user?.full_name || "Anonymous User",
-      operator_name: review.operator?.stage_name || "Unknown Operator",
-    }))
-  } catch (error) {
-    console.error("Error fetching reviews:", error)
-    return []
-  }
+  return { success: true, review: data }
 }
 
 export async function getOperatorReviews(operatorId: string) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("operator_id", operatorId)
+    .eq("status", "Approved")
+    .order("created_at", { ascending: false })
 
-  try {
-    const { data, error } = await supabase
-      .from("reviews")
-      .select(`
-        *,
-        user:profiles!reviews_user_id_fkey(full_name, avatar_url)
-      `)
-      .eq("operator_id", operatorId)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return (data || []).map((review) => ({
-      ...review,
-      user_name: review.user?.full_name || "Anonymous User",
-    }))
-  } catch (error) {
+  if (error) {
     console.error("Error fetching operator reviews:", error)
     return []
   }
-}
-
-export async function updateReviewStatus(reviewId: string, status: "approved" | "rejected") {
-  const supabase = createClient()
-
-  try {
-    const { error } = await supabase
-      .from("reviews")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", reviewId)
-
-    if (error) throw error
-
-    revalidatePath("/admin/reviews")
-    return { success: true }
-  } catch (error) {
-    console.error("Error updating review status:", error)
-    return { success: false, error: "Failed to update review status" }
-  }
-}
-
-export async function deleteReview(reviewId: string) {
-  const supabase = createClient()
-
-  try {
-    const { error } = await supabase.from("reviews").delete().eq("id", reviewId)
-
-    if (error) throw error
-
-    revalidatePath("/admin/reviews")
-    return { success: true }
-  } catch (error) {
-    console.error("Error deleting review:", error)
-    return { success: false, error: "Failed to delete review" }
-  }
+  return data
 }
 
 export async function getPendingReviews() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(`*`)
+    .eq("status", "Pending")
+    .order("created_at", { ascending: true })
 
-  try {
-    const { data, error } = await supabase
-      .from("reviews")
-      .select(`
-        *,
-        user:profiles!reviews_user_id_fkey(full_name, avatar_url),
-        operator:profiles!reviews_operator_id_fkey(stage_name, avatar_url)
-      `)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return (data || []).map((review) => ({
-      ...review,
-      user_name: review.user?.full_name || "Anonymous User",
-      operator_name: review.operator?.stage_name || "Unknown Operator",
-    }))
-  } catch (error) {
+  if (error) {
     console.error("Error fetching pending reviews:", error)
     return []
   }
+  return data
 }
 
-export async function getReviewStats(operatorId?: string) {
-  const supabase = createClient()
+export async function getModeratedReviews() {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .in("status", ["Approved", "Rejected"])
+    .order("created_at", { ascending: false })
+    .limit(50)
 
-  try {
-    let query = supabase.from("reviews").select("rating").eq("status", "approved")
-
-    if (operatorId) {
-      query = query.eq("operator_id", operatorId)
-    }
-
-    const { data, error } = await query
-
-    if (error) throw error
-
-    const reviews = data || []
-    const totalReviews = reviews.length
-    const averageRating = totalReviews > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews : 0
-
-    const ratingDistribution = {
-      5: reviews.filter((r) => r.rating === 5).length,
-      4: reviews.filter((r) => r.rating === 4).length,
-      3: reviews.filter((r) => r.rating === 3).length,
-      2: reviews.filter((r) => r.rating === 2).length,
-      1: reviews.filter((r) => r.rating === 1).length,
-    }
-
-    return {
-      totalReviews,
-      averageRating: Math.round(averageRating * 10) / 10,
-      ratingDistribution,
-    }
-  } catch (error) {
-    console.error("Error fetching review stats:", error)
-    return {
-      totalReviews: 0,
-      averageRating: 0,
-      ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-    }
+  if (error) {
+    console.error("Error fetching moderated reviews:", error)
+    return []
   }
+  return data
+}
+
+export async function moderateReview(reviewId: string, approved: boolean) {
+  const supabase = createAdminClient()
+  const newStatus = approved ? "Approved" : "Rejected"
+
+  const { error } = await supabase.from("reviews").update({ status: newStatus }).eq("id", reviewId)
+
+  if (error) {
+    console.error("Error moderating review:", error)
+    return { success: false, error }
+  }
+
+  revalidatePath("/admin/reviews")
+  return { success: true }
+}
+
+export async function getOperatorAverageRating(operatorId: string) {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("operator_id", operatorId)
+    .eq("status", "Approved")
+    .gte("rating", 3)
+
+  if (error || !data || data.length === 0) return 0
+
+  const totalRating = data.reduce((sum, review) => sum + review.rating, 0)
+  return Math.round((totalRating / data.length) * 10) / 10
+}
+
+export async function getOperatorReviewStats(operatorId: string) {
+  const supabase = createAdminClient()
+  const { data: allReviews, error } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("operator_id", operatorId)
+    .eq("status", "Approved")
+
+  if (error || !allReviews) {
+    return { totalReviews: 0, positiveReviews: 0, negativeReviews: 0, averageRating: 0, reviewsUsedInAverage: 0 }
+  }
+
+  const positiveReviews = allReviews.filter((r) => r.rating >= 3)
+  return {
+    totalReviews: allReviews.length,
+    positiveReviews: positiveReviews.length,
+    negativeReviews: allReviews.filter((r) => r.rating < 3).length,
+    averageRating: await getOperatorAverageRating(operatorId),
+    reviewsUsedInAverage: positiveReviews.length,
+  }
+}
+
+export async function voteHelpful(reviewId: string) {
+  const supabase = createAdminClient()
+  const { error } = await supabase.rpc("increment_helpful_votes", { review_id_param: reviewId })
+
+  if (error) {
+    console.error("Error incrementing helpful votes:", error)
+    return { success: false, error }
+  }
+  revalidatePath("/")
+  return { success: true }
+}
+
+export async function reportReview(reviewId: string) {
+  const supabase = createAdminClient()
+  const { data: review, error: fetchError } = await supabase
+    .from("reviews")
+    .select("report_count")
+    .eq("id", reviewId)
+    .single()
+  if (fetchError || !review) return { success: false, error: fetchError }
+
+  const newReportCount = review.report_count + 1
+  const shouldUnmoderate = newReportCount >= 3
+
+  const { error: updateError } = await supabase
+    .from("reviews")
+    .update({ report_count: newReportCount, ...(shouldUnmoderate && { status: "Pending" }) })
+    .eq("id", reviewId)
+  if (updateError) return { success: false, error: updateError }
+
+  if (shouldUnmoderate) revalidatePath("/admin/reviews")
+  return { success: true }
 }

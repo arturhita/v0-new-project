@@ -1,166 +1,103 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Loader2, CreditCard, Wallet } from "lucide-react"
-import { addToWallet } from "@/lib/actions/client.actions"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/use-toast"
+import { CreditCard, Zap, CheckCircle, Loader2 } from "lucide-react"
+import { packages, type Package } from "@/lib/packages"
+import { EmbeddedCheckoutForm } from "./embedded-checkout-form"
 
-interface WalletRechargeProps {
-  currentBalance: number
-  onRechargeComplete?: (newBalance: number) => void
-}
-
-export function WalletRecharge({ currentBalance, onRechargeComplete }: WalletRechargeProps) {
-  const [amount, setAmount] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("card")
+export default function WalletRecharge() {
+  const { user } = useAuth()
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(packages[1])
   const [isLoading, setIsLoading] = useState(false)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
 
-  const predefinedAmounts = [10, 25, 50, 100, 200]
-
-  const handleRecharge = async () => {
-    const rechargeAmount = Number.parseFloat(amount)
-
-    if (!rechargeAmount || rechargeAmount <= 0) {
-      toast.error("Please enter a valid amount")
+  const handlePreparePayment = async () => {
+    if (!user) {
+      toast({ title: "Accesso richiesto", variant: "destructive" })
       return
     }
-
-    if (rechargeAmount < 5) {
-      toast.error("Minimum recharge amount is €5")
-      return
-    }
-
-    if (rechargeAmount > 1000) {
-      toast.error("Maximum recharge amount is €1000")
+    if (!selectedPackage) {
+      toast({ title: "Nessun pacchetto selezionato", variant: "destructive" })
       return
     }
 
     setIsLoading(true)
+    setClientSecret(null)
 
     try {
-      const result = await addToWallet(rechargeAmount, `Wallet recharge via ${paymentMethod}`)
+      const response = await fetch("/api/payments/create-payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId: selectedPackage.id, userId: user.id }),
+      })
 
-      if (result.success) {
-        toast.success(`Successfully added €${rechargeAmount} to your wallet`)
-        setAmount("")
-        onRechargeComplete?.(result.newBalance)
-      } else {
-        toast.error(result.error || "Failed to recharge wallet")
+      if (!response.ok) {
+        throw new Error("Impossibile preparare il pagamento.")
       }
+
+      const { clientSecret } = await response.json()
+      setClientSecret(clientSecret)
     } catch (error) {
-      console.error("Recharge error:", error)
-      toast.error("An unexpected error occurred")
+      console.error(error)
+      toast({ title: "Errore", description: "Impossibile avviare il pagamento. Riprova.", variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wallet className="h-5 w-5" />
-          Ricarica Portafoglio
-        </CardTitle>
-        <CardDescription>
-          Saldo attuale: <span className="font-semibold text-green-600">€{currentBalance.toFixed(2)}</span>
-        </CardDescription>
+    <Card className="w-full max-w-2xl mx-auto shadow-xl rounded-2xl">
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl font-bold text-slate-800">Ricarica il tuo Portafoglio</CardTitle>
+        <CardDescription className="text-slate-500">Scegli un pacchetto e procedi al pagamento sicuro.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Predefined amounts */}
-        <div>
-          <Label className="text-sm font-medium">Importi rapidi</Label>
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {predefinedAmounts.map((presetAmount) => (
-              <Button
-                key={presetAmount}
-                variant={amount === presetAmount.toString() ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAmount(presetAmount.toString())}
-                className="text-sm"
-              >
-                €{presetAmount}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Custom amount */}
-        <div>
-          <Label htmlFor="amount" className="text-sm font-medium">
-            Importo personalizzato
-          </Label>
-          <div className="relative mt-2">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">€</span>
-            <Input
-              id="amount"
-              type="number"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="pl-8"
-              min="5"
-              max="1000"
-              step="0.01"
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Minimo €5, Massimo €1000</p>
-        </div>
-
-        {/* Payment method */}
-        <div>
-          <Label className="text-sm font-medium">Metodo di pagamento</Label>
-          <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="mt-2">
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="card" id="card" />
-              <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer">
-                <CreditCard className="h-4 w-4" />
-                Carta di credito/debito
-              </Label>
+      <CardContent className="p-6">
+        {!clientSecret ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {packages.map((pkg) => (
+                <button
+                  key={pkg.id}
+                  onClick={() => setSelectedPackage(pkg)}
+                  className={`relative p-4 border-2 rounded-lg text-center transition-all duration-200 ${
+                    selectedPackage?.id === pkg.id
+                      ? "border-sky-500 bg-sky-50 shadow-lg scale-105"
+                      : "border-slate-200 hover:border-sky-400"
+                  }`}
+                >
+                  <p className="text-xl font-bold text-slate-700">{pkg.price}€</p>
+                  <p className="text-xs text-slate-500">{pkg.name}</p>
+                  {selectedPackage?.id === pkg.id && (
+                    <CheckCircle className="h-5 w-5 text-sky-500 absolute -top-2 -right-2 bg-white rounded-full" />
+                  )}
+                </button>
+              ))}
             </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="paypal" id="paypal" />
-              <Label htmlFor="paypal" className="cursor-pointer">
-                PayPal
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="bank" id="bank" />
-              <Label htmlFor="bank" className="cursor-pointer">
-                Bonifico bancario
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {/* Recharge button */}
-        <Button onClick={handleRecharge} disabled={!amount || isLoading} className="w-full" size="lg">
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Elaborazione...
-            </>
-          ) : (
-            <>
-              <Wallet className="mr-2 h-4 w-4" />
-              Ricarica €{amount || "0.00"}
-            </>
-          )}
-        </Button>
-
-        {/* Security notice */}
-        <div className="text-xs text-gray-500 text-center">
-          <p>🔒 Pagamenti sicuri e crittografati</p>
-          <p>I fondi saranno disponibili immediatamente</p>
-        </div>
+            <Button
+              onClick={handlePreparePayment}
+              disabled={isLoading || !selectedPackage}
+              className="w-full text-lg py-6 bg-gradient-to-r from-sky-500 to-cyan-500 text-white"
+            >
+              {isLoading ? (
+                <Loader2 className="animate-spin h-6 w-6" />
+              ) : (
+                <>
+                  <CreditCard className="mr-2 h-5 w-5" /> Procedi con {selectedPackage?.price}€
+                </>
+              )}
+            </Button>
+          </>
+        ) : (
+          <EmbeddedCheckoutForm clientSecret={clientSecret} />
+        )}
+        <p className="text-xs text-center text-slate-400 mt-4 flex items-center justify-center">
+          <Zap className="h-3 w-3 mr-1 text-yellow-500" /> Pagamento sicuro e protetto con Stripe.
+        </p>
       </CardContent>
     </Card>
   )
 }
-
-export default WalletRecharge

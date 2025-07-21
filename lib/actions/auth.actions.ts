@@ -1,257 +1,111 @@
 "use server"
 
+import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
-import { revalidatePath } from "next/cache"
 
-export async function signUp(formData: {
-  email: string
-  password: string
-  full_name: string
-  role?: "client" | "operator"
-}) {
+export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
-  try {
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
-          full_name: formData.full_name,
-          role: formData.role || "client",
-        },
-      },
-    })
-
-    if (error) throw error
-
-    return { success: true, user: data.user }
-  } catch (error: any) {
-    console.error("Error signing up:", error)
-    return { success: false, error: error.message || "Failed to sign up" }
+  const validatedFields = LoginSchema.safeParse(values)
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
   }
-}
 
-export async function signIn(formData: {
-  email: string
-  password: string
-}) {
-  const supabase = createClient()
+  const { email, password } = validatedFields.data
 
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password,
-    })
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
-    if (error) throw error
-
-    // Get user profile to determine redirect
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single()
-
-    if (profileError) {
-      console.error("Error fetching profile:", profileError)
-      // Default redirect if profile fetch fails
-      redirect("/")
-    }
-
-    // Redirect based on role
-    switch (profile?.role) {
-      case "admin":
-        redirect("/admin")
-        break
-      case "operator":
-        redirect("/dashboard/operator")
-        break
-      case "client":
+  if (signInError) {
+    switch (signInError.message) {
+      case "Invalid login credentials":
+        return { error: "Credenziali di accesso non valide." }
+      case "Email not confirmed":
+        return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
       default:
-        redirect("/dashboard/client")
-        break
+        console.error("Login Error:", signInError.message)
+        return { error: "Si è verificato un errore imprevisto." }
     }
-  } catch (error: any) {
-    console.error("Error signing in:", error)
-    return { success: false, error: error.message || "Failed to sign in" }
+  }
+
+  if (!signInData.user) {
+    return { error: "Utente non trovato dopo il login." }
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    console.error("Profile fetch error after login:", profileError?.message)
+    await supabase.auth.signOut()
+    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+  }
+
+  switch (profile.role) {
+    case "admin":
+      redirect("/admin/dashboard")
+    case "operator":
+      redirect("/dashboard/operator")
+    case "client":
+      redirect("/dashboard/client")
+    default:
+      redirect("/")
   }
 }
 
-export async function signOut() {
+export async function register(values: z.infer<typeof RegisterSchema>) {
   const supabase = createClient()
 
-  try {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+  const validatedFields = RegisterSchema.safeParse(values)
 
-    revalidatePath("/", "layout")
-    redirect("/")
-  } catch (error: any) {
-    console.error("Error signing out:", error)
-    return { success: false, error: error.message || "Failed to sign out" }
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
   }
-}
 
-export async function getCurrentUser() {
-  const supabase = createClient()
+  const { email, password, fullName } = validatedFields.data
 
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-    if (error) throw error
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+        role: "client",
+      },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+    },
+  })
 
-    if (!user) return null
-
-    // Get full profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
-
-    if (profileError) {
-      console.error("Error fetching profile:", profileError)
-      return { ...user, role: "client" } // Default role
+  if (error) {
+    if (error.message.includes("User already registered")) {
+      return { error: "Utente già registrato con questa email." }
     }
-
-    return { ...user, ...profile }
-  } catch (error) {
-    console.error("Error getting current user:", error)
-    return null
+    console.error("Registration Error:", error.message)
+    return { error: "Database error saving new user" }
   }
+
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return { error: "Questo utente esiste già ma non è confermato." }
+  }
+
+  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
 }
 
-export async function updatePassword(formData: {
-  currentPassword: string
-  newPassword: string
-}) {
-  const supabase = createClient()
-
-  try {
-    // First verify current password by attempting to sign in
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Update password
-    const { error } = await supabase.auth.updateUser({
-      password: formData.newPassword,
-    })
-
-    if (error) throw error
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error updating password:", error)
-    return { success: false, error: error.message || "Failed to update password" }
-  }
+export async function signUpAsOperator(values: z.infer<typeof RegisterSchema>) {
+  // This is a placeholder function for operator signup
+  // In a real implementation, this would handle operator-specific registration
+  return register(values)
 }
 
-export async function resetPassword(email: string) {
+export async function logout() {
   const supabase = createClient()
-
-  try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password`,
-    })
-
-    if (error) throw error
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error resetting password:", error)
-    return { success: false, error: error.message || "Failed to send reset email" }
-  }
-}
-
-export async function updateEmail(newEmail: string) {
-  const supabase = createClient()
-
-  try {
-    const { error } = await supabase.auth.updateUser({
-      email: newEmail,
-    })
-
-    if (error) throw error
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error updating email:", error)
-    return { success: false, error: error.message || "Failed to update email" }
-  }
-}
-
-export async function deleteAccount() {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Delete user account (this will cascade to profile due to database triggers)
-    const { error } = await supabase.auth.admin.deleteUser(user.id)
-
-    if (error) throw error
-
-    // Sign out and redirect
-    await signOut()
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error deleting account:", error)
-    return { success: false, error: error.message || "Failed to delete account" }
-  }
-}
-
-export async function verifyEmail(token: string) {
-  const supabase = createClient()
-
-  try {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: token,
-      type: "email",
-    })
-
-    if (error) throw error
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error verifying email:", error)
-    return { success: false, error: error.message || "Failed to verify email" }
-  }
-}
-
-export async function resendVerificationEmail() {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: user.email!,
-    })
-
-    if (error) throw error
-
-    return { success: true }
-  } catch (error: any) {
-    console.error("Error resending verification email:", error)
-    return { success: false, error: error.message || "Failed to resend verification email" }
-  }
+  await supabase.auth.signOut()
+  redirect("/login")
 }

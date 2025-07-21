@@ -2,224 +2,161 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
+import type { Promotion } from "@/types/promotion.types"
 
-export interface Promotion {
-  id: string
-  title: string
-  description: string
-  discount_type: "percentage" | "fixed_amount"
-  discount_value: number
-  min_purchase_amount?: number
-  max_discount_amount?: number
-  start_date: string
-  end_date: string
-  is_active: boolean
-  usage_limit?: number
-  used_count: number
-  applicable_services: string[]
-  created_at: string
-  updated_at: string
-}
+// Schema for validation
+const PromotionSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().min(1, "Il titolo è obbligatorio."),
+  description: z.string().optional(),
+  specialPrice: z.number().positive("Il prezzo speciale deve essere positivo."),
+  originalPrice: z.number().positive("Il prezzo originale deve essere positivo."),
+  discountPercentage: z.number().int().min(0).max(100),
+  validDays: z.array(z.string()).min(1, "Seleziona almeno un giorno."),
+  startDate: z.string().min(1, "La data di inizio è obbligatoria."),
+  endDate: z.string().min(1, "La data di fine è obbligatoria."),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  isActive: z.boolean(),
+})
 
-export async function createPromotion(promotionData: {
-  title: string
-  description: string
-  discount_type: "percentage" | "fixed_amount"
-  discount_value: number
-  min_purchase_amount?: number
-  max_discount_amount?: number
-  start_date: string
-  end_date: string
-  usage_limit?: number
-  applicable_services: string[]
-}) {
+// Map database snake_case to JS camelCase
+const mapToCamelCase = (p: any): Promotion => ({
+  id: p.id,
+  title: p.title,
+  description: p.description,
+  specialPrice: p.special_price,
+  originalPrice: p.original_price,
+  discountPercentage: p.discount_percentage,
+  validDays: p.valid_days,
+  startDate: p.start_date,
+  endDate: p.end_date,
+  startTime: p.start_time,
+  endTime: p.end_time,
+  isActive: p.is_active,
+  createdAt: p.created_at,
+  updatedAt: p.updated_at,
+})
+
+// Map JS camelCase to database snake_case
+const mapToSnakeCase = (p: any) => ({
+  title: p.title,
+  description: p.description,
+  special_price: p.specialPrice,
+  original_price: p.originalPrice,
+  discount_percentage: p.discountPercentage,
+  valid_days: p.validDays,
+  start_date: p.startDate,
+  end_date: p.endDate,
+  start_time: p.startTime || null,
+  end_time: p.endTime || null,
+  is_active: p.isActive,
+})
+
+export async function getPromotions(): Promise<Promotion[]> {
   const supabase = createClient()
+  const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
 
-  try {
-    const { data, error } = await supabase
-      .from("promotions")
-      .insert({
-        ...promotionData,
-        is_active: true,
-        used_count: 0,
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    revalidatePath("/admin/promotions")
-    return { success: true, promotion: data }
-  } catch (error) {
-    console.error("Error creating promotion:", error)
-    return { success: false, error: "Failed to create promotion" }
-  }
-}
-
-export async function getPromotions() {
-  const supabase = createClient()
-
-  try {
-    const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return data || []
-  } catch (error) {
+  if (error) {
     console.error("Error fetching promotions:", error)
     return []
   }
+
+  return data.map(mapToCamelCase)
 }
 
-export async function getActivePromotions() {
-  const supabase = createClient()
+export async function createOrUpdatePromotion(formData: Omit<Promotion, "createdAt" | "updatedAt">) {
+  const validatedFields = PromotionSchema.safeParse(formData)
 
-  try {
-    const now = new Date().toISOString()
-
-    const { data, error } = await supabase
-      .from("promotions")
-      .select("*")
-      .eq("is_active", true)
-      .lte("start_date", now)
-      .gte("end_date", now)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return data || []
-  } catch (error) {
-    console.error("Error fetching active promotions:", error)
-    return []
+  if (!validatedFields.success) {
+    return { success: false, error: "Dati non validi.", details: validatedFields.error.flatten().fieldErrors }
   }
-}
 
-export async function updatePromotionStatus(id: string, is_active: boolean) {
   const supabase = createClient()
+  const dbData = mapToSnakeCase(validatedFields.data)
 
-  try {
-    const { error } = await supabase
-      .from("promotions")
-      .update({
-        is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-
-    if (error) throw error
-
+  if (formData.id) {
+    // Update
+    const { data, error } = await supabase.from("promotions").update(dbData).eq("id", formData.id).select().single()
+    if (error) {
+      console.error("Error updating promotion:", error)
+      return { success: false, error: "Impossibile aggiornare la promozione." }
+    }
     revalidatePath("/admin/promotions")
-    return { success: true }
-  } catch (error) {
-    console.error("Error updating promotion status:", error)
-    return { success: false, error: "Failed to update promotion status" }
+    revalidatePath("/")
+    return { success: true, data: mapToCamelCase(data) }
+  } else {
+    // Create
+    const { data, error } = await supabase.from("promotions").insert(dbData).select().single()
+    if (error) {
+      console.error("Error creating promotion:", error)
+      return { success: false, error: "Impossibile creare la promozione." }
+    }
+    revalidatePath("/admin/promotions")
+    revalidatePath("/")
+    return { success: true, data: mapToCamelCase(data) }
   }
 }
 
 export async function deletePromotion(id: string) {
   const supabase = createClient()
+  const { error } = await supabase.from("promotions").delete().eq("id", id)
 
-  try {
-    const { error } = await supabase.from("promotions").delete().eq("id", id)
-
-    if (error) throw error
-
-    revalidatePath("/admin/promotions")
-    return { success: true }
-  } catch (error) {
+  if (error) {
     console.error("Error deleting promotion:", error)
-    return { success: false, error: "Failed to delete promotion" }
+    return { success: false, error: "Impossibile eliminare la promozione." }
   }
+
+  revalidatePath("/admin/promotions")
+  revalidatePath("/")
+  return { success: true }
+}
+
+export async function togglePromotionStatus(id: string, currentStatus: boolean) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("promotions")
+    .update({ is_active: !currentStatus })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error toggling promotion status:", error)
+    return { success: false, error: "Impossibile aggiornare lo stato." }
+  }
+
+  revalidatePath("/admin/promotions")
+  revalidatePath("/")
+  return { success: true, data: mapToCamelCase(data) }
 }
 
 export async function getCurrentPromotionPrice(): Promise<number | null> {
   const supabase = createClient()
+  const now = new Date()
+  const today = now.toISOString().split("T")[0]
+  const currentTime = now.toTimeString().split(" ")[0]
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+  const currentDay = dayNames[now.getDay()]
 
-  try {
-    const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from("promotions")
+    .select("special_price")
+    .eq("is_active", true)
+    .lte("start_date", today)
+    .gte("end_date", today)
+    .filter("valid_days", "cs", `{${currentDay}}`)
+    .or(`start_time.is.null,start_time.lte.${currentTime}`)
+    .or(`end_time.is.null,end_time.gte.${currentTime}`)
+    .order("special_price", { ascending: true })
+    .limit(1)
+    .single()
 
-    const { data, error } = await supabase
-      .from("promotions")
-      .select("*")
-      .eq("is_active", true)
-      .lte("start_date", now)
-      .gte("end_date", now)
-      .contains("applicable_services", ["chat", "call"])
-      .order("discount_value", { ascending: false })
-      .limit(1)
-      .single()
-
-    if (error || !data) return null
-
-    // Return the promotional price (assuming it's a fixed amount for simplicity)
-    if (data.discount_type === "fixed_amount") {
-      return data.discount_value
-    }
-
-    // For percentage discounts, we'd need a base price to calculate from
-    // For now, return null to use regular pricing
-    return null
-  } catch (error) {
-    console.error("Error getting current promotion price:", error)
+  if (error && error.code !== "PGRST116") {
+    console.error("Error fetching active promotion price:", error)
     return null
   }
-}
 
-export async function applyPromotion(promotionId: string, orderAmount: number) {
-  const supabase = createClient()
-
-  try {
-    const { data: promotion, error } = await supabase
-      .from("promotions")
-      .select("*")
-      .eq("id", promotionId)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !promotion) {
-      return { success: false, error: "Promotion not found or inactive" }
-    }
-
-    // Check if promotion is still valid
-    const now = new Date()
-    const startDate = new Date(promotion.start_date)
-    const endDate = new Date(promotion.end_date)
-
-    if (now < startDate || now > endDate) {
-      return { success: false, error: "Promotion is not currently active" }
-    }
-
-    // Check usage limit
-    if (promotion.usage_limit && promotion.used_count >= promotion.usage_limit) {
-      return { success: false, error: "Promotion usage limit reached" }
-    }
-
-    // Check minimum purchase amount
-    if (promotion.min_purchase_amount && orderAmount < promotion.min_purchase_amount) {
-      return { success: false, error: `Minimum purchase amount of €${promotion.min_purchase_amount} required` }
-    }
-
-    // Calculate discount
-    let discountAmount = 0
-    if (promotion.discount_type === "percentage") {
-      discountAmount = (orderAmount * promotion.discount_value) / 100
-      if (promotion.max_discount_amount) {
-        discountAmount = Math.min(discountAmount, promotion.max_discount_amount)
-      }
-    } else {
-      discountAmount = promotion.discount_value
-    }
-
-    const finalAmount = Math.max(0, orderAmount - discountAmount)
-
-    return {
-      success: true,
-      discountAmount,
-      finalAmount,
-      promotion,
-    }
-  } catch (error) {
-    console.error("Error applying promotion:", error)
-    return { success: false, error: "Failed to apply promotion" }
-  }
+  return data ? data.special_price : null
 }

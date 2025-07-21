@@ -1,303 +1,200 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { twilioClient, type CallSession, type CallBilling } from "@/lib/twilio"
 import { revalidatePath } from "next/cache"
 
-export interface CallSession {
-  id: string
-  client_id: string
-  operator_id: string
-  twilio_call_sid?: string
-  status: "initiated" | "ringing" | "in-progress" | "completed" | "failed" | "busy" | "no-answer"
-  start_time: string
-  end_time?: string
-  duration: number
-  cost: number
-  recording_url?: string
-  created_at: string
-  updated_at: string
-  client_name?: string
-  operator_name?: string
+// Mock database functions - sostituire con vero database
+const mockCallSessions = new Map<string, CallSession>()
+const mockCallBilling = new Map<string, CallBilling>()
+const mockUserWallets = new Map<string, number>()
+
+// Inizializza wallet mock
+mockUserWallets.set("user123", 50.0) // €50 di credito
+mockUserWallets.set("user456", 25.5) // €25.50 di credito
+
+export interface InitiateCallResult {
+  success: boolean
+  sessionId?: string
+  error?: string
+  estimatedCost?: number
 }
 
-export async function initiateCall(operatorId: string) {
-  const supabase = createClient()
-
+export async function initiateCallAction(
+  clientId: string,
+  operatorId: string,
+  operatorPhone: string,
+  ratePerMinute: number,
+): Promise<InitiateCallResult> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
+    console.log("🔥 Initiating call:", { clientId, operatorId, ratePerMinute })
 
-    // Check if operator is available
-    const { data: operator, error: operatorError } = await supabase
-      .from("profiles")
-      .select("is_online, services")
-      .eq("id", operatorId)
-      .eq("role", "operator")
-      .single()
+    // 1. Verifica credito utente
+    const clientWallet = mockUserWallets.get(clientId) || 0
+    const minimumCredit = ratePerMinute * 2 // Minimo 2 minuti di credito
 
-    if (operatorError || !operator) {
-      return { success: false, error: "Operator not found" }
-    }
-
-    if (!operator.is_online) {
-      return { success: false, error: "Operator is not available" }
-    }
-
-    const services = operator.services as any
-    if (!services?.call?.enabled) {
-      return { success: false, error: "Call service not available for this operator" }
-    }
-
-    // Create call session
-    const { data: callSession, error } = await supabase
-      .from("call_sessions")
-      .insert({
-        client_id: user.id,
-        operator_id: operatorId,
-        status: "initiated",
-        cost: services.call.price_per_minute || 0,
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    revalidatePath("/dashboard/client/calls")
-    return { success: true, callSession }
-  } catch (error) {
-    console.error("Error initiating call:", error)
-    return { success: false, error: "Failed to initiate call" }
-  }
-}
-
-export async function updateCallStatus(
-  callId: string,
-  status: CallSession["status"],
-  twilioCallSid?: string,
-  duration?: number,
-) {
-  const supabase = createClient()
-
-  try {
-    const updateData: any = {
-      status,
-      updated_at: new Date().toISOString(),
-    }
-
-    if (twilioCallSid) {
-      updateData.twilio_call_sid = twilioCallSid
-    }
-
-    if (status === "completed" && duration) {
-      updateData.end_time = new Date().toISOString()
-      updateData.duration = duration
-
-      // Calculate cost based on duration
-      const { data: callSession } = await supabase.from("call_sessions").select("cost").eq("id", callId).single()
-
-      if (callSession) {
-        const pricePerMinute = callSession.cost
-        const totalCost = Math.ceil(duration / 60) * pricePerMinute
-        updateData.cost = totalCost
+    if (clientWallet < minimumCredit) {
+      return {
+        success: false,
+        error: `Credito insufficiente. Necessari almeno €${minimumCredit.toFixed(2)} per questa chiamata.`,
       }
     }
 
-    const { error } = await supabase.from("call_sessions").update(updateData).eq("id", callId)
+    // 2. Verifica disponibilità operatore (mock)
+    const isOperatorAvailable = Math.random() > 0.2 // 80% disponibilità
+    if (!isOperatorAvailable) {
+      return {
+        success: false,
+        error: "L'operatore non è al momento disponibile. Riprova più tardi.",
+      }
+    }
 
-    if (error) throw error
+    // 3. Crea sessione chiamata
+    const sessionId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const callSession: CallSession = {
+      id: sessionId,
+      clientId,
+      operatorId,
+      clientPhone: "+393331234567", // Mock - da prendere dal profilo utente
+      operatorPhone,
+      ratePerMinute,
+      status: "initiated",
+      createdAt: new Date(),
+    }
 
-    revalidatePath("/dashboard/client/calls")
-    revalidatePath("/dashboard/operator/calls")
+    mockCallSessions.set(sessionId, callSession)
+
+    // 4. Inizia chiamata Twilio
+    const call = await twilioClient.calls.create({
+      to: callSession.clientPhone,
+      from: process.env.TWILIO_PHONE_NUMBER!,
+      url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/twiml?action=connect_call&session=${sessionId}`,
+      statusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/status`,
+      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+      statusCallbackMethod: "POST",
+      record: true,
+      recordingStatusCallback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calls/recording-status`,
+    })
+
+    // 5. Aggiorna sessione con Twilio SID
+    callSession.twilioCallSid = call.sid
+    callSession.status = "ringing"
+    mockCallSessions.set(sessionId, callSession)
+
+    console.log("✅ Call initiated successfully:", call.sid)
+
+    return {
+      success: true,
+      sessionId,
+      estimatedCost: ratePerMinute * 5, // Stima 5 minuti
+    }
+  } catch (error) {
+    console.error("❌ Error initiating call:", error)
+    return {
+      success: false,
+      error: "Errore nel sistema. Riprova più tardi.",
+    }
+  }
+}
+
+export async function endCallAction(sessionId: string): Promise<{ success: boolean }> {
+  try {
+    const session = mockCallSessions.get(sessionId)
+    if (!session || !session.twilioCallSid) {
+      return { success: false }
+    }
+
+    // Termina chiamata Twilio
+    await twilioClient.calls(session.twilioCallSid).update({ status: "completed" })
+
+    // Aggiorna sessione
+    session.status = "completed"
+    session.endTime = new Date()
+    mockCallSessions.set(sessionId, session)
+
+    console.log("✅ Call ended successfully:", sessionId)
     return { success: true }
   } catch (error) {
-    console.error("Error updating call status:", error)
-    return { success: false, error: "Failed to update call status" }
+    console.error("❌ Error ending call:", error)
+    return { success: false }
   }
 }
 
-export async function getClientCalls(clientId?: string) {
-  const supabase = createClient()
-
-  try {
-    let userId = clientId
-    if (!userId) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return []
-      userId = user.id
-    }
-
-    const { data, error } = await supabase
-      .from("call_sessions")
-      .select(`
-        *,
-        operator:profiles!call_sessions_operator_id_fkey(stage_name, avatar_url)
-      `)
-      .eq("client_id", userId)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return (data || []).map((call) => ({
-      ...call,
-      operator_name: call.operator?.stage_name || "Unknown Operator",
-    }))
-  } catch (error) {
-    console.error("Error fetching client calls:", error)
-    return []
-  }
+export async function getCallSessionAction(sessionId: string): Promise<CallSession | null> {
+  return mockCallSessions.get(sessionId) || null
 }
 
-export async function getOperatorCalls(operatorId?: string) {
-  const supabase = createClient()
-
-  try {
-    let userId = operatorId
-    if (!userId) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return []
-      userId = user.id
-    }
-
-    const { data, error } = await supabase
-      .from("call_sessions")
-      .select(`
-        *,
-        client:profiles!call_sessions_client_id_fkey(full_name, avatar_url)
-      `)
-      .eq("operator_id", userId)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return (data || []).map((call) => ({
-      ...call,
-      client_name: call.client?.full_name || "Anonymous Client",
-    }))
-  } catch (error) {
-    console.error("Error fetching operator calls:", error)
-    return []
-  }
+export async function getUserWalletAction(userId: string): Promise<number> {
+  return mockUserWallets.get(userId) || 0
 }
 
-export async function getAllCalls() {
-  const supabase = createClient()
+async function getOperatorCommissionRate(operatorId: string): Promise<number> {
+  const mockOperatorCommissions = new Map<string, number>([
+    ["operator1", 40],
+    ["operator2", 35],
+    ["operator3", 45],
+  ])
 
-  try {
-    const { data, error } = await supabase
-      .from("call_sessions")
-      .select(`
-        *,
-        client:profiles!call_sessions_client_id_fkey(full_name, avatar_url),
-        operator:profiles!call_sessions_operator_id_fkey(stage_name, avatar_url)
-      `)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return (data || []).map((call) => ({
-      ...call,
-      client_name: call.client?.full_name || "Anonymous Client",
-      operator_name: call.operator?.stage_name || "Unknown Operator",
-    }))
-  } catch (error) {
-    console.error("Error fetching all calls:", error)
-    return []
-  }
+  return mockOperatorCommissions.get(operatorId) || 30
 }
 
-export async function getCallById(callId: string) {
-  const supabase = createClient()
-
+export async function processCallBillingAction(
+  sessionId: string,
+  durationSeconds: number,
+): Promise<{ success: boolean; finalCost?: number; operatorEarning?: number; platformFee?: number }> {
   try {
-    const { data, error } = await supabase
-      .from("call_sessions")
-      .select(`
-        *,
-        client:profiles!call_sessions_client_id_fkey(full_name, avatar_url, phone),
-        operator:profiles!call_sessions_operator_id_fkey(stage_name, avatar_url, phone)
-      `)
-      .eq("id", callId)
-      .single()
+    const session = mockCallSessions.get(sessionId)
+    if (!session) return { success: false }
 
-    if (error) throw error
+    const durationMinutes = Math.ceil(durationSeconds / 60)
+    const totalCost = durationMinutes * session.ratePerMinute
+
+    const operatorCommissionRate = await getOperatorCommissionRate(session.operatorId)
+
+    const operatorEarning = totalCost * (operatorCommissionRate / 100)
+    const platformFee = totalCost * ((100 - operatorCommissionRate) / 100)
+
+    const clientWallet = mockUserWallets.get(session.clientId) || 0
+    const newClientWallet = Math.max(0, clientWallet - totalCost)
+    mockUserWallets.set(session.clientId, newClientWallet)
+
+    const operatorWallet = mockUserWallets.get(session.operatorId) || 0
+    mockUserWallets.set(session.operatorId, operatorWallet + operatorEarning)
+
+    session.duration = durationSeconds
+    session.cost = totalCost
+    session.operatorEarning = operatorEarning
+    session.platformFee = platformFee
+    session.status = "completed"
+    mockCallSessions.set(sessionId, session)
+
+    console.log("💰 Call billing processed with existing commission system:", {
+      sessionId,
+      duration: durationMinutes,
+      totalCost,
+      operatorCommissionRate: `${operatorCommissionRate}%`,
+      operatorEarning,
+      platformFee,
+    })
+
+    revalidatePath("/dashboard/client/wallet")
+    revalidatePath("/dashboard/operator/earnings")
 
     return {
-      ...data,
-      client_name: data.client?.full_name || "Anonymous Client",
-      operator_name: data.operator?.stage_name || "Unknown Operator",
+      success: true,
+      finalCost: totalCost,
+      operatorEarning,
+      platformFee,
     }
   } catch (error) {
-    console.error("Error fetching call by ID:", error)
-    return null
+    console.error("❌ Error processing billing:", error)
+    return { success: false }
   }
 }
 
-export async function updateCallRecording(callId: string, recordingUrl: string) {
-  const supabase = createClient()
+export async function getCallHistoryAction(userId: string, userType: "client" | "operator") {
+  const sessions = Array.from(mockCallSessions.values())
 
-  try {
-    const { error } = await supabase
-      .from("call_sessions")
-      .update({
-        recording_url: recordingUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", callId)
-
-    if (error) throw error
-
-    return { success: true }
-  } catch (error) {
-    console.error("Error updating call recording:", error)
-    return { success: false, error: "Failed to update call recording" }
-  }
-}
-
-export async function getCallStats(operatorId?: string) {
-  const supabase = createClient()
-
-  try {
-    let query = supabase.from("call_sessions").select("status, duration, cost")
-
-    if (operatorId) {
-      query = query.eq("operator_id", operatorId)
-    }
-
-    const { data, error } = await query
-
-    if (error) throw error
-
-    const calls = data || []
-    const totalCalls = calls.length
-    const completedCalls = calls.filter((call) => call.status === "completed").length
-    const totalDuration = calls.reduce((sum, call) => sum + (call.duration || 0), 0)
-    const totalRevenue = calls.reduce((sum, call) => sum + (call.cost || 0), 0)
-
-    return {
-      totalCalls,
-      completedCalls,
-      totalDuration,
-      totalRevenue,
-      averageDuration: completedCalls > 0 ? Math.round(totalDuration / completedCalls) : 0,
-      completionRate: totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0,
-    }
-  } catch (error) {
-    console.error("Error fetching call stats:", error)
-    return {
-      totalCalls: 0,
-      completedCalls: 0,
-      totalDuration: 0,
-      totalRevenue: 0,
-      averageDuration: 0,
-      completionRate: 0,
-    }
-  }
+  return sessions
+    .filter((session) => (userType === "client" ? session.clientId === userId : session.operatorId === userId))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 }
