@@ -20,9 +20,12 @@ export interface BlogArticle {
   read_time_minutes?: number | null
   created_at: string
   updated_at: string
-  blog_categories: Pick<BlogCategory, "name" | "slug"> | null
+  blog_categories: {
+    name: string
+    slug: string
+  } | null
   profiles: {
     full_name: string | null
-    avatar_url: string | null
+    avatar_url?: string | null
   } | null
 }
