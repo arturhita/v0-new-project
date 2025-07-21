@@ -48,6 +48,7 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
   }
 
+  // Reindirizzamento gestito interamente dal server
   switch (profile.role) {
     case "admin":
       redirect("/admin/dashboard")
@@ -76,7 +77,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
     password,
     options: {
       data: {
-        full_name: fullName,
+        full_name: fullName, // Standardizzato a 'full_name' per coerenza con il DB
         role: "client",
       },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
@@ -88,6 +89,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
       return { error: "Utente già registrato con questa email." }
     }
     console.error("Registration Error:", error.message)
+    // Restituisce l'errore specifico per un debugging più semplice
     return { error: "Database error saving new user" }
   }
 

@@ -11,10 +11,12 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
   const callService = services.call || {}
   const emailService = services.email || {}
 
+  // Apply promotion price if available
   const chatPrice =
     promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
   const callPrice =
     promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
+  // Email price is usually different, let's say it's 6x the per-minute price
   const emailPrice =
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
@@ -57,7 +59,7 @@ export async function getHomepageData() {
         .select(
           `
        id, rating, comment, created_at,
-       client:profiles!reviews_user_id_fkey (full_name, avatar_url),
+       client:profiles!reviews_client_id_fkey (full_name, avatar_url),
        operator:profiles!reviews_operator_id_fkey (stage_name)
      `,
         )

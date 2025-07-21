@@ -1,8 +1,9 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
+// Definizione del tipo per i dati utente, per maggiore chiarezza
 export type UserProfileWithStats = {
   id: string
   email: string | undefined
@@ -15,8 +16,7 @@ export type UserProfileWithStats = {
 }
 
 export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
-  const supabase = createAdminClient()
-  const { data: profiles, error: profilesError } = await supabase.from("profiles").select("*").neq("role", "admin")
+  const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*").neq("role", "admin")
 
   if (profilesError) {
     console.error("Error fetching user profiles:", profilesError.message)
@@ -27,9 +27,9 @@ export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
     return []
   }
 
-  const { data: authData, error: authError } = await supabase.auth.admin.listUsers({
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers({
     page: 1,
-    perPage: 1000,
+    perPage: 1000, // Aumentare se si hanno più di 1000 utenti
   })
 
   if (authError) {
@@ -42,17 +42,16 @@ export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
   const usersWithStats: UserProfileWithStats[] = profiles.map((profile) => ({
     ...profile,
     email: emailMap.get(profile.id) || "N/A",
-    total_spent: 0,
-    total_consultations: 0,
+    total_spent: 0, // Placeholder, da implementare con le transazioni
+    total_consultations: 0, // Placeholder, da implementare con i consulti
   }))
 
   return usersWithStats
 }
 
 export async function toggleUserSuspension(userId: string, currentStatus: string) {
-  const supabase = createAdminClient()
   const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
-  const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", userId)
+  const { error } = await supabaseAdmin.from("profiles").update({ status: newStatus }).eq("id", userId)
 
   if (error) {
     return { success: false, message: error.message }
@@ -64,10 +63,12 @@ export async function toggleUserSuspension(userId: string, currentStatus: string
 
 export async function issueVoucher(userId: string, amount: number, reason: string) {
   console.log(`Emissione buono di €${amount} all'utente ${userId} per il motivo: ${reason}`)
+  // Logica di business per emettere un buono
   return { success: true, message: `Buono di €${amount} emesso con successo.` }
 }
 
 export async function issueRefund(userId: string, amount: number, reason: string) {
   console.log(`Emissione rimborso di €${amount} all'utente ${userId} per il motivo: ${reason}`)
+  // Logica di business per emettere un rimborso (es. tramite Stripe)
   return { success: true, message: `Rimborso di €${amount} processato con successo.` }
 }

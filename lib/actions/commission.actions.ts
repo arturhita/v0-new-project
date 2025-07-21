@@ -52,7 +52,7 @@ export async function submitCommissionRequest(prevState: any, formData: FormData
 
   const { error: insertError } = await supabase.from("commission_requests").insert({
     operator_id: user.id,
-    current_commission_rate: profile.commission_rate || 15,
+    current_commission_rate: profile.commission_rate || 15, // Default to 15 if null
     requested_commission_rate: requestedCommission,
     justification,
   })

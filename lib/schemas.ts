@@ -56,6 +56,3 @@ export const OperatorProfileSchema = z.object({
   specialties: z.array(z.string()).optional(),
   categories: z.array(z.string()).optional(),
 })
-
-export const TicketStatus = z.enum(["Open", "InProgress", "Closed"])
-export const PayoutStatus = z.enum(["pending", "processing", "completed", "failed"])
