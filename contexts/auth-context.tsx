@@ -34,14 +34,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    router.push("/login")
     router.refresh()
   }, [router])
 
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
@@ -57,24 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
         } else {
           setProfile(userProfile)
-          // **LOGICA DI REINDIRIZZAMENTO POST-LOGIN**
-          // Se l'evento è un login riuscito e abbiamo il profilo, reindirizziamo.
-          if (event === "SIGNED_IN" && userProfile) {
-            switch (userProfile.role) {
-              case "admin":
-                router.replace("/admin/dashboard")
-                break
-              case "operator":
-                router.replace("/dashboard/operator")
-                break
-              case "client":
-                router.replace("/dashboard/client")
-                break
-              default:
-                router.replace("/")
-                break
-            }
-          }
         }
       } else {
         setProfile(null)
@@ -82,31 +63,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
     })
 
-    // Controllo iniziale per utenti già loggati che ricaricano la pagina
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) {
-        setIsLoading(false)
-      }
-    }
-    getInitialSession()
-
     return () => {
       subscription.unsubscribe()
     }
-  }, [router])
+  }, [])
 
   useEffect(() => {
-    // Guardia di sicurezza per rotte protette
-    if (!isLoading && !user) {
-      const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+    if (isLoading) {
+      return
+    }
+
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+
+    if (user && profile) {
+      if (isAuthPage) {
+        const { role } = profile
+        let destination = "/"
+        if (role === "admin") destination = "/admin/dashboard"
+        else if (role === "operator") destination = "/dashboard/operator"
+        else if (role === "client") destination = "/dashboard/client"
+        router.replace(destination)
+      }
+    } else if (!user) {
       if (isProtectedRoute) {
         router.replace("/login")
       }
     }
-  }, [isLoading, user, pathname, router])
+  }, [isLoading, user, profile, pathname, router])
 
   if (isLoading) {
     return (

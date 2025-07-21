@@ -1,18 +1,26 @@
 "use client"
 
+import { useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useRouter } from "next/navigation"
 import type { z } from "zod"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { login } from "@/lib/actions/auth.actions"
-import { toast } from "sonner"
-import { ConstellationBackground } from "@/components/constellation-background"
-import Link from "next/link"
+
 import { LoginSchema } from "@/lib/schemas"
+import { login } from "@/lib/actions/auth.actions"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "sonner"
+import Link from "next/link"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+
   const form = useForm<z.infer<typeof LoginSchema>>({
     resolver: zodResolver(LoginSchema),
     defaultValues: {
@@ -21,73 +29,86 @@ export default function LoginPage() {
     },
   })
 
-  async function onSubmit(values: z.infer<typeof LoginSchema>) {
-    const result = await login(values)
-    if (result?.error) {
-      toast.error(result.error)
-    } else {
-      toast.success("Login effettuato con successo!")
-      // Il reindirizzamento è gestito dalla server action
-    }
+  const onSubmit = (values: z.infer<typeof LoginSchema>) => {
+    startTransition(async () => {
+      const result = await login(values)
+      if (result?.error) {
+        toast.error("Errore di Login", {
+          description: result.error,
+        })
+      }
+      if (result?.success) {
+        toast.success("Login effettuato con successo!", {
+          description: "Stai per essere reindirizzato alla tua dashboard.",
+        })
+        // **LA CORREZIONE CHIAVE È QUI**
+        // Forziamo un refresh completo della pagina. Questo dice a Next.js
+        // di ricaricare i Server Component (incluso il layout radice)
+        // con la nuova sessione/cookie. L'AuthProvider verrà quindi
+        // inizializzato con lo stato corretto, risolvendo la race condition.
+        router.refresh()
+      }
+    })
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden py-12">
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#000020] p-4">
       <ConstellationBackground />
-      <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-blue-500/20 bg-gray-950/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white">Bentornato</h1>
-          <p className="mt-2 text-gray-300/70">Accedi al tuo account per continuare.</p>
-        </div>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-6">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-200/80">Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="tua@email.com"
-                      {...field}
-                      className="bg-gray-900/60 border-blue-500/30 text-white placeholder:text-gray-400/50 focus:ring-blue-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+      <Card className="z-10 w-full max-w-md border-indigo-500/50 bg-black/50 text-white backdrop-blur-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold text-indigo-300">Accedi</CardTitle>
+          <CardDescription className="text-gray-400">
+            Inserisci le tue credenziali per entrare nel cosmo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-indigo-200">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="tu@email.com"
+                {...form.register("email")}
+                className="border-indigo-700 bg-indigo-900/20 text-white placeholder:text-gray-500 focus:border-indigo-400"
+                disabled={isPending}
+              />
+              {form.formState.errors.email && (
+                <p className="text-sm text-red-400">{form.formState.errors.email.message}</p>
               )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-200/80">Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      {...field}
-                      className="bg-gray-900/60 border-blue-500/30 text-white placeholder:text-gray-400/50 focus:ring-blue-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="********"
+                {...form.register("password")}
+                className="border-indigo-700 bg-indigo-900/20 text-white placeholder:text-gray-500 focus:border-indigo-400"
+                disabled={isPending}
+              />
+              {form.formState.errors.password && (
+                <p className="text-sm text-red-400">{form.formState.errors.password.message}</p>
               )}
-            />
-            <Button type="submit" variant="gradient" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Accesso in corso..." : "Accedi"}
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-indigo-600 font-bold text-white hover:bg-indigo-500"
+              disabled={isPending}
+            >
+              {isPending ? "Accesso in corso..." : "Entra"}
             </Button>
           </form>
-        </Form>
-        <p className="mt-6 text-center text-sm text-gray-300/70">
-          Non hai un account?{" "}
-          <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
-            Registrati
-          </Link>
-        </p>
-      </div>
+          <div className="mt-6 text-center text-sm text-gray-400">
+            Non hai un account?{" "}
+            <Link href="/register" className="font-semibold text-indigo-300 hover:text-indigo-200">
+              Registrati ora
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

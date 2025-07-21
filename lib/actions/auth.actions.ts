@@ -9,7 +9,7 @@ import { redirect } from "next/navigation"
  * Esegue il login dell'utente.
  * Questa funzione si occupa SOLO di autenticare l'utente con Supabase.
  * NON esegue alcun reindirizzamento. Il reindirizzamento è gestito
- * interamente dal client (AuthProvider) per evitare race conditions.
+ * interamente dal client (pagina di login) per evitare race conditions.
  */
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
@@ -39,7 +39,7 @@ export async function login(values: z.infer<typeof LoginSchema>) {
   }
 
   // Successo! Restituiamo solo un flag di successo.
-  // Il client rimarrà in attesa e l'AuthProvider gestirà il reindirizzamento.
+  // Il client (pagina di login) gestirà il reindirizzamento e l'aggiornamento.
   return { success: true }
 }
 
@@ -84,5 +84,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
+  // Usiamo router.refresh() sul client dopo il logout per un'esperienza più fluida,
+  // ma un redirect qui è un fallback sicuro.
   redirect("/login")
 }
