@@ -15,10 +15,11 @@ const ConstellationBackground: React.FC = () => {
     let width = (canvas.width = window.innerWidth)
     let height = (canvas.height = window.innerHeight)
 
-    window.addEventListener("resize", () => {
+    const handleResize = () => {
       width = canvas.width = window.innerWidth
       height = canvas.height = window.innerHeight
-    })
+    }
+    window.addEventListener("resize", handleResize)
 
     const stars: Star[] = []
     const numStars = 150
@@ -46,7 +47,7 @@ const ConstellationBackground: React.FC = () => {
         if (!ctx) return
         ctx.beginPath()
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`
+        ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})` // Gold color
         ctx.fill()
       }
 
@@ -80,8 +81,8 @@ const ConstellationBackground: React.FC = () => {
             ctx.beginPath()
             ctx.moveTo(stars[i].x, stars[i].y)
             ctx.lineTo(stars[j].x, stars[j].y)
-            ctx.strokeStyle = `rgba(255, 215, 0, ${1 - dist / 100})`
-            ctx.lineWidth = 0.2
+            ctx.strokeStyle = `rgba(255, 215, 0, ${0.5 * (1 - dist / 100)})`
+            ctx.lineWidth = 0.3
             ctx.stroke()
           }
         }
@@ -103,12 +104,17 @@ const ConstellationBackground: React.FC = () => {
     animate()
 
     return () => {
-      window.removeEventListener("resize", () => {})
+      window.removeEventListener("resize", handleResize)
       cancelAnimationFrame(animationFrameId)
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full -z-10" />
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed top-0 left-0 w-full h-full -z-10 bg-gradient-to-br from-gray-900 to-blue-900/70"
+    />
+  )
 }
 
 export default ConstellationBackground

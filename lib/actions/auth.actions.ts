@@ -24,8 +24,6 @@ export async function login(prevState: any, formData: FormData) {
   }
 
   revalidatePath("/", "layout")
-  // The redirection will be handled by the AuthProvider on the client side
-  // after the page reloads and detects the new auth state.
   return { success: "Accesso effettuato con successo! Verrai reindirizzato..." }
 }
 
@@ -41,17 +39,7 @@ export async function register(prevState: any, formData: FormData) {
 
   const { email, password, fullName, role } = validatedFields.data
 
-  const { data: existingUser, error: existingUserError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("email", email)
-    .single()
-
-  if (existingUser) {
-    return { error: "Un utente con questa email esiste già." }
-  }
-
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -63,16 +51,19 @@ export async function register(prevState: any, formData: FormData) {
   })
 
   if (error) {
+    if (error.message.includes("User already registered")) {
+      return { error: "Un utente con questa email è già registrato." }
+    }
     console.error("Supabase signUp error:", error)
     return { error: "Impossibile creare l'account. Riprova." }
   }
 
-  if (!data.user) {
-    return { error: "Registrazione fallita. Nessun utente creato." }
-  }
-
-  // The trigger will create the profile.
-  // We just need to revalidate and let the client-side handle the rest.
   revalidatePath("/", "layout")
   return { success: "Registrazione completata! Controlla la tua email per la verifica." }
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  revalidatePath("/", "layout")
 }

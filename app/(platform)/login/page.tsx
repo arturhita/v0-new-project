@@ -1,9 +1,12 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect } from "react"
 import { useFormStatus } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+
 import { login } from "@/lib/actions/auth.actions"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -25,9 +28,21 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined)
+  const router = useRouter()
+
+  useEffect(() => {
+    if (state?.error) {
+      toast.error(state.error)
+    }
+    if (state?.success) {
+      toast.success(state.success)
+      // The AuthProvider will handle the redirect after re-evaluating the auth state
+      router.refresh()
+    }
+  }, [state, router])
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gray-900 flex items-center justify-center p-4">
+    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground />
       <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="text-center">
@@ -76,18 +91,6 @@ export default function LoginPage() {
                 placeholder="••••••••"
               />
             </div>
-
-            {state?.error && (
-              <p className="text-sm text-red-400 bg-red-900/50 border border-red-400/50 rounded-lg p-3 text-center">
-                {state.error}
-              </p>
-            )}
-            {state?.success && (
-              <p className="text-sm text-green-400 bg-green-900/50 border border-green-400/50 rounded-lg p-3 text-center">
-                {state.success}
-              </p>
-            )}
-
             <SubmitButton />
           </form>
         </div>
