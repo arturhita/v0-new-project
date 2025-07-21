@@ -180,8 +180,8 @@ export async function upsertArticle(prevState: any, formData: FormData) {
 }
 
 export async function deleteArticle(articleId: string) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("blog_articles").delete().eq("id", articleId)
+  const supabaseAdmin = createAdminClient()
+  const { error } = await supabaseAdmin.from("blog_articles").delete().eq("id", articleId)
 
   if (error) {
     return { success: false, message: `Errore durante l'eliminazione: ${error.message}` }

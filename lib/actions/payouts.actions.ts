@@ -1,86 +1,35 @@
-"use server"
+import { createAdminClient } from "../supabase/admin"
 
-import { createClient } from "@/lib/supabase/server"
-import type { PayoutStatus } from "@/lib/schemas"
-import { revalidatePath } from "next/cache"
+export async function getPayouts() {
+  const supabaseAdmin = createAdminClient()
+  try {
+    const { data, error } = await supabaseAdmin.from("payouts").select("*")
 
-export type PayoutRequestWithOperator = {
-  id: string
-  created_at: string
-  amount: number
-  status: string
-  operatorName: string | null
-}
-
-export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("payout_requests")
-    .select(`
-      id,
-      created_at,
-      amount,
-      status,
-      profiles (
-        stage_name
-      )
-    `)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching payout requests:", error.message)
-    return []
-  }
-
-  const formattedData = data.map((req: any) => ({
-    id: req.id,
-    created_at: req.created_at,
-    amount: req.amount,
-    status: req.status,
-    operatorName: req.profiles ? req.profiles.stage_name : "Operatore Sconosciuto",
-  }))
-
-  return formattedData
-}
-
-export async function updatePayoutStatus(
-  requestId: string,
-  newStatus: PayoutStatus,
-): Promise<{ success: boolean; message: string }> {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (profileError || profile?.role !== "admin") {
-    return {
-      success: false,
-      message: "Permesso negato. Solo gli amministratori possono aggiornare lo stato dei pagamenti.",
+    if (error) {
+      console.error("Error fetching payouts:", error)
+      return { error: error.message }
     }
+
+    return { data }
+  } catch (error: any) {
+    console.error("Unexpected error fetching payouts:", error)
+    return { error: error.message }
   }
+}
 
-  const { error } = await supabase
-    .from("payout_requests")
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq("id", requestId)
+export async function updatePayoutStatus(id: string, status: string) {
+  const supabaseAdmin = createAdminClient()
+  try {
+    const { data, error } = await supabaseAdmin.from("payouts").update({ status }).eq("id", id).select()
 
-  if (error) {
-    console.error("Error updating payout status:", error)
-    return { success: false, message: `Errore del database: ${error.message}` }
+    if (error) {
+      console.error("Error updating payout status:", error)
+      return { error: error.message }
+    }
+
+    return { data }
+  } catch (error: any) {
+    console.error("Unexpected error updating payout status:", error)
+    return { error: error.message }
   }
-
-  revalidatePath("/admin/payouts")
-
-  return { success: true, message: `Stato del pagamento aggiornato a ${newStatus}.` }
 }
