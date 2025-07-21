@@ -40,11 +40,7 @@ export default function LoginPage() {
       toast.success(state.success)
       // Direct redirection based on the role returned from the server action
       const targetDashboard =
-        state.role === "admin"
-          ? "/admin/dashboard"
-          : state.role === "operator"
-            ? "/dashboard/operator"
-            : "/dashboard/client"
+        state.role === "admin" ? "/admin" : state.role === "operator" ? "/dashboard/operator" : "/dashboard/client"
       router.replace(targetDashboard)
     }
   }, [state, router])
@@ -103,7 +99,6 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
-                  aria-label={showPassword ? "Nascondi password" : "Mostra password"}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>

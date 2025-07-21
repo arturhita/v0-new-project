@@ -23,7 +23,7 @@ function SubmitButton() {
       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
       disabled={pending}
     >
-      {pending ? "Creazione account..." : "Crea Account"}
+      {pending ? "Creazione account..." : "Registrati"}
     </Button>
   )
 }
@@ -47,7 +47,7 @@ export default function RegisterPage() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md space-y-6 py-8">
+      <div className="relative z-10 w-full max-w-md space-y-8 py-12">
         <div className="text-center">
           <Image
             src="/images/moonthir-logo-white.png"
@@ -58,16 +58,17 @@ export default function RegisterPage() {
           />
           <h2 className="mt-6 text-3xl font-extrabold text-white">Crea un nuovo account</h2>
           <p className="mt-2 text-sm text-gray-400">
-            Sei già dei nostri?{" "}
+            o{" "}
             <Link href="/login" className="font-medium text-blue-400 hover:text-blue-300">
-              Accedi qui
+              accedi al tuo account
             </Link>
           </p>
         </div>
 
         <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-blue-500/10">
-          <form action={formAction} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form action={formAction} className="space-y-6">
+            <input type="hidden" name="role" value="client" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="firstName" className="text-gray-300">
                   Nome
@@ -75,6 +76,7 @@ export default function RegisterPage() {
                 <Input
                   id="firstName"
                   name="firstName"
+                  type="text"
                   required
                   className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -86,12 +88,12 @@ export default function RegisterPage() {
                 <Input
                   id="lastName"
                   name="lastName"
+                  type="text"
                   required
                   className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
-
             <div>
               <Label htmlFor="email" className="text-gray-300">
                 Indirizzo Email
@@ -104,7 +106,6 @@ export default function RegisterPage() {
                 className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-
             <div>
               <Label htmlFor="password" className="text-gray-300">
                 Password
@@ -126,7 +127,6 @@ export default function RegisterPage() {
                 </button>
               </div>
             </div>
-
             <div>
               <Label htmlFor="confirmPassword" className="text-gray-300">
                 Conferma Password
@@ -148,23 +148,23 @@ export default function RegisterPage() {
                 </button>
               </div>
             </div>
-
-            <input type="hidden" name="role" value="client" />
-
             <div className="flex items-start space-x-3 pt-2">
               <Checkbox
                 id="terms"
                 name="terms"
                 required
-                className="border-gray-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white"
+                className="mt-1 border-gray-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
               />
               <div className="grid gap-1.5 leading-none">
-                <label htmlFor="terms" className="text-sm text-gray-300">
+                <label
+                  htmlFor="terms"
+                  className="text-sm font-medium leading-none text-gray-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
                   Accetto i{" "}
                   <Link
                     href="/legal/terms-and-conditions"
                     target="_blank"
-                    className="underline text-blue-400 hover:text-blue-300"
+                    className="font-medium text-blue-400 hover:text-blue-300 underline"
                   >
                     Termini e Condizioni
                   </Link>{" "}
@@ -172,7 +172,7 @@ export default function RegisterPage() {
                   <Link
                     href="/legal/privacy-policy"
                     target="_blank"
-                    className="underline text-blue-400 hover:text-blue-300"
+                    className="font-medium text-blue-400 hover:text-blue-300 underline"
                   >
                     Privacy Policy
                   </Link>
@@ -180,10 +180,7 @@ export default function RegisterPage() {
                 </label>
               </div>
             </div>
-
-            <div className="pt-2">
-              <SubmitButton />
-            </div>
+            <SubmitButton />
           </form>
         </div>
       </div>
