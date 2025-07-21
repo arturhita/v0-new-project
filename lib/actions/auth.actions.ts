@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
 
+/**
+ * Esegue il login dell'utente.
+ * Questa funzione si occupa SOLO di autenticare l'utente con Supabase.
+ * NON esegue alcun reindirizzamento. Il reindirizzamento è gestito
+ * interamente dal client (AuthProvider) per evitare race conditions.
+ */
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
@@ -15,64 +21,26 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (signInError) {
-    switch (signInError.message) {
+  if (error) {
+    switch (error.message) {
       case "Invalid login credentials":
         return { error: "Credenziali di accesso non valide." }
       case "Email not confirmed":
         return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
       default:
-        console.error("Login Error:", signInError.message)
+        console.error("Login Error:", error.message)
         return { error: "Si è verificato un errore imprevisto." }
     }
   }
 
-  if (!signInData.user) {
-    return { error: "Utente non trovato dopo il login." }
-  }
-
-  // --- LOGICA ROBUSTA PER RECUPERARE IL PROFILO ---
-  // A volte, dopo la registrazione, il profilo non è immediatamente disponibile.
-  // Questo codice prova a recuperarlo più volte prima di arrendersi.
-  let profile = null
-  let attempts = 0
-  while (attempts < 3 && !profile) {
-    const { data } = await supabase.from("profiles").select("role").eq("id", signInData.user.id).single()
-
-    if (data) {
-      profile = data
-    } else {
-      attempts++
-      if (attempts < 3) {
-        // Attendi 500ms prima di riprovare
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      }
-    }
-  }
-  // --- FINE LOGICA ROBUSTA ---
-
-  if (!profile) {
-    console.error("Profilo non trovato dopo 3 tentativi per l'utente:", signInData.user.id)
-    // L'utente è loggato, ma c'è un problema con il suo profilo.
-    return { error: "Login riuscito, ma non è stato possibile caricare il tuo profilo. Contatta l'assistenza." }
-  }
-
-  // Se il profilo viene trovato, reindirizziamo l'utente dal server per un'esperienza più rapida.
-  switch (profile.role) {
-    case "admin":
-      redirect("/admin/dashboard")
-    case "operator":
-      redirect("/dashboard/operator")
-    case "client":
-      redirect("/dashboard/client")
-    default:
-      redirect("/")
-  }
+  // Successo! Restituiamo solo un flag di successo.
+  // Il client rimarrà in attesa e l'AuthProvider gestirà il reindirizzamento.
+  return { success: true }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {

@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Attendi che lo stato di autenticazione iniziale sia stato caricato.
+    // Non eseguire alcuna logica finché lo stato non è completamente caricato.
     if (isLoading) {
       return
     }
@@ -79,23 +79,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Se l'utente NON è loggato e tenta di accedere a una rotta protetta,
-    // reindirizzalo al login. Questo agisce come una guardia di sicurezza.
-    if (!user && isProtectedRoute) {
-      router.replace("/login")
+    // Caso 1: L'utente è autenticato e ha un profilo.
+    if (user && profile) {
+      // Se si trova su una pagina di autenticazione, reindirizzalo alla sua dashboard.
+      // Questa è la logica chiave che gestisce il reindirizzamento DOPO il login.
+      if (isAuthPage) {
+        const { role } = profile
+        let destination = "/"
+        if (role === "admin") destination = "/admin/dashboard"
+        else if (role === "operator") destination = "/dashboard/operator"
+        else if (role === "client") destination = "/dashboard/client"
+        router.replace(destination)
+      }
     }
-
-    // Se l'utente è loggato e si trova su una pagina di autenticazione,
-    // questo è un caso anomalo (magari ha usato il tasto "indietro").
-    // Lo reindirizziamo alla sua dashboard per sicurezza.
-    // Questa logica è una rete di sicurezza nel caso in cui il redirect del server fallisca.
-    if (user && profile && isAuthPage) {
-      const { role } = profile
-      let destination = "/"
-      if (role === "admin") destination = "/admin/dashboard"
-      else if (role === "operator") destination = "/dashboard/operator"
-      else if (role === "client") destination = "/dashboard/client"
-      router.replace(destination)
+    // Caso 2: L'utente NON è autenticato.
+    else if (!user) {
+      // Se sta tentando di accedere a una rotta protetta, reindirizzalo al login.
+      if (isProtectedRoute) {
+        router.replace("/login")
+      }
     }
   }, [isLoading, user, profile, pathname, router])
 
