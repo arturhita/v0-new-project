@@ -1,6 +1,5 @@
 import { getOperatorsByCategory } from "@/lib/actions/data.actions"
 import EspertiClientPage from "./EspertiClientPage"
-import type { Operator } from "@/components/operator-card"
 
 // Helper per ottenere i dettagli della categoria in base allo slug dell'URL
 const getCategoryDetails = (slug: string) => {
@@ -64,10 +63,14 @@ const getCategoryDetails = (slug: string) => {
   )
 }
 
+interface PageProps {
+  params: { categoria: string }
+}
+
 // Questo è un Server Component che recupera i dati
-export default async function CategoriaPage({ params }: { params: { categoria: string } }) {
+export default async function EspertiCategoriaPage({ params }: PageProps) {
   // Recupera i dati sul server
-  const operators: Operator[] = await getOperatorsByCategory(params.categoria)
+  const operators = await getOperatorsByCategory(params.categoria)
 
   // Passa i dati recuperati come prop al Client Component
   return <EspertiClientPage initialOperators={operators} params={params} />

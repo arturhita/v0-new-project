@@ -1,21 +1,8 @@
-"use client"
-import { getHomepageData } from "@/lib/actions/data.actions"
+import { getHomepageOperators, getHomepageReviews } from "@/lib/actions/data.actions"
 import { HomepageClient } from "./homepage-client"
-import { Suspense } from "react"
-import { LoadingSpinner } from "@/components/loading-spinner"
 
-export default async function UnveillyHomePage() {
-  const { operators, reviews } = await getHomepageData()
+export default async function HomePage() {
+  const [operators, reviews] = await Promise.all([getHomepageOperators(), getHomepageReviews()])
 
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
-          <LoadingSpinner />
-        </div>
-      }
-    >
-      <HomepageClient operators={operators} reviews={reviews} />
-    </Suspense>
-  )
+  return <HomepageClient operators={operators} reviews={reviews} />
 }
