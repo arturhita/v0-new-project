@@ -142,7 +142,7 @@ export async function getCurrentPromotionPrice(): Promise<number | null> {
 
   const { data, error } = await supabase
     .from("promotions")
-    .select("special_price") // CORRECTED: was discount_price
+    .select("special_price")
     .eq("is_active", true)
     .lte("start_date", today)
     .gte("end_date", today)

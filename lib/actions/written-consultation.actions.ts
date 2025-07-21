@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { getOperatorById } from "./operator.actions"
 
-// Mock data - In a real app, this would be a database table.
 const mockWrittenConsultations: WrittenConsultation[] = [
   {
     id: "wc_1",
@@ -21,7 +20,6 @@ const mockWrittenConsultations: WrittenConsultation[] = [
   },
 ]
 
-// Mock user wallet - In a real app, this would be part of the user's data.
 const mockUserWallets = new Map<string, number>([["user_client_123", 150.0]])
 
 export interface WrittenConsultation {
@@ -48,18 +46,17 @@ export async function submitWrittenConsultation(formData: FormData) {
   }
 
   const operator = await getOperatorById(operatorId)
-  if (!operator || !operator.services.emailEnabled || !operator.services.emailPrice) {
+  if (!operator || !operator.services?.email?.enabled || !operator.services?.email?.price) {
     return { success: false, error: "Operatore non disponibile per consulenze scritte." }
   }
 
-  const cost = operator.services.emailPrice
+  const cost = operator.services.email.price
   const clientWallet = mockUserWallets.get(clientId) || 0
 
   if (clientWallet < cost) {
     return { success: false, error: "Credito insufficiente nel wallet." }
   }
 
-  // Deduct from wallet
   mockUserWallets.set(clientId, clientWallet - cost)
 
   const newConsultation: WrittenConsultation = {
@@ -67,7 +64,7 @@ export async function submitWrittenConsultation(formData: FormData) {
     clientId,
     clientName: "Mario Rossi", // Mock name
     operatorId,
-    operatorName: operator.stageName,
+    operatorName: operator.stage_name,
     question,
     answer: null,
     status: "pending_operator_response",
@@ -108,8 +105,6 @@ export async function answerWrittenConsultation(formData: FormData) {
   consultation.answer = answer
   consultation.status = "answered"
   consultation.answeredAt = new Date()
-
-  // In a real app, credit the operator's earnings here.
 
   revalidatePath("/dashboard/client/written-consultations")
   revalidatePath("/dashboard/operator/written-consultations")
