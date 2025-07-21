@@ -36,11 +36,24 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Utente non trovato dopo il login." }
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", signInData.user.id).single()
+  // Utilizziamo .maybeSingle() per gestire il caso in cui il profilo non sia ancora stato creato,
+  // prevenendo errori critici.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .maybeSingle()
+
+  if (profileError) {
+    console.error("Errore nel recupero del profilo durante il login:", profileError.message)
+    return { error: "Errore durante il recupero del profilo. Riprova." }
+  }
 
   if (!profile) {
     console.error(`Login riuscito ma profilo non trovato per l'utente: ${signInData.user.id}`)
-    return { error: "Login riuscito, ma non è stato possibile caricare il tuo profilo. Contatta l'assistenza." }
+    // L'utente è loggato, ma il profilo non esiste. Reindirizziamo a una pagina di completamento profilo o alla home.
+    // Per ora, restituiamo un errore gestibile.
+    return { error: "Login riuscito, ma il tuo profilo è incompleto. Contatta l'assistenza." }
   }
 
   // Reindirizzamento server-side per la massima velocità e affidabilità

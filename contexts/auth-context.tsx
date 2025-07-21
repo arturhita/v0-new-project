@@ -38,70 +38,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.refresh()
   }, [router])
 
-  const fetchUserProfile = useCallback(async (user: User | null) => {
-    if (!user) {
-      setProfile(null)
-      return
-    }
-    const { data: userProfile, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, role")
-      .eq("id", user.id)
-      .single()
-
-    if (error) {
-      console.error("Error fetching profile:", error.message)
-      setProfile(null)
-    } else {
-      setProfile(userProfile)
-    }
-  }, [])
-
   useEffect(() => {
-    // 1. Determina lo stato di autenticazione iniziale il più velocemente possibile.
-    const getInitialSession = async () => {
+    const fetchSessionAndProfile = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       const currentUser = session?.user ?? null
       setUser(currentUser)
-      await fetchUserProfile(currentUser)
-      // Imposta isLoading a false solo dopo che il controllo iniziale è completo.
+
+      if (currentUser) {
+        // **LA CORREZIONE CHIAVE È QUI**
+        // Usiamo .maybeSingle() per evitare l'errore se il profilo non esiste.
+        // Restituisce null invece di lanciare un errore.
+        const { data: userProfile, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, role")
+          .eq("id", currentUser.id)
+          .maybeSingle() // <-- CAMBIATO DA .single() A .maybeSingle()
+
+        if (error) {
+          // Questo errore si verifica solo per problemi reali (es. più profili), non per "nessun profilo".
+          console.error("Errore critico nel recupero del profilo:", error.message)
+          setProfile(null)
+        } else {
+          setProfile(userProfile)
+        }
+      } else {
+        setProfile(null)
+      }
       setIsLoading(false)
     }
 
-    getInitialSession()
+    fetchSessionAndProfile()
 
-    // 2. Ascolta i cambiamenti futuri (es. logout da un'altra scheda).
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      await fetchUserProfile(currentUser)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Quando lo stato cambia (login/logout), ricarichiamo tutto.
+      fetchSessionAndProfile()
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [fetchUserProfile])
+  }, [])
 
   useEffect(() => {
-    // Questa è la "Guardia di Sicurezza". Si attiva solo quando lo stato è definito.
     if (isLoading) {
       return
     }
 
     const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Se l'utente non è loggato e tenta di accedere a una rotta protetta, lo reindirizza al login.
+    // La guardia di sicurezza: se il caricamento è finito e non c'è nessun utente,
+    // e si sta tentando di accedere a una rotta protetta, reindirizza al login.
     if (!user && isProtectedRoute) {
       router.replace("/login")
     }
   }, [isLoading, user, pathname, router])
 
-  // Mostra uno spinner a schermo intero durante il controllo iniziale.
-  // Questo previene il "rimbalzo" e lo sfarfallio della UI.
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020]">
