@@ -1,11 +1,12 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useActionState, useEffect, useState } from "react"
 import { useFormStatus } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { Eye, EyeOff } from "lucide-react"
 
 import { login } from "@/lib/actions/auth.actions"
 import { Label } from "@/components/ui/label"
@@ -18,7 +19,7 @@ function SubmitButton() {
   return (
     <Button
       type="submit"
-      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
+      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
       disabled={pending}
     >
       {pending ? "Accesso in corso..." : "Accedi"}
@@ -29,15 +30,18 @@ function SubmitButton() {
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined)
   const router = useRouter()
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (state?.error) {
       toast.error(state.error)
     }
-    if (state?.success) {
+    if (state?.success && state?.role) {
       toast.success(state.success)
-      // The AuthProvider will handle the redirect after re-evaluating the auth state
-      router.refresh()
+      // Direct redirection based on the role returned from the server action
+      const targetDashboard =
+        state.role === "admin" ? "/admin" : state.role === "operator" ? "/dashboard/operator" : "/dashboard/client"
+      router.replace(targetDashboard)
     }
   }, [state, router])
 
@@ -56,13 +60,13 @@ export default function LoginPage() {
           <h2 className="mt-6 text-3xl font-extrabold text-white">Accedi al tuo account</h2>
           <p className="mt-2 text-sm text-gray-400">
             o{" "}
-            <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
+            <Link href="/register" className="font-medium text-blue-400 hover:text-blue-300">
               crea un nuovo account
             </Link>
           </p>
         </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-indigo-500/10">
+        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-blue-500/10">
           <form action={formAction} className="space-y-6">
             <div>
               <Label htmlFor="email" className="text-gray-300">
@@ -73,7 +77,7 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 required
-                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
                 placeholder="tu@esempio.com"
               />
             </div>
@@ -82,14 +86,23 @@ export default function LoginPage() {
               <Label htmlFor="password" className="text-gray-300">
                 Password
               </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
             <SubmitButton />
           </form>
