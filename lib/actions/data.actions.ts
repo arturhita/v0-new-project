@@ -1,9 +1,45 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
-import { mapProfileToOperator } from "@/lib/utils/operator-mapper"
+
+export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
+  const services = (profile.services as any) || {}
+  const chatService = services.chat || {}
+  const callService = services.call || {}
+  const emailService = services.email || {}
+
+  // Apply promotion price if available
+  const chatPrice =
+    promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
+  const callPrice =
+    promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
+  // Email price is usually different, let's say it's 6x the per-minute price
+  const emailPrice =
+    promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
+
+  return {
+    id: profile.id,
+    name: profile.stage_name || "Operatore",
+    avatarUrl: profile.avatar_url || "/placeholder.svg",
+    specialization:
+      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
+    rating: profile.average_rating || 0,
+    reviewsCount: profile.reviews_count || 0,
+    description: profile.bio || "Nessuna descrizione disponibile.",
+    tags: profile.categories || [],
+    isOnline: profile.is_online || false,
+    services: {
+      chatPrice,
+      callPrice,
+      emailPrice,
+    },
+    profileLink: `/operator/${profile.stage_name}`,
+    joinedDate: profile.created_at,
+  }
+}
 
 export async function getHomepageData() {
   const supabase = createClient()
@@ -20,14 +56,13 @@ export async function getHomepageData() {
         .limit(8),
       supabase
         .from("reviews")
-        .select(`
-          id, 
-          rating, 
-          comment, 
-          created_at,
-          user_id,
-          operator_id
-        `)
+        .select(
+          `
+       id, rating, comment, created_at,
+       client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+       operator:profiles!reviews_operator_id_fkey (stage_name)
+     `,
+        )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(3),
@@ -46,36 +81,18 @@ export async function getHomepageData() {
     }
 
     const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-
-    // Fetch user and operator details for reviews separately
-    const reviews: Review[] = []
-    if (reviewsData && reviewsData.length > 0) {
-      for (const review of reviewsData) {
-        // Get client details
-        const { data: clientData } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url")
-          .eq("id", review.user_id)
-          .single()
-
-        // Get operator details
-        const { data: operatorData } = await supabase
-          .from("profiles")
-          .select("stage_name")
-          .eq("id", review.operator_id)
-          .single()
-
-        reviews.push({
+    const reviews = (reviewsData || []).map(
+      (review: any) =>
+        ({
           id: review.id,
-          user_name: clientData?.full_name || "Utente Anonimo",
+          user_name: review.client?.full_name || "Utente Anonimo",
           user_type: "Utente",
-          operator_name: operatorData?.stage_name || "Operatore",
+          operator_name: review.operator?.stage_name || "Operatore",
           rating: review.rating,
           comment: review.comment,
           created_at: review.created_at,
-        })
-      }
-    }
+        }) as Review,
+    )
 
     return { operators, reviews }
   } catch (error) {

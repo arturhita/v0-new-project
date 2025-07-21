@@ -7,6 +7,7 @@ export async function getComprehensiveAnalytics() {
   const supabase = createClient()
   const now = new Date()
 
+  // --- 1. Time Series Data (Last 12 Months) ---
   const timeSeriesPromises = Array.from({ length: 12 }).map((_, i) => {
     const date = subMonths(now, 11 - i)
     const monthStart = startOfMonth(date).toISOString()
@@ -42,6 +43,7 @@ export async function getComprehensiveAnalytics() {
     )
   })
 
+  // --- 2. Top Operators (by consultations this month) ---
   const thisMonthStart = startOfMonth(now).toISOString()
   const topOperatorsPromise = supabase.rpc("get_top_operators_by_consultations", {
     from_date: thisMonthStart,
@@ -49,8 +51,10 @@ export async function getComprehensiveAnalytics() {
     limit_count: 5,
   })
 
+  // --- 3. Popular Categories ---
   const popularCategoriesPromise = supabase.rpc("get_consultation_counts_by_category")
 
+  // --- Execute all promises ---
   const [
     timeSeriesData,
     { data: topOperatorsData, error: topOperatorsError },

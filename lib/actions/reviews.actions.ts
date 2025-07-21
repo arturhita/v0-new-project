@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+// Definiamo lo schema per una nuova recensione, come deve arrivare dal form.
+// Nota l'uso di snake_case per i nomi, che corrisponde alle colonne del database.
 export interface NewReviewSchema {
   user_id: string
   operator_id: string
@@ -16,8 +18,15 @@ export interface NewReviewSchema {
   is_verified: boolean
 }
 
+/**
+ * Crea una nuova recensione nel database.
+ * Determina automaticamente se la recensione deve essere 'Pending' o 'Approved'.
+ */
 export async function createReview(reviewData: NewReviewSchema) {
   const supabase = createAdminClient()
+
+  // Le recensioni con 4 o 5 stelle vengono approvate in automatico.
+  // Le altre (1-3 stelle) vanno in moderazione.
   const status = reviewData.rating >= 4 ? "Approved" : "Pending"
 
   const { data, error } = await supabase
@@ -31,6 +40,7 @@ export async function createReview(reviewData: NewReviewSchema) {
     return { success: false, error }
   }
 
+  // Invalida la cache per le pagine rilevanti per mostrare subito i nuovi dati
   revalidatePath("/")
   revalidatePath(`/operator/${reviewData.operator_name}`)
   revalidatePath(`/admin/reviews`)
@@ -38,6 +48,10 @@ export async function createReview(reviewData: NewReviewSchema) {
   return { success: true, review: data }
 }
 
+/**
+ * Recupera le recensioni approvate per un operatore specifico.
+ * Usato nella pagina profilo dell'operatore.
+ */
 export async function getOperatorReviews(operatorId: string) {
   const supabase = createAdminClient()
   const { data, error } = await supabase
@@ -54,6 +68,10 @@ export async function getOperatorReviews(operatorId: string) {
   return data
 }
 
+/**
+ * Recupera le recensioni in attesa di moderazione.
+ * Usato nella dashboard dell'amministratore.
+ */
 export async function getPendingReviews() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
@@ -69,6 +87,10 @@ export async function getPendingReviews() {
   return data
 }
 
+/**
+ * Recupera lo storico delle recensioni già moderate (Approvate o Rifiutate).
+ * Usato nella dashboard dell'amministratore.
+ */
 export async function getModeratedReviews() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
@@ -76,7 +98,7 @@ export async function getModeratedReviews() {
     .select("*")
     .in("status", ["Approved", "Rejected"])
     .order("created_at", { ascending: false })
-    .limit(50)
+    .limit(50) // Limita per performance
 
   if (error) {
     console.error("Error fetching moderated reviews:", error)
@@ -85,6 +107,10 @@ export async function getModeratedReviews() {
   return data
 }
 
+/**
+ * Modifica lo stato di una recensione (la approva o la rifiuta).
+ * Chiamato dai bottoni nella pagina di moderazione dell'admin.
+ */
 export async function moderateReview(reviewId: string, approved: boolean) {
   const supabase = createAdminClient()
   const newStatus = approved ? "Approved" : "Rejected"
@@ -99,6 +125,8 @@ export async function moderateReview(reviewId: string, approved: boolean) {
   revalidatePath("/admin/reviews")
   return { success: true }
 }
+
+// --- Altre funzioni di supporto (già presenti, ora connesse a Supabase) ---
 
 export async function getOperatorAverageRating(operatorId: string) {
   const supabase = createAdminClient()

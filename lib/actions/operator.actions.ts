@@ -2,18 +2,20 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 import { z } from "zod"
 import type { OperatorProfile } from "@/types/database"
 
+// Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
 }
 
+// Define Availability types
 export type AvailabilitySlot = {
   start: string
   end: string
@@ -45,7 +47,6 @@ const RegisterOperatorSchema = z
   })
 
 export async function registerOperator(formData: FormData) {
-  const supabase = createAdminClient()
   const rawFormData = {
     name: formData.get("name"),
     surname: formData.get("surname"),
@@ -70,7 +71,7 @@ export async function registerOperator(formData: FormData) {
   const { email, password, name, surname, stageName, bio, categories } = validatedFields.data
   const fullName = `${name} ${surname}`.trim()
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -98,19 +99,20 @@ export async function registerOperator(formData: FormData) {
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
     bio: bio,
     categories: categories.split(","),
     role: "operator",
-    status: "approved",
+    status: "approved", // Profilo subito attivo come da descrizione pagina
   })
 
   if (profileError) {
     console.error("Error creating operator profile:", profileError)
-    await supabase.auth.admin.deleteUser(userId)
+    // Rollback auth user creation
+    await supabaseAdmin.auth.admin.deleteUser(userId)
     return { success: false, message: profileError.message }
   }
 
@@ -125,7 +127,6 @@ const OperatorSchema = z.object({
 })
 
 export async function createOperator(formData: FormData) {
-  const supabase = createAdminClient()
   const validatedFields = OperatorSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -142,7 +143,7 @@ export async function createOperator(formData: FormData) {
 
   const { email, password, fullName, stageName } = validatedFields.data
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -163,7 +164,7 @@ export async function createOperator(formData: FormData) {
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
@@ -173,7 +174,8 @@ export async function createOperator(formData: FormData) {
 
   if (profileError) {
     console.error("Error creating operator profile:", profileError)
-    await supabase.auth.admin.deleteUser(userId)
+    // Rollback auth user creation
+    await supabaseAdmin.auth.admin.deleteUser(userId)
     return { message: profileError.message }
   }
 
@@ -211,6 +213,8 @@ export async function getOperatorPublicProfile(username: string) {
   noStore()
   const supabase = createClient()
 
+  // Utilizziamo la funzione RPC 'get_public_profile_by_stage_name' per una ricerca più robusta
+  // che ignora maiuscole/minuscole, spazi extra e accenti.
   const { data: profiles, error: rpcError } = await supabase.rpc("get_public_profile_by_stage_name", {
     stage_name_to_find: username,
   })
@@ -225,6 +229,8 @@ export async function getOperatorPublicProfile(username: string) {
     return null
   }
 
+  // Se vengono trovati più profili, registra un avviso e usa il primo.
+  // Questo può indicare un problema di integrità dei dati (nomi d'arte duplicati).
   if (profiles.length > 1) {
     console.warn(`Trovati profili multipli per il nome d'arte "${username}". Viene usato il primo risultato.`)
   }
@@ -232,6 +238,7 @@ export async function getOperatorPublicProfile(username: string) {
   const profile = profiles[0]
 
   const services = profile.services as any
+  // Accediamo in modo sicuro alle proprietà annidate
   const chatService = services?.chat
   const callService = services?.call
   const emailService = services?.email
@@ -253,7 +260,7 @@ export async function getOperatorPublicProfile(username: string) {
       callService?.enabled && { service_type: "call", price: callService.price_per_minute },
       emailService?.enabled && { service_type: "written", price: emailService.price },
     ].filter((service): service is { service_type: string; price: number } => service !== null && service !== false),
-    reviews: [],
+    reviews: [], // Placeholder per le recensioni effettive
   }
 }
 
@@ -274,7 +281,7 @@ export async function getOperatorById(id: string) {
     console.error(`Error fetching operator ${id}:`, error)
     return null
   }
-  return data as OperatorProfile
+  return data
 }
 
 export async function updateOperatorProfile(userId: string, profileData: Partial<OperatorProfile>) {
@@ -312,8 +319,7 @@ export async function updateOperatorAvailability(userId: string, availability: a
 }
 
 export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
+  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("role", "operator")
 
   if (error) {
     console.error("Error fetching operator profiles:", error)

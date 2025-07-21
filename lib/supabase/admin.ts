@@ -1,26 +1,22 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
-// This is a singleton pattern to avoid creating multiple clients
-let adminClient: SupabaseClient
+// IMPORTANTE: Questo client deve essere usato SOLO sul server (in Server Actions o Route Handlers).
+// Utilizza la chiave service_role, che ha privilegi di amministratore e non deve MAI essere esposta al client.
 
-export const createAdminClient = (): SupabaseClient => {
-  if (adminClient) {
-    return adminClient
-  }
+// Controlla che le variabili d'ambiente necessarie siano presenti.
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("URL Supabase o Service Role Key mancanti nelle variabili d'ambiente.")
+}
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("URL Supabase o Service Role Key mancanti nelle variabili d'ambiente.")
-  }
-
-  adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+// Crea e esporta una singola istanza riutilizzabile del client admin.
+// Questo previene la creazione di nuove connessioni ad ogni chiamata.
+export const supabaseAdmin: SupabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  })
-
-  return adminClient
-}
-
-// Legacy export for backward compatibility
-export const supabaseAdmin = createAdminClient()
+  },
+)
