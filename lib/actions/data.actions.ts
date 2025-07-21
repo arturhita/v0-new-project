@@ -54,13 +54,14 @@ export async function getHomepageData() {
         .limit(8),
       supabase
         .from("reviews")
-        .select(
-          `
-       id, rating, comment, created_at,
-       client:profiles!reviews_user_id_fkey (full_name, avatar_url),
-       operator:profiles!reviews_operator_id_fkey (stage_name)
-     `,
-        )
+        .select(`
+          id, 
+          rating, 
+          comment, 
+          created_at,
+          user_id,
+          operator_id
+        `)
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(3),
@@ -79,18 +80,36 @@ export async function getHomepageData() {
     }
 
     const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-    const reviews = (reviewsData || []).map(
-      (review: any) =>
-        ({
+
+    // Fetch user and operator details for reviews separately
+    const reviews: Review[] = []
+    if (reviewsData && reviewsData.length > 0) {
+      for (const review of reviewsData) {
+        // Get client details
+        const { data: clientData } = await supabase
+          .from("profiles")
+          .select("full_name, avatar_url")
+          .eq("id", review.user_id)
+          .single()
+
+        // Get operator details
+        const { data: operatorData } = await supabase
+          .from("profiles")
+          .select("stage_name")
+          .eq("id", review.operator_id)
+          .single()
+
+        reviews.push({
           id: review.id,
-          user_name: review.client?.full_name || "Utente Anonimo",
+          user_name: clientData?.full_name || "Utente Anonimo",
           user_type: "Utente",
-          operator_name: review.operator?.stage_name || "Operatore",
+          operator_name: operatorData?.stage_name || "Operatore",
           rating: review.rating,
           comment: review.comment,
           created_at: review.created_at,
-        }) as Review,
-    )
+        })
+      }
+    }
 
     return { operators, reviews }
   } catch (error) {
