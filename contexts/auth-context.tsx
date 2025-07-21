@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Non fare nulla finché lo stato di autenticazione non è completamente risolto.
+    // Attendi che lo stato di autenticazione iniziale sia stato caricato.
     if (isLoading) {
       return
     }
@@ -79,29 +79,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Caso 1: Utente autenticato (con profilo caricato).
-    if (user && profile) {
-      // Se si trova su una pagina di login/registrazione, reindirizzalo alla sua dashboard.
-      if (isAuthPage) {
-        const { role } = profile
-        let destination = "/"
-        if (role === "admin") destination = "/admin/dashboard"
-        else if (role === "operator") destination = "/dashboard/operator"
-        else if (role === "client") destination = "/dashboard/client"
-        router.replace(destination)
-      }
+    // Se l'utente NON è loggato e tenta di accedere a una rotta protetta,
+    // reindirizzalo al login. Questo agisce come una guardia di sicurezza.
+    if (!user && isProtectedRoute) {
+      router.replace("/login")
     }
-    // Caso 2: Utente non autenticato.
-    else if (!user) {
-      // Se sta tentando di accedere a una rotta protetta, reindirizzalo al login.
-      if (isProtectedRoute) {
-        router.replace("/login")
-      }
+
+    // Se l'utente è loggato e si trova su una pagina di autenticazione,
+    // questo è un caso anomalo (magari ha usato il tasto "indietro").
+    // Lo reindirizziamo alla sua dashboard per sicurezza.
+    // Questa logica è una rete di sicurezza nel caso in cui il redirect del server fallisca.
+    if (user && profile && isAuthPage) {
+      const { role } = profile
+      let destination = "/"
+      if (role === "admin") destination = "/admin/dashboard"
+      else if (role === "operator") destination = "/dashboard/operator"
+      else if (role === "client") destination = "/dashboard/client"
+      router.replace(destination)
     }
   }, [isLoading, user, profile, pathname, router])
 
-  // Mostra uno spinner a schermo intero durante il caricamento iniziale per evitare sfarfallii
-  // e reindirizzamenti errati.
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020]">
