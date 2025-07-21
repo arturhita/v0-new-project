@@ -1,146 +1,40 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { createSupabaseServerClient } from "../supabase/server"
+import { createSupabaseAdminClient } from "../supabase/admin"
+import { revalidatePath } from "next/cache"
+import type { BlogArticle, BlogCategory } from "@/types/blog.types"
 
 const ArticleSchema = z.object({
-  id: z.string().uuid().optional(),
   title: z.string().min(3, "Il titolo è obbligatorio"),
-  content: z.string().min(10, "Il contenuto è obbligatorio"),
+  slug: z
+    .string()
+    .min(3, "Lo slug è obbligatorio")
+    .regex(/^[a-z0-9-]+$/, "Slug non valido"),
   excerpt: z.string().optional(),
-  category_id: z.string().uuid("Seleziona una categoria valida"),
+  content: z.string().min(10, "Il contenuto è obbligatorio"),
+  categoryId: z.string().uuid("Categoria non valida"),
   status: z.enum(["draft", "published"]),
-  image: z.any().optional(),
+  readTimeMinutes: z.coerce.number().int().positive().optional(),
 })
 
-function generateSlug(title: string) {
-  return title
-    .toLowerCase()
-    .replace(/ /g, "-")
-    .replace(/[^\w-]+/g, "")
-}
-
-export async function saveArticle(prevState: any, formData: FormData) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, message: "Non autorizzato." }
-  }
-
-  const validatedFields = ArticleSchema.safeParse({
-    id: formData.get("id") || undefined,
-    title: formData.get("title"),
-    content: formData.get("content"),
-    excerpt: formData.get("excerpt"),
-    category_id: formData.get("category_id"),
-    status: formData.get("status"),
-    image: formData.get("image"),
-  })
-
-  if (!validatedFields.success) {
-    return {
-      success: false,
-      message: "Dati non validi.",
-      errors: validatedFields.error.flatten().fieldErrors,
-    }
-  }
-
-  const { id, title, content, excerpt, category_id, status, image } = validatedFields.data
-  const slug = generateSlug(title)
-  const read_time_minutes = Math.ceil(content.split(" ").length / 200)
-
-  const supabaseAdmin = createAdminClient()
-  let imageUrl = formData.get("existing_image_url") as string | null
-
-  if (image && image.size > 0) {
-    const fileExt = image.name.split(".").pop()
-    const fileName = `${Date.now()}.${fileExt}`
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-      .from("blog_images")
-      .upload(`public/${fileName}`, image)
-
-    if (uploadError) {
-      console.error("Upload Error:", uploadError)
-      return { success: false, message: "Errore nel caricamento dell'immagine." }
-    }
-
-    const { data: urlData } = supabaseAdmin.storage.from("blog_images").getPublicUrl(uploadData.path)
-    imageUrl = urlData.publicUrl
-  }
-
-  const articleData = {
-    title,
-    slug,
-    content,
-    excerpt: excerpt || content.substring(0, 150) + "...",
-    category_id,
-    status,
-    image_url: imageUrl,
-    author_id: user.id,
-    published_at: status === "published" ? new Date().toISOString() : null,
-    read_time_minutes,
-  }
-
-  let error
-  if (id) {
-    // Update
-    const { error: updateError } = await supabaseAdmin
-      .from("blog_articles")
-      .update({ ...articleData, slug: id ? undefined : slug }) // don't update slug on existing posts for now
-      .eq("id", id)
-    error = updateError
-  } else {
-    // Create
-    const { error: createError } = await supabaseAdmin.from("blog_articles").insert({ ...articleData, slug })
-    error = createError
-  }
-
-  if (error) {
-    console.error("DB Error:", error)
-    return { success: false, message: `Errore nel salvataggio: ${error.message}` }
-  }
-
-  revalidatePath("/admin/blog-management")
-  revalidatePath("/astromag")
-  revalidatePath(`/astromag/articolo/${slug}`)
-  revalidatePath(`/astromag/${category_id}`) // This won't work directly, need category slug
-
-  return { success: true, message: "Articolo salvato con successo!" }
-}
-
-export async function deleteArticle(id: string) {
-  const supabaseAdmin = createAdminClient()
-  const { error } = await supabaseAdmin.from("blog_articles").delete().eq("id", id)
-
-  if (error) {
-    return { success: false, message: `Errore eliminazione: ${error.message}` }
-  }
-
-  revalidatePath("/admin/blog-management")
-  revalidatePath("/astromag")
-  return { success: true, message: "Articolo eliminato." }
-}
-
-// Public data fetching functions
-export async function getPublicArticles(options: { categorySlug?: string; limit?: number } = {}) {
-  const supabase = createClient()
+export async function getArticles(
+  options: { limit?: number; categorySlug?: string; status?: "published" | "draft" } = {},
+) {
+  const supabase = createSupabaseServerClient()
   let query = supabase
     .from("blog_articles")
-    .select(
-      `
+    .select(`
       *,
-      author:profiles(full_name),
-      category:blog_categories(name, slug)
-    `,
-    )
-    .eq("status", "published")
-    .order("published_at", { ascending: false })
+      blog_categories (name, slug),
+      profiles (full_name, avatar_url)
+    `)
+    .order("published_at", { ascending: false, nullsFirst: true })
 
+  if (options.limit) {
+    query = query.limit(options.limit)
+  }
   if (options.categorySlug) {
     const { data: category } = await supabase
       .from("blog_categories")
@@ -149,29 +43,32 @@ export async function getPublicArticles(options: { categorySlug?: string; limit?
       .single()
     if (category) {
       query = query.eq("category_id", category.id)
+    } else {
+      return [] // Category not found
     }
   }
-
-  if (options.limit) {
-    query = query.limit(options.limit)
+  if (options.status) {
+    query = query.eq("status", options.status)
   }
 
   const { data, error } = await query
-  if (error) console.error("Error fetching public articles:", error)
-  return data || []
+
+  if (error) {
+    console.error("Error fetching articles:", error)
+    return []
+  }
+  return data as BlogArticle[]
 }
 
-export async function getPublicArticleBySlug(slug: string) {
-  const supabase = createClient()
+export async function getArticleBySlug(slug: string) {
+  const supabase = createSupabaseServerClient()
   const { data, error } = await supabase
     .from("blog_articles")
-    .select(
-      `
+    .select(`
       *,
-      author:profiles(full_name),
-      category:blog_categories(name, slug)
-    `,
-    )
+      blog_categories (name, slug),
+      profiles (full_name, avatar_url)
+    `)
     .eq("slug", slug)
     .eq("status", "published")
     .single()
@@ -180,30 +77,119 @@ export async function getPublicArticleBySlug(slug: string) {
     console.error("Error fetching article by slug:", error)
     return null
   }
+  return data as BlogArticle
+}
+
+export async function getCategories(): Promise<BlogCategory[]> {
+  const supabase = createSupabaseServerClient()
+  const { data, error } = await supabase.from("blog_categories").select("*")
+  if (error) {
+    console.error("Error fetching categories:", error)
+    return []
+  }
   return data
 }
 
-export async function getPublicCategories() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("blog_categories").select("*").order("name")
-  if (error) console.error("Error fetching categories:", error)
-  return data || []
+export async function getCategoryBySlug(slug: string): Promise<BlogCategory | null> {
+  const supabase = createSupabaseServerClient()
+  const { data, error } = await supabase.from("blog_categories").select("*").eq("slug", slug).single()
+  if (error) {
+    console.error("Error fetching category by slug:", error)
+    return null
+  }
+  return data
 }
 
-// Admin data fetching
-export async function getAdminArticles() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("blog_articles")
-    .select("*, category:blog_categories(name)")
-    .order("created_at", { ascending: false })
-  if (error) console.error("Error fetching admin articles:", error)
-  return data || []
+export async function upsertArticle(prevState: any, formData: FormData) {
+  const supabase = createSupabaseServerClient()
+  const supabaseAdmin = createSupabaseAdminClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non autorizzato" }
+
+  const validatedFields = ArticleSchema.safeParse({
+    title: formData.get("title"),
+    slug: formData.get("slug"),
+    excerpt: formData.get("excerpt"),
+    content: formData.get("content"),
+    categoryId: formData.get("categoryId"),
+    status: formData.get("status"),
+    readTimeMinutes: formData.get("readTimeMinutes"),
+  })
+
+  if (!validatedFields.success) {
+    return { success: false, message: "Dati non validi", errors: validatedFields.error.flatten().fieldErrors }
+  }
+
+  const articleId = formData.get("articleId") as string | null
+  const imageFile = formData.get("image") as File
+  let imageUrl = (formData.get("currentImageUrl") as string) || null
+
+  if (imageFile && imageFile.size > 0) {
+    const fileName = `${user.id}/${Date.now()}-${imageFile.name}`
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from("blog_images")
+      .upload(fileName, imageFile)
+
+    if (uploadError) {
+      console.error("Storage Error:", uploadError)
+      return { success: false, message: `Errore nel caricamento dell'immagine: ${uploadError.message}` }
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("blog_images").getPublicUrl(uploadData.path)
+    imageUrl = publicUrl
+  }
+
+  const articleData = {
+    ...validatedFields.data,
+    author_id: user.id,
+    image_url: imageUrl,
+    published_at: validatedFields.data.status === "published" ? new Date().toISOString() : null,
+    category_id: validatedFields.data.categoryId,
+    read_time_minutes: validatedFields.data.readTimeMinutes,
+  }
+
+  // @ts-ignore
+  delete articleData.categoryId
+
+  let dbResponse
+  if (articleId) {
+    // Update
+    dbResponse = await supabase.from("blog_articles").update(articleData).eq("id", articleId).select().single()
+  } else {
+    // Insert
+    dbResponse = await supabase.from("blog_articles").insert(articleData).select().single()
+  }
+
+  const { error } = dbResponse
+
+  if (error) {
+    console.error("Database Error:", error)
+    return { success: false, message: `Errore nel salvataggio dell'articolo: ${error.message}` }
+  }
+
+  revalidatePath("/admin/blog-management")
+  revalidatePath("/astromag")
+  revalidatePath(`/astromag/articolo/${validatedFields.data.slug}`)
+  revalidatePath(`/astromag/${(await getCategoryBySlug(validatedFields.data.slug))?.slug || ""}`)
+
+  return { success: true, message: `Articolo ${articleId ? "aggiornato" : "creato"} con successo!` }
 }
 
-export async function getAdminCategories() {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("blog_categories").select("*").order("name")
-  if (error) console.error("Error fetching admin categories:", error)
-  return data || []
+export async function deleteArticle(articleId: string) {
+  const supabase = createSupabaseAdminClient()
+  const { error } = await supabase.from("blog_articles").delete().eq("id", articleId)
+
+  if (error) {
+    return { success: false, message: `Errore durante l'eliminazione: ${error.message}` }
+  }
+
+  revalidatePath("/admin/blog-management")
+  revalidatePath("/astromag")
+
+  return { success: true, message: "Articolo eliminato con successo." }
 }

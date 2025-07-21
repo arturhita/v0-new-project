@@ -1,15 +1,9 @@
-import { getAdminArticles, getAdminCategories } from "@/lib/actions/blog.actions"
+import { getArticles, getCategories } from "@/lib/actions/blog.actions"
 import BlogCMSAdvanced from "@/components/blog-cms-advanced"
-import { Toaster } from "@/components/ui/toaster"
 
-export default async function AdminBlogManagementPage() {
-  const articles = await getAdminArticles()
-  const categories = await getAdminCategories()
+export default async function BlogManagementPage() {
+  const articles = await getArticles({ status: "draft" }) // Fetch all for admin
+  const categories = await getCategories()
 
-  return (
-    <>
-      <BlogCMSAdvanced initialArticles={articles} initialCategories={categories} />
-      <Toaster />
-    </>
-  )
+  return <BlogCMSAdvanced initialArticles={articles} categories={categories} />
 }
