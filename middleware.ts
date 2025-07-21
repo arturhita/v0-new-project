@@ -13,7 +13,6 @@ export async function middleware(request: NextRequest) {
   } catch (e) {
     // If you are here, a Supabase client could not be created!
     // This is likely because you have not set up environment variables.
-    // Check out http://pris.ly/d/supabase- पोलीस for more info.
     return NextResponse.next({
       request: {
         headers: request.headers,

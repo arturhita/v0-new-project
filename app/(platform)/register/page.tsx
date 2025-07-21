@@ -1,114 +1,90 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { z } from "zod"
-import { RegisterSchema } from "@/lib/schemas"
+import { useActionState, useEffect } from "react"
+import { useFormStatus } from "react-dom"
 import { register } from "@/lib/actions/auth.actions"
-
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
 
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? "Creazione account..." : "Crea un account"}
+    </Button>
+  )
+}
+
 export default function RegisterPage() {
-  const [error, setError] = useState<string | undefined>("")
-  const [success, setSuccess] = useState<string | undefined>("")
-  const [isPending, startTransition] = useTransition()
+  const initialState = { message: "", success: false }
+  const [state, formAction] = useActionState(register, initialState)
+  const router = useRouter()
+  const { user, isLoading } = useAuth()
 
-  const form = useForm<z.infer<typeof RegisterSchema>>({
-    resolver: zodResolver(RegisterSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      confirmPassword: "",
-      fullName: "",
-    },
-  })
+  useEffect(() => {
+    if (state.success) {
+      // On successful registration, Supabase's onAuthStateChange will trigger.
+      // We refresh the router to ensure the new state is picked up everywhere.
+      router.refresh()
+    }
+  }, [state.success, router])
 
-  const onSubmit = (values: z.infer<typeof RegisterSchema>) => {
-    setError("")
-    setSuccess("")
+  if (isLoading) {
+    return <LoadingSpinner />
+  }
 
-    startTransition(() => {
-      register(values).then((data) => {
-        setError(data.error)
-        setSuccess(data.success)
-      })
-    })
+  if (user) {
+    return <LoadingSpinner />
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
+      <Card className="mx-auto max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Crea un account</CardTitle>
+          <CardTitle className="text-xl">Registrati</CardTitle>
+          <CardDescription>Inserisci le tue informazioni per creare un account</CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Completo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Mario Rossi" {...field} disabled={isPending} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="mario.rossi@esempio.com" {...field} disabled={isPending} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isPending} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Conferma Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isPending} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {error && <p className="text-sm font-medium text-destructive">{error}</p>}
-              {success && <p className="text-sm font-medium text-emerald-500">{success}</p>}
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? <LoadingSpinner /> : "Registrati"}
-              </Button>
-            </form>
-          </Form>
+          <form action={formAction} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nome completo</Label>
+              <Input id="name" name="name" placeholder="Mario Rossi" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" placeholder="mario@rossi.it" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="role">Tipo di account</Label>
+              <Select name="role" defaultValue="client" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona un ruolo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Cliente</SelectItem>
+                  <SelectItem value="operator">Operatore</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <SubmitButton />
+            {state && !state.success && (
+              <p className="text-sm font-medium text-destructive text-center">{state.message}</p>
+            )}
+            {state && state.success && (
+              <p className="text-sm font-medium text-emerald-600 text-center">{state.message}</p>
+            )}
+          </form>
           <div className="mt-4 text-center text-sm">
             Hai già un account?{" "}
             <Link href="/login" className="underline">

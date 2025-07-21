@@ -1,10 +1,7 @@
 "use server"
-
-import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
-import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+import { AuthError } from "@supabase/supabase-js"
 
 export async function login(
   prevState: { message: string; success: boolean },
@@ -16,7 +13,7 @@ export async function login(
 
   if (!validatedFields.success) {
     return {
-      message: "Dati inseriti non validi.",
+      message: "Campi non validi.",
       success: false,
     }
   }
@@ -30,53 +27,57 @@ export async function login(
 
   if (error) {
     console.error("Login error:", error.message)
+    if (error instanceof AuthError) {
+      return { message: "Credenziali non valide.", success: false }
+    }
+    return { message: "Errore durante il login. Riprova.", success: false }
+  }
+
+  // Redirect is handled by the client-side context now
+  return { message: "Login effettuato con successo!", success: true }
+}
+
+export async function register(
+  prevState: { message: string; success: boolean },
+  formData: FormData,
+): Promise<{ message: string; success: boolean }> {
+  const supabase = createClient()
+
+  const validatedFields = RegisterSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    const errorMessages = validatedFields.error.errors.map((e) => e.message).join(" ")
     return {
-      message: "Credenziali non valide. Riprova.",
+      message: `Campi non validi: ${errorMessages}`,
       success: false,
     }
   }
 
-  revalidatePath("/", "layout")
-  return {
-    message: "Login effettuato con successo! Verrai reindirizzato...",
-    success: true,
-  }
-}
+  const { email, password, name, role } = validatedFields.data
 
-export async function register(values: z.infer<typeof RegisterSchema>): Promise<{ error?: string; success?: string }> {
-  const supabase = createClient()
-
-  const validatedFields = RegisterSchema.safeParse(values)
-
-  if (!validatedFields.success) {
-    return { error: "Dati inseriti non validi." }
-  }
-
-  const { email, password, fullName } = validatedFields.data
-
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        full_name: fullName,
+        full_name: name,
+        role: role,
       },
     },
   })
 
   if (error) {
-    console.error("Registration error:", error.message)
+    console.error("Registration error:", error)
     if (error.message.includes("User already registered")) {
-      return { error: "Un utente con questa email è già registrato." }
+      return { message: "Utente già registrato con questa email.", success: false }
     }
-    return { error: "Si è verificato un errore durante la registrazione." }
+    return { message: "Errore durante la registrazione. Riprova.", success: false }
   }
 
-  return { success: "Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account." }
-}
+  if (!data.session) {
+    return { message: "Registrazione completata. Controlla la tua email per la verifica.", success: true }
+  }
 
-export async function logout() {
-  const supabase = createClient()
-  await supabase.auth.signOut()
-  redirect("/login")
+  // Redirect is handled by the client-side context
+  return { message: "Registrazione effettuata con successo!", success: true }
 }
