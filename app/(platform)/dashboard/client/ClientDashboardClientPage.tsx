@@ -47,9 +47,9 @@ export function ClientDashboardClientPage() {
       setIsLoading(true)
       const [dashboardStats, experts] = await Promise.all([
         getClientDashboardStats(user.id),
-        getFavoriteExperts(user.id)
+        getFavoriteExperts(user.id),
       ])
-      
+
       setStats(dashboardStats)
       setFavoriteExperts(experts)
     } catch (error) {
@@ -71,12 +71,8 @@ export function ClientDashboardClientPage() {
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">
-          Benvenuto, {user?.user_metadata?.full_name || "Utente"}!
-        </h1>
-        <p className="text-blue-100">
-          Ecco un riepilogo della tua attività e dei tuoi consulti.
-        </p>
+        <h1 className="text-2xl font-bold mb-2">Benvenuto, {user?.user_metadata?.full_name || "Utente"}!</h1>
+        <p className="text-blue-100">Ecco un riepilogo della tua attività e dei tuoi consulti.</p>
       </div>
 
       {/* Stats Grid */}
@@ -108,8 +104,7 @@ export function ClientDashboardClientPage() {
           <CardContent>
             <div className="text-2xl font-bold text-purple-900">€{stats?.totalSpent?.toFixed(2) || "0.00"}</div>
             <p className="text-xs text-purple-600 flex items-center mt-1">
-              <Calendar className="h-3 w-3 mr-1" />
-              €{stats?.monthlySpending?.toFixed(2) || "0.00"} questo mese
+              <Calendar className="h-3 w-3 mr-1" />€{stats?.monthlySpending?.toFixed(2) || "0.00"} questo mese
             </p>
           </CardContent>
         </Card>
@@ -148,7 +143,7 @@ export function ClientDashboardClientPage() {
                 </div>
               </Button>
             </Link>
-            
+
             <Link href="/dashboard/client/consultations">
               <Button variant="outline" className="w-full h-16 bg-transparent">
                 <div className="flex flex-col items-center">
@@ -157,7 +152,7 @@ export function ClientDashboardClientPage() {
                 </div>
               </Button>
             </Link>
-            
+
             <Link href="/dashboard/client/support">
               <Button variant="outline" className="w-full h-16 bg-transparent">
                 <div className="flex flex-col items-center">
@@ -175,10 +170,51 @@ export function ClientDashboardClientPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-red-500" />
-              I Tuoi Esperti Preferiti
+              <Heart className="h-5 w-5 text-red-500" />I Tuoi Esperti Preferiti
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {
+              {favoriteExperts.map((expert) => (
+                <div key={expert.id} className="flex items-center space-x-4 p-4 border rounded-lg">
+                  <img
+                    src={expert.avatar || "/placeholder.svg"}
+                    alt={expert.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{expert.name}</h3>
+                    <p className="text-sm text-gray-600">{expert.specialization}</p>
+                    <div className="flex items-center mt-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                      <span className="text-sm ml-1">{expert.rating.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline">
+                    Contatta
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {favoriteExperts.length === 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-red-500" />I Tuoi Esperti Preferiti
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-600 mb-4">Non hai ancora aggiunto nessun esperto ai preferiti.</p>
+            <Link href="/esperti">
+              <Button>Esplora Esperti</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
