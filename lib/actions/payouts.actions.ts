@@ -1,8 +1,9 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import type { PayoutStatus } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
+
+export type PayoutStatus = "pending" | "processing" | "completed" | "failed"
 
 export type PayoutRequestWithOperator = {
   id: string

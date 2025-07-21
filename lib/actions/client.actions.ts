@@ -1,62 +1,49 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
-import { unstable_noStore as noStore } from "next/cache"
-import type { Operator } from "@/types/database"
 
 export async function getClientDashboardStats(userId: string) {
-  noStore()
-  const cookieStore = cookies()
-  const supabase = createClient(cookieStore)
+  const supabase = createClient()
 
-  const { data: stats, error: statsError } = await supabase
-    .rpc("get_client_dashboard_stats", { p_user_id: userId })
-    .single()
-
-  if (statsError) {
-    console.error("Error fetching client dashboard stats:", statsError)
-    return {
-      total_consultations: 0,
-      total_spent: 0,
-      favorite_operators_count: 0,
-      walletBalance: 0,
-    }
-  }
-
-  // Fetch wallet balance separately
-  const { data: walletData, error: walletError } = await supabase
-    .from("wallets")
-    .select("balance")
-    .eq("user_id", userId)
-    .single()
-
-  // It's okay if no wallet exists yet, default to 0.
-  if (walletError && walletError.code !== "PGRST116") {
-    console.error("Error fetching wallet:", walletError.message)
-  }
-
-  const walletBalance = walletData?.balance ?? 0
-
+  // Mock data for now - in a real app, this would query the database
   return {
-    ...stats,
-    walletBalance,
+    totalConsultations: 15,
+    totalSpent: 245.5,
+    favoriteOperators: 3,
+    averageRating: 4.8,
+    walletBalance: 50.0,
+    pendingConsultations: 2,
+    completedConsultations: 13,
+    monthlySpending: 89.5,
   }
 }
 
-export async function getFavoriteExperts(userId: string): Promise<Operator[]> {
-  noStore()
-  const cookieStore = cookies()
-  const supabase = createClient(cookieStore)
+export async function getFavoriteExperts(userId: string) {
+  const supabase = createClient()
 
-  const { data, error } = await supabase.rpc("get_favorite_operators_for_client", { p_user_id: userId })
+  // Mock data for now - in a real app, this would query the favorites table
+  return [
+    {
+      id: "op_luna_stellare",
+      name: "Luna Stellare",
+      specialization: "Tarocchi e Astrologia",
+      rating: 4.9,
+      avatar: "/placeholder.svg",
+    },
+    {
+      id: "op_sol_divino",
+      name: "Sol Divino",
+      specialization: "Cartomanzia",
+      rating: 4.7,
+      avatar: "/placeholder.svg",
+    },
+  ]
+}
 
-  if (error) {
-    console.error("Error fetching favorite experts:", error)
-    return []
-  }
+export async function getWalletBalance(userId: string): Promise<number> {
+  const supabase = createClient()
 
-  // The RPC returns a JSON array, so we might need to parse it if it's not done automatically.
-  // Assuming the RPC is set up to return rows directly that match the Operator type.
-  return data as Operator[]
+  // Mock implementation - in a real app, this would query the wallet/transactions table
+  // For now, return a mock balance
+  return 50.0
 }

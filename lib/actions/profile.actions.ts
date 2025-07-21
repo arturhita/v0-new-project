@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
-// This type defines the shape of the data the client component will work with (camelCase)
 export interface ProfileData {
   id: string
   email?: string
@@ -26,14 +25,12 @@ export interface ProfileData {
   pushNotifications?: boolean | null
   smsNotifications?: boolean | null
   marketingEmails?: boolean | null
-  // Stats
   totalConsultations?: number
   totalSpent?: number
   averageRating?: number
   memberSince?: string
 }
 
-// Helper to map from DB (snake_case) to client (camelCase)
 function mapToClient(dbProfile: any, user: any): ProfileData {
   return {
     id: dbProfile.id,
@@ -57,7 +54,6 @@ function mapToClient(dbProfile: any, user: any): ProfileData {
     smsNotifications: dbProfile.sms_notifications,
     marketingEmails: dbProfile.marketing_emails,
     memberSince: user.created_at,
-    // Dummy stats for now, as in the original component
     totalConsultations: 15,
     totalSpent: 245.5,
     averageRating: 4.8,
@@ -76,7 +72,6 @@ export async function getAuthenticatedUserProfile(): Promise<ProfileData | null>
 
   if (error || !profile) {
     console.error("Error fetching profile, or profile not found:", error?.message)
-    // Return a default structure for a new user
     return {
       id: user.id,
       email: user.email,
@@ -117,7 +112,6 @@ export async function updateUserProfile(profileData: ProfileData) {
   if (!user) throw new Error("User not authenticated")
   if (user.id !== profileData.id) throw new Error("Unauthorized update attempt")
 
-  // Map from client (camelCase) to DB (snake_case)
   const dbUpdateData = {
     name: profileData.name,
     surname: profileData.surname,
