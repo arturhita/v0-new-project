@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Redirect to the appropriate dashboard after successful login
       const {
         data: { user },
       } = await supabase.auth.getUser()
+
       if (user) {
         const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
         if (profile) {
@@ -23,12 +23,13 @@ export async function GET(request: NextRequest) {
               return NextResponse.redirect(`${origin}/admin/dashboard`)
             case "operator":
               return NextResponse.redirect(`${origin}/dashboard/operator`)
-            default:
+            case "client":
               return NextResponse.redirect(`${origin}/dashboard/client`)
           }
         }
       }
-      return NextResponse.redirect(`${origin}${next}`)
+      // Fallback redirect if profile is not found or something goes wrong
+      return NextResponse.redirect(`${origin}/dashboard/client`)
     }
   }
 

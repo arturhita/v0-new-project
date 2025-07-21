@@ -44,8 +44,9 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   if (profileError || !profile) {
     console.error("Profile fetch error after login:", profileError?.message)
-    await supabase.auth.signOut()
-    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+    // NON eseguire il logout. L'utente è autenticato ma il profilo potrebbe non essere ancora pronto.
+    // L'AuthProvider lato client gestirà il reindirizzamento.
+    return { error: "Profilo non ancora pronto. Riprova tra qualche istante." }
   }
 
   // Reindirizzamento gestito interamente dal server
