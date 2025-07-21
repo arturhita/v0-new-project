@@ -71,35 +71,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Non eseguire alcuna logica finché lo stato non è completamente caricato.
+    // La logica qui ora agisce solo come una "guardia di sicurezza".
+    // Il reindirizzamento principale avviene sul server.
     if (isLoading) {
       return
     }
 
-    const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Caso 1: L'utente è autenticato e ha un profilo.
-    if (user && profile) {
-      // Se si trova su una pagina di autenticazione, reindirizzalo alla sua dashboard.
-      // Questa è la logica chiave che gestisce il reindirizzamento DOPO il login.
-      if (isAuthPage) {
-        const { role } = profile
-        let destination = "/"
-        if (role === "admin") destination = "/admin/dashboard"
-        else if (role === "operator") destination = "/dashboard/operator"
-        else if (role === "client") destination = "/dashboard/client"
-        router.replace(destination)
-      }
+    // Se l'utente NON è autenticato e cerca di accedere a una rotta protetta,
+    // lo reindirizziamo al login.
+    if (!user && isProtectedRoute) {
+      router.replace("/login")
     }
-    // Caso 2: L'utente NON è autenticato.
-    else if (!user) {
-      // Se sta tentando di accedere a una rotta protetta, reindirizzalo al login.
-      if (isProtectedRoute) {
-        router.replace("/login")
-      }
-    }
-  }, [isLoading, user, profile, pathname, router])
+  }, [isLoading, user, pathname, router])
 
   if (isLoading) {
     return (
