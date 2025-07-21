@@ -10,7 +10,6 @@ type Profile = {
   id: string
   full_name: string
   role: "client" | "operator" | "admin"
-  avatar_url?: string
 }
 
 type AuthContextType = {
@@ -30,18 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth event:", event)
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
       if (currentUser) {
         const { data: profileData, error } = await supabase
           .from("profiles")
-          .select("id, full_name, role, avatar_url")
+          .select("id, full_name, role")
           .eq("id", currentUser.id)
-          .maybeSingle() // Usa maybeSingle per non lanciare errori se il profilo non è ancora pronto
+          .maybeSingle()
 
         if (error) {
           console.error("Error fetching profile:", error.message)
@@ -55,29 +53,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    // Esegui un controllo iniziale per sessioni esistenti
-    const checkInitialSession = async () => {
+    // Check initial session
+    const checkSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      if (!session) {
-        setIsLoading(false)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      if (currentUser) {
+        const { data: profileData, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, role")
+          .eq("id", currentUser.id)
+          .maybeSingle()
+        if (error) console.error("Initial profile fetch error:", error.message)
+        setProfile(profileData as Profile)
       }
+      setIsLoading(false)
     }
-    checkInitialSession()
+    checkSession()
 
     return () => {
-      subscription.unsubscribe()
+      authListener?.subscription.unsubscribe()
     }
-  }, [supabase.auth, router])
+  }, [supabase])
 
   useEffect(() => {
     if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    if (!user && isProtectedRoute) {
+    if (!user && isProtectedPage) {
       router.replace("/login")
     }
 
@@ -105,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={{ user, profile, isLoading }}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")

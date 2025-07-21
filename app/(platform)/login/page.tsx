@@ -30,7 +30,6 @@ export default function LoginPage() {
     if (state.message) {
       if (state.success) {
         toast.success(state.message)
-        // Non reindirizzare qui, lascia che AuthProvider lo faccia
         router.refresh() // Forza l'aggiornamento del layout per rilevare il nuovo stato
       } else {
         toast.error(state.message)
