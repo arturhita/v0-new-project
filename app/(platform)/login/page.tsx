@@ -1,89 +1,92 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useActionState, useEffect, useRef } from "react"
 import { useFormStatus } from "react-dom"
 import { login } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import LoadingSpinner from "@/components/loading-spinner"
+import Link from "next/link"
+import { ConstellationBackground } from "@/components/constellation-background"
+import Image from "next/image"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white" disabled={pending}>
       {pending ? "Accesso in corso..." : "Accedi"}
     </Button>
   )
 }
 
 export default function LoginPage() {
-  const initialState = { message: "", success: false }
-  const [state, formAction] = useActionState(login, initialState)
+  const [state, formAction] = useActionState(login, { message: "", success: false })
   const router = useRouter()
-  const { user, isLoading } = useAuth()
+  const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
-    if (state.success) {
-      // Refresh the page to trigger AuthProvider to re-check auth state
-      // and redirect to the correct dashboard.
-      router.refresh()
+    if (state.message) {
+      if (state.success) {
+        toast.success(state.message)
+        router.refresh()
+      } else {
+        toast.error(state.message)
+      }
     }
-  }, [state.success, router])
-
-  // If auth state is still loading, show a spinner
-  if (isLoading) {
-    return <LoadingSpinner />
-  }
-
-  // If user is already logged in, AuthProvider will redirect.
-  // This prevents the login form from flashing.
-  if (user) {
-    return <LoadingSpinner />
-  }
+  }, [state, router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950 p-4">
-      <Card className="mx-auto max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Inserisci la tua email qui sotto per accedere al tuo account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={formAction} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="mario@rossi.it" required />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link href="#" className="ml-auto inline-block text-sm underline">
-                  Password dimenticata?
-                </Link>
-              </div>
-              <Input id="password" name="password" type="password" required />
-            </div>
-            <SubmitButton />
-            {state && !state.success && (
-              <p className="text-sm font-medium text-destructive text-center">{state.message}</p>
-            )}
-            {state && state.success && (
-              <p className="text-sm font-medium text-emerald-600 text-center">{state.message}</p>
-            )}
-          </form>
-          <div className="mt-4 text-center text-sm">
-            Non hai un account?{" "}
-            <Link href="/register" className="underline">
-              Registrati
-            </Link>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-900 text-white">
+      <ConstellationBackground />
+      <div className="relative z-10 w-full max-w-md p-8 space-y-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/20">
+        <div className="text-center">
+          <Image
+            src="/images/moonthir-logo-white.png"
+            alt="Moonthir Logo"
+            width={120}
+            height={120}
+            className="mx-auto mb-4"
+          />
+          <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+            Bentornato
+          </h1>
+          <p className="mt-2 text-gray-400">Accedi per continuare il tuo viaggio mistico.</p>
+        </div>
+
+        <form ref={formRef} action={formAction} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="tua@email.com"
+              required
+              className="bg-gray-900/50 border-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              className="bg-gray-900/50 border-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          <SubmitButton />
+        </form>
+
+        <p className="text-center text-sm text-gray-400">
+          Non hai un account?{" "}
+          <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
+            Registrati ora
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

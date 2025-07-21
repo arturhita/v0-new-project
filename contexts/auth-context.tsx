@@ -1,117 +1,110 @@
 "use client"
 
-import type React from "react"
-
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User, Session } from "@supabase/supabase-js"
-import { usePathname, useRouter } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
+import { useRouter, usePathname } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
+import { logout as logoutAction } from "@/lib/actions/auth.actions"
+
+type Profile = {
+  id: string
+  role: "client" | "operator" | "admin"
+  full_name: string
+  avatar_url: string
+}
 
 type AuthContextType = {
   user: User | null
-  session: Session | null
-  profile: any | null
+  profile: Profile | null
   isLoading: boolean
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<any | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
 
-  const logout = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setSession(null)
-    setProfile(null)
-    router.push("/login")
-    router.refresh()
-  }
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
+      const { session } = await supabase.auth.getSession()
+
       if (session?.user) {
+        setUser(session.user)
         const { data: profileData, error } = await supabase
           .from("profiles")
-          .select("*")
+          .select("id, role, full_name, avatar_url")
           .eq("id", session.user.id)
           .maybeSingle()
 
-        if (error) {
-          console.error("Error fetching profile on initial load:", error.message)
-        } else {
-          setProfile(profileData)
-        }
+        if (profileData) setProfile(profileData)
+        if (error) console.error("Error fetching initial profile:", error.message)
       }
       setIsLoading(false)
     }
 
     getInitialSession()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session)
+    const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
-
       if (session?.user) {
-        setIsLoading(true)
         const { data: profileData, error } = await supabase
           .from("profiles")
-          .select("*")
+          .select("id, role, full_name, avatar_url")
           .eq("id", session.user.id)
           .maybeSingle()
 
-        if (error) {
-          console.error("Error fetching profile on auth change:", error.message)
-          setProfile(null)
-        } else {
-          setProfile(profileData)
-        }
-        setIsLoading(false)
+        setProfile(profileData ?? null)
+        if (error) console.error("Error fetching profile on auth change:", error.message)
       } else {
         setProfile(null)
-        setIsLoading(false)
       }
     })
 
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [supabase])
 
   useEffect(() => {
-    if (!isLoading && user) {
-      const isAuthPage = pathname === "/login" || pathname === "/register"
+    if (isLoading) return
+
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+
+    if (user && profile) {
       if (isAuthPage) {
-        const userRole = profile?.role
-        if (userRole === "admin") {
-          router.push("/admin/dashboard")
-        } else if (userRole === "operator") {
-          router.push("/(platform)/dashboard/operator")
-        } else {
-          router.push("/(platform)/dashboard/client")
-        }
+        const targetDashboard =
+          profile.role === "admin"
+            ? "/admin"
+            : profile.role === "operator"
+              ? "/dashboard/operator"
+              : "/dashboard/client"
+        router.replace(targetDashboard)
+      }
+    } else {
+      if (isProtectedPage) {
+        router.replace("/login")
       }
     }
-  }, [isLoading, user, profile, pathname, router])
+  }, [user, profile, isLoading, pathname, router])
 
-  if (isLoading) {
-    return <LoadingSpinner />
+  const logout = async () => {
+    await logoutAction()
   }
 
-  return <AuthContext.Provider value={{ user, session, profile, isLoading, logout }}>{children}</AuthContext.Provider>
+  if (isLoading) {
+    return <LoadingSpinner fullScreen />
+  }
+
+  return <AuthContext.Provider value={{ user, profile, isLoading, logout }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {
