@@ -1,43 +1,29 @@
 import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   getOperatorEarningsSummary,
   getOperatorEarningsChartData,
   getOperatorRecentTransactions,
   formatCurrency,
-  getServiceTypeDisplayName,
+  formatServiceType,
+  formatDuration,
   calculateGrowthPercentage,
 } from "@/lib/actions/earnings.actions"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Calendar,
-  Clock,
-  MessageCircle,
-  Phone,
-  Mail,
-  BarChart3,
-  Coins,
-} from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { TrendingUp, TrendingDown, Euro, Calendar, Clock, Users, Sparkles, Star, Moon, Zap } from "lucide-react"
 
 async function EarningsContent() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const {
     data: { user },
-    error: authError,
   } = await supabase.auth.getUser()
-  if (authError || !user) {
-    redirect("/login")
-  }
+  if (!user) redirect("/login")
 
-  // Get operator profile
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
   if (!profile || profile.role !== "operator") {
@@ -53,212 +39,223 @@ async function EarningsContent() {
 
   if (!summary) {
     return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Errore nel caricamento dei dati dei guadagni.</p>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Errore nel caricamento dei dati</p>
       </div>
     )
   }
 
-  // Calculate growth percentages (comparing current month with previous period)
-  const previousMonthData = chartData.slice(-60, -30) // Previous 30 days
-  const currentMonthData = chartData.slice(-30) // Last 30 days
+  // Calculate previous month earnings for growth percentage
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
+  const previousMonthData = chartData.filter((item) => {
+    const itemDate = new Date(item.date)
+    const itemMonth = itemDate.getMonth()
+    const itemYear = itemDate.getFullYear()
 
-  const previousMonthTotal = previousMonthData.reduce((sum, item) => sum + item.earnings, 0)
-  const monthlyGrowth = calculateGrowthPercentage(summary.monthlyEarnings, previousMonthTotal)
-
-  const getServiceIcon = (serviceType: string) => {
-    switch (serviceType) {
-      case "chat":
-        return <MessageCircle className="h-4 w-4" />
-      case "call":
-        return <Phone className="h-4 w-4" />
-      case "written":
-        return <Mail className="h-4 w-4" />
-      default:
-        return <DollarSign className="h-4 w-4" />
+    if (currentMonth === 0) {
+      return itemMonth === 11 && itemYear === currentYear - 1
     }
-  }
+    return itemMonth === currentMonth - 1 && itemYear === currentYear
+  })
+
+  const previousMonthEarnings = previousMonthData.reduce((sum, item) => sum + item.earnings, 0)
+  const growthPercentage = calculateGrowthPercentage(summary.monthlyEarnings, previousMonthEarnings)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">💰 Tesoro Astrale</h1>
-        <p className="text-blue-200">Monitora i tuoi guadagni e l'andamento delle tue consulenze spirituali</p>
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-8 text-white">
+        <div className="absolute inset-0 bg-[url('/images/constellation-bg.png')] opacity-20" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Tesoro Astrale</h1>
+              <p className="text-blue-200">I tuoi guadagni e statistiche mistiche</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-yellow-300">
+            <Star className="h-5 w-5" />
+            <span className="text-lg font-semibold">Guadagni totali: {formatCurrency(summary.totalEarnings)}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+      {/* Stats Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-200">Guadagni Totali</CardTitle>
-            <Coins className="h-4 w-4 text-yellow-400" />
+            <CardTitle className="text-sm font-medium text-blue-700">Oggi</CardTitle>
+            <Moon className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(summary.totalEarnings)}</div>
-            <p className="text-xs text-blue-300">{summary.totalConsultations} consulenze totali</p>
+            <div className="text-2xl font-bold text-blue-900">{formatCurrency(summary.dailyEarnings)}</div>
+            <p className="text-xs text-blue-600 mt-1">{summary.dailyConsultations} consulenze</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+        <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-violet-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-200">Questo Mese</CardTitle>
-            <Calendar className="h-4 w-4 text-green-400" />
+            <CardTitle className="text-sm font-medium text-purple-700">Questa Settimana</CardTitle>
+            <Calendar className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(summary.monthlyEarnings)}</div>
-            <div className="flex items-center text-xs">
-              {monthlyGrowth >= 0 ? (
-                <TrendingUp className="h-3 w-3 text-green-400 mr-1" />
+            <div className="text-2xl font-bold text-purple-900">{formatCurrency(summary.weeklyEarnings)}</div>
+            <p className="text-xs text-purple-600 mt-1">{summary.weeklyConsultations} consulenze</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-amber-700">Questo Mese</CardTitle>
+            <Euro className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-900">{formatCurrency(summary.monthlyEarnings)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              {growthPercentage >= 0 ? (
+                <TrendingUp className="h-3 w-3 text-green-600" />
               ) : (
-                <TrendingDown className="h-3 w-3 text-red-400 mr-1" />
+                <TrendingDown className="h-3 w-3 text-red-600" />
               )}
-              <span className={monthlyGrowth >= 0 ? "text-green-400" : "text-red-400"}>
-                {Math.abs(monthlyGrowth).toFixed(1)}%
-              </span>
-              <span className="text-blue-300 ml-1">vs mese scorso</span>
+              <p className={`text-xs ${growthPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {growthPercentage >= 0 ? "+" : ""}
+                {growthPercentage.toFixed(1)}% vs mese scorso
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-200">Questa Settimana</CardTitle>
-            <BarChart3 className="h-4 w-4 text-blue-400" />
+            <CardTitle className="text-sm font-medium text-emerald-700">Totale</CardTitle>
+            <Zap className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(summary.weeklyEarnings)}</div>
-            <p className="text-xs text-blue-300">{summary.weeklyConsultations} consulenze</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-200">Oggi</CardTitle>
-            <Clock className="h-4 w-4 text-purple-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{formatCurrency(summary.dailyEarnings)}</div>
-            <p className="text-xs text-blue-300">{summary.dailyConsultations} consulenze oggi</p>
+            <div className="text-2xl font-bold text-emerald-900">{formatCurrency(summary.totalEarnings)}</div>
+            <p className="text-xs text-emerald-600 mt-1">{summary.totalConsultations} consulenze totali</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Earnings Chart */}
-        <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-white">Andamento Guadagni (30 giorni)</CardTitle>
-            <CardDescription className="text-blue-300">Guadagni giornalieri degli ultimi 30 giorni</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              Andamento Guadagni (30 giorni)
+            </CardTitle>
+            <CardDescription>Evoluzione dei tuoi guadagni negli ultimi 30 giorni</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  tickFormatter={(value) =>
-                    new Date(value).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })
-                  }
-                />
-                <YAxis stroke="#9CA3AF" fontSize={12} tickFormatter={(value) => `€${value}`} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #475569",
-                    borderRadius: "8px",
-                    color: "#f1f5f9",
-                  }}
-                  formatter={(value: any) => [formatCurrency(Number(value)), "Guadagni"]}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString("it-IT")}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="earnings"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: "#3b82f6", strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) =>
+                      new Date(value).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })
+                    }
+                  />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `€${value}`} />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), "Guadagni"]}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString("it-IT")}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="earnings"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: "#3b82f6", strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Consultations Chart */}
-        <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-white">Consulenze per Giorno</CardTitle>
-            <CardDescription className="text-blue-300">Numero di consulenze completate giornalmente</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-purple-600" />
+              Consulenze per Giorno
+            </CardTitle>
+            <CardDescription>Numero di consulenze completate negli ultimi 30 giorni</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  tickFormatter={(value) =>
-                    new Date(value).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })
-                  }
-                />
-                <YAxis stroke="#9CA3AF" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #475569",
-                    borderRadius: "8px",
-                    color: "#f1f5f9",
-                  }}
-                  formatter={(value: any) => [value, "Consulenze"]}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString("it-IT")}
-                />
-                <Bar dataKey="consultations" fill="#10b981" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) =>
+                      new Date(value).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })
+                    }
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value: number) => [value, "Consulenze"]}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString("it-IT")}
+                  />
+                  <Bar dataKey="consultations" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Recent Transactions */}
-      <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-white">Transazioni Recenti</CardTitle>
-          <CardDescription className="text-blue-300">Le tue ultime consulenze e relativi guadagni</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-600" />
+            Transazioni Recenti
+          </CardTitle>
+          <CardDescription>Le tue ultime consulenze e guadagni</CardDescription>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-blue-300">Nessuna transazione trovata.</p>
-              <p className="text-sm text-blue-400 mt-2">
-                I tuoi guadagni appariranno qui dopo aver completato delle consulenze.
-              </p>
+              <div className="mx-auto w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
+                <Sparkles className="h-12 w-12 text-blue-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nessuna transazione ancora</h3>
+              <p className="text-gray-600">Le tue prime consulenze appariranno qui</p>
             </div>
           ) : (
             <div className="space-y-4">
               {transactions.map((transaction) => (
                 <div
                   key={transaction.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-slate-800/50 border border-slate-700/50"
+                  className="flex items-center justify-between p-4 rounded-lg border bg-gradient-to-r from-gray-50 to-blue-50 hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
                 >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 rounded-full bg-blue-900/50">{getServiceIcon(transaction.serviceType)}</div>
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500">
+                      {transaction.serviceType === "chat" && <Users className="h-4 w-4 text-white" />}
+                      {transaction.serviceType === "call" && <Clock className="h-4 w-4 text-white" />}
+                      {transaction.serviceType === "written" && <Star className="h-4 w-4 text-white" />}
+                    </div>
                     <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-white">
-                          {getServiceTypeDisplayName(transaction.serviceType)}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                          {formatServiceType(transaction.serviceType)}
+                        </Badge>
                         {transaction.durationMinutes && (
-                          <Badge variant="secondary" className="text-xs">
-                            {transaction.durationMinutes} min
-                          </Badge>
+                          <span className="text-sm text-gray-600">{formatDuration(transaction.durationMinutes)}</span>
                         )}
                       </div>
-                      <p className="text-sm text-blue-300">
+                      <p className="text-sm text-gray-600 mt-1">
                         {new Date(transaction.createdAt).toLocaleDateString("it-IT", {
                           day: "2-digit",
                           month: "2-digit",
@@ -270,10 +267,10 @@ async function EarningsContent() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-green-400">{formatCurrency(transaction.netAmount)}</div>
-                    <div className="text-xs text-blue-400">Lordo: {formatCurrency(transaction.grossAmount)}</div>
-                    <div className="text-xs text-red-400">
-                      Commissione: -{formatCurrency(transaction.platformCommission)}
+                    <div className="font-semibold text-green-700">{formatCurrency(transaction.netAmount)}</div>
+                    <div className="text-xs text-gray-500">Lordo: {formatCurrency(transaction.grossAmount)}</div>
+                    <div className="text-xs text-gray-500">
+                      Commissione: {formatCurrency(transaction.platformCommission)}
                     </div>
                   </div>
                 </div>
@@ -288,29 +285,32 @@ async function EarningsContent() {
 
 function EarningsLoading() {
   return (
-    <div className="space-y-6">
-      <div>
-        <Skeleton className="h-8 w-64 mb-2" />
-        <Skeleton className="h-4 w-96" />
+    <div className="space-y-8">
+      {/* Header Skeleton */}
+      <div className="rounded-lg bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-8">
+        <Skeleton className="h-8 w-64 mb-4 bg-white/20" />
+        <Skeleton className="h-6 w-48 bg-white/20" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats Cards Skeleton */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
-            <CardHeader className="space-y-2">
-              <Skeleton className="h-4 w-24" />
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-4 w-20" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-8 w-20 mb-2" />
-              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-8 w-24 mb-2" />
+              <Skeleton className="h-3 w-16" />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Charts Skeleton */}
+      <div className="grid gap-6 lg:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
-          <Card key={i} className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+          <Card key={i}>
             <CardHeader>
               <Skeleton className="h-6 w-48" />
               <Skeleton className="h-4 w-64" />
@@ -322,7 +322,8 @@ function EarningsLoading() {
         ))}
       </div>
 
-      <Card className="bg-gradient-to-br from-blue-900/50 to-slate-800/50 border-blue-700/50">
+      {/* Transactions Skeleton */}
+      <Card>
         <CardHeader>
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-64" />
@@ -330,8 +331,8 @@ function EarningsLoading() {
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-slate-800/50">
-                <div className="flex items-center space-x-4">
+              <div key={i} className="flex items-center justify-between p-4 rounded-lg border">
+                <div className="flex items-center gap-4">
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <div>
                     <Skeleton className="h-4 w-24 mb-2" />
@@ -340,8 +341,7 @@ function EarningsLoading() {
                 </div>
                 <div className="text-right">
                   <Skeleton className="h-5 w-16 mb-1" />
-                  <Skeleton className="h-3 w-20 mb-1" />
-                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-20" />
                 </div>
               </div>
             ))}
@@ -354,12 +354,10 @@ function EarningsLoading() {
 
 export default function EarningsPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <Suspense fallback={<EarningsLoading />}>
-          <EarningsContent />
-        </Suspense>
-      </div>
+    <div className="container mx-auto p-6">
+      <Suspense fallback={<EarningsLoading />}>
+        <EarningsContent />
+      </Suspense>
     </div>
   )
 }
