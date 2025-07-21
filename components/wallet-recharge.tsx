@@ -9,7 +9,7 @@ import { CreditCard, Zap, CheckCircle, Loader2 } from "lucide-react"
 import { packages, type Package } from "@/lib/packages"
 import { EmbeddedCheckoutForm } from "./embedded-checkout-form"
 
-export default function WalletRecharge() {
+export function WalletRecharge() {
   const { user } = useAuth()
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(packages[1])
   const [isLoading, setIsLoading] = useState(false)
@@ -101,3 +101,5 @@ export default function WalletRecharge() {
     </Card>
   )
 }
+
+export default WalletRecharge
