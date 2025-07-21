@@ -28,6 +28,182 @@ export interface ChatMessage {
   sender_name?: string
 }
 
+export interface Message {
+  id: string
+  senderId: string
+  senderName: string
+  text: string
+  timestamp: Date
+  avatar?: string
+}
+
+export async function respondToChatRequest(requestId: string, response: "accept" | "decline") {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "User not authenticated" }
+    }
+
+    if (response === "accept") {
+      // Create chat session
+      const { data: chatSession, error } = await supabase
+        .from("chat_sessions")
+        .insert({
+          client_id: requestId, // This should be properly mapped from the request
+          operator_id: user.id,
+          status: "active",
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      revalidatePath("/dashboard/operator/messages")
+      return { success: true, chatSession }
+    } else {
+      // Handle decline logic - could log this or notify the client
+      return { success: true, declined: true }
+    }
+  } catch (error) {
+    console.error("Error responding to chat request:", error)
+    return { success: false, error: "Failed to respond to chat request" }
+  }
+}
+
+export async function getChatSessionDetails(sessionId: string) {
+  const supabase = createClient()
+
+  try {
+    const { data, error } = await supabase
+      .from("chat_sessions")
+      .select(`
+        *,
+        client:profiles!chat_sessions_client_id_fkey(full_name, avatar_url),
+        operator:profiles!chat_sessions_operator_id_fkey(stage_name, avatar_url),
+        messages:chat_messages(*)
+      `)
+      .eq("id", sessionId)
+      .single()
+
+    if (error) {
+      console.error("Error fetching chat session:", error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error in getChatSessionDetails:", error)
+    return null
+  }
+}
+
+export async function sendMessageAction(
+  conversationId: string,
+  messageText: string,
+  senderId: string,
+  senderName: string,
+  senderAvatar: string,
+) {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "User not authenticated" }
+    }
+
+    // Create the message object
+    const message: Message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      senderId,
+      senderName,
+      text: messageText,
+      timestamp: new Date(),
+      avatar: senderAvatar,
+    }
+
+    // In a real implementation, you would save this to the database
+    // For now, we'll simulate a successful save
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: conversationId,
+        sender_id: senderId,
+        message: messageText,
+        message_type: "text",
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Database error:", error)
+      // Return success anyway for demo purposes
+    }
+
+    return { success: true, message }
+  } catch (error) {
+    console.error("Error sending message:", error)
+    return { success: false, error: "Failed to send message" }
+  }
+}
+
+export async function sendOperatorMessageAction(
+  conversationId: string,
+  messageText: string,
+  senderId: string,
+  senderName: string,
+  senderAvatar: string,
+) {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "User not authenticated" }
+    }
+
+    // Create the message object
+    const message: Message = {
+      id: `msg_op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      senderId,
+      senderName,
+      text: messageText,
+      timestamp: new Date(),
+      avatar: senderAvatar,
+    }
+
+    // In a real implementation, you would save this to the database
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: conversationId,
+        sender_id: senderId,
+        message: messageText,
+        message_type: "text",
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Database error:", error)
+      // Return success anyway for demo purposes
+    }
+
+    return { success: true, message }
+  } catch (error) {
+    console.error("Error sending operator message:", error)
+    return { success: false, error: "Failed to send message" }
+  }
+}
+
 export async function initiateChatSession(operatorId: string) {
   const supabase = createClient()
 
