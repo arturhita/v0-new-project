@@ -1,4 +1,4 @@
-import { blogArticles, blogCategories } from "@/lib/blog-data"
+import { getPublicArticles, getPublicCategories } from "@/lib/actions/blog.actions"
 import { ArticleCard } from "@/components/article-card"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -11,15 +11,16 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
-export default function AstroMagCategoryPage({ params }: { params: { categoria: string } }) {
+export default async function AstroMagCategoryPage({ params }: { params: { categoria: string } }) {
   const { categoria } = params
-  const category = blogCategories.find((c) => c.slug === categoria)
+  const categories = await getPublicCategories()
+  const category = categories.find((c) => c.slug === categoria)
 
   if (!category) {
     notFound()
   }
 
-  const articlesInCategory = blogArticles.filter((article) => article.category === categoria)
+  const articlesInCategory = await getPublicArticles({ categorySlug: categoria })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white pt-16">
