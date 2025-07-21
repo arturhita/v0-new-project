@@ -1,211 +1,143 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
 import Link from "next/link"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { z } from "zod"
-import { RegisterSchema } from "@/lib/schemas"
-import { register as registerAction } from "@/lib/actions/auth.actions"
-
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Terminal } from "lucide-react"
-import { ConstellationBackground } from "@/components/constellation-background"
 import Image from "next/image"
+import { register } from "@/lib/actions/auth.actions"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ConstellationBackground from "@/components/constellation-background"
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button
+      type="submit"
+      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
+      disabled={pending}
+    >
+      {pending ? "Creazione in corso..." : "Crea Account"}
+    </Button>
+  )
+}
 
 export default function RegisterPage() {
-  const [error, setError] = useState<string | undefined>("")
-  const [success, setSuccess] = useState<string | undefined>("")
-  const [isPending, startTransition] = useTransition()
-
-  const form = useForm<z.infer<typeof RegisterSchema>>({
-    resolver: zodResolver(RegisterSchema),
-    defaultValues: {
-      fullName: "",
-      email: "",
-      password: "",
-      role: "client",
-      terms: false,
-    },
-  })
-
-  const onSubmit = (values: z.infer<typeof RegisterSchema>) => {
-    setError("")
-    setSuccess("")
-
-    startTransition(() => {
-      registerAction(values).then((data) => {
-        setError(data.error)
-        setSuccess(data.success)
-      })
-    })
-  }
+  const [state, formAction] = useActionState(register, undefined)
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900 text-white">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gray-900 flex items-center justify-center p-4">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md mx-auto bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-indigo-500/20 shadow-2xl">
-        <div className="text-center mb-8">
+      <div className="relative z-10 w-full max-w-md space-y-8">
+        <div className="text-center">
           <Image
             src="/images/moonthir-logo-white.png"
             alt="Moonthir Logo"
-            width={100}
-            height={100}
-            className="mx-auto mb-4"
+            width={150}
+            height={150}
+            className="mx-auto"
           />
-          <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
-            Crea il tuo Account
-          </h1>
-          <p className="text-gray-400 mt-2">Entra a far parte della nostra community.</p>
-        </div>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-300">Nome Completo</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Mario Rossi"
-                      type="text"
-                      disabled={isPending}
-                      className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-300">Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="mario.rossi@email.com"
-                      type="email"
-                      disabled={isPending}
-                      className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-300">Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="••••••••"
-                      type="password"
-                      disabled={isPending}
-                      className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-gray-300">Tipo di Account</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
-                    <FormControl>
-                      <SelectTrigger className="bg-gray-900/50 border-gray-700 text-white">
-                        <SelectValue placeholder="Seleziona un ruolo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="client">Sono un Cliente</SelectItem>
-                      <SelectItem value="operator">Sono un Operatore</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="terms"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isPending}
-                      className="border-gray-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-500"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-gray-400 font-normal">
-                      Accetto i{" "}
-                      <Link
-                        href="/legal/terms-and-conditions"
-                        className="underline text-indigo-400 hover:text-indigo-300"
-                      >
-                        Termini di Servizio
-                      </Link>{" "}
-                      e l'
-                      <Link href="/legal/privacy-policy" className="underline text-indigo-400 hover:text-indigo-300">
-                        Informativa sulla Privacy
-                      </Link>
-                      .
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {error && (
-              <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Errore di Registrazione</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {success && (
-              <Alert variant="default" className="bg-green-900/50 border-green-700 text-green-300">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Successo!</AlertTitle>
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={isPending}>
-              {isPending ? "Creazione Account..." : "Registrati"}
-            </Button>
-          </form>
-        </Form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-400">
+          <h2 className="mt-6 text-3xl font-extrabold text-white">Crea un nuovo account</h2>
+          <p className="mt-2 text-sm text-gray-400">
             Hai già un account?{" "}
             <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
               Accedi qui
             </Link>
           </p>
+        </div>
+
+        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-indigo-500/10">
+          <form action={formAction} className="space-y-6">
+            <div>
+              <Label htmlFor="fullName" className="text-gray-300">
+                Nome Completo
+              </Label>
+              <Input
+                id="fullName"
+                name="fullName"
+                type="text"
+                required
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Mario Rossi"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email" className="text-gray-300">
+                Indirizzo Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="tu@esempio.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password" className="text-gray-300">
+                Password
+              </Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Min. 8 caratteri"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword" className="text-gray-300">
+                Conferma Password
+              </Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="role" className="text-gray-300">
+                Tipo di Account
+              </Label>
+              <Select name="role" required>
+                <SelectTrigger className="w-full mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500">
+                  <SelectValue placeholder="Seleziona un ruolo" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                  <SelectItem value="client" className="focus:bg-indigo-500">
+                    Cliente
+                  </SelectItem>
+                  <SelectItem value="operator" className="focus:bg-indigo-500">
+                    Operatore
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {state?.error && (
+              <p className="text-sm text-red-400 bg-red-900/50 border border-red-400/50 rounded-lg p-3 text-center">
+                {state.error}
+              </p>
+            )}
+            {state?.success && (
+              <p className="text-sm text-green-400 bg-green-900/50 border border-green-400/50 rounded-lg p-3 text-center">
+                {state.success}
+              </p>
+            )}
+
+            <SubmitButton />
+          </form>
         </div>
       </div>
     </div>

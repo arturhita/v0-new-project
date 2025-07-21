@@ -1,91 +1,96 @@
 "use client"
 
-import { useActionState, useEffect, useRef } from "react"
+import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
-import { login } from "@/lib/actions/auth.actions"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ConstellationBackground } from "@/components/constellation-background"
 import Image from "next/image"
+import { login } from "@/lib/actions/auth.actions"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import ConstellationBackground from "@/components/constellation-background"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white" disabled={pending}>
+    <Button
+      type="submit"
+      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
+      disabled={pending}
+    >
       {pending ? "Accesso in corso..." : "Accedi"}
     </Button>
   )
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, { message: "", success: false })
-  const router = useRouter()
-  const formRef = useRef<HTMLFormElement>(null)
-
-  useEffect(() => {
-    if (state.message) {
-      if (state.success) {
-        toast.success(state.message)
-        router.refresh()
-      } else {
-        toast.error(state.message)
-      }
-    }
-  }, [state, router])
+  const [state, formAction] = useActionState(login, undefined)
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-900 text-white">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gray-900 flex items-center justify-center p-4">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md p-8 space-y-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-2xl border border-indigo-500/20">
+      <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="text-center">
           <Image
             src="/images/moonthir-logo-white.png"
             alt="Moonthir Logo"
-            width={120}
-            height={120}
-            className="mx-auto mb-4"
+            width={150}
+            height={150}
+            className="mx-auto"
           />
-          <h1 className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
-            Bentornato
-          </h1>
-          <p className="mt-2 text-gray-400">Accedi per continuare il tuo viaggio mistico.</p>
+          <h2 className="mt-6 text-3xl font-extrabold text-white">Accedi al tuo account</h2>
+          <p className="mt-2 text-sm text-gray-400">
+            o{" "}
+            <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
+              crea un nuovo account
+            </Link>
+          </p>
         </div>
 
-        <form ref={formRef} action={formAction} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="tua@email.com"
-              required
-              className="bg-gray-900/50 border-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="bg-gray-900/50 border-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          <SubmitButton />
-        </form>
+        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-indigo-500/10">
+          <form action={formAction} className="space-y-6">
+            <div>
+              <Label htmlFor="email" className="text-gray-300">
+                Indirizzo Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="tu@esempio.com"
+              />
+            </div>
 
-        <p className="text-center text-sm text-gray-400">
-          Non hai un account?{" "}
-          <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
-            Registrati ora
-          </Link>
-        </p>
+            <div>
+              <Label htmlFor="password" className="text-gray-300">
+                Password
+              </Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {state?.error && (
+              <p className="text-sm text-red-400 bg-red-900/50 border border-red-400/50 rounded-lg p-3 text-center">
+                {state.error}
+              </p>
+            )}
+            {state?.success && (
+              <p className="text-sm text-green-400 bg-green-900/50 border border-green-400/50 rounded-lg p-3 text-center">
+                {state.success}
+              </p>
+            )}
+
+            <SubmitButton />
+          </form>
+        </div>
       </div>
     </div>
   )

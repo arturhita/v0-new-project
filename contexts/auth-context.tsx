@@ -34,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const getInitialSession = async () => {
-      const { session } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
       if (session?.user) {
         setUser(session.user)
@@ -52,7 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     getInitialSession()
 
-    const authListener = supabase.auth.onAuthStateChange(async (event, session) => {
+    // CORREZIONE: Destrutturare correttamente per ottenere l'oggetto di sottoscrizione
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
         const { data: profileData, error } = await supabase
@@ -69,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return () => {
-      authListener.subscription.unsubscribe()
+      // CORREZIONE: Eseguire l'unsubscribe in modo sicuro
+      authListener?.subscription.unsubscribe()
     }
   }, [supabase])
 

@@ -1,9 +1,8 @@
 "use client"
-
 import type React from "react"
 import { useRef, useEffect } from "react"
 
-export const ConstellationBackground: React.FC = () => {
+const ConstellationBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -21,95 +20,95 @@ export const ConstellationBackground: React.FC = () => {
       height = canvas.height = window.innerHeight
     })
 
-    const stars: {
+    const stars: Star[] = []
+    const numStars = 150
+
+    class Star {
       x: number
       y: number
       radius: number
       vx: number
       vy: number
-      color: string
       opacity: number
-    }[] = []
-    const numStars = 200
-    const colors = ["#FFD700", "#F0E68C", "#FFFACD", "#FFFFFF"] // Gold and white shades
+      phase: "increasing" | "decreasing"
 
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 1.5 + 0.5,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        opacity: Math.random() * 0.5 + 0.2,
-      })
-    }
-
-    function draw() {
-      if (!ctx) return
-      ctx.clearRect(0, 0, width, height)
-
-      ctx.globalCompositeOperation = "lighter"
-
-      for (let i = 0; i < stars.length; i++) {
-        const s = stars[i]
-        ctx.fillStyle = s.color
-        ctx.beginPath()
-        ctx.arc(s.x, s.y, s.radius, 0, 2 * Math.PI)
-        ctx.fill()
-
-        // Pulsating effect
-        const pulse = Math.sin(Date.now() * 0.001 + i) * 0.2 + 0.8
-        ctx.globalAlpha = s.opacity * pulse
+      constructor() {
+        this.x = Math.random() * width
+        this.y = Math.random() * height
+        this.radius = Math.random() * 1.2 + 0.5
+        this.vx = (Math.random() - 0.5) * 0.1
+        this.vy = (Math.random() - 0.5) * 0.1
+        this.opacity = Math.random() * 0.5 + 0.2
+        this.phase = Math.random() > 0.5 ? "increasing" : "decreasing"
       }
 
-      ctx.beginPath()
-      for (let i = 0; i < stars.length; i++) {
-        const starI = stars[i]
-        ctx.moveTo(starI.x, starI.y)
-        for (let j = 0; j < stars.length; j++) {
-          const starJ = stars[j]
-          const distance = Math.sqrt(Math.pow(starJ.x - starI.x, 2) + Math.pow(starJ.y - starI.y, 2))
-          if (distance < 150) {
-            ctx.lineTo(starJ.x, starJ.y)
-          }
+      draw() {
+        if (!ctx) return
+        ctx.beginPath()
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`
+        ctx.fill()
+      }
+
+      update() {
+        this.x += this.vx
+        this.y += this.vy
+
+        if (this.x < 0 || this.x > width) this.vx *= -1
+        if (this.y < 0 || this.y > height) this.vy *= -1
+
+        if (this.phase === "increasing") {
+          this.opacity += 0.005
+          if (this.opacity >= 0.9) this.phase = "decreasing"
+        } else {
+          this.opacity -= 0.005
+          if (this.opacity <= 0.1) this.phase = "increasing"
         }
       }
-      ctx.lineWidth = 0.05
-      ctx.strokeStyle = "rgba(255, 215, 0, 0.3)" // Faint gold lines
-      ctx.stroke()
-      ctx.globalAlpha = 1 // Reset alpha
     }
 
-    function update() {
-      for (let i = 0; i < stars.length; i++) {
-        const s = stars[i]
-        s.x += s.vx
-        s.y += s.vy
+    for (let i = 0; i < numStars; i++) {
+      stars.push(new Star())
+    }
 
-        if (s.x < 0 || s.x > width) s.vx = -s.vx
-        if (s.y < 0 || s.y > height) s.vy = -s.vy
+    function drawLines() {
+      if (!ctx) return
+      for (let i = 0; i < numStars; i++) {
+        for (let j = i + 1; j < numStars; j++) {
+          const dist = Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y)
+          if (dist < 100) {
+            ctx.beginPath()
+            ctx.moveTo(stars[i].x, stars[i].y)
+            ctx.lineTo(stars[j].x, stars[j].y)
+            ctx.strokeStyle = `rgba(255, 215, 0, ${1 - dist / 100})`
+            ctx.lineWidth = 0.2
+            ctx.stroke()
+          }
+        }
       }
     }
 
     let animationFrameId: number
 
     function animate() {
-      draw()
-      update()
+      ctx?.clearRect(0, 0, width, height)
+      stars.forEach((star) => {
+        star.update()
+        star.draw()
+      })
+      drawLines()
       animationFrameId = requestAnimationFrame(animate)
     }
 
     animate()
 
     return () => {
-      window.cancelAnimationFrame(animationFrameId)
-      window.removeEventListener("resize", () => {
-        width = canvas.width = window.innerWidth
-        height = canvas.height = window.innerHeight
-      })
+      window.removeEventListener("resize", () => {})
+      cancelAnimationFrame(animationFrameId)
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full z-0" />
+  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full -z-10" />
 }
+
+export default ConstellationBackground

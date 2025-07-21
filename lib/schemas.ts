@@ -1,31 +1,22 @@
 import { z } from "zod"
 
 export const LoginSchema = z.object({
-  email: z.string().email({
-    message: "L'email non è valida.",
-  }),
-  password: z.string().min(1, {
-    message: "La password è richiesta.",
-  }),
+  email: z.string().email({ message: "Inserisci un'email valida." }),
+  password: z.string().min(1, { message: "La password è richiesta." }),
 })
 
-export const RegisterSchema = z.object({
-  email: z.string().email({
-    message: "Inserisci un'email valida.",
-  }),
-  password: z.string().min(8, {
-    message: "La password deve contenere almeno 8 caratteri.",
-  }),
-  fullName: z.string().min(3, {
-    message: "Il nome completo deve contenere almeno 3 caratteri.",
-  }),
-  role: z.enum(["client", "operator"], {
-    required_error: "È necessario selezionare un tipo di account.",
-  }),
-  terms: z.literal(true, {
-    errorMap: () => ({ message: "Devi accettare i Termini di Servizio e l'Informativa sulla Privacy." }),
-  }),
-})
+export const RegisterSchema = z
+  .object({
+    fullName: z.string().min(3, { message: "Il nome completo è richiesto (min. 3 caratteri)." }),
+    email: z.string().email({ message: "Inserisci un'email valida." }),
+    password: z.string().min(8, { message: "La password deve contenere almeno 8 caratteri." }),
+    confirmPassword: z.string(),
+    role: z.enum(["client", "operator"], { required_error: "Devi selezionare un ruolo." }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Le password non coincidono.",
+    path: ["confirmPassword"],
+  })
 
 export const OperatorApplicationSchema = z.object({
   fullName: z.string().min(1, "Il nome completo è richiesto."),
