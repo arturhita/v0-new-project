@@ -2,83 +2,291 @@
 
 import { createClient } from "@/lib/supabase/server"
 
-export async function getComprehensiveAnalytics() {
+export async function getAnalyticsData(timeRange: "7d" | "30d" | "90d" | "1y" = "30d") {
   const supabase = createClient()
 
   try {
-    // User analytics
-    const { count: totalUsers } = await supabase.from("profiles").select("*", { count: "exact", head: true })
+    // Calculate date range
+    const endDate = new Date()
+    const startDate = new Date()
 
-    const { count: totalOperators } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "operator")
+    switch (timeRange) {
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7)
+        break
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30)
+        break
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90)
+        break
+      case "1y":
+        startDate.setFullYear(endDate.getFullYear() - 1)
+        break
+    }
 
-    const { count: activeOperators } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "operator")
-      .eq("is_online", true)
+    // Get various analytics data in parallel
+    const [userGrowth, operatorGrowth, chatSessions, callSessions, writtenConsultations, revenue, reviews] =
+      await Promise.all([
+        // User growth
+        supabase
+          .from("profiles")
+          .select("created_at")
+          .eq("role", "client")
+          .gte("created_at", startDate.toISOString()),
 
-    // Session analytics
-    const { count: totalChatSessions } = await supabase
-      .from("chat_sessions")
-      .select("*", { count: "exact", head: true })
+        // Operator growth
+        supabase
+          .from("profiles")
+          .select("created_at")
+          .eq("role", "operator")
+          .gte("created_at", startDate.toISOString()),
 
-    const { count: totalCallSessions } = await supabase
-      .from("call_sessions")
-      .select("*", { count: "exact", head: true })
+        // Chat sessions
+        supabase
+          .from("chat_sessions")
+          .select("created_at, total_cost, status")
+          .gte("created_at", startDate.toISOString()),
 
-    const { count: totalWrittenConsultations } = await supabase
-      .from("written_consultations")
-      .select("*", { count: "exact", head: true })
+        // Call sessions
+        supabase
+          .from("call_sessions")
+          .select("created_at, cost, status")
+          .gte("created_at", startDate.toISOString()),
 
-    // Revenue analytics
-    const { data: revenueData } = await supabase
-      .from("wallet_transactions")
-      .select("amount, created_at, transaction_type")
-      .eq("transaction_type", "credit")
+        // Written consultations
+        supabase
+          .from("written_consultations")
+          .select("created_at, cost, status")
+          .gte("created_at", startDate.toISOString()),
 
-    const totalRevenue = revenueData?.reduce((sum, transaction) => sum + transaction.amount, 0) || 0
+        // Revenue data (combining all sources)
+        Promise.all([
+          supabase
+            .from("chat_sessions")
+            .select("total_cost, created_at")
+            .eq("status", "ended")
+            .gte("created_at", startDate.toISOString()),
+          supabase
+            .from("call_sessions")
+            .select("cost, created_at")
+            .eq("status", "completed")
+            .gte("created_at", startDate.toISOString()),
+          supabase
+            .from("written_consultations")
+            .select("cost, created_at")
+            .eq("status", "answered")
+            .gte("created_at", startDate.toISOString()),
+        ]),
 
-    // Monthly revenue
-    const monthlyRevenue =
-      revenueData
-        ?.filter((transaction) => {
-          const transactionDate = new Date(transaction.created_at)
-          const currentMonth = new Date()
-          return (
-            transactionDate.getMonth() === currentMonth.getMonth() &&
-            transactionDate.getFullYear() === currentMonth.getFullYear()
-          )
-        })
-        .reduce((sum, transaction) => sum + transaction.amount, 0) || 0
+        // Reviews
+        supabase
+          .from("reviews")
+          .select("created_at, rating")
+          .gte("created_at", startDate.toISOString()),
+      ])
+
+    // Process data for charts
+    const processTimeSeriesData = (data: any[], valueKey: string) => {
+      const dailyData: { [key: string]: number } = {}
+
+      data.forEach((item) => {
+        const date = new Date(item.created_at).toISOString().split("T")[0]
+        dailyData[date] = (dailyData[date] || 0) + (item[valueKey] || 1)
+      })
+
+      return Object.entries(dailyData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, value]) => ({ date, value }))
+    }
+
+    // Combine revenue data
+    const allRevenue = [
+      ...(revenue[0].data || []).map((item: any) => ({ ...item, cost: item.total_cost })),
+      ...(revenue[1].data || []),
+      ...(revenue[2].data || []),
+    ]
 
     return {
-      users: {
-        total: totalUsers || 0,
-        operators: totalOperators || 0,
-        activeOperators: activeOperators || 0,
-        clients: (totalUsers || 0) - (totalOperators || 0),
-      },
-      sessions: {
-        totalChat: totalChatSessions || 0,
-        totalCall: totalCallSessions || 0,
-        totalWritten: totalWrittenConsultations || 0,
-        total: (totalChatSessions || 0) + (totalCallSessions || 0) + (totalWrittenConsultations || 0),
-      },
-      revenue: {
-        total: totalRevenue,
-        monthly: monthlyRevenue,
-        transactions: revenueData || [],
+      success: true,
+      data: {
+        userGrowth: processTimeSeriesData(userGrowth.data || [], "created_at"),
+        operatorGrowth: processTimeSeriesData(operatorGrowth.data || [], "created_at"),
+        chatSessions: processTimeSeriesData(chatSessions.data || [], "created_at"),
+        callSessions: processTimeSeriesData(callSessions.data || [], "created_at"),
+        writtenConsultations: processTimeSeriesData(writtenConsultations.data || [], "created_at"),
+        revenue: processTimeSeriesData(allRevenue, "cost"),
+        reviews: processTimeSeriesData(reviews.data || [], "created_at"),
+
+        // Summary stats
+        summary: {
+          totalUsers: userGrowth.data?.length || 0,
+          totalOperators: operatorGrowth.data?.length || 0,
+          totalChatSessions: chatSessions.data?.length || 0,
+          totalCallSessions: callSessions.data?.length || 0,
+          totalWrittenConsultations: writtenConsultations.data?.length || 0,
+          totalRevenue: allRevenue.reduce((sum, item) => sum + (item.cost || 0), 0),
+          totalReviews: reviews.data?.length || 0,
+          averageRating:
+            reviews.data?.length > 0
+              ? reviews.data.reduce((sum, review) => sum + review.rating, 0) / reviews.data.length
+              : 0,
+        },
       },
     }
   } catch (error) {
-    console.error("Error fetching comprehensive analytics:", error)
-    return {
-      users: { total: 0, operators: 0, activeOperators: 0, clients: 0 },
-      sessions: { totalChat: 0, totalCall: 0, totalWritten: 0, total: 0 },
-      revenue: { total: 0, monthly: 0, transactions: [] },
+    console.error("Error fetching analytics data:", error)
+    return { success: false, error: "Failed to fetch analytics data" }
+  }
+}
+
+export async function getOperatorAnalytics(operatorId: string, timeRange: "7d" | "30d" | "90d" | "1y" = "30d") {
+  const supabase = createClient()
+
+  try {
+    // Calculate date range
+    const endDate = new Date()
+    const startDate = new Date()
+
+    switch (timeRange) {
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7)
+        break
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30)
+        break
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90)
+        break
+      case "1y":
+        startDate.setFullYear(endDate.getFullYear() - 1)
+        break
     }
+
+    // Get operator-specific analytics
+    const [chatSessions, callSessions, writtenConsultations, reviews] = await Promise.all([
+      supabase
+        .from("chat_sessions")
+        .select("created_at, total_cost, status, total_duration")
+        .eq("operator_id", operatorId)
+        .gte("created_at", startDate.toISOString()),
+
+      supabase
+        .from("call_sessions")
+        .select("created_at, cost, status, duration")
+        .eq("operator_id", operatorId)
+        .gte("created_at", startDate.toISOString()),
+
+      supabase
+        .from("written_consultations")
+        .select("created_at, cost, status")
+        .eq("operator_id", operatorId)
+        .gte("created_at", startDate.toISOString()),
+
+      supabase
+        .from("reviews")
+        .select("created_at, rating")
+        .eq("operator_id", operatorId)
+        .gte("created_at", startDate.toISOString()),
+    ])
+
+    // Process earnings data
+    const earnings = [
+      ...(chatSessions.data || [])
+        .filter((s) => s.status === "ended")
+        .map((s) => ({ date: s.created_at, amount: s.total_cost || 0 })),
+      ...(callSessions.data || [])
+        .filter((s) => s.status === "completed")
+        .map((s) => ({ date: s.created_at, amount: s.cost || 0 })),
+      ...(writtenConsultations.data || [])
+        .filter((s) => s.status === "answered")
+        .map((s) => ({ date: s.created_at, amount: s.cost || 0 })),
+    ]
+
+    const dailyEarnings: { [key: string]: number } = {}
+    earnings.forEach((item) => {
+      const date = new Date(item.date).toISOString().split("T")[0]
+      dailyEarnings[date] = (dailyEarnings[date] || 0) + item.amount
+    })
+
+    const earningsChart = Object.entries(dailyEarnings)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, amount]) => ({ date, amount }))
+
+    return {
+      success: true,
+      data: {
+        earnings: earningsChart,
+        summary: {
+          totalChatSessions: chatSessions.data?.length || 0,
+          totalCallSessions: callSessions.data?.length || 0,
+          totalWrittenConsultations: writtenConsultations.data?.length || 0,
+          totalEarnings: earnings.reduce((sum, item) => sum + item.amount, 0),
+          totalReviews: reviews.data?.length || 0,
+          averageRating:
+            reviews.data?.length > 0
+              ? reviews.data.reduce((sum, review) => sum + review.rating, 0) / reviews.data.length
+              : 0,
+          totalChatMinutes: (chatSessions.data || []).reduce((sum, s) => sum + (s.total_duration || 0), 0),
+          totalCallMinutes: (callSessions.data || []).reduce((sum, s) => sum + (s.duration || 0), 0),
+        },
+      },
+    }
+  } catch (error) {
+    console.error("Error fetching operator analytics:", error)
+    return { success: false, error: "Failed to fetch operator analytics" }
+  }
+}
+
+export async function getTopOperators(limit = 10) {
+  const supabase = createClient()
+
+  try {
+    // Get operators with their earnings and stats
+    const { data: operators, error } = await supabase
+      .from("profiles")
+      .select(`
+        id,
+        stage_name,
+        avatar_url,
+        average_rating,
+        reviews_count
+      `)
+      .eq("role", "operator")
+      .eq("status", "Attivo")
+      .order("average_rating", { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    // Get earnings for each operator
+    const operatorsWithEarnings = await Promise.all(
+      (operators || []).map(async (operator) => {
+        const [chatEarnings, callEarnings, consultationEarnings] = await Promise.all([
+          supabase.from("chat_sessions").select("total_cost").eq("operator_id", operator.id).eq("status", "ended"),
+          supabase.from("call_sessions").select("cost").eq("operator_id", operator.id).eq("status", "completed"),
+          supabase.from("written_consultations").select("cost").eq("operator_id", operator.id).eq("status", "answered"),
+        ])
+
+        const totalEarnings = [
+          ...(chatEarnings.data || []).map((s) => s.total_cost || 0),
+          ...(callEarnings.data || []).map((s) => s.cost || 0),
+          ...(consultationEarnings.data || []).map((s) => s.cost || 0),
+        ].reduce((sum, cost) => sum + cost, 0)
+
+        return {
+          ...operator,
+          totalEarnings,
+        }
+      }),
+    )
+
+    return {
+      success: true,
+      data: operatorsWithEarnings.sort((a, b) => b.totalEarnings - a.totalEarnings),
+    }
+  } catch (error) {
+    console.error("Error fetching top operators:", error)
+    return { success: false, error: "Failed to fetch top operators" }
   }
 }

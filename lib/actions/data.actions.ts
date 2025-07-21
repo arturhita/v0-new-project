@@ -41,18 +41,29 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
 
 export async function getHomepageData() {
   const supabase = createClient()
-  const promotionPrice = await getCurrentPromotionPrice()
 
   try {
-    const [operatorsResult, reviewsResult] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select(`*`)
-        .eq("role", "operator")
-        .eq("status", "Attivo")
-        .order("is_online", { ascending: false })
-        .limit(8),
-      supabase
+    // Get promotion price
+    const promotionPrice = await getCurrentPromotionPrice()
+
+    // Fetch operators
+    const { data: operatorsData, error: operatorsError } = await supabase
+      .from("profiles")
+      .select(`*`)
+      .eq("role", "operator")
+      .eq("status", "Attivo")
+      .order("is_online", { ascending: false })
+      .limit(8)
+
+    if (operatorsError) {
+      console.error("Error fetching homepage operators:", operatorsError)
+      throw operatorsError
+    }
+
+    // Fetch reviews with proper error handling
+    let reviewsData: any[] = []
+    try {
+      const { data, error: reviewsError } = await supabase
         .from("reviews")
         .select(`
           id, 
@@ -63,57 +74,64 @@ export async function getHomepageData() {
           operator_id
         `)
         .eq("status", "approved")
+        .not("user_id", "is", null)
+        .not("operator_id", "is", null)
         .order("created_at", { ascending: false })
-        .limit(3),
-    ])
+        .limit(3)
 
-    const { data: operatorsData, error: operatorsError } = operatorsResult
-    const { data: reviewsData, error: reviewsError } = reviewsResult
-
-    if (operatorsError) {
-      console.error("Error fetching homepage operators:", operatorsError)
-      throw operatorsError
-    }
-    if (reviewsError) {
-      console.error("Error fetching recent reviews:", reviewsError)
-      throw reviewsError
+      if (reviewsError) {
+        console.error("Error fetching reviews:", reviewsError)
+        // Don't throw, just log and continue with empty reviews
+      } else {
+        reviewsData = data || []
+      }
+    } catch (reviewError) {
+      console.error("Reviews fetch failed:", reviewError)
+      // Continue with empty reviews array
     }
 
     const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
 
-    // Fetch user and operator details for reviews separately
+    // Process reviews with additional error handling
     const reviews: Review[] = []
     if (reviewsData && reviewsData.length > 0) {
       for (const review of reviewsData) {
-        // Get client details
-        const { data: clientData } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url")
-          .eq("id", review.user_id)
-          .single()
+        try {
+          // Get client details with fallback
+          const { data: clientData } = await supabase
+            .from("profiles")
+            .select("full_name, avatar_url")
+            .eq("id", review.user_id)
+            .single()
 
-        // Get operator details
-        const { data: operatorData } = await supabase
-          .from("profiles")
-          .select("stage_name")
-          .eq("id", review.operator_id)
-          .single()
+          // Get operator details with fallback
+          const { data: operatorData } = await supabase
+            .from("profiles")
+            .select("stage_name")
+            .eq("id", review.operator_id)
+            .single()
 
-        reviews.push({
-          id: review.id,
-          user_name: clientData?.full_name || "Utente Anonimo",
-          user_type: "Utente",
-          operator_name: operatorData?.stage_name || "Operatore",
-          rating: review.rating,
-          comment: review.comment,
-          created_at: review.created_at,
-        })
+          reviews.push({
+            id: review.id,
+            user_name: clientData?.full_name || "Utente Anonimo",
+            user_type: "Utente",
+            operator_name: operatorData?.stage_name || "Operatore",
+            rating: review.rating,
+            comment: review.comment,
+            created_at: review.created_at,
+          })
+        } catch (reviewProcessError) {
+          console.error("Error processing individual review:", reviewProcessError)
+          // Skip this review and continue
+          continue
+        }
       }
     }
 
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
+    // Return empty data instead of throwing
     return { operators: [], reviews: [] }
   }
 }
@@ -121,35 +139,100 @@ export async function getHomepageData() {
 export async function getOperatorsByCategory(categorySlug: string) {
   const supabase = createClient()
   const slug = decodeURIComponent(categorySlug)
-  const promotionPrice = await getCurrentPromotionPrice()
 
-  const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
-    category_slug: slug,
-  })
+  try {
+    const promotionPrice = await getCurrentPromotionPrice()
 
-  if (error) {
-    console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
+    const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
+      category_slug: slug,
+    })
+
+    if (error) {
+      console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
+      return []
+    }
+
+    return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  } catch (error) {
+    console.error(`Error in getOperatorsByCategory:`, error)
     return []
   }
-
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getAllOperators() {
   const supabase = createClient()
-  const promotionPrice = await getCurrentPromotionPrice()
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`*`)
-    .eq("role", "operator")
-    .eq("status", "Attivo")
-    .order("is_online", { ascending: false })
+  try {
+    const promotionPrice = await getCurrentPromotionPrice()
 
-  if (error) {
-    console.error(`Error fetching all operators:`, error.message)
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`*`)
+      .eq("role", "operator")
+      .eq("status", "Attivo")
+      .order("is_online", { ascending: false })
+
+    if (error) {
+      console.error(`Error fetching all operators:`, error.message)
+      return []
+    }
+
+    return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  } catch (error) {
+    console.error(`Error in getAllOperators:`, error)
     return []
   }
+}
 
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+// Export additional utility functions
+export async function getOperatorByName(stageName: string) {
+  const supabase = createClient()
+
+  try {
+    const promotionPrice = await getCurrentPromotionPrice()
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`*`)
+      .eq("role", "operator")
+      .eq("stage_name", stageName)
+      .eq("status", "Attivo")
+      .single()
+
+    if (error) {
+      console.error(`Error fetching operator ${stageName}:`, error.message)
+      return null
+    }
+
+    return mapProfileToOperator(data, promotionPrice)
+  } catch (error) {
+    console.error(`Error in getOperatorByName:`, error)
+    return null
+  }
+}
+
+export async function searchOperators(query: string) {
+  const supabase = createClient()
+
+  try {
+    const promotionPrice = await getCurrentPromotionPrice()
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`*`)
+      .eq("role", "operator")
+      .eq("status", "Attivo")
+      .or(`stage_name.ilike.%${query}%,bio.ilike.%${query}%,specialties.cs.{${query}},categories.cs.{${query}}`)
+      .order("is_online", { ascending: false })
+
+    if (error) {
+      console.error(`Error searching operators:`, error.message)
+      return []
+    }
+
+    return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  } catch (error) {
+    console.error(`Error in searchOperators:`, error)
+    return []
+  }
 }
