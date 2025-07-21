@@ -3,19 +3,18 @@
 import { useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useRouter } from "next/navigation"
 import type { z } from "zod"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import Link from "next/link"
 
 import { LoginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { toast } from "sonner"
-import Link from "next/link"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { ConstellationBackground } from "@/components/constellation-background"
+import Image from "next/image"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -33,82 +32,87 @@ export default function LoginPage() {
     startTransition(async () => {
       const result = await login(values)
       if (result?.error) {
-        toast.error("Errore di Login", {
-          description: result.error,
-        })
+        toast.error(result.error)
       }
       if (result?.success) {
-        toast.success("Login effettuato con successo!", {
-          description: "Stai per essere reindirizzato alla tua dashboard.",
-        })
-        // **LA CORREZIONE CHIAVE È QUI**
-        // Forziamo un refresh completo della pagina. Questo dice a Next.js
-        // di ricaricare i Server Component (incluso il layout radice)
-        // con la nuova sessione/cookie. L'AuthProvider verrà quindi
-        // inizializzato con lo stato corretto, risolvendo la race condition.
-        router.refresh()
+        toast.success(result.success)
+        // The AuthProvider will handle the redirect
       }
     })
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#000020] p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-900 text-white">
       <ConstellationBackground />
-      <Card className="z-10 w-full max-w-md border-indigo-500/50 bg-black/50 text-white backdrop-blur-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold text-indigo-300">Accedi</CardTitle>
-          <CardDescription className="text-gray-400">
-            Inserisci le tue credenziali per entrare nel cosmo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-lg">
+        <div className="mb-8 flex justify-center">
+          <Link href="/">
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={150}
+              height={40}
+              className="object-contain"
+            />
+          </Link>
+        </div>
+        <h2 className="mb-2 text-center text-3xl font-bold tracking-tight text-slate-200">Accedi al tuo account</h2>
+        <p className="mb-6 text-center text-sm text-slate-400">
+          Non hai un account?{" "}
+          <Link href="/register" className="font-medium text-blue-400 hover:text-blue-300">
+            Registrati
+          </Link>
+        </p>
+        <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-indigo-200">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                {...form.register("email")}
-                className="border-indigo-700 bg-indigo-900/20 text-white placeholder:text-gray-500 focus:border-indigo-400"
-                disabled={isPending}
-              />
-              {form.formState.errors.email && (
-                <p className="text-sm text-red-400">{form.formState.errors.email.message}</p>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-400">Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="email"
+                      placeholder="tu@esempio.com"
+                      disabled={isPending}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="********"
-                {...form.register("password")}
-                className="border-indigo-700 bg-indigo-900/20 text-white placeholder:text-gray-500 focus:border-indigo-400"
-                disabled={isPending}
-              />
-              {form.formState.errors.password && (
-                <p className="text-sm text-red-400">{form.formState.errors.password.message}</p>
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-400">Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="password"
+                      placeholder="••••••••"
+                      disabled={isPending}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
             <Button
               type="submit"
-              className="w-full bg-indigo-600 font-bold text-white hover:bg-indigo-500"
               disabled={isPending}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 transition-all duration-300 ease-in-out transform hover:scale-105"
             >
-              {isPending ? "Accesso in corso..." : "Entra"}
+              {isPending ? "Accesso in corso..." : "Accedi"}
             </Button>
           </form>
-          <div className="mt-6 text-center text-sm text-gray-400">
-            Non hai un account?{" "}
-            <Link href="/register" className="font-semibold text-indigo-300 hover:text-indigo-200">
-              Registrati ora
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+        </Form>
+      </div>
     </div>
   )
 }
