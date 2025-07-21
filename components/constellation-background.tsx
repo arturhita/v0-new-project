@@ -2,7 +2,7 @@
 import type React from "react"
 import { useRef, useEffect } from "react"
 
-const ConstellationBackground: React.FC = () => {
+export const ConstellationBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -116,5 +116,3 @@ const ConstellationBackground: React.FC = () => {
     />
   )
 }
-
-export default ConstellationBackground

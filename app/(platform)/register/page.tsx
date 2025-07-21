@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import ConstellationBackground from "@/components/constellation-background"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
