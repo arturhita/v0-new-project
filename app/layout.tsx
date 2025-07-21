@@ -3,10 +3,10 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "sonner" // Corretto: importato da "sonner"
+import { Toaster } from "sonner"
 import { OperatorStatusProvider } from "@/contexts/operator-status-context"
 import { ChatRequestProvider } from "@/contexts/chat-request-context"
-import CookieBanner from "@/components/CookieBanner" // Added import for CookieBanner
+import { CookieBanner } from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
 

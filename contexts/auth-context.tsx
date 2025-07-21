@@ -3,20 +3,20 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 
 type Profile = {
   id: string
+  full_name: string
   role: "client" | "operator" | "admin"
-  [key: string]: any
+  avatar_url?: string
 }
 
 type AuthContextType = {
   user: User | null
   profile: Profile | null
   isLoading: boolean
-  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,57 +30,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    const getSessionAndProfile = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
 
-      if (session?.user) {
-        try {
-          const { data: profileData, error } = await supabase
-            .from("profiles")
-            .select("id, role")
-            .eq("id", session.user.id)
-            .maybeSingle()
+      if (currentUser) {
+        const { data: profileData, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, role, avatar_url")
+          .eq("id", currentUser.id)
+          .maybeSingle() // Usa maybeSingle per non lanciare errori se il profilo non è ancora pronto
 
-          if (error) {
-            console.error("Error fetching profile:", error.message)
-            setProfile(null)
-          } else {
-            setProfile(profileData as Profile | null)
-          }
-        } catch (e: any) {
-          console.error("Caught an exception while fetching profile:", e.message)
+        if (error) {
+          console.error("Error fetching profile:", error.message)
           setProfile(null)
-        }
-      } else {
-        setProfile(null)
-      }
-      setIsLoading(false)
-    }
-
-    getSessionAndProfile()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        try {
-          const { data: profileData, error } = await supabase
-            .from("profiles")
-            .select("id, role")
-            .eq("id", session.user.id)
-            .maybeSingle()
-
-          if (error) {
-            console.error("Error fetching profile on auth change:", error.message)
-            setProfile(null)
-          } else {
-            setProfile(profileData as Profile | null)
-          }
-        } catch (e: any) {
-          console.error("Caught an exception while fetching profile on auth change:", e.message)
-          setProfile(null)
+        } else {
+          setProfile(profileData as Profile)
         }
       } else {
         setProfile(null)
@@ -88,10 +55,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    return () => {
-      authListener.subscription.unsubscribe()
+    // Esegui un controllo iniziale per sessioni esistenti
+    const checkInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) {
+        setIsLoading(false)
+      }
     }
-  }, [supabase, router])
+    checkInitialSession()
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase.auth, router])
 
   useEffect(() => {
     if (isLoading) return
@@ -101,10 +79,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!user && isProtectedRoute) {
       router.replace("/login")
-    } else if (user && profile && isAuthPage) {
+    }
+
+    if (user && profile && isAuthPage) {
       switch (profile.role) {
         case "admin":
-          router.replace("/admin/dashboard")
+          router.replace("/admin")
           break
         case "operator":
           router.replace("/dashboard/operator")
@@ -118,18 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, profile, isLoading, pathname, router])
 
-  const logout = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push("/login")
-  }
-
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
 
-  return <AuthContext.Provider value={{ user, profile, isLoading, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, profile, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

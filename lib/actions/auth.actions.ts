@@ -1,17 +1,21 @@
 "use server"
-
-import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { LoginSchema } from "@/lib/schemas"
+import { loginSchema, signupSchema } from "@/lib/schemas"
+import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
-export async function login(values: z.infer<typeof LoginSchema>) {
+export async function login(
+  prevState: { message: string; success: boolean },
+  formData: FormData,
+): Promise<{ message: string; success: boolean }> {
   const supabase = createClient()
-
-  const validatedFields = LoginSchema.safeParse(values)
+  const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { error: "Campi non validi!" }
+    return {
+      message: "Dati non validi. Controlla i campi e riprova.",
+      success: false,
+    }
   }
 
   const { email, password } = validatedFields.data
@@ -23,21 +27,68 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   if (error) {
     console.error("Login error:", error.message)
-    if (error.message === "Invalid login credentials") {
-      return { error: "Credenziali non valide." }
+    return {
+      message: "Credenziali non valide. Riprova.",
+      success: false,
     }
-    if (error.message === "Email not confirmed") {
-      return { error: "Email non confermata. Controlla la tua casella di posta." }
-    }
-    return { error: "Si è verificato un errore durante il login." }
   }
 
   revalidatePath("/", "layout")
-  return { success: "Login effettuato con successo!" }
+  return {
+    message: "Login effettuato con successo!",
+    success: true,
+  }
+}
+
+export async function signup(
+  prevState: { message: string; success: boolean },
+  formData: FormData,
+): Promise<{ message: string; success: boolean }> {
+  const supabase = createClient()
+  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return {
+      message: "Dati non validi. Controlla i campi e riprova.",
+      success: false,
+    }
+  }
+
+  const { email, password, full_name } = validatedFields.data
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: full_name,
+      },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+    },
+  })
+
+  if (error) {
+    console.error("Signup error:", error.message)
+    if (error.message.includes("User already registered")) {
+      return {
+        message: "Un utente con questa email è già registrato.",
+        success: false,
+      }
+    }
+    return {
+      message: "Errore durante la registrazione. Riprova.",
+      success: false,
+    }
+  }
+
+  return {
+    message: "Registrazione avvenuta! Controlla la tua email per confermare l'account.",
+    success: true,
+  }
 }
 
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
-  revalidatePath("/")
+  redirect("/login")
 }
