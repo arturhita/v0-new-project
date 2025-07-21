@@ -30,7 +30,7 @@ export default function LoginPage() {
     if (state.message) {
       if (state.success) {
         toast.success(state.message)
-        router.refresh() // Forza l'aggiornamento del layout per rilevare il nuovo stato
+        router.refresh()
       } else {
         toast.error(state.message)
       }

@@ -30,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth event:", event)
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
@@ -53,25 +52,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })
 
-    // Check initial session
-    const checkSession = async () => {
+    const checkInitialSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) {
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("id, full_name, role")
-          .eq("id", currentUser.id)
-          .maybeSingle()
-        if (error) console.error("Initial profile fetch error:", error.message)
-        setProfile(profileData as Profile)
+      if (!session) {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
-    checkSession()
+    checkInitialSession()
 
     return () => {
       authListener?.subscription.unsubscribe()

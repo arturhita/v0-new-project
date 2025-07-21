@@ -4,7 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Toaster } from "sonner"
-import CookieBanner from "@/components/cookie-banner" // Corrected import path
+import { CookieBanner } from "@/components/cookie-banner" // Corretto: importazione nominativa
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,11 +20,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it">
+    <html lang="it" suppressHydrationWarning>
       <body className={`${inter.className} bg-gray-900 text-white`}>
-        <AuthProvider>{children}</AuthProvider>
-        <Toaster richColors position="top-right" />
-        <CookieBanner />
+        <AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+          <CookieBanner />
+        </AuthProvider>
       </body>
     </html>
   )
