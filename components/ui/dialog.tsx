@@ -88,4 +88,10 @@ export {
   DialogPortal,
   DialogOverlay,
   DialogClose,
-  DialogTrigger,\
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+}

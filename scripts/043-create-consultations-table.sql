@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS public.consultations (
     id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
     client_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     operator_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    type text NOT NULL CHECK (type IN ('chat', 'call', 'email')),
+    consultation_type text NOT NULL CHECK (consultation_type IN ('chat', 'call', 'email')),
     status text NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
     scheduled_at timestamp with time zone,
     started_at timestamp with time zone,
@@ -67,7 +67,7 @@ AS $$
         c.id,
         p.stage_name as operator_name,
         p.avatar_url as operator_avatar,
-        c.type as consultation_type,
+        c.consultation_type,
         c.status,
         c.scheduled_at,
         c.started_at,
@@ -87,7 +87,7 @@ $$;
 GRANT EXECUTE ON FUNCTION get_client_consultations(uuid) TO authenticated;
 
 -- Insert some sample data for testing
-INSERT INTO public.consultations (client_id, operator_id, type, status, scheduled_at, started_at, ended_at, duration_minutes, cost_per_minute, total_cost, rating, review_text) 
+INSERT INTO public.consultations (client_id, operator_id, consultation_type, status, scheduled_at, started_at, ended_at, duration_minutes, cost_per_minute, total_cost, rating, review_text) 
 SELECT 
     (SELECT id FROM public.profiles WHERE role = 'client' LIMIT 1),
     (SELECT id FROM public.profiles WHERE role = 'operator' LIMIT 1),
@@ -104,7 +104,7 @@ SELECT
 WHERE EXISTS (SELECT 1 FROM public.profiles WHERE role = 'client') 
 AND EXISTS (SELECT 1 FROM public.profiles WHERE role = 'operator');
 
-INSERT INTO public.consultations (client_id, operator_id, type, status, scheduled_at, started_at, ended_at, duration_minutes, cost_per_minute, total_cost, rating) 
+INSERT INTO public.consultations (client_id, operator_id, consultation_type, status, scheduled_at, started_at, ended_at, duration_minutes, cost_per_minute, total_cost, rating) 
 SELECT 
     (SELECT id FROM public.profiles WHERE role = 'client' LIMIT 1),
     (SELECT id FROM public.profiles WHERE role = 'operator' OFFSET 1 LIMIT 1),
@@ -120,7 +120,7 @@ SELECT
 WHERE EXISTS (SELECT 1 FROM public.profiles WHERE role = 'client') 
 AND EXISTS (SELECT 1 FROM public.profiles WHERE role = 'operator');
 
-INSERT INTO public.consultations (client_id, operator_id, type, status, scheduled_at) 
+INSERT INTO public.consultations (client_id, operator_id, consultation_type, status, scheduled_at) 
 SELECT 
     (SELECT id FROM public.profiles WHERE role = 'client' LIMIT 1),
     (SELECT id FROM public.profiles WHERE role = 'operator' LIMIT 1),
