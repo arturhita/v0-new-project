@@ -44,12 +44,14 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   if (profileError || !profile) {
     console.error("Profile fetch error after login:", profileError?.message)
-    // NON eseguire il logout. L'utente è autenticato ma il profilo potrebbe non essere ancora pronto.
-    // L'AuthProvider lato client gestirà il reindirizzamento.
-    return { error: "Profilo non ancora pronto. Riprova tra qualche istante." }
+    // L'utente è autenticato. Il reindirizzamento avverrà lato client tramite AuthProvider.
+    // Questo previene il logout forzato se il DB è lento.
+    // La redirect qui sotto non verrà eseguita, ma il login ha avuto successo.
+    // L'AuthProvider gestirà il reindirizzamento alla dashboard corretta.
+    return { success: true }
   }
 
-  // Reindirizzamento gestito interamente dal server
+  // Reindirizzamento gestito interamente dal server per un'esperienza più rapida
   switch (profile.role) {
     case "admin":
       redirect("/admin/dashboard")
@@ -78,7 +80,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
     password,
     options: {
       data: {
-        full_name: fullName, // Standardizzato a 'full_name' per coerenza con il DB
+        full_name: fullName,
         role: "client",
       },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
@@ -90,8 +92,7 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
       return { error: "Utente già registrato con questa email." }
     }
     console.error("Registration Error:", error.message)
-    // Restituisce l'errore specifico per un debugging più semplice
-    return { error: "Database error saving new user" }
+    return { error: "Errore del database durante il salvataggio del nuovo utente." }
   }
 
   if (data.user && data.user.identities && data.user.identities.length === 0) {

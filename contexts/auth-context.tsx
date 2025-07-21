@@ -35,7 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    router.push("/")
+    // Dopo il logout, reindirizza sempre alla homepage o alla pagina di login
+    router.push("/login")
     router.refresh() // Assicura che lo stato del server sia aggiornato
   }, [router])
 
@@ -72,17 +73,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Non eseguire alcuna logica di reindirizzamento finché lo stato di autenticazione non è definito
     if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    if (user && isAuthPage) {
-      const role = profile?.role
-      let destination = "/"
-      if (role === "admin") destination = "/admin/dashboard"
-      else if (role === "operator") destination = "/dashboard/operator"
-      else if (role === "client") destination = "/dashboard/client"
-      router.replace(destination)
+    // Caso 1: L'utente è autenticato
+    if (user) {
+      // Se si trova su una pagina di autenticazione, reindirizzalo alla sua dashboard
+      if (isAuthPage) {
+        const role = profile?.role
+        let destination = "/"
+        if (role === "admin") destination = "/admin/dashboard"
+        else if (role === "operator") destination = "/dashboard/operator"
+        else if (role === "client") destination = "/dashboard/client"
+        router.replace(destination)
+      }
+    }
+    // Caso 2: L'utente NON è autenticato
+    else {
+      // Se sta cercando di accedere a una rotta protetta, reindirizzalo al login
+      if (isProtectedRoute) {
+        router.replace("/login")
+      }
     }
   }, [user, profile, isLoading, pathname, router])
 
@@ -94,9 +108,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
   }
 
+  // Mostra uno spinner a schermo intero durante il caricamento iniziale per evitare sfarfallii
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020]">
+      <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-[#000020] via-[#1E3C98] to-[#000020]">
         <LoadingSpinner />
       </div>
     )
