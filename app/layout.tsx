@@ -20,11 +20,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it">
-      <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
-        <Toaster richColors position="top-right" />
-        <CookieBanner />
+    <html lang="it" suppressHydrationWarning>
+      <body className={`${inter.className} bg-gray-900`}>
+        <AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+          <CookieBanner />
+        </AuthProvider>
       </body>
     </html>
   )
