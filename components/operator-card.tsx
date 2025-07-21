@@ -43,7 +43,7 @@ const truncateText = (text: string, maxLength: number) => {
   return text.substring(0, maxLength) + "..."
 }
 
-export default function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
+export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
   const [isStartingChat, setIsStartingChat] = useState(false)
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const router = useRouter()
@@ -273,3 +273,5 @@ export default function OperatorCard({ operator, showNewBadge = false }: Operato
     </>
   )
 }
+
+export default OperatorCard
