@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useFormState, useFormStatus } from "react-dom"
 import type { BlogArticle, BlogCategory } from "@/types/blog.types"
 import { upsertArticle, deleteArticle } from "@/lib/actions/blog.actions"
@@ -20,14 +20,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import Image from "next/image"
 
 function SubmitButton({ isEditing }: { isEditing: boolean }) {
   const { pending } = useFormStatus()
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {isEditing ? "Salva Modifiche" : "Crea Articolo"}
     </Button>
   )
@@ -43,15 +43,17 @@ export default function BlogCMSAdvanced({
 
   const [state, formAction] = useFormState(upsertArticle, { success: false, message: "" })
 
-  if (state.success && open) {
-    toast({ title: "Successo!", description: state.message })
-    setOpen(false)
-    setSelectedArticle(null)
-    state.success = false // Reset state
-  } else if (!state.success && state.message && open) {
-    toast({ title: "Errore", description: state.message, variant: "destructive" })
-    state.message = "" // Reset state
-  }
+  useEffect(() => {
+    if (state.message) {
+      if (state.success) {
+        toast({ title: "Successo!", description: state.message })
+        setOpen(false)
+        setSelectedArticle(null)
+      } else {
+        toast({ title: "Errore", description: state.message, variant: "destructive" })
+      }
+    }
+  }, [state, toast])
 
   const handleEdit = (article: BlogArticle) => {
     setSelectedArticle(article)
@@ -147,10 +149,10 @@ export default function BlogCMSAdvanced({
                 </div>
               )}
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="categoryId" className="text-right">
+                <Label htmlFor="category_id" className="text-right">
                   Categoria
                 </Label>
-                <Select name="categoryId" defaultValue={selectedArticle?.category_id || undefined}>
+                <Select name="category_id" defaultValue={selectedArticle?.category_id || undefined}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Seleziona una categoria" />
                   </SelectTrigger>
@@ -178,12 +180,12 @@ export default function BlogCMSAdvanced({
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="readTimeMinutes" className="text-right">
+                <Label htmlFor="read_time_minutes" className="text-right">
                   T. Lettura (min)
                 </Label>
                 <Input
-                  id="readTimeMinutes"
-                  name="readTimeMinutes"
+                  id="read_time_minutes"
+                  name="read_time_minutes"
                   type="number"
                   defaultValue={selectedArticle?.read_time_minutes || ""}
                   className="col-span-3"

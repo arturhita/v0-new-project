@@ -1,47 +1,49 @@
-import { getArticles } from "@/lib/actions/blog.actions"
-import ArticleCard from "@/components/article-card"
+import { getArticles, getCategories } from "@/lib/actions/blog.actions"
+import { ArticleCard } from "@/components/article-card"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default async function AstromagPage() {
   const articles = await getArticles({ limit: 10, status: "published" })
+  const categories = await getCategories()
+
   const featuredArticle = articles[0]
   const otherArticles = articles.slice(1)
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-4 text-white">Astromag</h1>
-      <p className="text-xl text-center text-gray-300 mb-12">
-        Il tuo portale sulle stelle. Approfondimenti, oroscopi e curiosità dal mondo dell'astrologia e della
-        cartomanzia.
-      </p>
+      <header className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-800">AstroMag</h1>
+        <p className="text-slate-600 mt-2">Le stelle, i tarocchi e la spiritualità come non li hai mai letti prima.</p>
+      </header>
+
+      <nav className="mb-12">
+        <ul className="flex flex-wrap justify-center gap-2">
+          {categories.map((category) => (
+            <li key={category.id}>
+              <Button asChild variant="outline">
+                <Link href={`/astromag/${category.slug}`}>{category.name}</Link>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
       {featuredArticle && (
-        <div className="mb-12">
-          <Link href={`/astromag/articolo/${featuredArticle.slug}`}>
-            <div className="relative rounded-lg overflow-hidden shadow-2xl group cursor-pointer">
-              <img
-                src={featuredArticle.image_url || "/placeholder.svg?width=1200&height=600"}
-                alt={featuredArticle.title}
-                className="w-full h-96 object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-              <div className="absolute bottom-0 left-0 p-8 text-white">
-                <span className="text-sm font-semibold bg-indigo-500 px-3 py-1 rounded-full">
-                  {featuredArticle.blog_categories?.name}
-                </span>
-                <h2 className="text-4xl font-bold mt-2">{featuredArticle.title}</h2>
-                <p className="mt-2 text-lg opacity-90">{featuredArticle.excerpt}</p>
-              </div>
-            </div>
-          </Link>
-        </div>
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold text-slate-800 mb-4">In Evidenza</h2>
+          <ArticleCard article={featuredArticle} />
+        </section>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {otherArticles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
-        ))}
-      </div>
+      <section>
+        <h2 className="text-2xl font-bold text-slate-800 mb-4">Ultimi Articoli</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {otherArticles.map((article) => (
+            <ArticleCard key={article.id} article={article} />
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

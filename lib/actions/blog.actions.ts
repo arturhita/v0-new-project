@@ -1,8 +1,8 @@
 "use server"
 
 import { z } from "zod"
-import { createSupabaseServerClient } from "../supabase/server"
-import { createSupabaseAdminClient } from "../supabase/admin"
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import type { BlogArticle, BlogCategory } from "@/types/blog.types"
 
@@ -11,24 +11,24 @@ const ArticleSchema = z.object({
   slug: z
     .string()
     .min(3, "Lo slug è obbligatorio")
-    .regex(/^[a-z0-9-]+$/, "Slug non valido"),
+    .regex(/^[a-z0-9-]+$/, "Slug può contenere solo lettere minuscole, numeri e trattini."),
   excerpt: z.string().optional(),
   content: z.string().min(10, "Il contenuto è obbligatorio"),
-  categoryId: z.string().uuid("Categoria non valida"),
+  category_id: z.string().uuid("Categoria non valida"),
   status: z.enum(["draft", "published"]),
-  readTimeMinutes: z.coerce.number().int().positive().optional(),
+  read_time_minutes: z.coerce.number().int().positive().optional(),
 })
 
 export async function getArticles(
-  options: { limit?: number; categorySlug?: string; status?: "published" | "draft" } = {},
-) {
-  const supabase = createSupabaseServerClient()
+  options: { limit?: number; categorySlug?: string; status?: "published" | "draft" | "all" } = {},
+): Promise<BlogArticle[]> {
+  const supabase = createClient()
   let query = supabase
     .from("blog_articles")
     .select(`
-      *,
+      id, title, slug, excerpt, image_url, status, published_at, read_time_minutes,
       blog_categories (name, slug),
-      profiles (full_name, avatar_url)
+      profiles (full_name)
     `)
     .order("published_at", { ascending: false, nullsFirst: true })
 
@@ -44,10 +44,10 @@ export async function getArticles(
     if (category) {
       query = query.eq("category_id", category.id)
     } else {
-      return [] // Category not found
+      return []
     }
   }
-  if (options.status) {
+  if (options.status && options.status !== "all") {
     query = query.eq("status", options.status)
   }
 
@@ -57,32 +57,31 @@ export async function getArticles(
     console.error("Error fetching articles:", error)
     return []
   }
-  return data as BlogArticle[]
+  return data as any
 }
 
-export async function getArticleBySlug(slug: string) {
-  const supabase = createSupabaseServerClient()
+export async function getArticleBySlug(slug: string): Promise<BlogArticle | null> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("blog_articles")
-    .select(`
-      *,
-      blog_categories (name, slug),
-      profiles (full_name, avatar_url)
-    `)
+    .select(`*, blog_categories (name, slug), profiles (full_name, avatar_url)`)
     .eq("slug", slug)
     .eq("status", "published")
     .single()
 
   if (error) {
-    console.error("Error fetching article by slug:", error)
+    // Don't log 'not found' errors
+    if (error.code !== "PGRST116") {
+      console.error("Error fetching article by slug:", error)
+    }
     return null
   }
-  return data as BlogArticle
+  return data as any
 }
 
 export async function getCategories(): Promise<BlogCategory[]> {
-  const supabase = createSupabaseServerClient()
-  const { data, error } = await supabase.from("blog_categories").select("*")
+  const supabase = createClient()
+  const { data, error } = await supabase.from("blog_categories").select("*").order("name")
   if (error) {
     console.error("Error fetching categories:", error)
     return []
@@ -91,18 +90,20 @@ export async function getCategories(): Promise<BlogCategory[]> {
 }
 
 export async function getCategoryBySlug(slug: string): Promise<BlogCategory | null> {
-  const supabase = createSupabaseServerClient()
+  const supabase = createClient()
   const { data, error } = await supabase.from("blog_categories").select("*").eq("slug", slug).single()
   if (error) {
-    console.error("Error fetching category by slug:", error)
+    if (error.code !== "PGRST116") {
+      console.error("Error fetching category by slug:", error)
+    }
     return null
   }
   return data
 }
 
 export async function upsertArticle(prevState: any, formData: FormData) {
-  const supabase = createSupabaseServerClient()
-  const supabaseAdmin = createSupabaseAdminClient()
+  const supabase = createClient()
+  const supabaseAdmin = createAdminClient()
 
   const {
     data: { user },
@@ -114,9 +115,9 @@ export async function upsertArticle(prevState: any, formData: FormData) {
     slug: formData.get("slug"),
     excerpt: formData.get("excerpt"),
     content: formData.get("content"),
-    categoryId: formData.get("categoryId"),
+    category_id: formData.get("category_id"),
     status: formData.get("status"),
-    readTimeMinutes: formData.get("readTimeMinutes"),
+    read_time_minutes: formData.get("read_time_minutes"),
   })
 
   if (!validatedFields.success) {
@@ -149,39 +150,39 @@ export async function upsertArticle(prevState: any, formData: FormData) {
     author_id: user.id,
     image_url: imageUrl,
     published_at: validatedFields.data.status === "published" ? new Date().toISOString() : null,
-    category_id: validatedFields.data.categoryId,
-    read_time_minutes: validatedFields.data.readTimeMinutes,
   }
-
-  // @ts-ignore
-  delete articleData.categoryId
 
   let dbResponse
   if (articleId) {
-    // Update
     dbResponse = await supabase.from("blog_articles").update(articleData).eq("id", articleId).select().single()
   } else {
-    // Insert
     dbResponse = await supabase.from("blog_articles").insert(articleData).select().single()
   }
 
-  const { error } = dbResponse
+  const { error, data: articleResult } = dbResponse
 
   if (error) {
     console.error("Database Error:", error)
+    if (error.code === "23505") {
+      // Unique constraint violation
+      return { success: false, message: "Lo slug inserito è già in uso. Scegline un altro." }
+    }
     return { success: false, message: `Errore nel salvataggio dell'articolo: ${error.message}` }
   }
 
+  const category = await getCategoryBySlug(validatedFields.data.slug)
   revalidatePath("/admin/blog-management")
   revalidatePath("/astromag")
   revalidatePath(`/astromag/articolo/${validatedFields.data.slug}`)
-  revalidatePath(`/astromag/${(await getCategoryBySlug(validatedFields.data.slug))?.slug || ""}`)
+  if (category) {
+    revalidatePath(`/astromag/${category.slug}`)
+  }
 
   return { success: true, message: `Articolo ${articleId ? "aggiornato" : "creato"} con successo!` }
 }
 
 export async function deleteArticle(articleId: string) {
-  const supabase = createSupabaseAdminClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from("blog_articles").delete().eq("id", articleId)
 
   if (error) {

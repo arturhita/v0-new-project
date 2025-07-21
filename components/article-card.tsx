@@ -1,33 +1,42 @@
-import Link from "next/link"
-import Image from "next/image"
 import type { BlogArticle } from "@/types/blog.types"
-import { ArrowRight } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { Calendar, Clock } from "lucide-react"
 
-export default function ArticleCard({ article }: { article: BlogArticle }) {
+export function ArticleCard({ article }: { article: BlogArticle }) {
   return (
-    <Link href={`/astromag/articolo/${article.slug}`}>
-      <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg h-full flex flex-col group transition-all duration-300 hover:shadow-indigo-500/30 hover:-translate-y-1">
-        <div className="relative">
-          <Image
-            src={article.image_url || "/placeholder.svg?width=400&height=225"}
-            alt={article.title}
-            width={400}
-            height={225}
-            className="w-full h-48 object-cover"
-          />
-          {article.blog_categories?.name && (
-            <span className="absolute top-3 right-3 bg-indigo-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-              {article.blog_categories.name}
-            </span>
-          )}
-        </div>
-        <div className="p-6 flex flex-col flex-grow">
-          <h3 className="text-xl font-bold text-white mb-2">{article.title}</h3>
-          <p className="text-gray-400 text-sm flex-grow">{article.excerpt}</p>
-          <div className="mt-4 flex justify-between items-center text-indigo-400">
-            <span className="font-semibold">Leggi di più</span>
-            <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+    <Link href={`/astromag/articolo/${article.slug}`} className="group block">
+      <div className="overflow-hidden rounded-lg">
+        <Image
+          src={article.image_url || "/placeholder.svg?width=400&height=250"}
+          alt={article.title}
+          width={400}
+          height={250}
+          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      </div>
+      <div className="mt-4">
+        {article.blog_categories && (
+          <Badge variant="outline" className="mb-2">
+            {article.blog_categories.name}
+          </Badge>
+        )}
+        <h3 className="text-xl font-semibold text-slate-800 group-hover:text-sky-600 transition-colors">
+          {article.title}
+        </h3>
+        <p className="text-slate-600 mt-2 text-sm">{article.excerpt}</p>
+        <div className="flex items-center justify-between text-xs text-slate-500 mt-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-3 w-3" />
+            <span>{article.published_at ? new Date(article.published_at).toLocaleDateString("it-IT") : "N/A"}</span>
           </div>
+          {article.read_time_minutes && (
+            <div className="flex items-center gap-2">
+              <Clock className="h-3 w-3" />
+              <span>{article.read_time_minutes} min di lettura</span>
+            </div>
+          )}
         </div>
       </div>
     </Link>
