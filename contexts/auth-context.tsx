@@ -5,13 +5,12 @@ import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { useRouter, usePathname } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
-import { logout as logoutAction } from "@/lib/actions/auth.actions"
 
 type Profile = {
   id: string
-  role: "client" | "operator" | "admin"
   full_name: string
-  avatar_url: string
+  role: "admin" | "operator" | "client"
+  // Add other profile fields as needed
 }
 
 type AuthContextType = {
@@ -32,6 +31,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    router.push("/login")
+    router.refresh()
+  }
+
   useEffect(() => {
     const getInitialSession = async () => {
       const {
@@ -42,11 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session.user)
         const { data: profileData, error } = await supabase
           .from("profiles")
-          .select("id, role, full_name, avatar_url")
+          .select("*")
           .eq("id", session.user.id)
           .maybeSingle()
 
-        if (profileData) setProfile(profileData)
+        if (profileData) setProfile(profileData as Profile)
         if (error) console.error("Error fetching initial profile:", error.message)
       }
       setIsLoading(false)
@@ -54,58 +61,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     getInitialSession()
 
-    // CORREZIONE: Destrutturare correttamente per ottenere l'oggetto di sottoscrizione
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("id, role, full_name, avatar_url")
-          .eq("id", session.user.id)
-          .maybeSingle()
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setIsLoading(true)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
 
-        setProfile(profileData ?? null)
-        if (error) console.error("Error fetching profile on auth change:", error.message)
+      if (currentUser) {
+        try {
+          const { data: userProfile, error } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", currentUser.id)
+            .maybeSingle()
+
+          if (error) {
+            console.error("Error fetching profile on auth change:", error.message)
+            setProfile(null)
+          } else {
+            setProfile(userProfile as Profile)
+          }
+        } catch (error) {
+          console.error("Catched error fetching profile:", error)
+          setProfile(null)
+        }
       } else {
         setProfile(null)
       }
+      setIsLoading(false)
     })
 
     return () => {
-      // CORREZIONE: Eseguire l'unsubscribe in modo sicuro
-      authListener?.subscription.unsubscribe()
+      subscription.unsubscribe()
     }
   }, [supabase])
 
   useEffect(() => {
-    if (isLoading) return
-
     const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    if (user && profile) {
-      if (isAuthPage) {
-        const targetDashboard =
-          profile.role === "admin"
-            ? "/admin"
-            : profile.role === "operator"
-              ? "/dashboard/operator"
-              : "/dashboard/client"
-        router.replace(targetDashboard)
-      }
-    } else {
-      if (isProtectedPage) {
-        router.replace("/login")
+    if (!isLoading) {
+      if (user) {
+        if (isAuthPage) {
+          const userRole = profile?.role
+          if (userRole === "admin") {
+            router.replace("/admin/dashboard")
+          } else if (userRole === "operator") {
+            router.replace("/dashboard/operator")
+          } else {
+            router.replace("/dashboard/client")
+          }
+        }
+      } else {
+        // If user is not logged in and not on an auth page or other public pages, redirect to login
+        const publicPaths = ["/", "/login", "/register", "/legal/privacy-policy", "/legal/terms-and-conditions"]
+        const isPublic = publicPaths.some((path) => pathname.startsWith(path))
+        if (!isPublic) {
+          router.replace("/login")
+        }
       }
     }
   }, [user, profile, isLoading, pathname, router])
 
-  const logout = async () => {
-    await logoutAction()
-  }
-
   if (isLoading) {
-    return <LoadingSpinner fullScreen />
+    return <LoadingSpinner />
   }
 
   return <AuthContext.Provider value={{ user, profile, isLoading, logout }}>{children}</AuthContext.Provider>
