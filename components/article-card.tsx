@@ -1,42 +1,36 @@
-import type { BlogArticle } from "@/types/blog.types"
-import Image from "next/image"
 import Link from "next/link"
+import Image from "next/image"
+import type { BlogArticle } from "@/types/blog.types"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 export function ArticleCard({ article }: { article: BlogArticle }) {
   return (
-    <Link href={`/astromag/articolo/${article.slug}`} className="group block">
-      <div className="overflow-hidden rounded-lg">
-        <Image
-          src={article.image_url || "/placeholder.svg?width=400&height=250"}
-          alt={article.title}
-          width={400}
-          height={250}
-          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-      </div>
-      <div className="mt-4">
-        {article.blog_categories && (
-          <Badge variant="outline" className="mb-2">
-            {article.blog_categories.name}
-          </Badge>
-        )}
-        <h3 className="text-xl font-semibold text-slate-800 group-hover:text-sky-600 transition-colors">
-          {article.title}
-        </h3>
-        <p className="text-slate-600 mt-2 text-sm">{article.excerpt}</p>
-        <div className="flex items-center justify-between text-xs text-slate-500 mt-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-3 w-3" />
-            <span>{article.published_at ? new Date(article.published_at).toLocaleDateString("it-IT") : "N/A"}</span>
-          </div>
-          {article.read_time_minutes && (
-            <div className="flex items-center gap-2">
-              <Clock className="h-3 w-3" />
-              <span>{article.read_time_minutes} min di lettura</span>
-            </div>
+    <Link href={`/astromag/articolo/${article.slug}`}>
+      <div className="bg-white rounded-lg shadow-md overflow-hidden group h-full flex flex-col">
+        <div className="relative h-48 w-full">
+          <Image
+            src={article.image_url || "/placeholder.svg?width=400&height=250"}
+            alt={article.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+        <div className="p-4 flex flex-col flex-grow">
+          {article.blog_categories && (
+            <Badge variant="secondary" className="mb-2 self-start">
+              {article.blog_categories.name}
+            </Badge>
           )}
+          <h3 className="text-lg font-bold text-slate-800 flex-grow">{article.title}</h3>
+          <p className="text-sm text-slate-600 mt-2 line-clamp-3">{article.excerpt}</p>
+          <div className="mt-4 flex justify-between items-center text-sm text-slate-500">
+            <span>{article.published_at ? new Date(article.published_at).toLocaleDateString("it-IT") : "Bozza"}</span>
+            <span className="flex items-center font-semibold text-sky-600">
+              Leggi
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </span>
+          </div>
         </div>
       </div>
     </Link>

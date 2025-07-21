@@ -70,7 +70,6 @@ export async function getArticleBySlug(slug: string): Promise<BlogArticle | null
     .single()
 
   if (error) {
-    // Don't log 'not found' errors
     if (error.code !== "PGRST116") {
       console.error("Error fetching article by slug:", error)
     }
@@ -159,12 +158,11 @@ export async function upsertArticle(prevState: any, formData: FormData) {
     dbResponse = await supabase.from("blog_articles").insert(articleData).select().single()
   }
 
-  const { error, data: articleResult } = dbResponse
+  const { error } = dbResponse
 
   if (error) {
     console.error("Database Error:", error)
     if (error.code === "23505") {
-      // Unique constraint violation
       return { success: false, message: "Lo slug inserito è già in uso. Scegline un altro." }
     }
     return { success: false, message: `Errore nel salvataggio dell'articolo: ${error.message}` }

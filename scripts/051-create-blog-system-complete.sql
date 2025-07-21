@@ -66,15 +66,16 @@ DROP POLICY IF EXISTS "Admins can manage articles" ON public.blog_articles;
 CREATE POLICY "Admins can manage articles" ON public.blog_articles FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
 -- RLS Policies for storage
-DROP POLICY IF EXISTS "Admins can manage blog images" ON storage.objects;
-DROP POLICY IF EXISTS "Admins can update blog images" ON storage.objects;
-DROP POLICY IF EXISTS "Admins can delete blog images" ON storage.objects;
-DROP POLICY IF EXISTS "Admins can upload blog images" ON storage.objects;
 DROP POLICY IF EXISTS "Anyone can view blog images" ON storage.objects;
-
 CREATE POLICY "Anyone can view blog images" ON storage.objects FOR SELECT USING (bucket_id = 'blog_images');
+
+DROP POLICY IF EXISTS "Admins can upload blog images" ON storage.objects;
 CREATE POLICY "Admins can upload blog images" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'blog_images' AND public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can update blog images" ON storage.objects;
 CREATE POLICY "Admins can update blog images" ON storage.objects FOR UPDATE USING (bucket_id = 'blog_images' AND public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can delete blog images" ON storage.objects;
 CREATE POLICY "Admins can delete blog images" ON storage.objects FOR DELETE USING (bucket_id = 'blog_images' AND public.is_admin(auth.uid()));
 
 -- Seed initial categories
