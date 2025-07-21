@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
 
+/**
+ * Esegue il login dell'utente.
+ * Questa funzione si occupa SOLO di autenticare l'utente con Supabase.
+ * NON esegue alcun reindirizzamento. Il reindirizzamento è gestito
+ * interamente dal client (AuthProvider) per evitare race conditions.
+ */
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
@@ -15,58 +21,26 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (signInError) {
-    switch (signInError.message) {
+  if (error) {
+    switch (error.message) {
       case "Invalid login credentials":
         return { error: "Credenziali di accesso non valide." }
       case "Email not confirmed":
         return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
       default:
-        console.error("Login Error:", signInError.message)
+        console.error("Login Error:", error.message)
         return { error: "Si è verificato un errore imprevisto." }
     }
   }
 
-  if (!signInData.user) {
-    return { error: "Utente non trovato dopo il login." }
-  }
-
-  // Utilizziamo .maybeSingle() per gestire il caso in cui il profilo non sia ancora stato creato,
-  // prevenendo errori critici.
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", signInData.user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    console.error("Errore nel recupero del profilo durante il login:", profileError.message)
-    return { error: "Errore durante il recupero del profilo. Riprova." }
-  }
-
-  if (!profile) {
-    console.error(`Login riuscito ma profilo non trovato per l'utente: ${signInData.user.id}`)
-    // L'utente è loggato, ma il profilo non esiste. Reindirizziamo a una pagina di completamento profilo o alla home.
-    // Per ora, restituiamo un errore gestibile.
-    return { error: "Login riuscito, ma il tuo profilo è incompleto. Contatta l'assistenza." }
-  }
-
-  // Reindirizzamento server-side per la massima velocità e affidabilità
-  switch (profile.role) {
-    case "admin":
-      redirect("/admin/dashboard")
-    case "operator":
-      redirect("/dashboard/operator")
-    case "client":
-      redirect("/dashboard/client")
-    default:
-      redirect("/")
-  }
+  // Successo! Restituiamo solo un flag di successo.
+  // Il client rimarrà in attesa e l'AuthProvider gestirà il reindirizzamento.
+  return { success: true }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
