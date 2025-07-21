@@ -15,7 +15,6 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  // 1. Esegui il login
   const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -37,19 +36,14 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     return { error: "Utente non trovato dopo il login." }
   }
 
-  // 2. Reindirizzamento dal server (la via più veloce)
-  // Questo è il punto cruciale: il reindirizzamento avviene qui,
-  // dopo che la sessione è stata creata con successo.
-  // Il client riceverà la nuova pagina direttamente.
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", signInData.user.id).single()
 
   if (!profile) {
-    // Questo è un caso anomalo. L'utente è loggato ma non ha un profilo.
-    // Reindirizziamo a una pagina generica e lasciamo che l'assistenza se ne occupi.
     console.error(`Login riuscito ma profilo non trovato per l'utente: ${signInData.user.id}`)
     return { error: "Login riuscito, ma non è stato possibile caricare il tuo profilo. Contatta l'assistenza." }
   }
 
+  // Reindirizzamento server-side per la massima velocità e affidabilità
   switch (profile.role) {
     case "admin":
       redirect("/admin/dashboard")
