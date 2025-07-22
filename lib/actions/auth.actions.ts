@@ -33,7 +33,6 @@ export async function login(
     return { message: "Errore durante il login. Riprova.", success: false }
   }
 
-  // Redirect is handled by the client-side context now
   return { message: "Login effettuato con successo!", success: true }
 }
 
@@ -53,6 +52,7 @@ export async function register(
     }
   }
 
+  // Corretto per usare 'fullName' come definito nello schema
   const { email, password, fullName, role } = validatedFields.data
 
   const { data, error } = await supabase.auth.signUp({
@@ -60,6 +60,7 @@ export async function register(
     password,
     options: {
       data: {
+        // Corretto per passare 'fullName' come 'full_name' a Supabase
         full_name: fullName,
         role: role,
       },
@@ -78,6 +79,5 @@ export async function register(
     return { message: "Registrazione completata. Controlla la tua email per la verifica.", success: true }
   }
 
-  // Redirect is handled by the client-side context
   return { message: "Registrazione effettuata con successo!", success: true }
 }

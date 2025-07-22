@@ -22,6 +22,7 @@ export const RegisterSchema = z.object({
   role: z.enum(["client", "operator"], {
     required_error: "Devi selezionare un tipo di account.",
   }),
+  // Corretto per gestire il valore 'on' di una checkbox HTML
   terms: z.literal("on", {
     errorMap: () => ({ message: "Devi accettare i Termini di Servizio e l'Informativa sulla Privacy." }),
   }),
