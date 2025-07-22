@@ -1,27 +1,12 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import type { ReactNode } from "react"
+import type React from "react"
+import { BlueConstellationBackground } from "@/components/blue-constellation-background"
 
-const getDashboardUrl = (role: string | undefined): string => {
-  if (role === "admin") return "/admin"
-  if (role === "operator") return "/dashboard/operator"
-  if (role === "client") return "/dashboard/client"
-  return "/" // Fallback to home page if role is unknown or not set
-}
-
-export default async function AuthLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-    const redirectUrl = getDashboardUrl(profile?.role)
-    console.log(`[AuthLayout] User is already logged in. Redirecting to ${redirectUrl}`)
-    return redirect(redirectUrl)
-  }
-
-  return <>{children}</>
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    // flex-1 per occupare lo spazio disponibile, garantendo che il footer stia in basso
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden p-4">
+      <BlueConstellationBackground />
+      <div className="z-10 w-full">{children}</div>
+    </div>
+  )
 }

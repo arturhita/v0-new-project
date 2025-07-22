@@ -18,20 +18,21 @@ export async function login(values: z.infer<typeof loginSchema>) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", signInData.user.id).single()
 
     const role = profile?.role
+    let redirectTo = "/" // Default redirect
     if (role === "admin") {
-      redirect("/admin")
+      redirectTo = "/admin"
     } else if (role === "operator") {
-      redirect("/dashboard/operator")
+      redirectTo = "/dashboard/operator"
     } else if (role === "client") {
-      redirect("/dashboard/client")
-    } else {
-      // Fallback for users without a role or profile, redirect to home.
-      redirect("/")
+      redirectTo = "/dashboard/client"
     }
+
+    // Reindirizzamento gestito dal server. Questo è il modo più robusto.
+    redirect(redirectTo)
   }
 
-  // This part should ideally not be reached if login is successful
-  return { error: "Impossibile determinare il ruolo dell'utente." }
+  // Questo codice non dovrebbe essere raggiunto se il login ha successo
+  return { error: "Impossibile completare il login. Riprova." }
 }
 
 export async function register(values: z.infer<typeof registerSchema>) {

@@ -32,16 +32,16 @@ export function LoginForm() {
         toast.error(result.error)
         form.reset()
       }
-      // Il reindirizzamento è ora gestito interamente dalla server action.
-      // Non è necessario fare altro qui sul client.
+      // Non c'è bisogno di gestire il caso di successo qui,
+      // perché la server action `login` reindirizzerà automaticamente.
     })
   }
 
   return (
-    <div className="container mx-auto flex items-center justify-center py-12">
-      <Card className="w-full max-w-md border-slate-700 bg-slate-800/50 text-white backdrop-blur-sm">
+    <div className="flex justify-center">
+      <Card className="w-full max-w-md border-blue-900 bg-slate-900/60 text-white backdrop-blur-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Accedi al tuo account</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">Accedi al tuo account</CardTitle>
           <CardDescription className="text-slate-400">Bentornato! Inserisci le tue credenziali.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -59,7 +59,7 @@ export function LoginForm() {
                         {...field}
                         type="email"
                         disabled={isPending}
-                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                        className="border-slate-700 bg-slate-800/50 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </FormControl>
                     <FormMessage />
@@ -78,14 +78,14 @@ export function LoginForm() {
                         {...field}
                         type="password"
                         disabled={isPending}
-                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                        className="border-slate-700 bg-slate-800/50 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
+              <Button type="submit" className="w-full btn-gradient" disabled={isPending}>
                 {isPending ? "Accesso in corso..." : "Accedi"}
               </Button>
             </form>
