@@ -1,12 +1,15 @@
 interface LoadingSpinnerProps {
+  className?: string
   fullScreen?: boolean
   message?: string
 }
 
-export default function LoadingSpinner({ fullScreen = false, message = "Caricamento..." }: LoadingSpinnerProps) {
+export function LoadingSpinner({ className, fullScreen = false, message = "Caricamento..." }: LoadingSpinnerProps) {
   const spinner = (
     <div className="text-center">
-      <div className="w-16 h-16 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin mx-auto mb-4"></div>
+      <div
+        className={`w-16 h-16 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin mx-auto mb-4 ${className}`}
+      />
       <p className="text-white text-lg">{message}</p>
     </div>
   )

@@ -4,7 +4,7 @@ import type React from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import LoadingSpinner from "@/components/loading-spinner"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
