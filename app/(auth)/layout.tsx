@@ -1,8 +1,8 @@
 import type React from "react"
-import SiteNavbar from "@/components/site-navbar"
-import SiteFooter from "@/components/site-footer"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import SiteNavbar from "@/components/site-navbar"
+import SiteFooter from "@/components/site-footer"
 
 const getDashboardUrl = (role: string | undefined): string => {
   if (role === "admin") return "/admin"

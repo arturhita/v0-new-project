@@ -2,150 +2,226 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+import { NavigationMenuDemo } from "@/components/navigation-menu"
+import { useAuth } from "@/contexts/auth-context"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu"
-import { cn } from "@/lib/utils"
-import React from "react"
-
-const components: { title: string; href: string; description: string }[] = [
-  {
-    title: "Cartomanti",
-    href: "/esperti/cartomanti",
-    description: "Esperti cartomanti pronti a svelare il tuo futuro con le carte.",
-  },
-  {
-    title: "Astrologi",
-    href: "/esperti/astrologi",
-    description: "Astrologi professionisti per interpretare il tuo tema natale e le stelle.",
-  },
-  {
-    title: "Sensitivi",
-    href: "/esperti/sensitivi",
-    description: "Connettiti con sensitivi dotati per una guida spirituale profonda.",
-  },
-  {
-    title: "Tarologi",
-    href: "/esperti/tarologi",
-    description: "I migliori tarologi per una lettura dei tarocchi chiara e dettagliata.",
-  },
-]
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { User, Settings, LogOut, Menu, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SiteNavbar() {
-  const { user, profile } = useAuth()
-  const router = useRouter()
+  const { user, profile, logout, isAuthenticated, isLoading } = useAuth()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const pathname = usePathname()
 
-  const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/")
-    router.refresh()
+  useEffect(() => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false)
+    }
+  }, [pathname])
+
+  const getDashboardLink = () => {
+    if (!profile) return "/login"
+    switch (profile.role) {
+      case "admin":
+        return "/admin/dashboard"
+      case "operator":
+        return "/dashboard/operator"
+      case "client":
+        return "/dashboard/client"
+      default:
+        return "/dashboard/client"
+    }
   }
 
-  const getDashboardUrl = () => {
-    if (profile?.role === "admin") return "/admin"
-    if (profile?.role === "operator") return "/dashboard/operator"
-    if (profile?.role === "client") return "/dashboard/client"
-    return "/login"
+  const getInitials = () => {
+    if (profile?.full_name) {
+      return profile.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+    }
+    return user?.email?.charAt(0).toUpperCase() || "U"
+  }
+
+  const renderAuthSection = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-10 w-10 rounded-full" />
+        </div>
+      )
+    }
+
+    if (isAuthenticated) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
+              <Avatar className="h-10 w-10 border-2 border-white/20">
+                <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || ""} />
+                <AvatarFallback className="bg-blue-700 text-white">{getInitials()}</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-56 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg"
+            align="end"
+            forceMount
+          >
+            <div className="flex items-center justify-start gap-2 p-2">
+              <div className="flex flex-col space-y-1 leading-none">
+                <p className="font-medium text-slate-900">{profile?.full_name || user?.email}</p>
+                <p className="w-[200px] truncate text-sm text-slate-500">{user?.email}</p>
+              </div>
+            </div>
+            <DropdownMenuSeparator className="bg-slate-200" />
+            {profile && (
+              <DropdownMenuItem asChild>
+                <Link
+                  href={getDashboardLink()}
+                  className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  Dashboard
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem asChild>
+              <Link
+                href="/profile"
+                className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Profilo
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-200" />
+            <DropdownMenuItem
+              onClick={logout}
+              className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Esci
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+
+    return (
+      <>
+        <Button
+          asChild
+          variant="outline"
+          className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] font-semibold transition-colors duration-300 bg-transparent"
+        >
+          <Link href="/login">Accedi</Link>
+        </Button>
+        <Button
+          asChild
+          className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+        >
+          <Link href="/register">Inizia Ora</Link>
+        </Button>
+      </>
+    )
+  }
+
+  const renderMobileAuthSection = () => {
+    if (isLoading) {
+      return <Skeleton className="h-10 w-full rounded-md" />
+    }
+    if (isAuthenticated) {
+      return (
+        <>
+          {profile && (
+            <Button asChild variant="outline" className="w-full justify-center text-white border-blue-600 bg-blue-700">
+              <Link href={getDashboardLink()}>
+                <User className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+          )}
+          <Button onClick={logout} variant="ghost" className="w-full justify-center text-slate-300">
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
+        </>
+      )
+    }
+    return (
+      <>
+        <Button
+          asChild
+          variant="outline"
+          className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] w-full justify-center font-semibold bg-transparent"
+        >
+          <Link href="/login">Accedi</Link>
+        </Button>
+        <Button
+          asChild
+          className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md w-full justify-center"
+        >
+          <Link href="/register">Inizia Ora</Link>
+        </Button>
+      </>
+    )
   }
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <Image src="/images/moonthir-logo.png" alt="Moonthir Logo" width={150} height={40} />
-        </Link>
-        <div className="flex-grow flex justify-center">
-          <NavigationMenu>
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <Link href="/oroscopo" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>Oroscopo</NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger>Esperti</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-                    {components.map((component) => (
-                      <ListItem key={component.title} title={component.title} href={component.href}>
-                        {component.description}
-                      </ListItem>
-                    ))}
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link href="/affinita-di-coppia" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>Affinità di coppia</NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link href="/tarocchi-online" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>Tarocchi Online</NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link href="/astromag" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>AstroMag</NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
-        <div className="flex items-center space-x-2">
-          {user ? (
-            <>
-              <Button onClick={() => router.push(getDashboardUrl())}>Dashboard</Button>
-              <Button variant="outline" onClick={handleLogout}>
-                Logout
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button asChild variant="ghost">
-                <Link href="/login">Accedi</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/register">Registrati</Link>
-              </Button>
-            </>
-          )}
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <Link href="/" className="flex items-center space-x-2 group">
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={140}
+              height={40}
+              className="object-contain"
+              priority
+            />
+          </Link>
+
+          <div className="hidden md:flex items-center">
+            <NavigationMenuDemo />
+          </div>
+
+          <div className="hidden md:flex items-center space-x-4">{renderAuthSection()}</div>
+
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-white hover:bg-white/10"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
       </div>
-    </nav>
+
+      {isMenuOpen && (
+        <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
+            <NavigationMenuDemo />
+            <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">{renderMobileAuthSection()}</div>
+          </div>
+        </div>
+      )}
+    </header>
   )
 }
-
-const ListItem = React.forwardRef<React.ElementRef<"a">, React.ComponentPropsWithoutRef<"a">>(
-  ({ className, title, children, ...props }, ref) => {
-    return (
-      <li>
-        <NavigationMenuLink asChild>
-          <a
-            ref={ref}
-            className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-              className,
-            )}
-            {...props}
-          >
-            <div className="text-sm font-medium leading-none">{title}</div>
-            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{children}</p>
-          </a>
-        </NavigationMenuLink>
-      </li>
-    )
-  },
-)
-ListItem.displayName = "ListItem"
