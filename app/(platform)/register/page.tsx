@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
-import { MailCheck } from "lucide-react"
+import { MailCheck } from 'lucide-react'
 
 export default function RegisterPage() {
   const [isPending, startTransition] = useTransition()
@@ -34,17 +34,25 @@ export default function RegisterPage() {
   })
 
   const onSubmit = (values: z.infer<typeof registerSchema>) => {
+    console.log("[RegisterPage] Attempting registration with:", { 
+      email: values.email, 
+      fullName: values.fullName 
+    })
+    
     startTransition(async () => {
       try {
         const result = await register(values)
+        console.log("[RegisterPage] Registration result:", result)
+        
         if (result.success) {
           toast.success(result.success)
           setRegistrationSuccess(true)
         } else if (result.error) {
+          console.error("[RegisterPage] Registration error:", result.error)
           toast.error(result.error)
         }
       } catch (error) {
-        console.error("[RegisterPage] Error during registration:", error)
+        console.error("[RegisterPage] Exception during registration:", error)
         toast.error("Errore durante la registrazione. Riprova.")
       }
     })

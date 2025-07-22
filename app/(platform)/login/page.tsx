@@ -28,17 +28,22 @@ export default function LoginPage() {
   })
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
+    console.log("[LoginPage] Attempting login with:", { email: values.email })
+    
     startTransition(async () => {
       try {
         const result = await login(values)
+        console.log("[LoginPage] Login result:", result)
+        
         if (result.success) {
           toast.success("Accesso effettuato con successo!")
           // L'AuthContext gestirà automaticamente il redirect
         } else if (result.error) {
+          console.error("[LoginPage] Login error:", result.error)
           toast.error(result.error)
         }
       } catch (error) {
-        console.error("[LoginPage] Error during login:", error)
+        console.error("[LoginPage] Exception during login:", error)
         toast.error("Errore durante l'accesso. Riprova.")
       }
     })

@@ -7,7 +7,7 @@ import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
-import { getProfileBypass } from "@/lib/supabase/bypass-client"
+import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
 
 interface Profile {
   id: string
@@ -26,15 +26,21 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const fetchProfileWithBypass = async (userId: string): Promise<Profile | null> => {
+const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
   try {
-    console.log(`[AuthContext] Fetching profile for user ${userId} using bypass method`)
+    console.log(`[AuthContext] Attempting to fetch profile for user: ${userId}`)
 
-    // Usa la funzione di bypass invece della query diretta
-    const profileData = await getProfileBypass(userId)
+    // Prima prova con la funzione di bypass
+    let profileData = await getProfileBypass(userId)
+
+    // Se fallisce, prova con la query diretta (ora che RLS è disabilitata)
+    if (!profileData) {
+      console.log("[AuthContext] Bypass failed, trying direct query")
+      profileData = await getProfileDirect(userId)
+    }
 
     if (profileData) {
-      console.log(`[AuthContext] Profile found using bypass method:`, profileData)
+      console.log(`[AuthContext] Profile loaded successfully:`, profileData)
       return {
         id: profileData.id,
         full_name: profileData.full_name,
@@ -46,7 +52,7 @@ const fetchProfileWithBypass = async (userId: string): Promise<Profile | null> =
     console.warn(`[AuthContext] No profile found for user ${userId}`)
     return null
   } catch (error) {
-    console.error(`[AuthContext] Error in fetchProfileWithBypass:`, error)
+    console.error(`[AuthContext] Error in fetchProfileSafely:`, error)
     return null
   }
 }
@@ -62,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      console.log("[AuthContext] Logging out user")
       await supabase.auth.signOut()
       setUser(null)
       setProfile(null)
@@ -76,6 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth, router])
 
   useEffect(() => {
+    console.log("[AuthContext] Setting up auth state listener")
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -87,17 +96,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         console.log(`[AuthContext] User authenticated: ${currentUser.id}`)
 
-        // Usa il metodo di bypass per evitare problemi RLS
-        const userProfile = await fetchProfileWithBypass(currentUser.id)
+        // Usa il metodo sicuro per recuperare il profilo
+        const userProfile = await fetchProfileSafely(currentUser.id)
 
         if (userProfile) {
-          console.log(`[AuthContext] Profile loaded successfully:`, userProfile)
+          console.log(`[AuthContext] Profile loaded successfully for user ${currentUser.id}`)
           setUser(currentUser)
           setProfile(userProfile)
         } else {
           console.error(`[AuthContext] Could not load profile for user ${currentUser.id}`)
           toast.error("Errore nel caricamento del profilo utente")
-          // Non forziamo il logout, proviamo a continuare
+          // Impostiamo l'utente ma senza profilo per permettere il debug
           setUser(currentUser)
           setProfile(null)
         }
@@ -111,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => {
+      console.log("[AuthContext] Cleaning up auth state listener")
       subscription.unsubscribe()
     }
   }, [supabase])
