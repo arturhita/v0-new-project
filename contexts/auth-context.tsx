@@ -50,12 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from("profiles")
           .select("id, full_name, avatar_url, role")
           .eq("id", currentUser.id)
-          .single()
+          .maybeSingle() // <--- FIX: Changed from .single() to .maybeSingle()
 
         if (error) {
           // Se il profilo non esiste o c'è un errore, è uno stato anomalo.
           // Disconnetti l'utente per evitare che rimanga bloccato.
-          console.error("Errore nel recupero del profilo, logout in corso:", error)
+          console.error("Errore critico nel recupero del profilo, logout in corso:", error)
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
