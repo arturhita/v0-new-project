@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
 import { useTransition } from "react"
-import Link from "next/link"
 import { toast } from "sonner"
+import Link from "next/link"
 
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 
+// Questo è il PURO Componente Client.
 export function LoginForm() {
   const [isPending, startTransition] = useTransition()
 
@@ -28,13 +29,13 @@ export function LoginForm() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
+      // L'azione di login gestirà il reindirizzamento in caso di successo.
+      // Qui dobbiamo solo gestire il caso di errore.
       const result = await login(values)
       if (result?.error) {
         toast.error(result.error)
         form.reset()
       }
-      // On success, the server action now handles the redirect,
-      // so no client-side navigation is needed here.
     })
   }
 
