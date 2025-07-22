@@ -1,19 +1,30 @@
 import { Suspense } from "react"
-import { getHomepageData } from "@/lib/actions/data.actions"
 import HomepageClient from "./homepage-client"
+import { getFeaturedOperators, getRecentArticles } from "@/lib/actions/data.actions"
 import LoadingSpinner from "@/components/loading-spinner"
+import type { Profile } from "@/lib/schemas"
+import type { Article } from "@/lib/blog-data"
 
-export default async function Page() {
-  // The data fetching is deferred to the client component inside Suspense
+// Define a simple type for the fetched data to avoid any type errors
+type Operator = Profile & { average_rating: number | null; review_count: number | null }
+type FetchedArticle = Article
+
+export default async function HomePage() {
+  // Fetch data in parallel
+  const operatorsData = getFeaturedOperators() as Promise<Operator[]>
+  const articlesData = getRecentArticles() as Promise<FetchedArticle[]>
+
+  const [operators, articles] = await Promise.all([operatorsData, articlesData])
+
   return (
-    <Suspense fallback={<LoadingSpinner fullScreen message="Caricamento homepage..." />}>
-      <HomepageClientLoader />
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen">
+          <LoadingSpinner />
+        </div>
+      }
+    >
+      <HomepageClient operators={operators} articles={articles} />
     </Suspense>
   )
-}
-
-// Helper component to fetch data within the Suspense boundary
-async function HomepageClientLoader() {
-  const homepageData = await getHomepageData()
-  return <HomepageClient initialData={homepageData} />
 }
