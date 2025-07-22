@@ -1,6 +1,14 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+// Helper function to get the user's dashboard URL based on their role
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "admin") return "/admin/dashboard"
+  if (role === "operator") return "/dashboard/operator"
+  if (role === "client") return "/dashboard/client"
+  return "/" // Fallback to homepage
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -34,10 +42,56 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // This is the only responsibility of the middleware: to refresh the user's session.
-  // The client-side AuthProvider will handle all redirection logic.
-  await supabase.auth.getUser()
+  // Refresh session if expired - important!
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
+  const { pathname } = request.nextUrl
+  const isAuthPage = pathname === "/login" || pathname === "/register"
+
+  // --- User is NOT logged in ---
+  if (!user) {
+    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/dashboard")
+    // If trying to access a protected route, redirect to login
+    if (isProtectedRoute) {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+    // Otherwise, allow access (e.g., to homepage, etc.)
+    return response
+  }
+
+  // --- User IS logged in ---
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const userRole = profile?.role
+  const userDashboardUrl = getDashboardUrl(userRole)
+
+  // If user is on an auth page (login/register), redirect them to their dashboard
+  if (isAuthPage) {
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+
+  // Role-based protection for protected routes
+  if (pathname.startsWith("/admin") && userRole !== "admin") {
+    console.log(
+      `[Middleware] Role mismatch: User with role '${userRole}' tried to access admin route. Redirecting to ${userDashboardUrl}`,
+    )
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+  if (pathname.startsWith("/dashboard/operator") && userRole !== "operator") {
+    console.log(
+      `[Middleware] Role mismatch: User with role '${userRole}' tried to access operator route. Redirecting to ${userDashboardUrl}`,
+    )
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+  if (pathname.startsWith("/dashboard/client") && userRole !== "client") {
+    console.log(
+      `[Middleware] Role mismatch: User with role '${userRole}' tried to access client route. Redirecting to ${userDashboardUrl}`,
+    )
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+
+  // If all checks pass, allow the request to proceed
   return response
 }
 

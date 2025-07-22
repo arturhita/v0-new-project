@@ -1,4 +1,12 @@
 import type React from "react"
-export default function ClientDashboardLayout({ children }: { children: React.ReactNode }) {
+import type { ReactNode } from "react"
+
+interface DashboardClientLayoutProps {
+  children: ReactNode
+}
+
+const DashboardClientLayout: React.FC<DashboardClientLayoutProps> = ({ children }) => {
   return <>{children}</>
 }
+
+export default DashboardClientLayout

@@ -1,4 +1,9 @@
-import type React from "react"
-export default function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
+import type { ReactNode } from "react"
+
+interface OperatorDashboardLayoutProps {
+  children: ReactNode
+}
+
+export default function OperatorDashboardLayout({ children }: OperatorDashboardLayoutProps) {
   return <>{children}</>
 }
