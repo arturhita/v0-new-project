@@ -28,29 +28,20 @@ export default function LoginPage() {
   })
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
-    console.log("[LoginPage] Attempting login with:", { email: values.email })
-
     startTransition(async () => {
       try {
         const result = await login(values)
-        console.log("[LoginPage] Login result:", result)
-
         if (result.success) {
           toast.success("Accesso effettuato con successo!")
-          // L'AuthContext gestirà automaticamente il redirect
         } else if (result.error) {
-          console.error("[LoginPage] Login error:", result.error)
           toast.error(result.error)
         }
       } catch (error) {
-        console.error("[LoginPage] Exception during login:", error)
         toast.error("Errore durante l'accesso. Riprova.")
       }
     })
   }
 
-  // Mentre lo stato di auth è in caricamento o se l'utente è già loggato,
-  // mostra uno spinner. Il context gestirà il redirect.
   if (isAuthLoading || isAuthenticated) {
     return <LoadingSpinner fullScreen />
   }
