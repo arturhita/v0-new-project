@@ -13,6 +13,12 @@ export async function login(values: z.infer<typeof LoginSchema>) {
 
   if (error) {
     console.error("Login Error:", error.message)
+    if (error.message === "Email not confirmed") {
+      return {
+        success: false,
+        message: "Registrazione non completata. Controlla la tua email per il link di conferma.",
+      }
+    }
     return { success: false, message: "Credenziali non valide. Controlla email e password." }
   }
 

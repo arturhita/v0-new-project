@@ -8,17 +8,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { RegisterSchema } from "@/lib/schemas"
 import { register } from "@/lib/actions/auth.actions"
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import Link from "next/link"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
+import { MailCheck } from "lucide-react"
 
 export default function RegisterPage() {
   const [isPending, startTransition] = useTransition()
   const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
   const form = useForm<z.infer<typeof RegisterSchema>>({
     resolver: zodResolver(RegisterSchema),
@@ -35,8 +37,7 @@ export default function RegisterPage() {
     startTransition(async () => {
       const result = await register(values)
       if (result.success) {
-        toast.success(result.message)
-        form.reset()
+        setRegistrationSuccess(true)
       } else {
         toast.error(result.message)
       }
@@ -48,6 +49,25 @@ export default function RegisterPage() {
       <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <ConstellationBackground />
         <LoadingSpinner fullScreen />
+      </div>
+    )
+  }
+
+  if (registrationSuccess) {
+    return (
+      <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
+        <ConstellationBackground />
+        <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 text-center shadow-2xl shadow-green-500/10 backdrop-blur-sm">
+          <MailCheck className="mx-auto h-16 w-16 text-green-400" />
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">Registrazione quasi completata!</h1>
+          <p className="mt-4 text-slate-300">
+            Ti abbiamo inviato un'email di conferma. Clicca sul link nell'email per attivare il tuo account.
+          </p>
+          <p className="mt-2 text-sm text-slate-400">Se non la vedi, controlla la cartella spam.</p>
+          <Button asChild variant="gradient" className="mt-8 w-full">
+            <Link href="/login">Vai alla pagina di Login</Link>
+          </Button>
+        </div>
       </div>
     )
   }

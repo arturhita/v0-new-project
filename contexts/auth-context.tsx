@@ -35,38 +35,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    router.replace("/login") // Reindirizzamento esplicito al logout
+    router.replace("/login")
   }, [supabase.auth, router])
 
   useEffect(() => {
-    const fetchProfileWithRetry = async (userId: string, retries = 3, delay = 500): Promise<Profile | null> => {
+    const fetchProfileWithRetry = async (userId: string, retries = 5, delay = 1000): Promise<Profile | null> => {
       for (let i = 0; i < retries; i++) {
         const { data, error } = await supabase
           .from("profiles")
           .select("id, full_name, avatar_url, role")
           .eq("id", userId)
-          .maybeSingle()
+          .single()
 
-        if (error) {
-          console.error("Errore DB nel recupero del profilo:", error)
-          return null // Errore critico, interrompi
+        if (error && error.code !== "PGRST116") {
+          // PGRST116: "The result contains 0 rows"
+          console.error("Errore DB critico nel recupero del profilo:", error)
+          return null
         }
+
         if (data) {
-          return data as Profile // Profilo trovato
+          console.log(`Profilo trovato per l'utente ${userId} al tentativo ${i + 1}.`)
+          return data as Profile
         }
-        // Profilo non trovato, attendi e riprova
+
         if (i < retries - 1) {
+          console.log(
+            `Profilo per ${userId} non ancora disponibile, ritento tra ${delay}ms... (Tentativo ${i + 1}/${retries})`,
+          )
           await new Promise((res) => setTimeout(res, delay))
         }
       }
       console.error(`Profilo non trovato per l'utente ${userId} dopo ${retries} tentativi.`)
-      return null // Profilo non trovato dopo tutti i tentativi
+      return null
     }
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setIsLoading(true) // Inizia il caricamento ad ogni cambio di stato
+      setIsLoading(true)
       const currentUser = session?.user ?? null
 
       if (currentUser) {
@@ -76,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          // Se il profilo non viene trovato, è un errore. Disconnetti l'utente.
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
@@ -85,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setProfile(null)
       }
-      setIsLoading(false) // Fine del caricamento
+      setIsLoading(false)
     })
 
     return () => {
@@ -95,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading) {
-      return // Attendi che il caricamento iniziale sia completato
+      return
     }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
