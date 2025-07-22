@@ -35,13 +35,9 @@ export default function LoginPage() {
     }
     if (state?.success) {
       toast.success(state.success)
-      // Nessun router.refresh() qui. AuthContext gestirà il cambio di stato e il reindirizzamento.
     }
   }, [state])
 
-  // Mentre il contesto sta caricando lo stato dell'utente, o se l'utente è già autenticato,
-  // mostra uno spinner per evitare che il modulo appaia brevemente.
-  // Il contesto gestirà il reindirizzamento.
   if (isLoading || isAuthenticated) {
     return <LoadingSpinner fullScreen />
   }

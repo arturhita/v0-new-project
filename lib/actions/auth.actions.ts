@@ -27,6 +27,7 @@ export async function login(prevState: any, formData: FormData) {
     return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
+  // Il reindirizzamento verrà gestito dal AuthContext nel client
   return { success: "Login effettuato con successo!" }
 }
 
@@ -47,6 +48,7 @@ export async function register(prevState: any, formData: FormData) {
   const { email, password, fullName } = validatedFields.data
   const supabase = createClient()
 
+  // L'opzione 'data' qui passa i metadati che il nostro trigger SQL userà
   const { error } = await supabase.auth.signUp({
     email,
     password,
