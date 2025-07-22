@@ -1,9 +1,8 @@
--- Questo script rimuove le policy RLS problematiche dalla tabella 'profiles',
--- disabilita RLS su di essa e crea una funzione sicura per l'accesso ai dati.
--- È una soluzione mirata per risolvere i problemi di login e ricorsione.
+-- Questo script risolve l'errore "cannot change return type of existing function"
+-- eliminando esplicitamente la funzione prima di ricrearla con la firma corretta.
+-- Include anche i passaggi precedenti per garantire che lo stato del DB sia corretto.
 
--- 1. Rimuove le policy specifiche che causano problemi.
--- Usiamo IF EXISTS per evitare errori se una policy è già stata rimossa.
+-- 1. Rimuove le policy specifiche che potrebbero ancora esistere.
 DROP POLICY IF EXISTS "Enable read access for all users" ON public.profiles;
 DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.profiles;
 DROP POLICY IF EXISTS "Enable update for users based on email" ON public.profiles;
@@ -13,15 +12,14 @@ DROP POLICY IF EXISTS "Allow authenticated users to read profiles" ON public.pro
 DROP POLICY IF EXISTS "Utenti possono vedere il proprio profilo" ON public.profiles;
 DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.profiles;
 
--- 2. Disabilita completamente RLS sulla tabella 'profiles' come misura definitiva.
--- Questo previene qualsiasi problema futuro di RLS su questa tabella.
+-- 2. Disabilita completamente RLS sulla tabella 'profiles' per sicurezza.
 ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
 
--- 3. Crea (o rimpiazza) una funzione sicura per recuperare i profili.
--- Questa funzione agisce come un "gatekeeper" controllato per accedere ai dati dei profili.
--- SECURITY DEFINER permette alla funzione di bypassare le RLS (che sono comunque disabilitate,
--- ma è una buona pratica per il futuro).
-CREATE OR REPLACE FUNCTION public.get_user_profile(user_id uuid)
+-- 3. ELIMINA la funzione esistente per evitare conflitti di firma, come suggerito dall'errore.
+DROP FUNCTION IF EXISTS public.get_user_profile(uuid);
+
+-- 4. Crea la funzione sicura per recuperare i profili con la firma corretta.
+CREATE FUNCTION public.get_user_profile(user_id uuid)
 RETURNS TABLE(id uuid, full_name text, avatar_url text, role user_role)
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -29,7 +27,6 @@ SET search_path = public
 AS $$
 BEGIN
   -- Questa funzione recupera semplicemente un profilo per ID.
-  -- La logica di autorizzazione è gestita a livello di applicazione.
   RETURN QUERY
   SELECT p.id, p.full_name, p.avatar_url, p.role
   FROM public.profiles p
@@ -37,12 +34,10 @@ BEGIN
 END;
 $$;
 
--- 4. Concede i permessi di esecuzione sulla funzione.
--- Solo gli utenti autenticati possono chiamare questa funzione.
+-- 5. Concede i permessi di esecuzione sulla nuova funzione.
 GRANT EXECUTE ON FUNCTION public.get_user_profile(uuid) TO authenticated;
 
--- 5. Assicura che l'utente che esegue lo script abbia un profilo.
--- Questo previene errori di login se il profilo non è stato creato a causa di trigger falliti.
+-- 6. Assicura che l'utente che esegue lo script abbia un profilo.
 DO $$
 DECLARE
     current_user_id uuid := auth.uid();
