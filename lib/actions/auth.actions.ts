@@ -1,56 +1,62 @@
 "use server"
 
-import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import type { registerSchema } from "@/lib/schemas"
+import type { z } from "zod"
+import { loginSchema, registerSchema } from "../schemas"
 
-export async function login(values: z.infer<typeof z.ZodObject<{ email: z.ZodString; password: z.ZodString }>>) {
+export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
-  const { error } = await supabase.auth.signInWithPassword(values)
+  const validatedFields = loginSchema.safeParse(values)
+
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
+  }
+
+  const { email, password } = validatedFields.data
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
   if (error) {
     if (error.message.includes("Email not confirmed")) {
-      return {
-        success: false,
-        message: "Registrazione non completata. Controlla la tua email per il link di conferma.",
-      }
+      return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
     }
-    return { success: false, message: error.message }
+    console.error("Login error:", error.message)
+    return { error: "Credenziali non valide." }
   }
 
-  return { success: true, message: "Login effettuato con successo!" }
+  // On successful login, the AuthProvider will handle redirection.
+  return { success: "Login effettuato con successo!" }
 }
 
 export async function register(values: z.infer<typeof registerSchema>) {
   const supabase = createClient()
+  const validatedFields = registerSchema.safeParse(values)
 
-  // The trigger in the database will now handle profile creation.
-  // We only need to sign up the user here.
+  if (!validatedFields.success) {
+    return { error: "Campi non validi!" }
+  }
+
+  const { email, password } = validatedFields.data
+
+  // The database trigger 'on_auth_user_created' will now handle profile creation.
+  // We no longer need to create the profile manually here.
   const { data, error } = await supabase.auth.signUp({
-    email: values.email,
-    password: values.password,
-    options: {
-      // We can pass the full_name here if we want to store it in auth.users metadata
-      // The trigger can then access it via new.raw_user_meta_data ->> 'full_name'
-      data: {
-        full_name: values.full_name,
-      },
-    },
+    email,
+    password,
   })
 
   if (error) {
-    console.error("Sign Up Error:", error)
-    return { success: false, message: error.message }
+    console.error("Registration Error:", error.message)
+    return { error: "Impossibile registrare l'utente. L'email potrebbe essere già in uso." }
   }
 
-  if (!data.user) {
-    console.error("Sign Up Error: No user data returned.")
-    return { success: false, message: "Errore durante la registrazione, nessun utente restituito." }
+  if (!data.session && data.user) {
+    // This indicates the user was created but needs to confirm their email.
+    return { success: "Registrazione quasi completata! Controlla la tua email per confermare il tuo account." }
   }
 
-  // The trigger creates the profile. We just need to inform the user.
-  return {
-    success: true,
-    message: "Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account.",
-  }
+  return { error: "Si è verificato un errore imprevisto durante la registrazione." }
 }

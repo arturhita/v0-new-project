@@ -29,11 +29,9 @@ const fetchProfileWithRetry = async (
   supabase: ReturnType<typeof createClient>,
   userId: string,
   retries = 5,
-  delay = 1200, // Slightly increased delay for robustness
+  delay = 1200,
 ): Promise<Profile | null> => {
   for (let i = 0; i < retries; i++) {
-    // Using a direct, RLS-protected query.
-    // The new SQL script ensures the RLS policy is correct.
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url, role")
@@ -41,24 +39,23 @@ const fetchProfileWithRetry = async (
       .single()
 
     if (data) {
-      console.log(`Profilo trovato con query diretta (Tentativo ${i + 1}):`, data)
+      console.log(`[AuthContext] Profile found for ${userId} on attempt ${i + 1}.`)
       return data as Profile
     }
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 is "No rows found"
-      console.error(`Errore DB nella query del profilo (Tentativo ${i + 1}):`, error)
+      console.error(`[AuthContext] Database error fetching profile for ${userId} (Attempt ${i + 1}):`, error)
       toast.error("Errore di sistema nel recupero del profilo.")
       return null
     }
 
-    // If we are here, it means no row was found (PGRST116). We will retry.
-    console.warn(`Profilo per l'utente ${userId} non trovato (Tentativo ${i + 1}). Riprovo...`)
+    console.warn(`[AuthContext] Profile for ${userId} not found (Attempt ${i + 1}). Retrying...`)
     await new Promise((res) => setTimeout(res, delay))
   }
 
-  console.error(`Profilo per l'utente ${userId} non trovato dopo ${retries} tentativi.`)
-  toast.error("Impossibile trovare il profilo utente dopo vari tentativi.")
+  console.error(`[AuthContext] Profile for ${userId} not found after ${retries} attempts. This is a critical error.`)
+  toast.error("Impossibile trovare il profilo utente dopo vari tentativi. La sessione sarà terminata.")
   return null
 }
 
@@ -80,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`[AuthContext] Auth state changed. Event: ${event}, Session: ${session ? "Exists" : "Null"}`)
       setIsLoading(true)
       const currentUser = session?.user ?? null
 
@@ -90,8 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          console.error(`Logout forzato: impossibile recuperare il profilo per l'utente ${currentUser.id}.`)
-          toast.error("Sessione terminata. Impossibile verificare il profilo utente.")
+          console.error(`[AuthContext] Forcing logout: Could not retrieve profile for user ${currentUser.id}.`)
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
