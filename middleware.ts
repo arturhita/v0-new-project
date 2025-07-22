@@ -17,38 +17,14 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          request.cookies.set({ name, value, ...options })
+          response = NextResponse.next({ request: { headers: request.headers } })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          })
+          request.cookies.set({ name, value: "", ...options })
+          response = NextResponse.next({ request: { headers: request.headers } })
+          response.cookies.set({ name, value: "", ...options })
         },
       },
     },
@@ -57,14 +33,41 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  const { pathname } = request.nextUrl
 
-  const isProtectedRoute =
-    request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/dashboard")
+  const isAuthPage = pathname === "/login" || pathname === "/register"
+  const isAdminRoute = pathname.startsWith("/admin")
+  const isOperatorRoute = pathname.startsWith("/dashboard/operator")
+  const isClientRoute = pathname.startsWith("/dashboard/client")
+  const isProtectedRoute = isAdminRoute || isOperatorRoute || isClientRoute
 
+  // If user is not logged in, redirect to login from any protected route
   if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // If user is logged in, handle redirects
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+    const role = profile?.role
+
+    // If user is on an auth page, redirect to their correct dashboard
+    if (isAuthPage) {
+      let destination = "/"
+      if (role === "admin") destination = "/admin/dashboard"
+      else if (role === "operator") destination = "/dashboard/operator"
+      else if (role === "client") destination = "/dashboard/client"
+      return NextResponse.redirect(new URL(destination, request.url))
+    }
+
+    // If user is on a protected route but with the wrong role, redirect to their correct dashboard
+    if (isAdminRoute && role !== "admin") {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
+    if (isOperatorRoute && role !== "operator") {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
+    // Add more specific role checks if needed
   }
 
   return response

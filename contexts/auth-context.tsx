@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
 import { toast } from "sonner"
@@ -39,7 +39,7 @@ const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
     }
     return null
   } catch (error) {
-    console.error(`[Auth] Critical error fetching profile:`, error)
+    console.error(`[AuthContext] Critical error fetching profile:`, error)
     return null
   }
 }
@@ -47,7 +47,6 @@ const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
-  const pathname = usePathname()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -55,10 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
+    // The onAuthStateChange listener will handle state updates
+    // and the middleware will handle the redirect.
     router.push("/login")
   }, [supabase.auth, router])
 
   useEffect(() => {
+    // This effect is responsible for keeping the client-side state
+    // in sync with the Supabase auth state.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -69,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user)
           setProfile(userProfile)
         } else {
-          console.error("[Auth] User has session but no profile. Forcing logout.")
+          console.error("[AuthContext] User has session but no profile. Forcing logout.")
           toast.error("Errore di sincronizzazione del profilo. Verrai disconnesso.")
           await supabase.auth.signOut()
           setUser(null)
@@ -87,21 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase.auth])
 
-  useEffect(() => {
-    if (isLoading) return
-
-    const isAuthenticated = !!user && !!profile
-    const isAuthPage = pathname === "/login" || pathname === "/register"
-
-    if (isAuthenticated && isAuthPage) {
-      let destination = "/"
-      if (profile.role === "admin") destination = "/admin/dashboard"
-      else if (profile.role === "operator") destination = "/dashboard/operator"
-      else if (profile.role === "client") destination = "/dashboard/client"
-      router.replace(destination)
-    }
-  }, [isLoading, user, profile, pathname, router])
-
+  // The initial loading state is important to prevent UI flicker
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
