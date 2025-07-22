@@ -12,6 +12,7 @@ import SiteFooter from "@/components/site-footer"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/react"
 import { Suspense } from "react"
+import { createClient } from "@/lib/supabase/server"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,15 +22,30 @@ export const metadata: Metadata = {
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let profile = null
+  if (user) {
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, role")
+      .eq("id", user.id)
+      .single()
+    profile = userProfile
+  }
+
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={`${inter.className} bg-gray-900 flex flex-col min-h-screen`}>
-        <AuthProvider>
+        <AuthProvider user={user} profile={profile}>
           <OperatorStatusProvider>
             <ChatRequestProvider>
               <Suspense fallback={null}>
