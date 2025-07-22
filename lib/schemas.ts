@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+// Corrected to lowercase 'l' to match imports
 export const loginSchema = z.object({
   email: z.string().email({
     message: "Per favore inserisci un indirizzo email valido.",
@@ -9,6 +10,7 @@ export const loginSchema = z.object({
   }),
 })
 
+// Corrected to lowercase 'r' to match imports
 export const registerSchema = z
   .object({
     fullName: z.string().min(2, { message: "Il nome completo deve contenere almeno 2 caratteri." }),

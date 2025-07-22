@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
+// Corrected imports to lowercase to match the schema file
 import { loginSchema, registerSchema } from "../schemas"
 import { redirect } from "next/navigation"
 

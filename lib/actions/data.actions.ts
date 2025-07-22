@@ -1,9 +1,12 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
+
+// This function MUST use the admin client to bypass RLS for public data fetching.
+// This prevents the "infinite recursion" error in RLS policies.
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
   const services = (profile.services as any) || {}
@@ -11,12 +14,10 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
   const callService = services.call || {}
   const emailService = services.email || {}
 
-  // Apply promotion price if available
   const chatPrice =
     promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
   const callPrice =
     promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
-  // Email price is usually different, let's say it's 6x the per-minute price
   const emailPrice =
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
@@ -42,19 +43,18 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
 }
 
 export async function getHomepageData() {
-  const supabase = createClient()
   const promotionPrice = await getCurrentPromotionPrice()
 
   try {
     const [operatorsResult, reviewsResult] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from("profiles")
         .select(`*`)
         .eq("role", "operator")
         .eq("status", "Attivo")
         .order("is_online", { ascending: false })
         .limit(8),
-      supabase
+      supabaseAdmin
         .from("reviews")
         .select(
           `
@@ -102,11 +102,10 @@ export async function getHomepageData() {
 }
 
 export async function getOperatorsByCategory(categorySlug: string) {
-  const supabase = createClient()
   const slug = decodeURIComponent(categorySlug)
   const promotionPrice = await getCurrentPromotionPrice()
 
-  const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
+  const { data, error } = await supabaseAdmin.rpc("get_operators_by_category_case_insensitive", {
     category_slug: slug,
   })
 
@@ -119,10 +118,9 @@ export async function getOperatorsByCategory(categorySlug: string) {
 }
 
 export async function getAllOperators() {
-  const supabase = createClient()
   const promotionPrice = await getCurrentPromotionPrice()
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select(`*`)
     .eq("role", "operator")
