@@ -1,88 +1,10 @@
 "use server"
 
-import { createClient as createAdminClient } from "@/lib/supabase/admin"
-import { supabaseAdmin } from "@/lib/supabase/admin" // CORREZIONE: Importa l'istanza admin, non una funzione
-import { createClient } from "@/lib/supabase/server" // Correct import
+import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-// This function uses the admin client to bypass RLS for admin purposes.
-export async function getUsers() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("users")
-    .select(
-      `
-  id,
-  email,
-  raw_user_meta_data,
-  created_at,
-  last_sign_in_at,
-  profiles (
-    role,
-    full_name
-  )
-`,
-    )
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching users:", error)
-    return { error: "Could not fetch users." }
-  }
-
-  // The profiles table returns an array, but it should only have one entry per user.
-  // We'll flatten this for easier use on the client.
-  const formattedData = data.map((user) => ({
-    ...user,
-    role: user.profiles[0]?.role || "N/A",
-    full_name: user.profiles[0]?.full_name || user.raw_user_meta_data?.full_name || "N/A",
-  }))
-
-  return { users: formattedData }
-}
-
-// This function uses the admin client to delete a user, which cascades.
-export async function deleteUser(userId: string) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.auth.admin.deleteUser(userId)
-
-  if (error) {
-    console.error("Error deleting user:", error)
-    return { error: "Could not delete user." }
-  }
-
-  revalidatePath("/admin/users")
-  return { success: "User deleted successfully." }
-}
-
-// This function uses the standard server client to get the currently logged-in user's profile.
-// It respects RLS.
-export async function getCurrentUserProfile() {
-  const supabase = createClient() // Uses the standard server client
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    console.error("Error getting current user:", authError)
-    return { profile: null, error: "User not authenticated." }
-  }
-
-  const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-  if (profileError || !profile) {
-    console.error(`Error fetching profile for user ${user.id}:`, profileError)
-    return { profile: null, error: "Could not fetch user profile." }
-  }
-
-  return { profile, error: null }
-}
-
-// --- Funzione per il profilo dell'utente loggato ---
-// --- Funzioni di amministrazione ---
-
+// Definizione del tipo per i dati utente, per maggiore chiarezza
 export type UserProfileWithStats = {
   id: string
   email: string | undefined
@@ -94,8 +16,11 @@ export type UserProfileWithStats = {
   total_consultations: number
 }
 
+/**
+ * [ADMIN] Recupera tutti gli utenti (non admin) con le loro statistiche.
+ * Utilizza il client admin per bypassare RLS.
+ */
 export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
-  // Usa il client admin che bypassa RLS
   const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*").neq("role", "admin")
 
   if (profilesError) {
@@ -109,7 +34,7 @@ export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers({
     page: 1,
-    perPage: 1000,
+    perPage: 1000, // Aumentare se si hanno più di 1000 utenti
   })
 
   if (authError) {
@@ -122,16 +47,19 @@ export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
   const usersWithStats: UserProfileWithStats[] = profiles.map((profile) => ({
     ...profile,
     email: emailMap.get(profile.id) || "N/A",
-    total_spent: 0, // Placeholder
-    total_consultations: 0, // Placeholder
+    total_spent: 0, // Placeholder, da implementare con le transazioni
+    total_consultations: 0, // Placeholder, da implementare con i consulti
   }))
 
   return usersWithStats
 }
 
+/**
+ * [ADMIN] Sospende o riattiva un utente.
+ * Utilizza il client admin per modificare i profili.
+ */
 export async function toggleUserSuspension(userId: string, currentStatus: string) {
   const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
-  // Usa il client admin
   const { error } = await supabaseAdmin.from("profiles").update({ status: newStatus }).eq("id", userId)
 
   if (error) {
@@ -142,14 +70,63 @@ export async function toggleUserSuspension(userId: string, currentStatus: string
   return { success: true, message: `Stato utente aggiornato a ${newStatus}.` }
 }
 
+/**
+ * [ADMIN] Emette un buono per un utente.
+ * Placeholder per la logica di business.
+ */
 export async function issueVoucher(userId: string, amount: number, reason: string) {
   console.log(`Emissione buono di €${amount} all'utente ${userId} per il motivo: ${reason}`)
-  // Logica di business per emettere un buono
+  // Qui andrebbe la logica di business per emettere un buono
   return { success: true, message: `Buono di €${amount} emesso con successo.` }
 }
 
+/**
+ * [ADMIN] Emette un rimborso per un utente.
+ * Placeholder per la logica di business (es. tramite Stripe).
+ */
 export async function issueRefund(userId: string, amount: number, reason: string) {
   console.log(`Emissione rimborso di €${amount} all'utente ${userId} per il motivo: ${reason}`)
-  // Logica di business per emettere un rimborso (es. tramite Stripe)
+  // Qui andrebbe la logica di business per emettere un rimborso
   return { success: true, message: `Rimborso di €${amount} processato con successo.` }
+}
+
+/**
+ * [ADMIN] Elimina un utente dal sistema.
+ * Utilizza il client admin.
+ */
+export async function deleteUser(userId: string) {
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+  if (error) {
+    console.error("Error deleting user:", error)
+    return { error: "Could not delete user." }
+  }
+
+  revalidatePath("/admin/users")
+  return { success: "User deleted successfully." }
+}
+
+/**
+ * [USER] Recupera il profilo dell'utente attualmente autenticato.
+ * Utilizza il client standard per rispettare RLS.
+ */
+export async function getCurrentUserProfile() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    console.log("getCurrentUserProfile: No user found.")
+    return { error: "User not authenticated", profile: null }
+  }
+
+  const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+  if (error) {
+    console.error("Error fetching user profile in server action:", error.message)
+    return { error: "Failed to fetch profile", profile: null }
+  }
+
+  return { profile, error: null }
 }
