@@ -1,144 +1,64 @@
 "use client"
 
 import Link from "next/link"
-import { Search, ArrowRight, Sparkles } from "lucide-react"
+import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard } from "@/components/operator-card"
 import type { Operator } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import type { Review } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { motion } from "framer-motion"
 
 interface HomepageClientProps {
   operators: Operator[]
   reviews: Review[]
 }
 
-export function HomepageClient({ operators = [], reviews = [] }: HomepageClientProps) {
+export default function HomepageClient({ operators = [], reviews = [] }: HomepageClientProps) {
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
     .slice(0, 3)
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
-      <style jsx>{`
-        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-slate-900 text-white">
+      <ConstellationBackground />
 
-        .font-playfair {
-          font-family: "Playfair Display", serif;
-        }
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes fadeInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes fadeInRight {
-          from {
-            opacity: 0;
-            transform: translateX(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        @keyframes float {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        @keyframes glow {
-          0%,
-          100% {
-            box-shadow: 0 0 20px rgba(250, 204, 21, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
-          }
-        }
-        .animate-fadeInUp {
-          animation: fadeInUp 1s ease-out forwards;
-        }
-        .animate-fadeInLeft {
-          animation: fadeInLeft 0.8s ease-out forwards;
-        }
-        .animate-fadeInRight {
-          animation: fadeInRight 0.8s ease-out forwards;
-        }
-        .animate-scaleIn {
-          animation: scaleIn 0.6s ease-out forwards;
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-        .animate-glow {
-          animation: glow 2s ease-in-out infinite;
-        }
-      `}</style>
-
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: "url('/images/hero-background.png')" }}
+      <main className="relative z-10">
+        {/* Sezione Hero */}
+        <section className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4 pt-24">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-4xl md:text-6xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500"
           >
-            <div className="absolute inset-0 bg-black/40"></div>
-          </div>
-
-          <div className="relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 animate-fadeInUp">
-            <h1
-              className="font-playfair font-bold text-white text-6xl md:text-8xl"
-              style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
+            Scopri il tuo futuro con i nostri esperti
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="mt-4 max-w-2xl text-lg text-slate-300"
+          >
+            Connettiti con i migliori cartomanti, astrologi e sensitivi per una consulenza personalizzata. La tua guida
+            per l'anima ti aspetta.
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="mt-8"
+          >
+            <Button
+              asChild
+              size="lg"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-full px-8 py-3 transition-transform transform hover:scale-105"
             >
-              Il Viaggio
-            </h1>
-            <h2
-              className="font-playfair text-white text-4xl md:text-5xl"
-              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
-            >
-              Inizia da Qui
-            </h2>
-            <Link href="/esperti/cartomanzia" passHref>
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
-              >
-                <Search className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
-                Cerca Esperti
-              </Button>
-            </Link>
-          </div>
+              <Link href="/esperti">Trova il tuo esperto</Link>
+            </Button>
+          </motion.div>
         </section>
 
         {/* Operator Boxes Section */}
@@ -177,6 +97,22 @@ export function HomepageClient({ operators = [], reviews = [] }: HomepageClientP
                 </Button>
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Operatori più votati */}
+        <section className="py-16 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-12">I nostri esperti più apprezzati</h2>
+            {operators.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                {operators.map((operator) => (
+                  <OperatorCard key={operator.id} operator={operator} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-slate-400">Nessun operatore trovato.</p>
+            )}
           </div>
         </section>
 
@@ -244,26 +180,18 @@ export function HomepageClient({ operators = [], reviews = [] }: HomepageClientP
           </div>
         </section>
 
-        {/* Reviews Section */}
-        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
-          <ConstellationBackground goldVisible={true} />
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="text-center mb-12 md:mb-16">
-              <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
-              <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
-                Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
-              </p>
-            </div>
+        {/* Recensioni Recenti */}
+        <section className="py-16 px-4 sm:px-6 lg:py-24 lg:px-8 bg-slate-900/50">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-12">Cosa dicono i nostri clienti</h2>
             {reviews.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                {reviews.map((review, index) => (
-                  <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                    <ReviewCard review={review} />
-                  </div>
+              <div className="space-y-8">
+                {reviews.map((review) => (
+                  <ReviewCard key={review.id} review={review} />
                 ))}
               </div>
             ) : (
-              <div className="text-center text-slate-400">Nessuna testimonianza recente.</div>
+              <p className="text-center text-slate-400">Ancora nessuna recensione.</p>
             )}
           </div>
         </section>
@@ -385,7 +313,7 @@ export function HomepageClient({ operators = [], reviews = [] }: HomepageClientP
                 <Button
                   asChild
                   size="lg"
-                  className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 font-semibold group"
+                  className="bg-gradient-to-r from-blue-500 to-yellow-500 text-white text-lg px-8 py-4 rounded-full hover:from-blue-600 hover:to-yellow-600 transition-transform transform hover:scale-105 font-semibold group"
                 >
                   <Link href="/esperti/cartomanzia">
                     Inizia la Tua Prima Lettura

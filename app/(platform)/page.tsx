@@ -1,12 +1,23 @@
 import { getHomepageData } from "@/lib/actions/data.actions"
-import { HomepageClient } from "./homepage-client"
+import HomepageClient from "./homepage-client"
+import { Suspense } from "react"
+import LoadingSpinner from "@/components/loading-spinner"
 
-// This is now an async Server Component
-export default async function UnveillyHomePage() {
-  // Data is fetched on the server.
-  // The page's loading.tsx will act as the loading boundary.
+export const revalidate = 3600 // Revalida i dati ogni ora
+
+export default async function HomePage() {
+  // I dati vengono caricati sul server
   const { operators, reviews } = await getHomepageData()
 
-  // The data is passed directly to the client component.
-  return <HomepageClient operators={operators} reviews={reviews} />
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+          <LoadingSpinner />
+        </div>
+      }
+    >
+      <HomepageClient operators={operators} reviews={reviews} />
+    </Suspense>
+  )
 }

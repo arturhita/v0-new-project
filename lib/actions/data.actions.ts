@@ -1,133 +1,120 @@
 "use server"
 
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import type { Operator } from "@/components/operator-card"
-import type { Review } from "@/components/review-card"
-import { getCurrentPromotionPrice } from "./promotions.actions"
+import type { Operator } from "@/types/operator.types"
+import type { Review } from "@/types/review.types"
 
-export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  const services = (profile.services as any) || {}
-  const chatService = services.chat || {}
-  const callService = services.call || {}
-  const emailService = services.email || {}
-
-  const chatPrice =
-    promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
-  const callPrice =
-    promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
-  const emailPrice =
-    promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
-
+// Questa funzione mappa i dati grezzi del profilo da Supabase al nostro tipo Operator
+export function mapProfileToOperator(profile: any): Operator {
   return {
     id: profile.id,
-    name: profile.stage_name || "Operatore",
-    avatarUrl: profile.avatar_url || "/placeholder.svg",
-    specialization:
-      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
-    rating: profile.average_rating || 0,
-    reviewsCount: profile.reviews_count || 0,
-    description: profile.bio || "Nessuna descrizione disponibile.",
-    tags: profile.categories || [],
-    isOnline: profile.is_online || false,
-    services: {
-      chatPrice,
-      callPrice,
-      emailPrice,
-    },
-    profileLink: `/operator/${profile.stage_name}`,
-    joinedDate: profile.created_at,
+    user_id: profile.user_id,
+    username: profile.username,
+    full_name: profile.full_name,
+    avatar_url: profile.avatar_url,
+    description: profile.description,
+    specialties: profile.specialties || [],
+    categories: profile.categories || [],
+    is_available: profile.is_available,
+    average_rating: profile.average_rating || 0,
+    total_reviews: profile.total_reviews || 0,
   }
 }
 
 export async function getHomepageData() {
-  const promotionPrice = await getCurrentPromotionPrice()
-
+  console.log("Recupero dati per la homepage...")
   try {
-    const [operatorsResult, reviewsResult] = await Promise.all([
-      supabaseAdmin
-        .from("profiles")
-        .select(`*`)
-        .eq("role", "operator")
-        .eq("status", "Attivo")
-        .order("is_online", { ascending: false })
-        .limit(8),
-      supabaseAdmin
-        .from("reviews")
-        .select(
-          `
-      id, rating, comment, created_at,
-      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-      operator:profiles!reviews_operator_id_fkey (stage_name)
-    `,
-        )
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(3),
-    ])
-
-    const { data: operatorsData, error: operatorsError } = operatorsResult
-    const { data: reviewsData, error: reviewsError } = reviewsResult
+    // Recupera gli operatori con le migliori valutazioni
+    const { data: operatorsData, error: operatorsError } = await supabaseAdmin
+      .from("profiles")
+      .select(`
+        id,
+        user_id,
+        username,
+        full_name,
+        avatar_url,
+        description,
+        specialties,
+        categories,
+        is_available,
+        average_rating,
+        total_reviews
+      `)
+      .eq("role", "operator")
+      .order("average_rating", { ascending: false, nulls: "last" })
+      .limit(8)
 
     if (operatorsError) {
-      console.error("Error fetching homepage operators:", operatorsError)
-      throw operatorsError
+      console.error("Errore nel recupero degli operatori:", operatorsError.message)
+      throw new Error(`Errore nel recupero degli operatori: ${operatorsError.message}`)
     }
+
+    // Recupera le recensioni recenti
+    const { data: reviewsData, error: reviewsError } = await supabaseAdmin
+      .from("reviews")
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        client_id,
+        operator_id,
+        profiles:client_id (
+          username,
+          avatar_url
+        )
+      `)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(5)
+
     if (reviewsError) {
-      console.error("Error fetching recent reviews:", reviewsError)
-      throw reviewsError
+      console.error("Errore nel recupero delle recensioni:", reviewsError.message)
+      throw new Error(`Errore nel recupero delle recensioni: ${reviewsError.message}`)
     }
 
-    const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-    const reviews = (reviewsData || []).map(
-      (review: any) =>
-        ({
-          id: review.id,
-          user_name: review.client?.full_name || "Utente Anonimo",
-          user_type: "Utente",
-          operator_name: review.operator?.stage_name || "Operatore",
-          rating: review.rating,
-          comment: review.comment,
-          created_at: review.created_at,
-        }) as Review,
-    )
+    const operators = operatorsData?.map(mapProfileToOperator) || []
 
+    const reviews: Review[] =
+      reviewsData?.map((review: any) => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        created_at: review.created_at,
+        client_id: review.client_id,
+        operator_id: review.operator_id,
+        client_username: review.profiles?.username || "Anonimo",
+        client_avatar_url: review.profiles?.avatar_url,
+      })) || []
+
+    console.log(`Recuperati ${operators.length} operatori e ${reviews.length} recensioni.`)
     return { operators, reviews }
   } catch (error) {
-    console.error("A general error occurred while fetching homepage data:", error)
+    console.error("Impossibile ottenere i dati della homepage:", error)
     return { operators: [], reviews: [] }
   }
 }
 
-export async function getOperatorsByCategory(categorySlug: string) {
-  const slug = decodeURIComponent(categorySlug)
-  const promotionPrice = await getCurrentPromotionPrice()
-
-  const { data, error } = await supabaseAdmin.rpc("get_operators_by_category_case_insensitive", {
-    category_slug: slug,
-  })
+export async function getAllOperators() {
+  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("role", "operator")
 
   if (error) {
-    console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
+    console.error("Error fetching all operators:", error)
     return []
   }
-
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  return data.map(mapProfileToOperator)
 }
 
-export async function getAllOperators() {
-  const promotionPrice = await getCurrentPromotionPrice()
-
+export async function getOperatorsByCategory(category: string) {
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select(`*`)
+    .select("*")
     .eq("role", "operator")
-    .eq("status", "Attivo")
-    .order("is_online", { ascending: false })
+    .contains("categories", [category])
 
   if (error) {
-    console.error(`Error fetching all operators:`, error.message)
+    console.error(`Error fetching operators for category ${category}:`, error)
     return []
   }
-
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  return data.map(mapProfileToOperator)
 }
