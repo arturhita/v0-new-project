@@ -13,7 +13,7 @@ export async function getProfileBypass(userId: string) {
     })
 
     if (error) {
-      console.error("[BypassClient] Error calling get_user_profile:", error)
+      console.error("[BypassClient] Error calling get_user_profile:", error.message)
       return null
     }
 
