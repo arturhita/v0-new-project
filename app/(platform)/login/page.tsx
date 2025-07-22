@@ -29,12 +29,12 @@ export default function LoginPage() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     console.log("[LoginPage] Attempting login with:", { email: values.email })
-    
+
     startTransition(async () => {
       try {
         const result = await login(values)
         console.log("[LoginPage] Login result:", result)
-        
+
         if (result.success) {
           toast.success("Accesso effettuato con successo!")
           // L'AuthContext gestirà automaticamente il redirect
