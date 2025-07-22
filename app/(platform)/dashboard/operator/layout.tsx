@@ -304,6 +304,7 @@ function OperatorDashboardLayoutContent({ children, user }: { children: React.Re
 
 export default async function OperatorDashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -314,9 +315,9 @@ export default async function OperatorDashboardLayout({ children }: { children: 
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  // Permettiamo l'accesso sia agli operatori che agli admin
+  // Allow both operators and admins to see the operator dashboard
   if (profile?.role !== "operator" && profile?.role !== "admin") {
-    return redirect("/?error=Accesso non autorizzato.")
+    return redirect("/login?message=Accesso non autorizzato.")
   }
 
   return <OperatorDashboardUI user={user}>{children}</OperatorDashboardUI>

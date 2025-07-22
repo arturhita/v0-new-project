@@ -1,10 +1,10 @@
-import type React from "react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import ClientDashboardUI from "./client-dashboard-ui"
+import type React from "react"
 
 export default async function ClientDashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -15,10 +15,10 @@ export default async function ClientDashboardLayout({ children }: { children: Re
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  // Permettiamo l'accesso sia ai client che agli admin (che potrebbero voler vedere la dashboard del cliente)
+  // Allow both clients and admins to see the client dashboard
   if (profile?.role !== "client" && profile?.role !== "admin") {
-    return redirect("/?error=Accesso non autorizzato.")
+    return redirect("/login?message=Accesso non autorizzato.")
   }
 
-  return <ClientDashboardUI>{children}</ClientDashboardUI>
+  return <>{children}</>
 }

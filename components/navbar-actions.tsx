@@ -35,7 +35,9 @@ export function NavbarActions({ user, profile }: NavbarActionsProps) {
 
   useEffect(() => {
     // Chiude il menu mobile quando cambia la rotta
-    setIsMenuOpen(false)
+    if (isMenuOpen) {
+      setIsMenuOpen(false)
+    }
   }, [pathname])
 
   const getDashboardLink = () => {

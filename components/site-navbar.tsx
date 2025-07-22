@@ -1,16 +1,8 @@
-"use client"
-
 import Link from "next/link"
 import Image from "next/image"
 import { NavigationMenuDemo } from "@/components/navigation-menu"
 import { createClient } from "@/lib/supabase/server"
 import { NavbarActions } from "./navbar-actions"
-
-type Profile = {
-  full_name: string | null
-  avatar_url: string | null
-  role: string | null
-} | null
 
 export async function SiteNavbar() {
   const supabase = createClient()

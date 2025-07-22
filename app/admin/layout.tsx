@@ -140,21 +140,20 @@ const getDashboardUrl = (role: string | undefined): string => {
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return redirect("/login?message=Devi essere loggato per accedere all'area admin.")
+    return redirect("/login?message=Devi essere loggato per accedere.")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
   if (profile?.role !== "admin") {
-    // Se non è admin, lo rimandiamo alla homepage con un errore
-    return redirect("/?error=Accesso non autorizzato.")
+    return redirect("/login?message=Non hai i permessi per accedere a questa pagina.")
   }
 
-  // Se l'utente è un admin, mostra la UI del pannello di amministrazione
   return <AdminDashboardUI>{children}</AdminDashboardUI>
 }
