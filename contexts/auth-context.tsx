@@ -39,33 +39,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth, router])
 
   useEffect(() => {
-    const fetchProfileWithRetry = async (userId: string, retries = 5, delay = 1000): Promise<Profile | null> => {
+    const fetchProfileWithRetry = async (retries = 5, delay = 1000): Promise<Profile | null> => {
       for (let i = 0; i < retries; i++) {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, role")
-          .eq("id", userId)
-          .single()
+        // NUOVA LOGICA: Chiama la funzione RPC sicura 'get_my_profile'
+        const { data, error } = await supabase.rpc("get_my_profile").single()
 
         if (error && error.code !== "PGRST116") {
-          // PGRST116: "The result contains 0 rows"
-          console.error("Errore DB critico nel recupero del profilo:", error)
+          // Ignora l'errore "nessuna riga trovata"
+          console.error("Errore DB critico nella chiamata a get_my_profile:", error)
           return null
         }
 
         if (data) {
-          console.log(`Profilo trovato per l'utente ${userId} al tentativo ${i + 1}.`)
+          console.log(`Profilo trovato tramite RPC al tentativo ${i + 1}.`)
           return data as Profile
         }
 
         if (i < retries - 1) {
-          console.log(
-            `Profilo per ${userId} non ancora disponibile, ritento tra ${delay}ms... (Tentativo ${i + 1}/${retries})`,
-          )
+          console.log(`Profilo non ancora disponibile, ritento tra ${delay}ms... (Tentativo ${i + 1}/${retries})`)
           await new Promise((res) => setTimeout(res, delay))
         }
       }
-      console.error(`Profilo non trovato per l'utente ${userId} dopo ${retries} tentativi.`)
+      console.error(`Profilo non trovato dopo ${retries} tentativi.`)
       return null
     }
 
@@ -76,12 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = session?.user ?? null
 
       if (currentUser) {
-        const userProfile = await fetchProfileWithRetry(currentUser.id)
+        // Non passiamo più l'ID utente, la funzione lo sa già
+        const userProfile = await fetchProfileWithRetry()
 
         if (userProfile) {
           setUser(currentUser)
           setProfile(userProfile)
         } else {
+          console.error("Logout forzato: impossibile recuperare il profilo dell'utente.")
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
