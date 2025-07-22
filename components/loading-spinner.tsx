@@ -4,7 +4,11 @@ interface LoadingSpinnerProps {
   message?: string
 }
 
-export function LoadingSpinner({ className, fullScreen = false, message = "Caricamento..." }: LoadingSpinnerProps) {
+export default function LoadingSpinner({
+  className,
+  fullScreen = false,
+  message = "Caricamento...",
+}: LoadingSpinnerProps) {
   const spinner = (
     <div className="text-center">
       <div
