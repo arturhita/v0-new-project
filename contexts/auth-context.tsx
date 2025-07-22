@@ -92,18 +92,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, router])
 
   useEffect(() => {
-    if (!isLoading && user) {
-      const isAuthPage = pathname === "/login" || pathname === "/register"
-      if (isAuthPage) {
-        const userRole = profile?.role
-        if (userRole === "admin") {
-          router.push("/admin/dashboard")
-        } else if (userRole === "operator") {
-          router.push("/(platform)/dashboard/operator")
-        } else {
-          router.push("/(platform)/dashboard/client")
-        }
+    // Attende il caricamento dello stato di autenticazione
+    if (isLoading) {
+      return
+    }
+
+    const userRole = profile?.role
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/(platform)/dashboard")
+
+    // CASO 1: Utente non autenticato
+    if (!user) {
+      if (isProtectedRoute) {
+        router.push("/login")
       }
+      return
+    }
+
+    // CASO 2: Utente autenticato
+    // Se si trova su una pagina di login/registrazione, lo reindirizza alla sua dashboard
+    if (isAuthPage) {
+      switch (userRole) {
+        case "admin":
+          router.push("/admin/dashboard")
+          break
+        case "operator":
+          router.push("/(platform)/dashboard/operator")
+          break
+        default:
+          router.push("/(platform)/dashboard/client")
+          break
+      }
+      return
+    }
+
+    // CASO 3: Utente autenticato su una pagina protetta (controllo dei permessi)
+    // Questo blocco impedisce l'accesso a sezioni non autorizzate e corregge i reindirizzamenti errati.
+    if (pathname.startsWith("/admin") && userRole !== "admin") {
+      router.push("/(platform)/login") // O una pagina di accesso negato
+    } else if (pathname.startsWith("/(platform)/dashboard/operator") && userRole !== "operator") {
+      if (userRole === "admin") router.push("/admin/dashboard")
+      else router.push("/(platform)/dashboard/client")
+    } else if (pathname.startsWith("/(platform)/dashboard/client") && userRole !== "client") {
+      if (userRole === "admin") router.push("/admin/dashboard")
+      else if (userRole === "operator") router.push("/(platform)/dashboard/operator")
     }
   }, [isLoading, user, profile, pathname, router])
 
