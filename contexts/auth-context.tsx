@@ -27,35 +27,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const fetchProfileWithRetry = async (
   supabase: ReturnType<typeof createClient>,
+  userId: string,
   retries = 5,
   delay = 1000,
 ): Promise<Profile | null> => {
   for (let i = 0; i < retries; i++) {
-    // Call the simplified RPC function. It returns a single JSON object directly.
-    const { data, error } = await supabase.rpc("get_my_profile")
+    // Reverted to a direct, RLS-protected query. This is the standard approach.
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, role")
+      .eq("id", userId)
+      .single() // .single() will error if no row is found, which is what we want to check.
 
-    if (error) {
-      console.error(`Errore durante la chiamata RPC 'get_my_profile' (Tentativo ${i + 1}):`, error)
-      if (i === retries - 1) {
-        toast.error("Errore critico nel recupero del profilo.")
-        return null
-      }
-      await new Promise((res) => setTimeout(res, delay))
-      continue
-    }
-
-    // If data is not null/undefined, we found the profile.
     if (data) {
-      console.log(`Profilo trovato tramite RPC (Tentativo ${i + 1}):`, data)
+      console.log(`Profilo trovato con query diretta (Tentativo ${i + 1}):`, data)
       return data as Profile
     }
 
-    // If data is null, the profile doesn't exist yet. Retry.
-    console.warn(`Profilo non ancora disponibile (Tentativo ${i + 1}). Riprovo...`)
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 is "No rows found"
+      console.error(`Errore DB nella query del profilo (Tentativo ${i + 1}):`, error)
+      // If a critical error occurs (not "not found"), stop retrying.
+      toast.error("Errore di sistema nel recupero del profilo.")
+      return null
+    }
+
+    // If we are here, it means no row was found (PGRST116). We will retry.
+    console.warn(`Profilo per l'utente ${userId} non trovato (Tentativo ${i + 1}). Riprovo...`)
     await new Promise((res) => setTimeout(res, delay))
   }
 
-  console.error(`Profilo non trovato dopo ${retries} tentativi.`)
+  console.error(`Profilo per l'utente ${userId} non trovato dopo ${retries} tentativi.`)
   toast.error("Impossibile trovare il profilo utente dopo vari tentativi.")
   return null
 }
@@ -82,13 +84,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = session?.user ?? null
 
       if (currentUser) {
-        const userProfile = await fetchProfileWithRetry(supabase)
+        // Pass the user ID to the fetch function
+        const userProfile = await fetchProfileWithRetry(supabase, currentUser.id)
 
         if (userProfile) {
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          console.error("Logout forzato: impossibile recuperare il profilo dell'utente dopo i tentativi.")
+          console.error(`Logout forzato: impossibile recuperare il profilo per l'utente ${currentUser.id}.`)
           toast.error("Sessione terminata. Impossibile verificare il profilo utente.")
           await supabase.auth.signOut()
           setUser(null)
