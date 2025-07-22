@@ -7,11 +7,13 @@ import { loginSchema, registerSchema } from "../schemas"
 import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof loginSchema>) {
+  console.log("[Action: login] Attempting to log in user:", values.email)
   const supabase = createClient()
   // Using lowercase schema
   const validatedFields = loginSchema.safeParse(values)
 
   if (!validatedFields.success) {
+    console.error("[Action: login] Validation failed:", validatedFields.error)
     return { error: "Campi non validi!" }
   }
 
@@ -24,12 +26,14 @@ export async function login(values: z.infer<typeof loginSchema>) {
 
   if (error) {
     if (error.message.includes("Email not confirmed")) {
+      console.warn(`[Action: login] Login failed for ${email}: Email not confirmed.`)
       return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
     }
-    console.error("Login error:", error.message)
+    console.error(`[Action: login] Supabase login error for ${email}:`, error.message)
     return { error: "Credenziali non valide." }
   }
 
+  console.log("[Action: login] Login successful for:", values.email)
   return { success: "Login effettuato con successo!" }
 }
 
