@@ -4,6 +4,7 @@ import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
@@ -39,9 +40,9 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
     return { success: false, message: "Registrazione fallita, utente non creato." }
   }
 
-  // Step 2: Manually insert the profile into the 'public.profiles' table.
-  // This is the correct approach that avoids all permission issues.
-  const { error: profileError } = await supabase.from("profiles").insert({
+  // Step 2: Manually insert the profile into the 'public.profiles' table using the admin client.
+  // This bypasses RLS policies for this specific, trusted server-side operation.
+  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
     id: authData.user.id,
     full_name: values.fullName,
     role: "client", // Default role for new users
@@ -49,8 +50,10 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
 
   if (profileError) {
     console.error("Profile Creation Error:", profileError.message)
-    // This is a critical error. We should inform the user.
-    // In a real-world scenario, you might want to delete the auth user as well to allow a retry.
+
+    // IMPORTANT: If profile creation fails, delete the orphaned auth user to allow a clean retry.
+    await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+
     return {
       success: false,
       message: "L'utente è stato creato ma non è stato possibile creare il profilo. Contatta l'assistenza.",
