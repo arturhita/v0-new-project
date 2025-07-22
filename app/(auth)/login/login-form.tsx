@@ -2,94 +2,67 @@
 
 import { useFormState, useFormStatus } from "react-dom"
 import { login } from "@/lib/actions/auth.actions"
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useEffect } from "react"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 const initialState = {
-  errors: null,
-  message: null,
   success: false,
+  message: "",
+  errors: undefined,
 }
 
-function LoginButton() {
+function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" aria-disabled={pending}>
+    <Button type="submit" className="w-full" disabled={pending}>
       {pending ? "Accesso in corso..." : "Accedi"}
     </Button>
   )
 }
 
-export function LoginForm() {
-  const [state, dispatch] = useFormState(login, initialState)
+export default function LoginForm() {
+  const [state, formAction] = useFormState(login, initialState)
   const router = useRouter()
 
   useEffect(() => {
     if (state.success) {
       toast.success(state.message)
       router.refresh()
-    } else if (state.message && !state.errors) {
+    } else if (state.message) {
       toast.error(state.message)
     }
   }, [state, router])
 
   return (
-    <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-lg">
+    <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-lg shadow-lg">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-white">Bentornato</h1>
+        <p className="text-gray-400">Inserisci le tue credenziali per accedere.</p>
+      </div>
+      <form action={formAction} className="space-y-4">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">Accedi al tuo account</h2>
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" placeholder="tua@email.com" required />
+          {state.errors?.email && <p className="text-red-500 text-xs mt-1">{state.errors.email[0]}</p>}
         </div>
-        <form action={dispatch} className="mt-8 space-y-6">
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <Label htmlFor="email-address" className="sr-only">
-                Indirizzo Email
-              </Label>
-              <Input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Indirizzo Email"
-              />
-              {state.errors?.email && <p className="text-sm text-red-500 mt-1">{state.errors.email[0]}</p>}
-            </div>
-            <div>
-              <Label htmlFor="password" className="sr-only">
-                Password
-              </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-              />
-              {state.errors?.password && <p className="text-sm text-red-500 mt-1">{state.errors.password[0]}</p>}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
-                Non hai un account? Registrati
-              </Link>
-            </div>
-          </div>
-
-          <div>
-            <LoginButton />
-          </div>
-        </form>
+        <div>
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" required />
+          {state.errors?.password && <p className="text-red-500 text-xs mt-1">{state.errors.password[0]}</p>}
+        </div>
+        {state.errors?.general && <p className="text-red-500 text-sm text-center">{state.errors.general[0]}</p>}
+        <SubmitButton />
+      </form>
+      <div className="text-center text-sm text-gray-400">
+        Non hai un account?{" "}
+        <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
+          Registrati
+        </Link>
       </div>
     </div>
   )

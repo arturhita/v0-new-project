@@ -2,36 +2,35 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "sonner"
-import { CookieBanner } from "@/components/cookie-banner"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import { createClient } from "@/lib/supabase/server"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenti del benessere",
-  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
+  title: "Moonthir - La tua guida all'astrologia",
+  description:
+    "Esplora il mondo dell'astrologia, dei tarocchi e della cartomanzia con i nostri esperti. Trova le risposte che cerchi.",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
+  const supabase = createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
   return (
-    <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-900 text-gray-100`}>
-        <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>
-              {children}
-              <Toaster position="top-center" richColors />
-              <CookieBanner />
-            </ChatRequestProvider>
-          </OperatorStatusProvider>
+    <html lang="it">
+      <body className={inter.className}>
+        <AuthProvider session={session}>
+          {children}
+          <Toaster richColors position="top-center" />
         </AuthProvider>
       </body>
     </html>

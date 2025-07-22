@@ -1,24 +1,45 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { headers } from "next/headers"
-import { redirect } from "next/navigation"
 import { z } from "zod"
+import { redirect } from "next/navigation"
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
-  password: z.string().min(1, { message: "La password è richiesta." }),
+  email: z.string().email("Email non valida"),
+  password: z.string().min(1, "La password è richiesta"),
 })
 
-export async function login(prevState: any, formData: FormData) {
+const registerSchema = z
+  .object({
+    email: z.string().email("Email non valida"),
+    password: z.string().min(6, "La password deve essere di almeno 6 caratteri"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Le password non coincidono",
+    path: ["confirmPassword"],
+  })
+
+type AuthState = {
+  success: boolean
+  message: string
+  errors?: {
+    email?: string[]
+    password?: string[]
+    confirmPassword?: string[]
+    general?: string[]
+  }
+}
+
+export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const supabase = createClient()
   const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
     return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Dati non validi.",
       success: false,
+      message: "Dati non validi.",
+      errors: validatedFields.error.flatten().fieldErrors,
     }
   }
 
@@ -30,88 +51,56 @@ export async function login(prevState: any, formData: FormData) {
   })
 
   if (error) {
-    console.error("Login error:", error.message)
     return {
-      errors: null,
-      message: "Credenziali non valide. Riprova.",
       success: false,
+      message: "Credenziali non valide. Riprova.",
+      errors: { general: [error.message] },
     }
   }
 
   return {
-    errors: null,
-    message: "Login effettuato con successo. Reindirizzamento...",
     success: true,
+    message: "Login effettuato con successo!",
   }
 }
 
-const signupSchema = z
-  .object({
-    email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
-    password: z.string().min(6, { message: "La password deve contenere almeno 6 caratteri." }),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Le password non coincidono.",
-    path: ["confirmPassword"],
-  })
-
-export async function signUp(prevState: any, formData: FormData) {
-  const origin = headers().get("origin")
+export async function register(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const supabase = createClient()
-
-  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()))
+  const validatedFields = registerSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
     return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Dati non validi.",
       success: false,
+      message: "Dati non validi.",
+      errors: validatedFields.error.flatten().fieldErrors,
     }
   }
 
   const { email, password } = validatedFields.data
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
-    console.error("Signup error:", error.message)
-    if (error.message.includes("User already registered")) {
-      return {
-        errors: null,
-        message: "Questo indirizzo email è già registrato.",
-        success: false,
-      }
-    }
     return {
-      errors: null,
-      message: "Errore durante la registrazione. Riprova.",
       success: false,
-    }
-  }
-
-  if (data.user && data.user.identities && data.user.identities.length === 0) {
-    return {
-      errors: null,
-      message: "Questo indirizzo email è già registrato. Prova ad accedere.",
-      success: false,
+      message: "Errore durante la registrazione. L'utente potrebbe già esistere.",
+      errors: { general: [error.message] },
     }
   }
 
   return {
-    errors: null,
-    message: "Registrazione avvenuta! Controlla la tua email per confermare il tuo account.",
     success: true,
+    message: "Registrazione avvenuta con successo! Controlla la tua email per confermare l'account.",
   }
 }
 
-export async function signOut() {
+export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
   redirect("/login")

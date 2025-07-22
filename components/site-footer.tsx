@@ -49,7 +49,7 @@ export default function SiteFooter() {
                     </Link>
                   </li>
                   <li>
-                    <Link href="/esperti/cartomanti" className="text-base text-gray-400 hover:text-white">
+                    <Link href="/esperti" className="text-base text-gray-400 hover:text-white">
                       Esperti
                     </Link>
                   </li>
