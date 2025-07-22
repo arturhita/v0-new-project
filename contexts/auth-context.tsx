@@ -49,54 +49,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Start loading
+  const [isLoading, setIsLoading] = useState(true) // Always start loading
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // Middleware will handle redirecting from protected pages.
-    // We can push to login for a faster client-side transition.
     router.push("/login")
   }, [supabase.auth, router])
 
   useEffect(() => {
-    // This effect runs once on mount to check the initial session
-    // and then sets up the listener for auth changes.
-    const checkInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (session) {
-        const userProfile = await fetchProfileSafely(session.user.id)
-        setUser(session.user)
-        setProfile(userProfile)
-      }
-      setIsLoading(false) // Initial check is done
-    }
-
-    checkInitialSession()
-
+    // This is the standard and most robust way to handle auth state.
+    // onAuthStateChange fires once immediately with the current session,
+    // and then again whenever the auth state changes.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // This listener keeps the state in sync when auth changes happen
-      // in another tab or during login/logout actions.
+      console.log(`[AuthContext] Auth event: ${event}`)
       if (session) {
+        // User is logged in. Fetch their profile.
         const userProfile = await fetchProfileSafely(session.user.id)
         setUser(session.user)
         setProfile(userProfile)
       } else {
+        // User is logged out.
         setUser(null)
         setProfile(null)
       }
+      // Crucially, set loading to false only after the first check is complete.
+      setIsLoading(false)
     })
 
     return () => {
+      // Cleanup the subscription when the component unmounts.
       subscription.unsubscribe()
     }
   }, [supabase.auth])
 
-  // The initial loading state is crucial to prevent flicker and race conditions.
-  // The UI will not render until the initial auth status is known.
+  // Render a full-screen loader until the initial auth state is determined.
+  // This prevents any UI flicker or race conditions.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
