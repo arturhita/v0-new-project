@@ -30,12 +30,10 @@ export default function LoginPage() {
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     startTransition(async () => {
       const result = await login(values)
-      if (result.success) {
-        toast.success(result.message)
-        // On success, AuthContext will handle the redirect.
-      } else {
+      if (!result.success) {
         toast.error(result.message)
       }
+      // On success, AuthContext will handle the redirect, so we don't need to do anything here.
     })
   }
 
@@ -54,7 +52,7 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Bentornato</h1>
-          <p className="mt-2 text-slate-400">Accedi per continuare la tua esperienza.</p>
+          <p className="mt-2 text-slate-400">Accedi al tuo account per continuare.</p>
         </div>
 
         <Form {...form}>
@@ -100,10 +98,10 @@ export default function LoginPage() {
           </form>
         </Form>
 
-        <p className="mt-8 text-center text-sm text-slate-400">
+        <p className="mt-6 text-center text-sm text-slate-400">
           Non hai un account?{" "}
           <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
-            Inizia ora
+            Registrati
           </Link>
         </p>
       </div>
