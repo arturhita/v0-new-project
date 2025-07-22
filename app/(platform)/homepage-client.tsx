@@ -14,7 +14,7 @@ interface HomepageClientProps {
   reviews: Review[]
 }
 
-export function HomepageClient({ operators, reviews }: HomepageClientProps) {
+export function HomepageClient({ operators = [], reviews = [] }: HomepageClientProps) {
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
