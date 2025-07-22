@@ -7,6 +7,11 @@ import { Toaster } from "@/components/ui/toaster"
 import { CookieBanner } from "@/components/cookie-banner"
 import { OperatorStatusProvider } from "@/contexts/operator-status-context"
 import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import { SiteNavbar } from "@/components/site-navbar"
+import SiteFooter from "@/components/site-footer"
+import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/react"
+import { Suspense } from "react"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -23,16 +28,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-900`}>
+      <body className={`${inter.className} bg-gray-900 flex flex-col min-h-screen`}>
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>
-              {children}
-              <Toaster />
-              <CookieBanner />
+              <Suspense fallback={null}>
+                <SiteNavbar />
+                <main className="flex-grow pt-16">{children}</main>
+                <SiteFooter />
+                <Toaster />
+                <CookieBanner />
+              </Suspense>
             </ChatRequestProvider>
           </OperatorStatusProvider>
         </AuthProvider>
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   )

@@ -13,26 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
-
-// This is now a server-side check within the page component itself.
-// export default async function LoginPage() {
-//   const supabase = createClient()
-//   const {
-//     data: { user },
-//   } = await supabase.auth.getUser()
-
-//   if (user) {
-//     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-//     const role = profile?.role
-//     if (role === "admin") redirect("/admin")
-//     if (role === "operator") redirect("/dashboard/operator")
-//     if (role === "client") redirect("/dashboard/client")
-//     redirect("/") // Fallback
-//   }
-
-//   return <LoginForm />
-// }
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition()
@@ -47,20 +27,19 @@ export function LoginForm() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
-      // The login action will handle the redirect on success.
-      // We only need to handle the error case here.
       const result = await login(values)
       if (result?.error) {
         toast.error(result.error)
         form.reset()
       }
+      // Il reindirizzamento è ora gestito interamente dalla server action.
+      // Non è necessario fare altro qui sul client.
     })
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-900">
-      <GoldenConstellationBackground />
-      <Card className="z-10 w-full max-w-md border-slate-700 bg-slate-900/50 text-white backdrop-blur-sm">
+    <div className="container mx-auto flex items-center justify-center py-12">
+      <Card className="w-full max-w-md border-slate-700 bg-slate-800/50 text-white backdrop-blur-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">Accedi al tuo account</CardTitle>
           <CardDescription className="text-slate-400">Bentornato! Inserisci le tue credenziali.</CardDescription>

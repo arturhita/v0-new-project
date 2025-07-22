@@ -8,14 +8,30 @@ import type { loginSchema, registerSchema } from "@/lib/schemas"
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
 
-  const { error } = await supabase.auth.signInWithPassword(values)
+  const { data: signInData, error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
     return { error: "Credenziali non valide. Riprova." }
   }
 
-  // Il reindirizzamento viene gestito dalla pagina server dopo il refresh
-  return { success: "Login effettuato con successo!" }
+  if (signInData.user) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", signInData.user.id).single()
+
+    const role = profile?.role
+    if (role === "admin") {
+      redirect("/admin")
+    } else if (role === "operator") {
+      redirect("/dashboard/operator")
+    } else if (role === "client") {
+      redirect("/dashboard/client")
+    } else {
+      // Fallback for users without a role or profile, redirect to home.
+      redirect("/")
+    }
+  }
+
+  // This part should ideally not be reached if login is successful
+  return { error: "Impossibile determinare il ruolo dell'utente." }
 }
 
 export async function register(values: z.infer<typeof registerSchema>) {

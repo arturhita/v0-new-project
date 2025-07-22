@@ -10,12 +10,13 @@ import { registerSchema } from "@/lib/schemas"
 import { register } from "@/lib/actions/auth.actions"
 import { useTransition } from "react"
 import Link from "next/link"
-import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useRouter } from "next/navigation"
 
 export function RegisterForm() {
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -34,7 +35,10 @@ export function RegisterForm() {
         const result = await register(values)
         if (result.success) {
           toast.success(result.success)
-          form.reset()
+          // Reindirizza alla pagina di login dopo un breve ritardo per consentire all'utente di leggere il toast
+          setTimeout(() => {
+            router.push("/login")
+          }, 3000)
         } else if (result.error) {
           toast.error(result.error)
         }
@@ -46,9 +50,8 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
-      <GoldenConstellationBackground />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
+    <div className="container mx-auto flex items-center justify-center py-12">
+      <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-800/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Crea il tuo Account</h1>
           <p className="mt-2 text-slate-400">Unisciti alla nostra community di esperti e clienti.</p>
