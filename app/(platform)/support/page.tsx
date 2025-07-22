@@ -1,33 +1,30 @@
-import { Mail } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { Mail } from "lucide-react"
 
 export default function SupportPage() {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#0a192f]">
+    <div className="relative min-h-screen w-full overflow-hidden bg-slate-900">
       <ConstellationBackground />
-      <main className="relative z-10 flex items-center justify-center py-20 px-4">
-        <Card className="w-full max-w-2xl bg-slate-900/80 border-cyan-400/20 text-gray-200 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-center text-cyan-300 tracking-wider">Contattaci</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-6">
-            <p className="text-lg text-gray-300">
-              Per qualsiasi richiesta di informazioni, supporto o chiarimento, il nostro team è a tua disposizione.
-            </p>
-            <div className="flex items-center justify-center space-x-3 bg-slate-800/50 p-4 rounded-lg border border-cyan-400/30">
-              <Mail className="h-6 w-6 text-cyan-400" />
-              <a
-                href="mailto:infomoonthir@gmail.com"
-                className="text-xl font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
-              >
-                infomoonthir@gmail.com
-              </a>
-            </div>
-            <p className="text-gray-400">Ti risponderemo nel più breve tempo possibile.</p>
-          </CardContent>
-        </Card>
-      </main>
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4 text-white">
+        <div className="w-full max-w-2xl mx-auto bg-slate-900/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 text-center shadow-2xl shadow-blue-500/10">
+          <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-300 mb-4">
+            Contattaci
+          </h1>
+          <p className="text-lg text-gray-300 mb-8">
+            Per qualsiasi richiesta di informazioni, supporto tecnico o domande, non esitare a scriverci.
+          </p>
+          <div className="inline-flex items-center justify-center p-4 rounded-lg bg-blue-900/30 border border-blue-500/30">
+            <a
+              href="mailto:infomoonthir@gmail.com"
+              className="flex items-center space-x-3 text-xl font-medium text-gray-100 hover:text-white transition-colors"
+            >
+              <Mail className="h-6 w-6" />
+              <span>infomoonthir@gmail.com</span>
+            </a>
+          </div>
+          <p className="mt-8 text-sm text-gray-400">Il nostro team ti risponderà il prima possibile.</p>
+        </div>
+      </div>
     </div>
   )
 }
