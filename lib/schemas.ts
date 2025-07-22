@@ -1,28 +1,35 @@
 import { z } from "zod"
 
-export const LoginSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(1, { message: "Password is required." }),
+export const loginSchema = z.object({
+  email: z.string().email({ message: "Inserisci un'email valida." }),
+  password: z.string().min(1, { message: "La password è richiesta." }),
 })
 
-export const RegisterSchema = z.object({
-  fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters." }),
-})
-
-export const PasswordResetSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address." }),
-})
-
-export const UpdatePasswordSchema = z
+export const registerSchema = z
   .object({
-    password: z.string().min(8, { message: "Password must be at least 8 characters." }),
+    fullName: z.string().min(3, { message: "Il nome completo è richiesto." }),
+    email: z.string().email({ message: "Inserisci un'email valida." }),
+    password: z.string().min(8, { message: "La password deve contenere almeno 8 caratteri." }),
     confirmPassword: z.string(),
+    terms: z.boolean().refine((val) => val === true, {
+      message: "Devi accettare i Termini di Servizio.",
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
+    message: "Le password non coincidono.",
     path: ["confirmPassword"],
   })
 
-export const TicketStatus = z.enum(["open", "in_progress", "closed"])
+export const resetPasswordSchema = z.object({
+  email: z.string().email({ message: "Inserisci un'email valida." }),
+})
+
+export const updatePasswordSchema = z
+  .object({
+    password: z.string().min(8, { message: "La password deve contenere almeno 8 caratteri." }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Le password non coincidono.",
+    path: ["confirmPassword"],
+  })

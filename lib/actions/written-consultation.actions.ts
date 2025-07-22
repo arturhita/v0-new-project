@@ -1,98 +1,118 @@
 "use server"
-import { createClient } from "@/lib/supabase/server"
+
 import { revalidatePath } from "next/cache"
+import { getOperatorById } from "./operator.actions"
+
+// Mock data - In a real app, this would be a database table.
+const mockWrittenConsultations: WrittenConsultation[] = [
+  {
+    id: "wc_1",
+    clientId: "user_client_123",
+    clientName: "Mario Rossi",
+    operatorId: "op_luna_stellare",
+    operatorName: "Luna Stellare",
+    question: "Troverò l'amore entro la fine dell'anno? Sono nato il 15/05/1990.",
+    answer:
+      "Le carte mostrano un incontro significativo in autunno. Un'energia forte e compatibile si sta avvicinando. Sii aperto alle nuove conoscenze, specialmente nel mese di Ottobre. Le stelle favoriscono i legami duraturi in quel periodo.",
+    status: "answered",
+    cost: 30,
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+    answeredAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+  },
+]
+
+// Mock user wallet - In a real app, this would be part of the user's data.
+const mockUserWallets = new Map<string, number>([["user_client_123", 150.0]])
+
+export interface WrittenConsultation {
+  id: string
+  clientId: string
+  clientName: string
+  operatorId: string
+  operatorName: string
+  question: string
+  answer: string | null
+  status: "pending_operator_response" | "answered" | "cancelled"
+  cost: number
+  createdAt: Date
+  answeredAt: Date | null
+}
 
 export async function submitWrittenConsultation(formData: FormData) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Authentication required." }
+  const clientId = formData.get("clientId") as string
+  const operatorId = formData.get("operatorId") as string
+  const question = formData.get("question") as string
 
-  const rawData = {
-    operator_id: formData.get("operator_id"),
-    question: formData.get("question"),
+  if (!clientId || !operatorId || !question) {
+    return { success: false, error: "Dati mancanti per la richiesta." }
   }
 
-  // Basic validation
-  if (!rawData.operator_id || !rawData.question) {
-    return { error: "Operator and question are required." }
+  const operator = await getOperatorById(operatorId)
+  if (!operator || !operator.services.emailEnabled || !operator.services.emailPrice) {
+    return { success: false, error: "Operatore non disponibile per consulenze scritte." }
   }
 
-  const { error } = await supabase.from("written_consultations").insert({
-    client_id: user.id,
-    operator_id: rawData.operator_id as string,
-    question: rawData.question as string,
-    status: "pending",
-  })
+  const cost = operator.services.emailPrice
+  const clientWallet = mockUserWallets.get(clientId) || 0
 
-  if (error) {
-    console.error("Error submitting written consultation:", error)
-    return { error: error.message }
+  if (clientWallet < cost) {
+    return { success: false, error: "Credito insufficiente nel wallet." }
   }
+
+  // Deduct from wallet
+  mockUserWallets.set(clientId, clientWallet - cost)
+
+  const newConsultation: WrittenConsultation = {
+    id: `wc_${Date.now()}`,
+    clientId,
+    clientName: "Mario Rossi", // Mock name
+    operatorId,
+    operatorName: operator.stageName,
+    question,
+    answer: null,
+    status: "pending_operator_response",
+    cost,
+    createdAt: new Date(),
+    answeredAt: null,
+  }
+
+  mockWrittenConsultations.unshift(newConsultation)
 
   revalidatePath("/dashboard/client/written-consultations")
-  return { success: "Consultation submitted successfully." }
-}
-
-export async function getWrittenConsultationsForClient() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-
-  const { data, error } = await supabase
-    .from("written_consultations")
-    .select("*, operator:profiles(full_name, avatar_url)")
-    .eq("client_id", user.id)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching client consultations:", error)
-    return []
-  }
-  return data
-}
-
-export async function getWrittenConsultationsForOperator() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-
-  const { data, error } = await supabase
-    .from("written_consultations")
-    .select("*, client:profiles(full_name, avatar_url)")
-    .eq("operator_id", user.id)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Error fetching operator consultations:", error)
-    return []
-  }
-  return data
-}
-
-export async function answerWrittenConsultation(consultationId: string, answer: string) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Authentication required." }
-
-  const { error } = await supabase
-    .from("written_consultations")
-    .update({ answer, status: "answered", answered_at: new Date().toISOString() })
-    .eq("id", consultationId)
-    .eq("operator_id", user.id)
-
-  if (error) {
-    console.error("Error answering consultation:", error)
-    return { error: error.message }
-  }
-
   revalidatePath("/dashboard/operator/written-consultations")
-  return { success: "Answer submitted successfully." }
+
+  return { success: true, message: "La tua domanda è stata inviata con successo!" }
+}
+
+export async function getWrittenConsultationsForClient(clientId: string) {
+  return mockWrittenConsultations.filter((c) => c.clientId === clientId)
+}
+
+export async function getWrittenConsultationsForOperator(operatorId: string) {
+  return mockWrittenConsultations.filter((c) => c.operatorId === operatorId)
+}
+
+export async function answerWrittenConsultation(formData: FormData) {
+  const consultationId = formData.get("consultationId") as string
+  const answer = formData.get("answer") as string
+
+  if (!consultationId || !answer) {
+    return { success: false, error: "Dati mancanti per la risposta." }
+  }
+
+  const consultation = mockWrittenConsultations.find((c) => c.id === consultationId)
+  if (!consultation) {
+    return { success: false, error: "Consultazione non trovata." }
+  }
+
+  consultation.answer = answer
+  consultation.status = "answered"
+  consultation.answeredAt = new Date()
+
+  // In a real app, credit the operator's earnings here.
+
+  revalidatePath("/dashboard/client/written-consultations")
+  revalidatePath("/dashboard/operator/written-consultations")
+
+  return { success: true, message: "Risposta inviata con successo!" }
 }

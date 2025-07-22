@@ -1,52 +1,34 @@
 "use server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+
 import { createClient } from "@/lib/supabase/server"
-import type { Invoice, InvoiceItem } from "@/types/invoice.types"
+import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-export async function createInvoice(
-  invoiceData: Omit<Invoice, "id" | "created_at" | "total_amount"> & {
-    items: Omit<InvoiceItem, "id" | "invoice_id" | "total">[]
-  },
-) {
-  const supabase = supabaseAdmin
-  const { items, ...invoice } = invoiceData
+// Schema per la validazione dei dati della fattura
+const InvoiceItemSchema = z.object({
+  description: z.string().min(1, "La descrizione è richiesta."),
+  type: z.enum(["consultation", "commission", "deduction", "fee", "bonus", "other"]),
+  quantity: z.number().min(1, "La quantità deve essere almeno 1."),
+  unitPrice: z.number(),
+})
 
-  const total_amount = items.reduce((acc, item) => acc + item.quantity * item.unit_price, 0)
+const CreateInvoiceSchema = z.object({
+  operatorId: z.string().uuid("ID operatore non valido."),
+  dueDate: z.string().min(1, "La data di scadenza è richiesta."),
+  notes: z.string().optional(),
+  items: z.array(InvoiceItemSchema).min(1, "La fattura deve avere almeno un elemento."),
+})
 
-  const { data: newInvoice, error: invoiceError } = await supabase
-    .from("invoices")
-    .insert({ ...invoice, total_amount })
-    .select()
-    .single()
+export type InvoiceItem = z.infer<typeof InvoiceItemSchema>
 
-  if (invoiceError) {
-    console.error("Error creating invoice:", invoiceError)
-    return { error: invoiceError.message }
-  }
-
-  const invoiceItems = items.map((item) => ({
-    invoice_id: newInvoice.id,
-    description: item.description,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    total: item.quantity * item.unit_price,
-  }))
-
-  const { error: itemsError } = await supabase.from("invoice_items").insert(invoiceItems)
-
-  if (itemsError) {
-    console.error("Error creating invoice items:", itemsError)
-    // Optionally, delete the invoice if items fail
-    await supabase.from("invoices").delete().eq("id", newInvoice.id)
-    return { error: itemsError.message }
-  }
-
-  return { data: newInvoice }
-}
-
+// Funzione per ottenere gli operatori da mostrare nel modale
 export async function getOperatorsForInvoiceCreation() {
-  const supabase = supabaseAdmin
-  const { data, error } = await supabase.from("profiles").select("id, full_name").eq("role", "operator")
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, stage_name")
+    .eq("role", "operator")
+    .order("stage_name")
 
   if (error) {
     console.error("Error fetching operators:", error)
@@ -55,20 +37,104 @@ export async function getOperatorsForInvoiceCreation() {
   return data
 }
 
+// Funzione per creare una fattura e i suoi elementi
+export async function createInvoice(formData: FormData) {
+  const supabase = createClient()
+
+  const rawData = {
+    operatorId: formData.get("operatorId"),
+    dueDate: formData.get("dueDate"),
+    notes: formData.get("notes"),
+    items: JSON.parse(formData.get("items") as string),
+  }
+
+  const validation = CreateInvoiceSchema.safeParse(rawData)
+
+  if (!validation.success) {
+    return { success: false, message: "Dati non validi.", errors: validation.error.errors }
+  }
+
+  const { operatorId, dueDate, notes, items } = validation.data
+
+  try {
+    // Calcola il totale
+    const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`
+
+    // 1. Inserisci la fattura principale
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from("invoices")
+      .insert({
+        user_id: operatorId,
+        due_date: dueDate,
+        notes: notes,
+        total_amount: totalAmount,
+        invoice_number: invoiceNumber,
+        status: "draft",
+      })
+      .select("id")
+      .single()
+
+    if (invoiceError) throw new Error(`Errore creazione fattura: ${invoiceError.message}`)
+
+    const invoiceId = invoiceData.id
+
+    // 2. Inserisci gli elementi della fattura
+    const itemsToInsert = items.map((item) => ({
+      invoice_id: invoiceId,
+      description: item.description,
+      item_type: item.type,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total: item.quantity * item.unitPrice,
+    }))
+
+    const { error: itemsError } = await supabase.from("invoice_items").insert(itemsToInsert)
+
+    if (itemsError) throw new Error(`Errore inserimento elementi fattura: ${itemsError.message}`)
+
+    revalidatePath("/admin/invoices")
+    revalidatePath(`/dashboard/operator/invoices`)
+    return { success: true, message: `Fattura ${invoiceNumber} creata con successo.` }
+  } catch (error: any) {
+    return { success: false, message: error.message }
+  }
+}
+
+// Funzione per ottenere tutte le fatture per l'admin
 export async function getInvoicesForAdmin() {
-  const supabase = supabaseAdmin
+  const supabase = createClient()
   const { data, error } = await supabase
     .from("invoices")
-    .select("*, profile:profiles(full_name)")
-    .order("created_at", { ascending: false })
+    .select(`
+      id,
+      invoice_number,
+      issue_date,
+      due_date,
+      status,
+      total_amount,
+      profile:profiles!user_id (
+        stage_name
+      ),
+      invoice_items:invoice_items!invoice_id (
+        id,
+        description,
+        item_type,
+        quantity,
+        unit_price,
+        total
+      )
+    `)
+    .order("issue_date", { ascending: false })
 
   if (error) {
-    console.error("Error fetching invoices for admin:", error)
-    return []
+    console.error("Error fetching invoices for admin:", error.message)
+    throw new Error(`Impossibile caricare le fatture: ${error.message}`)
   }
   return data
 }
 
+// Funzione per ottenere le fatture di un singolo operatore
 export async function getInvoicesForOperator() {
   const supabase = createClient()
   const {
@@ -79,9 +145,12 @@ export async function getInvoicesForOperator() {
 
   const { data, error } = await supabase
     .from("invoices")
-    .select("*")
+    .select(`
+      *,
+      invoice_items:invoice_items!invoice_id(*)
+    `)
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
+    .order("issue_date", { ascending: false })
 
   if (error) {
     console.error("Error fetching invoices for operator:", error)
