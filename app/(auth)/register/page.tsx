@@ -11,14 +11,26 @@ import { register } from "@/lib/actions/auth.actions"
 import { useTransition } from "react"
 import Link from "next/link"
 import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
-import { useAuth } from "@/contexts/auth-context"
-import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    redirect("/") // Redirect logged-in users away
+  }
+
+  return <RegisterForm />
+}
+
+function RegisterForm() {
   const [isPending, startTransition] = useTransition()
-  const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -36,8 +48,9 @@ export default function RegisterPage() {
       try {
         const result = await register(values)
         if (result.success) {
-          toast.success("Registrazione completata! Verrai reindirizzato a breve...")
-          // The AuthContext will handle the redirect automatically after sign in.
+          // Use the actual success message from the server action
+          toast.success(result.success)
+          form.reset()
         } else if (result.error) {
           toast.error(result.error)
         }
@@ -46,10 +59,6 @@ export default function RegisterPage() {
         toast.error("Errore durante la registrazione. Riprova.")
       }
     })
-  }
-
-  if (isAuthLoading || isAuthenticated) {
-    return <LoadingSpinner fullScreen />
   }
 
   return (
@@ -73,6 +82,7 @@ export default function RegisterPage() {
                     <Input
                       placeholder="Mario Rossi"
                       {...field}
+                      disabled={isPending}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </FormControl>
@@ -90,6 +100,7 @@ export default function RegisterPage() {
                     <Input
                       placeholder="tuamail@esempio.com"
                       {...field}
+                      disabled={isPending}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </FormControl>
@@ -108,6 +119,7 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       {...field}
+                      disabled={isPending}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </FormControl>
@@ -126,6 +138,7 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       {...field}
+                      disabled={isPending}
                       className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </FormControl>
@@ -142,6 +155,7 @@ export default function RegisterPage() {
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      disabled={isPending}
                       className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-500"
                     />
                   </FormControl>

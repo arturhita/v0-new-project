@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
 import { useTransition } from "react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -15,10 +14,30 @@ import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
-export default function LoginPage() {
+// This is now a server-side check within the page component itself.
+export default async function LoginPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+    const role = profile?.role
+    if (role === "admin") redirect("/admin")
+    if (role === "operator") redirect("/dashboard/operator")
+    if (role === "client") redirect("/dashboard/client")
+    redirect("/") // Fallback
+  }
+
+  return <LoginForm />
+}
+
+function LoginForm() {
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -30,15 +49,10 @@ export default function LoginPage() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
+      // The login action will handle the redirect on success.
+      // We only need to handle the error case here.
       const result = await login(values)
-
-      if (result?.success) {
-        toast.success(result.success)
-        // Questo refresh è ora sicuro. Innescherà una nuova richiesta al server.
-        // Il nuovo (auth)/layout.tsx intercetterà questa richiesta,
-        // vedrà che l'utente è loggato e lo reindirizzerà alla sua dashboard.
-        router.refresh()
-      } else if (result?.error) {
+      if (result?.error) {
         toast.error(result.error)
         form.reset()
       }

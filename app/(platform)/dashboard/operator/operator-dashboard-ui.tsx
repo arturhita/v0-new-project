@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -38,8 +40,7 @@ import {
   ChevronDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type React from "react"
-import { Suspense, useEffect } from "react"
+import { useEffect } from "react"
 import { useOperatorStatus } from "@/contexts/operator-status-context"
 import { useChatRequest } from "@/contexts/chat-request-context"
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
@@ -155,8 +156,9 @@ export default function OperatorDashboardUI({ children }: { children: React.Reac
   )
 
   return (
-    <div className="min-h-screen bg-gray-100 w-full">
+    <div className="min-h-screen bg-gray-100">
       <SiteNavbar />
+
       <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
         <aside className="hidden border-r border-blue-700 bg-blue-800 md:block shadow-xl rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden relative z-10">
           <div className="flex h-full max-h-screen flex-col">
@@ -169,48 +171,51 @@ export default function OperatorDashboardUI({ children }: { children: React.Reac
               <SidebarNavOperator />
             </div>
             <div className="mt-auto p-3 border-t border-blue-700">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-base font-medium text-blue-200 hover:text-white hover:bg-blue-700"
-                onClick={logout}
-              >
-                <LogOut className="mr-2.5 h-5 w-5" />
-                Disconnetti
-              </Button>
+              <form action={logout}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  className="w-full justify-start text-base font-medium text-blue-200 hover:text-white hover:bg-blue-700"
+                >
+                  <LogOut className="mr-2.5 h-5 w-5" />
+                  Disconnetti
+                </Button>
+              </form>
             </div>
           </div>
         </aside>
+
         <div className="flex flex-col relative z-10">
           <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
-            <Suspense fallback={<div>Loading...</div>}>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 md:hidden rounded-lg border-2 border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent"
-                  >
-                    <MenuIcon className="h-6 w-6" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col bg-blue-800 p-0 w-[300px] border-r border-blue-700">
-                  <div className="flex h-20 items-center justify-center border-b border-blue-700 px-6 bg-gradient-to-br from-blue-800 to-blue-900">
-                    <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                      <span>Dashboard Operatore</span>
-                    </Link>
-                  </div>
-                  <div className="py-5 flex-1 overflow-auto">
-                    <SidebarNavOperator />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </Suspense>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 md:hidden rounded-lg border-2 border-gray-300 text-gray-600 hover:bg-gray-100 bg-transparent"
+                >
+                  <MenuIcon className="h-6 w-6" />
+                  <span className="sr-only">Apri menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex flex-col bg-blue-800 p-0 w-[300px] border-r border-blue-700">
+                <div className="flex h-20 items-center justify-center border-b border-blue-700 px-6 bg-gradient-to-br from-blue-800 to-blue-900">
+                  <Link href="/dashboard/operator" className="flex items-center gap-2.5 font-bold text-white text-lg">
+                    <span>Dashboard Operatore</span>
+                  </Link>
+                </div>
+                <div className="py-5 flex-1 overflow-auto">
+                  <SidebarNavOperator />
+                </div>
+              </SheetContent>
+            </Sheet>
+
             <div className="flex-1">
               <h1 className="text-xl font-semibold text-gray-800 capitalize">
                 {pathname.split("/").pop()?.replace(/-/g, " ") || "Panoramica"}
               </h1>
             </div>
+
             <div className="flex items-center gap-3 ml-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -255,6 +260,7 @@ export default function OperatorDashboardUI({ children }: { children: React.Reac
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
               <Button
                 variant="ghost"
                 size="icon"

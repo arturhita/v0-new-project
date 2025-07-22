@@ -1,27 +1,14 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  Bell,
-  MenuIcon,
-  Home,
-  Wallet,
-  MessageSquare,
-  Star,
-  LifeBuoy,
-  Briefcase,
-  LogOut,
-  Mail,
-  UserCircle,
-} from "lucide-react"
+import { Bell, MenuIcon, Home, Wallet, MessageSquare, Star, LifeBuoy, Briefcase, Mail, UserCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type React from "react"
-import { Suspense } from "react"
-import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 
 const navItemsClient = [
@@ -56,7 +43,7 @@ const NavItemClient = ({ item, pathname }: { item: (typeof navItemsClient)[0]; p
 
 export default function ClientDashboardUI({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { logout, profile } = useAuth()
+  const { profile } = useAuth()
 
   const SidebarNavClient = () => (
     <nav className="grid items-start gap-1.5 px-3">
@@ -67,80 +54,65 @@ export default function ClientDashboardUI({ children }: { children: React.ReactN
   )
 
   return (
-    <div className="min-h-screen bg-gray-100 w-full">
-      <SiteNavbar />
-      <div className="grid w-full md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr] pt-16">
-        <aside className="hidden border-r border-gray-200 bg-white md:block shadow-lg rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden">
-          <div className="flex h-full max-h-screen flex-col">
-            <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
-              <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                <span>Dashboard</span>
-              </Link>
-            </div>
-            <div className="flex-1 overflow-auto py-5 space-y-2">
-              <SidebarNavClient />
-            </div>
-            <div className="mt-auto p-3 border-t border-gray-200">
-              <Button
-                onClick={logout}
-                variant="ghost"
-                className="w-full justify-start text-base font-medium text-gray-700 hover:text-blue-700 hover:bg-blue-100"
-              >
-                <LogOut className="mr-2.5 h-5 w-5" />
-                Esci
-              </Button>
-            </div>
-          </div>
-        </aside>
-        <div className="flex flex-col">
-          <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
-            <Suspense fallback={<div>Loading...</div>}>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 md:hidden rounded-lg border-2 border-blue-300 text-blue-600 hover:bg-blue-100 bg-transparent"
-                  >
-                    <MenuIcon className="h-6 w-6" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px] border-gray-200">
-                  <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
-                    <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
-                      <span>Dashboard</span>
-                    </Link>
-                  </div>
-                  <div className="py-5 flex-1 overflow-auto">
-                    <SidebarNavClient />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </Suspense>
-            <div className="flex-1"></div>
-            <div className="flex items-center gap-3 ml-auto">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="sr-only">Notifiche</span>
-              </Button>
-              <Avatar className="h-10 w-10 border-2 border-blue-200">
-                <AvatarImage
-                  src={profile?.avatar_url || "/placeholder.svg?height=38&width=38"}
-                  alt={profile?.full_name || "User"}
-                />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {profile?.full_name?.charAt(0).toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </header>
-          <main className="flex-1 overflow-x-hidden p-4 sm:p-6 md:p-8">{children}</main>
+    <div className="flex min-h-screen">
+      <aside className="hidden md:block w-72 border-r border-gray-200 bg-white p-4">
+        <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg">
+          <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
+            <span>Dashboard Cliente</span>
+          </Link>
         </div>
+        <div className="py-5 flex-1 overflow-auto">
+          <SidebarNavClient />
+        </div>
+      </aside>
+      <div className="flex flex-1 flex-col">
+        <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 sm:p-6 md:p-8 sticky top-0 z-30">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 md:hidden rounded-lg border-2 border-blue-300 text-blue-600 hover:bg-blue-100 bg-transparent"
+              >
+                <MenuIcon className="h-6 w-6" />
+                <span className="sr-only">Apri menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px] border-gray-200">
+              <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
+                <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
+                  <span>Dashboard</span>
+                </Link>
+              </div>
+              <div className="py-5 flex-1 overflow-auto">
+                <SidebarNavClient />
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <div className="flex-1"></div>
+
+          <div className="flex items-center gap-3 ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="sr-only">Notifiche</span>
+            </Button>
+            <Avatar className="h-10 w-10 border-2 border-blue-200">
+              <AvatarImage
+                src={profile?.avatar_url || "/placeholder.svg?height=38&width=38"}
+                alt={profile?.full_name || "User"}
+              />
+              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
+                {profile?.full_name?.charAt(0).toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </header>
+        <main className="flex-1 overflow-x-hidden p-4 sm:p-6 md:p-8 bg-gray-50">{children}</main>
       </div>
     </div>
   )
