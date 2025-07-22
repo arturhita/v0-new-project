@@ -1,5 +1,5 @@
 import LoadingSpinner from "@/components/loading-spinner"
 
 export default function Loading() {
-  return <LoadingSpinner fullScreen message="Caricamento messaggi piattaforma..." />
+  return <LoadingSpinner fullScreen message="Caricamento messaggi..." />
 }

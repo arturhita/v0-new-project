@@ -18,15 +18,20 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = "/login" }
 
   useEffect(() => {
     if (isLoading) {
+      // Non fare nulla mentre l'autenticazione è in corso
       return
     }
 
     if (!user || !profile) {
+      // Se l'utente o il profilo non sono caricati dopo il loading,
+      // l'utente non è autenticato correttamente.
       router.replace(redirectTo)
       return
     }
 
     if (!allowedRoles.includes(profile.role)) {
+      // Se l'utente è autenticato ma non ha il ruolo corretto,
+      // reindirizzalo alla sua dashboard di default.
       switch (profile.role) {
         case "admin":
           router.replace("/admin/dashboard")
@@ -38,7 +43,7 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = "/login" }
           router.replace("/dashboard/client")
           break
         default:
-          router.replace("/")
+          router.replace("/") // Fallback generico
       }
     }
   }, [user, profile, isLoading, router, allowedRoles, redirectTo])
@@ -47,9 +52,12 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = "/login" }
     return <LoadingSpinner fullScreen message="Verifica autorizzazione..." />
   }
 
+  // Mostra i figli solo se l'utente è autenticato, ha un profilo
+  // e il suo ruolo è incluso tra quelli permessi.
   if (user && profile && allowedRoles.includes(profile.role)) {
     return <>{children}</>
   }
 
+  // Altrimenti, non renderizzare nulla mentre avviene il redirect.
   return null
 }

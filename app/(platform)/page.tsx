@@ -1,22 +1,43 @@
-import { Suspense } from "react"
-import HomepageClient from "./homepage-client"
+"use client"
 import { getHomepageData } from "@/lib/actions/data.actions"
-import LoadingSpinner from "@/components/loading-spinner"
+import { HomepageClient } from "./homepage-client"
+import { Suspense, useEffect, useState } from "react"
+import LoadingSpinner from "@/components/loading-spinner" // CORREZIONE: Importazione predefinita
+import type { Operator } from "@/components/operator-card"
+import type { Review } from "@/components/review-card"
 
-export const revalidate = 300 // Revalidate every 5 minutes
+export default function UnveillyHomePage() {
+  const [data, setData] = useState<{ operators: Operator[]; reviews: Review[] } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-export default async function HomePage() {
-  const homepageData = await getHomepageData()
+  useEffect(() => {
+    getHomepageData()
+      .then(setData)
+      .catch((e) => {
+        console.error("Failed to load homepage data:", e)
+        setError("Impossibile caricare i dati della homepage.")
+      })
+  }, [])
+
+  if (error) {
+    return <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white">{error}</div>
+  }
 
   return (
     <Suspense
       fallback={
-        <div className="w-full h-screen flex items-center justify-center bg-slate-900">
+        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
           <LoadingSpinner />
         </div>
       }
     >
-      <HomepageClient initialData={homepageData} />
+      {data ? (
+        <HomepageClient operators={data.operators} reviews={data.reviews} />
+      ) : (
+        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+          <LoadingSpinner />
+        </div>
+      )}
     </Suspense>
   )
 }
