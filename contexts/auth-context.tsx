@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
-import LoadingSpinner from "@/components/loading-spinner"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { toast } from "sonner"
 import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
 
