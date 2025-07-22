@@ -7,7 +7,6 @@ import type { User } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
-import { toast } from "sonner"
 
 interface Profile {
   id: string
@@ -50,39 +49,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // Start loading
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // The onAuthStateChange listener will handle state updates
-    // and the middleware will handle the redirect.
+    // Middleware will handle redirecting from protected pages.
+    // We can push to login for a faster client-side transition.
     router.push("/login")
   }, [supabase.auth, router])
 
   useEffect(() => {
-    // This effect is responsible for keeping the client-side state
-    // in sync with the Supabase auth state.
+    // This effect runs once on mount to check the initial session
+    // and then sets up the listener for auth changes.
+    const checkInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        const userProfile = await fetchProfileSafely(session.user.id)
+        setUser(session.user)
+        setProfile(userProfile)
+      }
+      setIsLoading(false) // Initial check is done
+    }
+
+    checkInitialSession()
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setIsLoading(true)
+      // This listener keeps the state in sync when auth changes happen
+      // in another tab or during login/logout actions.
       if (session) {
         const userProfile = await fetchProfileSafely(session.user.id)
-        if (userProfile) {
-          setUser(session.user)
-          setProfile(userProfile)
-        } else {
-          console.error("[AuthContext] User has session but no profile. Forcing logout.")
-          toast.error("Errore di sincronizzazione del profilo. Verrai disconnesso.")
-          await supabase.auth.signOut()
-          setUser(null)
-          setProfile(null)
-        }
+        setUser(session.user)
+        setProfile(userProfile)
       } else {
         setUser(null)
         setProfile(null)
       }
-      setIsLoading(false)
     })
 
     return () => {
@@ -90,7 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase.auth])
 
-  // The initial loading state is important to prevent UI flicker
+  // The initial loading state is crucial to prevent flicker and race conditions.
+  // The UI will not render until the initial auth status is known.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }

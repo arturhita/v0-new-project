@@ -1,6 +1,14 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+// Helper function to get the user's dashboard URL based on their role
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "admin") return "/admin/dashboard"
+  if (role === "operator") return "/dashboard/operator"
+  if (role === "client") return "/dashboard/client"
+  return "/" // Fallback to homepage
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -17,59 +25,73 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          response = NextResponse.next({ request: { headers: request.headers } })
+          // A new response object must be created for every cookie modification.
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
           response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options })
-          response = NextResponse.next({ request: { headers: request.headers } })
+          // A new response object must be created for every cookie modification.
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
           response.cookies.set({ name, value: "", ...options })
         },
       },
     },
   )
 
+  // Refresh session if expired - important!
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
   const { pathname } = request.nextUrl
-
   const isAuthPage = pathname === "/login" || pathname === "/register"
-  const isAdminRoute = pathname.startsWith("/admin")
-  const isOperatorRoute = pathname.startsWith("/dashboard/operator")
-  const isClientRoute = pathname.startsWith("/dashboard/client")
-  const isProtectedRoute = isAdminRoute || isOperatorRoute || isClientRoute
 
-  // If user is not logged in, redirect to login from any protected route
-  if (!user && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url))
+  // --- User is NOT logged in ---
+  if (!user) {
+    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/dashboard")
+    // If trying to access a protected route, redirect to login
+    if (isProtectedRoute) {
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+    // Otherwise, allow access (e.g., to homepage, etc.)
+    return response
   }
 
-  // If user is logged in, handle redirects
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    const role = profile?.role
+  // --- User IS logged in ---
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const userRole = profile?.role
+  const userDashboardUrl = getDashboardUrl(userRole)
 
-    // If user is on an auth page, redirect to their correct dashboard
-    if (isAuthPage) {
-      let destination = "/"
-      if (role === "admin") destination = "/admin/dashboard"
-      else if (role === "operator") destination = "/dashboard/operator"
-      else if (role === "client") destination = "/dashboard/client"
-      return NextResponse.redirect(new URL(destination, request.url))
-    }
-
-    // If user is on a protected route but with the wrong role, redirect to their correct dashboard
-    if (isAdminRoute && role !== "admin") {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-    if (isOperatorRoute && role !== "operator") {
-      return NextResponse.redirect(new URL("/", request.url))
-    }
-    // Add more specific role checks if needed
+  // If user is on an auth page (login/register), redirect them to their dashboard
+  if (isAuthPage) {
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
   }
 
+  // Role-based protection for protected routes
+  if (pathname.startsWith("/admin") && userRole !== "admin") {
+    console.log(
+      `[Middleware] Role mismatch: User with role '${userRole}' tried to access admin route. Redirecting to ${userDashboardUrl}`,
+    )
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+  if (pathname.startsWith("/dashboard/operator") && userRole !== "operator") {
+    console.log(
+      `[Middleware] Role mismatch: User with role '${userRole}' tried to access operator route. Redirecting to ${userDashboardUrl}`,
+    )
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+  if (pathname.startsWith("/dashboard/client") && userRole !== "client") {
+    console.log(
+      `[Middleware] Role mismatch: User with role '${userRole}' tried to access client route. Redirecting to ${userDashboardUrl}`,
+    )
+    return NextResponse.redirect(new URL(userDashboardUrl, request.url))
+  }
+
+  // If all checks pass, allow the request to proceed
   return response
 }
 
@@ -81,7 +103,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - images/ (your images)
+     * - api/ (API routes)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|api).*)",
   ],
 }
