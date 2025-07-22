@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import GoldenConstellationBackground from "@/components/golden-constellation-background"
+import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 
 export default function LoginPage() {
   const [isPending, startTransition] = useTransition()
@@ -50,16 +50,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-900">
       <GoldenConstellationBackground />
-      <Card className="z-10 w-full max-w-md bg-white/90 backdrop-blur-sm dark:bg-gray-950/90">
+      <Card className="z-10 w-full max-w-md border-slate-700 bg-slate-900/50 text-white backdrop-blur-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
-            Accedi al tuo account
-          </CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-400">
-            Bentornato! Inserisci le tue credenziali.
-          </CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight">Accedi al tuo account</CardTitle>
+          <CardDescription className="text-slate-400">Bentornato! Inserisci le tue credenziali.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -69,9 +65,15 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="text-slate-300">Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="tuamail@esempio.com" {...field} type="email" disabled={isPending} />
+                      <Input
+                        placeholder="tuamail@esempio.com"
+                        {...field}
+                        type="email"
+                        disabled={isPending}
+                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -82,25 +84,28 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel className="text-slate-300">Password</FormLabel>
                     <FormControl>
-                      <Input placeholder="••••••••" {...field} type="password" disabled={isPending} />
+                      <Input
+                        placeholder="••••••••"
+                        {...field}
+                        type="password"
+                        disabled={isPending}
+                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isPending}>
+              <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
                 {isPending ? "Accesso in corso..." : "Accedi"}
               </Button>
             </form>
           </Form>
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-6 text-center text-sm text-slate-400">
             Non hai un account?{" "}
-            <Link
-              href="/register"
-              className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-            >
+            <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
               Registrati ora
             </Link>
           </div>
