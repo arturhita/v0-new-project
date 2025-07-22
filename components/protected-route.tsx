@@ -14,33 +14,31 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { isAuthenticated, profile, isLoading } = useAuth()
   const router = useRouter()
+  const hasPermission = profile && allowedRoles.includes(profile.role)
 
   useEffect(() => {
     if (isLoading) {
-      return // Wait for the auth state to be determined from AuthProvider
-    }
-
-    // AuthProvider is the single source of truth for redirecting unauthenticated users.
-    // This component's only job is to handle role mismatches for *authenticated* users.
-    if (isAuthenticated && profile && !allowedRoles.includes(profile.role)) {
+      console.log("[ProtectedRoute] Loading...")
+    } else if (!isAuthenticated) {
+      console.log("[ProtectedRoute] User not authenticated. Redirecting...")
+    } else if (!hasPermission) {
       let destination = "/"
-      if (profile.role === "admin") destination = "/admin/dashboard"
-      else if (profile.role === "operator") destination = "/dashboard/operator"
-      else if (profile.role === "client") destination = "/dashboard/client"
+      if (profile?.role === "admin") destination = "/admin/dashboard"
+      else if (profile?.role === "operator") destination = "/dashboard/operator"
+      else if (profile?.role === "client") destination = "/dashboard/client"
+
+      console.log(`[ProtectedRoute] Role mismatch. Redirecting to ${destination}`)
       router.replace(destination)
     }
-  }, [isAuthenticated, profile, isLoading, router, allowedRoles])
+  }, [isAuthenticated, hasPermission, profile, router])
 
-  if (isLoading) {
-    return <LoadingSpinner fullScreen message="Verifica autorizzazione..." />
+  if (isLoading || !isAuthenticated) {
+    return <LoadingSpinner fullScreen message="Accesso richiesto..." />
   }
 
-  // If authenticated and the role is correct, render the children.
-  if (isAuthenticated && profile && allowedRoles.includes(profile.role)) {
-    return <>{children}</>
+  if (!hasPermission) {
+    return <LoadingSpinner fullScreen message="Permesso negato. Reindirizzamento..." />
   }
 
-  // In all other cases (e.g., not authenticated, role mismatch while redirecting),
-  // show a spinner. AuthProvider is responsible for the actual redirect logic.
-  return <LoadingSpinner fullScreen message="Reindirizzamento in corso..." />
+  return <>{children}</>
 }

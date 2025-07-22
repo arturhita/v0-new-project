@@ -16,6 +16,8 @@ interface Profile {
   role: "client" | "operator" | "admin"
 }
 
+type AuthState = "loading" | "authenticated" | "unauthenticated"
+
 type AuthContextType = {
   user: User | null
   profile: Profile | null
@@ -59,45 +61,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [authState, setAuthState] = useState<AuthState>("loading")
 
   const logout = useCallback(async () => {
-    console.log("[AuthContext] Logging out user.")
+    console.log("[AuthContext] Logging out...")
     await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.replace("/login")
-  }, [supabase.auth, router])
+    // onAuthStateChange will handle the state update and redirect
+  }, [supabase.auth])
 
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`[AuthContext] Auth state changed. Event: ${event}`)
-      setIsLoading(true)
+      console.log(`[AuthContext] onAuthStateChange event: ${event}`)
       const currentUser = session?.user
 
       if (currentUser) {
         const userProfile = await fetchProfileSafely(currentUser.id)
         if (userProfile) {
-          console.log("[AuthContext] User and profile are valid. Setting state.")
           setUser(currentUser)
           setProfile(userProfile)
+          setAuthState("authenticated")
+          console.log("[AuthContext] State -> authenticated")
         } else {
-          console.error(
-            "[AuthContext] Profile fetch failed for authenticated user. Forcing logout to prevent auth loop.",
-          )
-          toast.error("Errore critico: impossibile caricare il profilo. Verrai disconnesso.")
+          console.error("[AuthContext] User has session but no profile. Forcing logout.")
+          toast.error("Errore di sincronizzazione del profilo. Effettuare nuovamente il login.")
           await supabase.auth.signOut()
-          setUser(null)
-          setProfile(null)
+          // The signOut will trigger another onAuthStateChange, setting state to unauthenticated
         }
       } else {
-        console.log("[AuthContext] User is not authenticated. Clearing state.")
         setUser(null)
         setProfile(null)
+        setAuthState("unauthenticated")
+        console.log("[AuthContext] State -> unauthenticated")
       }
-      setIsLoading(false)
     })
 
     return () => {
@@ -106,38 +103,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   useEffect(() => {
-    if (isLoading) return
+    if (authState === "loading") {
+      return // Do nothing while loading
+    }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
-    const isAuthenticated = !!user && !!profile
 
-    console.log(
-      `[AuthContext] Route check. Path: ${pathname}, IsProtected: ${isProtectedPage}, IsAuthenticated: ${isAuthenticated}`,
-    )
-
-    if (!isAuthenticated && isProtectedPage) {
-      console.log("[AuthContext] Redirecting to /login (unauthenticated on protected page).")
+    if (authState === "unauthenticated" && isProtectedPage) {
+      console.log(`[AuthContext] Redirecting to /login from protected route: ${pathname}`)
       router.replace("/login")
-      return
     }
 
-    if (isAuthenticated && isAuthPage) {
+    if (authState === "authenticated" && isAuthPage) {
       let destination = "/"
-      if (profile.role === "admin") destination = "/admin/dashboard"
-      else if (profile.role === "operator") destination = "/dashboard/operator"
-      else if (profile.role === "client") destination = "/dashboard/client"
-      console.log(`[AuthContext] Redirecting to ${destination} (authenticated on auth page).`)
+      if (profile?.role === "admin") destination = "/admin/dashboard"
+      else if (profile?.role === "operator") destination = "/dashboard/operator"
+      else if (profile?.role === "client") destination = "/dashboard/client"
+
+      console.log(`[AuthContext] Redirecting from auth page to: ${destination}`)
       router.replace(destination)
     }
-  }, [user, profile, isLoading, pathname, router])
+  }, [authState, pathname, router, profile])
 
-  if (isLoading) {
+  // Render a loading spinner for the entire app while determining auth state.
+  // This prevents any page content from rendering prematurely.
+  if (authState === "loading") {
     return <LoadingSpinner fullScreen />
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user && !!profile, isLoading, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        isAuthenticated: authState === "authenticated",
+        isLoading: authState === "loading",
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
