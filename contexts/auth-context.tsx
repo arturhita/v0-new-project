@@ -35,43 +35,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // Il listener onAuthStateChange gestirà il reindirizzamento
-  }, [supabase.auth])
+    router.replace("/login") // Reindirizzamento esplicito al logout
+  }, [supabase.auth, router])
 
   useEffect(() => {
+    const fetchProfileWithRetry = async (userId: string, retries = 3, delay = 500): Promise<Profile | null> => {
+      for (let i = 0; i < retries; i++) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, role")
+          .eq("id", userId)
+          .maybeSingle()
+
+        if (error) {
+          console.error("Errore DB nel recupero del profilo:", error)
+          return null // Errore critico, interrompi
+        }
+        if (data) {
+          return data as Profile // Profilo trovato
+        }
+        // Profilo non trovato, attendi e riprova
+        if (i < retries - 1) {
+          await new Promise((res) => setTimeout(res, delay))
+        }
+      }
+      console.error(`Profilo non trovato per l'utente ${userId} dopo ${retries} tentativi.`)
+      return null // Profilo non trovato dopo tutti i tentativi
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setIsLoading(true) // Inizia il caricamento ad ogni cambio di stato
       const currentUser = session?.user ?? null
 
       if (currentUser) {
-        // L'utente è loggato, recupera il suo profilo
-        const { data: userProfile, error } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, role")
-          .eq("id", currentUser.id)
-          .maybeSingle() // <--- FIX: Changed from .single() to .maybeSingle()
+        const userProfile = await fetchProfileWithRetry(currentUser.id)
 
-        if (error) {
-          // Se il profilo non esiste o c'è un errore, è uno stato anomalo.
-          // Disconnetti l'utente per evitare che rimanga bloccato.
-          console.error("Errore critico nel recupero del profilo, logout in corso:", error)
+        if (userProfile) {
+          setUser(currentUser)
+          setProfile(userProfile)
+        } else {
+          // Se il profilo non viene trovato, è un errore. Disconnetti l'utente.
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
-        } else {
-          // Recupero di utente e profilo avvenuto con successo
-          setUser(currentUser)
-          setProfile(userProfile as Profile | null)
         }
       } else {
-        // L'utente è disconnesso
         setUser(null)
         setProfile(null)
       }
-
-      // Ora abbiamo uno stato definitivo, interrompi il caricamento
-      setIsLoading(false)
+      setIsLoading(false) // Fine del caricamento
     })
 
     return () => {
@@ -80,22 +94,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   useEffect(() => {
-    // Questo effetto gestisce i reindirizzamenti in base allo stato di autenticazione
     if (isLoading) {
-      return // Non fare nulla mentre si controlla l'autenticazione
+      return // Attendi che il caricamento iniziale sia completato
     }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
     if (!user && isProtectedPage) {
-      // Non loggato e su una pagina protetta -> reindirizza al login
       router.replace("/login")
       return
     }
 
     if (user && profile && isAuthPage) {
-      // Loggato e su una pagina di autenticazione -> reindirizza alla dashboard corretta
       let destination = "/"
       if (profile.role === "admin") destination = "/admin/dashboard"
       else if (profile.role === "operator") destination = "/dashboard/operator"
@@ -104,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, profile, isLoading, pathname, router])
 
-  // Mostra uno spinner a schermo intero durante il controllo iniziale dell'autenticazione
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
