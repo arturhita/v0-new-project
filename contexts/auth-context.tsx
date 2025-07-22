@@ -14,7 +14,6 @@ interface Profile {
   full_name: string | null
   avatar_url: string | null
   role: "client" | "operator" | "admin"
-  // Add any other profile fields you need in the context
 }
 
 type AuthContextType = {
@@ -36,74 +35,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
-    console.log("[AuthContext] logout: Signing out.")
+    console.log("[AuthContext] Signing out.")
     await supabase.auth.signOut()
-    // No need to set user/profile to null here, onAuthStateChange will handle it.
     router.push("/login")
   }, [supabase.auth, router])
 
-  const checkUser = useCallback(async () => {
-    console.log("[AuthContext] checkUser: Starting auth check.")
-    try {
-      // Use getSession to check for a client-side session
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
+  useEffect(() => {
+    console.log("[AuthContext] Setting up auth state listener.")
+    // onAuthStateChange fires once with the initial session, then on every auth event.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`[AuthContext] Auth event: ${event}`)
       if (session) {
-        console.log("[AuthContext] checkUser: Session found. Fetching profile.")
-        // If a session exists, fetch the profile using the secure server action
+        // User is logged in. Fetch their profile.
         const { profile: userProfile, error } = await getCurrentUserProfile()
-
         if (error || !userProfile) {
-          console.error("[AuthContext] checkUser: Profile fetch failed. Forcing logout.", error)
+          console.error("[AuthContext] Profile fetch failed. Forcing logout.", error)
           toast.error("Errore critico nel caricamento del profilo. Verrai disconnesso.")
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
         } else {
-          console.log("[AuthContext] checkUser: Profile fetched successfully.", userProfile.role)
+          // Profile fetched successfully. Update state.
+          console.log("[AuthContext] User and profile set.", { userId: session.user.id, role: userProfile.role })
           setUser(session.user)
           setProfile(userProfile as Profile)
         }
       } else {
-        console.log("[AuthContext] checkUser: No session found.")
+        // User is logged out. Clear state.
+        console.log("[AuthContext] No session. Clearing user and profile.")
         setUser(null)
         setProfile(null)
       }
-    } catch (e) {
-      console.error("[AuthContext] checkUser: Critical error during auth check.", e)
-      setUser(null)
-      setProfile(null)
-    } finally {
-      // This is crucial. Loading is set to false only after the entire check is complete.
-      if (isLoading) {
-        console.log("[AuthContext] checkUser: Auth check finished. Setting isLoading to false.")
-        setIsLoading(false)
-      }
-    }
-  }, [supabase.auth, isLoading]) // Depend on isLoading to prevent setting it to false multiple times
-
-  useEffect(() => {
-    // Run the check on initial component mount
-    checkUser()
-
-    // Listen for auth state changes (login, logout, token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`[AuthContext] onAuthStateChange: Event received - ${event}`)
-      // When the auth state changes, re-run the entire check to ensure consistency
-      checkUser()
+      // IMPORTANT: Set loading to false after the first check is complete.
+      setIsLoading(false)
     })
 
-    // Cleanup the subscription on component unmount
     return () => {
+      console.log("[AuthContext] Cleaning up auth subscription.")
       subscription.unsubscribe()
     }
-  }, [checkUser, supabase.auth])
+  }, [supabase.auth])
 
-  // Render a full-screen loader ONLY during the initial check.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }

@@ -34,15 +34,16 @@ export default function LoginPage() {
         console.log("[LoginPage] Calling login action for:", values.email)
         const result = await login(values)
         console.log("[LoginPage] Login action returned:", result)
-        if (result.success) {
-          toast.success("Accesso effettuato con successo! Verrai reindirizzato...")
-        } else if (result.error) {
+        if (result?.success) {
+          toast.success(result.success)
+          // The AuthContext listener and middleware will handle the redirect.
+        } else if (result?.error) {
           toast.error(result.error)
         } else {
           toast.error("Risposta inattesa dal server.")
         }
       } catch (error) {
-        console.error("[LoginPage] Error during login transition:", error)
+        console.error("[LoginPage] Critical error during login transition:", error)
         toast.error("Errore imprevisto durante l'accesso. Riprova.")
       }
     })

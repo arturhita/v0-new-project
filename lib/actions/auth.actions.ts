@@ -2,44 +2,46 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
-// Corrected to import lowercase versions
 import { loginSchema, registerSchema } from "../schemas"
 import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof loginSchema>) {
-  console.log("[Action: login] Attempting to log in user:", values.email)
-  const supabase = createClient()
-  // Using lowercase schema
-  const validatedFields = loginSchema.safeParse(values)
+  try {
+    console.log("[Action: login] Attempting to log in user:", values.email)
+    const supabase = createClient()
+    const validatedFields = loginSchema.safeParse(values)
 
-  if (!validatedFields.success) {
-    console.error("[Action: login] Validation failed:", validatedFields.error)
-    return { error: "Campi non validi!" }
-  }
-
-  const { email, password } = validatedFields.data
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  if (error) {
-    if (error.message.includes("Email not confirmed")) {
-      console.warn(`[Action: login] Login failed for ${email}: Email not confirmed.`)
-      return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
+    if (!validatedFields.success) {
+      console.error("[Action: login] Validation failed:", validatedFields.error.flatten().fieldErrors)
+      return { error: "Campi non validi!" }
     }
-    console.error(`[Action: login] Supabase login error for ${email}:`, error.message)
-    return { error: "Credenziali non valide." }
-  }
 
-  console.log("[Action: login] Login successful for:", values.email)
-  return { success: "Login effettuato con successo!" }
+    const { email, password } = validatedFields.data
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      if (error.message.includes("Email not confirmed")) {
+        console.warn(`[Action: login] Login failed for ${email}: Email not confirmed.`)
+        return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
+      }
+      console.error(`[Action: login] Supabase login error for ${email}:`, error.message)
+      return { error: "Credenziali non valide." }
+    }
+
+    console.log("[Action: login] Login successful for:", values.email)
+    return { success: "Login effettuato con successo! Verrai reindirizzato a breve." }
+  } catch (e) {
+    console.error("[Action: login] UNHANDLED EXCEPTION:", e)
+    return { error: "Errore imprevisto sul server durante il login." }
+  }
 }
 
 export async function register(values: z.infer<typeof registerSchema>) {
   const supabase = createClient()
-  // Using lowercase schema
   const validatedFields = registerSchema.safeParse(values)
 
   if (!validatedFields.success) {
@@ -48,8 +50,6 @@ export async function register(values: z.infer<typeof registerSchema>) {
 
   const { email, password, fullName } = validatedFields.data
 
-  // The database trigger 'on_auth_user_created' will handle profile creation.
-  // We pass the full_name in the user metadata so the trigger can use it.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
