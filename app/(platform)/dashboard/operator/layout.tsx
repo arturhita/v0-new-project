@@ -40,14 +40,13 @@ import {
 import { cn } from "@/lib/utils"
 import type React from "react"
 import { Suspense, useEffect } from "react"
-import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-status-context"
-import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-context"
+import { useOperatorStatus } from "@/contexts/operator-status-context"
+import { useChatRequest } from "@/contexts/chat-request-context"
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { AuthProvider } from "@/contexts/auth-context"
 import OperatorDashboardUI from "./operator-dashboard-ui"
 import type { ReactNode } from "react"
 
@@ -93,7 +92,7 @@ const getDashboardUrl = (role: string | undefined): string => {
   return "/"
 }
 
-function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
+function OperatorDashboardLayoutContent({ children, userName }: { children: React.ReactNode; userName: string }) {
   const pathname = usePathname()
   const router = useRouter()
   const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
@@ -284,10 +283,10 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
               <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
                 <AvatarImage
                   src={profile?.avatar_url || "/placeholder.svg?height=38&width=38"}
-                  alt={profile?.full_name || operatorName}
+                  alt={profile?.full_name || userName}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {profile?.full_name?.charAt(0).toUpperCase() || operatorName?.substring(0, 1).toUpperCase()}
+                  {profile?.full_name?.charAt(0).toUpperCase() || userName?.substring(0, 1).toUpperCase()}
                 </AvatarFallback>
                 <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
               </Avatar>
@@ -305,29 +304,19 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
 
 export default async function OperatorDashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return redirect("/login?message=Devi essere loggato per accedere.")
+    redirect("/login?message=Devi essere loggato per accedere.")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single()
 
-  if (profile?.role !== "operator") {
-    const targetUrl = getDashboardUrl(profile?.role)
-    return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
+  if (!profile || profile.role !== "operator") {
+    redirect("/login?message=Accesso non autorizzato.")
   }
 
-  return (
-    <AuthProvider>
-      <OperatorStatusProvider>
-        <ChatRequestProvider>
-          <OperatorDashboardUI>{children}</OperatorDashboardUI>
-        </ChatRequestProvider>
-      </OperatorStatusProvider>
-    </AuthProvider>
-  )
+  return <OperatorDashboardUI userName={profile.full_name}>{children}</OperatorDashboardUI>
 }

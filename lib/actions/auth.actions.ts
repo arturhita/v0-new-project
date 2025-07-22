@@ -23,8 +23,7 @@ export async function login(values: z.infer<typeof loginSchema>) {
     else if (role === "operator") redirectTo = "/dashboard/operator"
     else if (role === "client") redirectTo = "/dashboard/client"
 
-    // Return the redirect path to the client instead of calling redirect()
-    return { success: true, redirectTo }
+    redirect(redirectTo)
   }
 
   return { error: "Errore imprevisto durante il login." }
@@ -80,5 +79,5 @@ export async function updatePassword(values: z.infer<typeof updatePasswordSchema
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
-  // The listener will handle the refresh
+  redirect("/login")
 }

@@ -25,8 +25,7 @@ import { cn } from "@/lib/utils"
 import React from "react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { AuthProvider } from "@/contexts/auth-context"
-import AdminDashboardUI from "./admin-dashboard-ui"
+import { AdminDashboardUI } from "./admin-dashboard-ui"
 import type { ReactNode } from "react"
 
 const navItems = [
@@ -146,19 +145,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return redirect("/login?message=Devi essere loggato per accedere.")
+    redirect("/login?message=Devi essere loggato per accedere.")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
   if (profile?.role !== "admin") {
-    const targetUrl = getDashboardUrl(profile?.role)
-    return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
+    redirect("/login?message=Accesso non autorizzato.")
   }
 
-  return (
-    <AuthProvider>
-      <AdminDashboardUI>{children}</AdminDashboardUI>
-    </AuthProvider>
-  )
+  return <AdminDashboardUI>{children}</AdminDashboardUI>
 }

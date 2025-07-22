@@ -6,7 +6,6 @@ import type { z } from "zod"
 import { useTransition } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
@@ -17,7 +16,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -30,9 +28,6 @@ export function LoginForm() {
       if (result?.error) {
         toast.error(result.error)
         form.reset()
-      } else if (result?.success && result.redirectTo) {
-        // Client-side redirect
-        router.push(result.redirectTo)
       }
     })
   }
