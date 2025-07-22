@@ -28,14 +28,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
   try {
-    console.log(`[AuthContext] Attempting to fetch profile for user: ${userId}`)
-
-    // Prima prova con la funzione di bypass
+    console.log(`[AuthContext] Fetching profile for user: ${userId}`)
     let profileData = await getProfileBypass(userId)
-
-    // Se fallisce, prova con la query diretta (ora che RLS è disabilitata)
     if (!profileData) {
-      console.log("[AuthContext] Bypass failed, trying direct query")
+      console.log("[AuthContext] Bypass failed, trying direct query.")
       profileData = await getProfileDirect(userId)
     }
 
@@ -48,11 +44,10 @@ const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
         role: profileData.role as "client" | "operator" | "admin",
       }
     }
-
-    console.warn(`[AuthContext] No profile found for user ${userId}`)
+    console.warn(`[AuthContext] No profile found for user ${userId} with any method.`)
     return null
   } catch (error) {
-    console.error(`[AuthContext] Error in fetchProfileSafely:`, error)
+    console.error(`[AuthContext] Critical error in fetchProfileSafely:`, error)
     return null
   }
 }
@@ -67,87 +62,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
-    try {
-      console.log("[AuthContext] Logging out user")
-      await supabase.auth.signOut()
-      setUser(null)
-      setProfile(null)
-      router.replace("/login")
-    } catch (error) {
-      console.error("[AuthContext] Error during logout:", error)
-      // Force logout even if there's an error
-      setUser(null)
-      setProfile(null)
-      router.replace("/login")
-    }
-  }, [supabase.auth, router])
+    console.log("[AuthContext] Logging out user.")
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    // Non è necessario il replace qui, onAuthStateChange gestirà il redirect
+  }, [supabase.auth])
 
   useEffect(() => {
-    console.log("[AuthContext] Setting up auth state listener")
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`[AuthContext] Auth state changed. Event: ${event}, Session: ${session ? "Exists" : "Null"}`)
+      console.log(`[AuthContext] Auth state changed. Event: ${event}`)
       setIsLoading(true)
-
-      const currentUser = session?.user ?? null
+      const currentUser = session?.user
 
       if (currentUser) {
-        console.log(`[AuthContext] User authenticated: ${currentUser.id}`)
-
-        // Usa il metodo sicuro per recuperare il profilo
         const userProfile = await fetchProfileSafely(currentUser.id)
-
         if (userProfile) {
-          console.log(`[AuthContext] Profile loaded successfully for user ${currentUser.id}`)
+          // Success case: User and profile are valid.
+          console.log("[AuthContext] User and profile are valid. Setting state.")
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          console.error(`[AuthContext] Could not load profile for user ${currentUser.id}`)
-          toast.error("Errore nel caricamento del profilo utente")
-          // Impostiamo l'utente ma senza profilo per permettere il debug
-          setUser(currentUser)
+          // Failure case: User is authenticated but profile is missing. This is an invalid state.
+          console.error(
+            "[AuthContext] Profile fetch failed for authenticated user. Forcing logout to prevent auth loop.",
+          )
+          toast.error("Errore critico: impossibile caricare il profilo. Verrai disconnesso.")
+          await supabase.auth.signOut()
+          setUser(null)
           setProfile(null)
         }
       } else {
-        console.log(`[AuthContext] User not authenticated`)
+        // Logged out case
+        console.log("[AuthContext] User is not authenticated. Clearing state.")
         setUser(null)
         setProfile(null)
       }
-
       setIsLoading(false)
     })
 
     return () => {
-      console.log("[AuthContext] Cleaning up auth state listener")
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [supabase, logout])
 
   useEffect(() => {
-    if (isLoading) {
-      return
-    }
+    if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Se non autenticato e su pagina protetta, redirect al login
+    console.log(
+      `[AuthContext] Checking routes. Path: ${pathname}, IsProtected: ${isProtectedPage}, IsAuthenticated: ${!!user}`,
+    )
+
     if (!user && isProtectedPage) {
-      console.log("[AuthContext] Redirecting to login - user not authenticated")
+      console.log("[AuthContext] Redirecting to /login (unauthenticated on protected page).")
       router.replace("/login")
       return
     }
 
-    // Se autenticato e su pagina di auth, redirect alla dashboard appropriata
-    if (user && isAuthPage) {
+    if (user && profile && isAuthPage) {
       let destination = "/"
-      if (profile?.role === "admin") destination = "/admin/dashboard"
-      else if (profile?.role === "operator") destination = "/dashboard/operator"
-      else if (profile?.role === "client") destination = "/dashboard/client"
-
-      console.log(`[AuthContext] Redirecting authenticated user to: ${destination}`)
+      if (profile.role === "admin") destination = "/admin/dashboard"
+      else if (profile.role === "operator") destination = "/dashboard/operator"
+      else if (profile.role === "client") destination = "/dashboard/client"
+      console.log(`[AuthContext] Redirecting to ${destination} (authenticated on auth page).`)
       router.replace(destination)
     }
   }, [user, profile, isLoading, pathname, router])
@@ -157,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user && !!profile, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   )
