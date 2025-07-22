@@ -19,8 +19,11 @@ export const RegisterSchema = z.object({
   fullName: z.string().min(3, {
     message: "Il nome completo deve contenere almeno 3 caratteri.",
   }),
-  terms: z.boolean().refine((val) => val === true, {
-    message: "Devi accettare i Termini di Servizio e l'Informativa sulla Privacy.",
+  role: z.enum(["client", "operator"], {
+    required_error: "Devi selezionare un tipo di account.",
+  }),
+  terms: z.literal("on", {
+    errorMap: () => ({ message: "Devi accettare i Termini di Servizio e l'Informativa sulla Privacy." }),
   }),
 })
 

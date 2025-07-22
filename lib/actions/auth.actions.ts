@@ -53,14 +53,14 @@ export async function register(
     }
   }
 
-  const { email, password, name, role } = validatedFields.data
+  const { email, password, fullName, role } = validatedFields.data
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        full_name: name,
+        full_name: fullName,
         role: role,
       },
     },
