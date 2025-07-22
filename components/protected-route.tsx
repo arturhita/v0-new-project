@@ -14,30 +14,29 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { isAuthenticated, profile, isLoading } = useAuth()
   const router = useRouter()
-  const hasPermission = profile && allowedRoles.includes(profile.role)
 
   useEffect(() => {
     if (isLoading) {
-      console.log("[ProtectedRoute] Loading...")
-    } else if (!isAuthenticated) {
-      console.log("[ProtectedRoute] User not authenticated. Redirecting...")
-    } else if (!hasPermission) {
+      return
+    }
+
+    if (isAuthenticated && profile && !allowedRoles.includes(profile.role)) {
       let destination = "/"
-      if (profile?.role === "admin") destination = "/admin/dashboard"
-      else if (profile?.role === "operator") destination = "/dashboard/operator"
-      else if (profile?.role === "client") destination = "/dashboard/client"
+      if (profile.role === "admin") destination = "/admin/dashboard"
+      else if (profile.role === "operator") destination = "/dashboard/operator"
+      else if (profile.role === "client") destination = "/dashboard/client"
 
       console.log(`[ProtectedRoute] Role mismatch. Redirecting to ${destination}`)
       router.replace(destination)
     }
-  }, [isAuthenticated, hasPermission, profile, router])
+  }, [isLoading, isAuthenticated, profile, allowedRoles, router])
 
   if (isLoading || !isAuthenticated) {
-    return <LoadingSpinner fullScreen message="Accesso richiesto..." />
+    return <LoadingSpinner fullScreen />
   }
 
-  if (!hasPermission) {
-    return <LoadingSpinner fullScreen message="Permesso negato. Reindirizzamento..." />
+  if (profile && !allowedRoles.includes(profile.role)) {
+    return <LoadingSpinner fullScreen message="Reindirizzamento in corso..." />
   }
 
   return <>{children}</>
