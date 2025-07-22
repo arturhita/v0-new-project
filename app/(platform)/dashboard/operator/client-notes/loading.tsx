@@ -1,3 +1,5 @@
+import { LoadingSpinner } from "@/components/loading-spinner"
+
 export default function Loading() {
-  return null
+  return <LoadingSpinner fullScreen message="Caricamento note cliente..." />
 }
