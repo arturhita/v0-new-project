@@ -1,57 +1,68 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import ConstellationBackground from "@/components/constellation-background"
+import { ConstellationBackground } from "@/components/constellation-background"
+import { HelpCircle } from "lucide-react"
+
+const faqItems = [
+  {
+    question: "Come funziona Moonthir?",
+    answer:
+      "Moonthir è una piattaforma online che ti mette in contatto con cartomanti ed esperti spirituali qualificati. Puoi sfogliare i profili degli operatori, vedere le loro specializzazioni e recensioni, e scegliere la modalità di consulto che preferisci: chat, chiamata o domanda via email.",
+  },
+  {
+    question: "I consulti sono riservati?",
+    answer:
+      "Assolutamente sì. La tua privacy è la nostra massima priorità. Tutte le comunicazioni tra te e l'operatore sono protette e confidenziali. Non condividiamo i tuoi dati personali con nessuno.",
+  },
+  {
+    question: "Come posso pagare per un consulto?",
+    answer:
+      "Puoi ricaricare il tuo portafoglio virtuale sulla piattaforma utilizzando i principali metodi di pagamento come carta di credito o PayPal. Il costo del consulto verrà scalato direttamente dal tuo credito. Le transazioni sono sicure e protette.",
+  },
+  {
+    question: "Cosa succede se non sono soddisfatto del consulto?",
+    answer:
+      "La tua soddisfazione è importante per noi. Se hai avuto un'esperienza non positiva, ti invitiamo a contattare il nostro supporto clienti tramite la pagina 'Contattaci'. Valuteremo ogni caso singolarmente per trovare una soluzione adeguata.",
+  },
+  {
+    question: "Posso scegliere un operatore specifico?",
+    answer:
+      "Certo. Puoi consultare le schede personali di tutti i nostri operatori, che includono biografia, specialità, tariffe e recensioni lasciate da altri utenti. Questo ti permette di scegliere l'esperto che senti più in sintonia con te.",
+  },
+  {
+    question: "Come faccio a diventare un operatore su Moonthir?",
+    answer:
+      "Siamo sempre alla ricerca di professionisti seri e appassionati. Se desideri unirti al nostro team, visita la sezione 'Diventa Esperto' sul nostro sito e compila il modulo di candidatura. Il nostro team valuterà attentamente ogni richiesta.",
+  },
+]
 
 export default function FaqPage() {
-  const faqs = [
-    {
-      question: "Come funziona un consulto su Moonthir?",
-      answer:
-        "Puoi scegliere tra tre modalità: Chat per risposte immediate, Chiamata per un contatto diretto, o Domanda via Email per una risposta dettagliata. Scegli l'esperto che preferisci, seleziona la modalità e inizia il tuo consulto. Il costo viene calcolato al minuto per chat e chiamate, o come tariffa fissa per le domande via email.",
-    },
-    {
-      question: "Gli esperti sono qualificati?",
-      answer:
-        "Sì, tutti i nostri cartomanti e consulenti spirituali sono stati attentamente selezionati attraverso un processo di verifica che valuta la loro esperienza, professionalità ed etica. Puoi leggere le biografie e le recensioni su ogni profilo per scegliere l'esperto più in sintonia con te.",
-    },
-    {
-      question: "Come viene protetta la mia privacy?",
-      answer:
-        "La tua privacy è la nostra massima priorità. Tutte le comunicazioni sulla piattaforma sono protette e riservate. Non condividiamo i tuoi dati personali con gli esperti, che vedranno solo il tuo nome utente. Per maggiori dettagli, puoi consultare la nostra Privacy Policy.",
-    },
-    {
-      question: "Quali metodi di pagamento sono accettati?",
-      answer:
-        "Accettiamo le principali carte di credito e di debito. Puoi ricaricare il tuo portafoglio virtuale sulla piattaforma in modo sicuro e utilizzare il credito per i tuoi consulti, avendo sempre il pieno controllo della spesa.",
-    },
-    {
-      question: "Cosa succede se non sono soddisfatto del consulto?",
-      answer:
-        "La tua soddisfazione è importante per noi. Se hai avuto un'esperienza non positiva, ti preghiamo di contattare il nostro supporto clienti all'indirizzo infomoonthir@gmail.com. Valuteremo la situazione e cercheremo la soluzione migliore.",
-    },
-    {
-      question: "Posso parlare con lo stesso esperto più volte?",
-      answer:
-        "Certamente. Se hai trovato un esperto con cui ti trovi bene, puoi cercarlo direttamente sulla piattaforma e avviare un nuovo consulto quando è disponibile. Puoi anche aggiungerlo ai tuoi preferiti per trovarlo più facilmente.",
-    },
-  ]
-
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#0a192f]">
       <ConstellationBackground />
-      <main className="relative z-10 container mx-auto py-20 px-4">
-        <h1 className="text-4xl font-bold text-center text-cyan-300 mb-12 tracking-wider">Domande Frequenti (FAQ)</h1>
-        <div className="max-w-3xl mx-auto">
-          <Accordion type="single" collapsible className="w-full">
-            {faqs.map((faq, index) => (
+      <main className="relative z-10 flex flex-col items-center py-20 px-4">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-cyan-300 tracking-wider">Domande Frequenti (FAQ)</h1>
+          <p className="text-lg text-gray-300 mt-4 max-w-3xl mx-auto">
+            Trova qui le risposte alle domande più comuni sulla nostra piattaforma. Se non trovi quello che cerchi, non
+            esitare a contattarci.
+          </p>
+        </div>
+
+        <div className="w-full max-w-4xl">
+          <Accordion type="single" collapsible className="w-full space-y-4">
+            {faqItems.map((item, index) => (
               <AccordionItem
                 key={index}
                 value={`item-${index}`}
-                className="bg-slate-900/70 border-cyan-400/20 mb-4 rounded-lg backdrop-blur-sm"
+                className="bg-slate-900/80 border border-cyan-400/20 rounded-lg backdrop-blur-sm"
               >
-                <AccordionTrigger className="text-lg text-gray-200 hover:no-underline px-6 text-left">
-                  {faq.question}
+                <AccordionTrigger className="text-left text-lg font-semibold text-gray-200 hover:text-cyan-300 p-6">
+                  <div className="flex items-center">
+                    <HelpCircle className="h-5 w-5 mr-3 text-cyan-400 flex-shrink-0" />
+                    <span>{item.question}</span>
+                  </div>
                 </AccordionTrigger>
-                <AccordionContent className="text-gray-400 px-6 pb-4">{faq.answer}</AccordionContent>
+                <AccordionContent className="p-6 pt-0 text-gray-300">{item.answer}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

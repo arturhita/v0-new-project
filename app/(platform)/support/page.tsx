@@ -1,6 +1,6 @@
 import { Mail } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import ConstellationBackground from "@/components/constellation-background"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 export default function SupportPage() {
   return (
