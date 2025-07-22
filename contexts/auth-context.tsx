@@ -1,149 +1,119 @@
 "use client"
 
-import type React from "react"
-
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User, Session } from "@supabase/supabase-js"
-import { usePathname, useRouter } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
+import { useRouter, usePathname } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
+import { logout as logoutAction } from "@/lib/actions/auth.actions"
+
+type Profile = {
+  id: string
+  role: "client" | "operator" | "admin"
+  full_name: string
+  avatar_url: string
+}
 
 type AuthContextType = {
   user: User | null
-  session: Session | null
-  profile: any | null
+  profile: Profile | null
   isLoading: boolean
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<any | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
 
-  const logout = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setSession(null)
-    setProfile(null)
-    router.push("/login")
-    router.refresh()
-  }
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const getInitialSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setIsLoading(true)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
         const { data: profileData, error } = await supabase
           .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .maybeSingle()
-
-        if (error) {
-          console.error("Error fetching profile on initial load:", error.message)
-        } else {
-          setProfile(profileData)
-        }
-      }
-      setIsLoading(false)
-    }
-
-    getInitialSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-
-      if (session?.user) {
-        setIsLoading(true)
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
+          .select("id, role, full_name, avatar_url")
+          .eq("id", currentUser.id)
           .maybeSingle()
 
         if (error) {
           console.error("Error fetching profile on auth change:", error.message)
           setProfile(null)
         } else {
-          setProfile(profileData)
+          setProfile(profileData as Profile)
         }
-        setIsLoading(false)
       } else {
         setProfile(null)
-        setIsLoading(false)
       }
+      setIsLoading(false)
     })
 
-    return () => {
-      authListener.subscription.unsubscribe()
+    // Fetch initial session to prevent flicker
+    const getInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) {
+        setIsLoading(false)
+        return
+      }
+      // If there's a session, the onAuthStateChange listener will fire and handle the rest.
     }
-  }, [supabase, router])
+    getInitialSession()
+
+    return () => {
+      subscription?.unsubscribe()
+    }
+  }, [supabase])
 
   useEffect(() => {
-    // Attende il caricamento dello stato di autenticazione
-    if (isLoading) {
-      return
-    }
+    if (isLoading) return
 
-    const userRole = profile?.role
     const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/(platform)/dashboard")
+    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // CASO 1: Utente non autenticato
-    if (!user) {
-      if (isProtectedRoute) {
-        router.push("/login")
+    if (user && profile) {
+      if (isAuthPage) {
+        const targetDashboard =
+          profile.role === "admin"
+            ? "/admin"
+            : profile.role === "operator"
+              ? "/dashboard/operator"
+              : "/dashboard/client"
+        router.replace(targetDashboard)
       }
-      return
-    }
-
-    // CASO 2: Utente autenticato
-    // Se si trova su una pagina di login/registrazione, lo reindirizza alla sua dashboard
-    if (isAuthPage) {
-      switch (userRole) {
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        case "operator":
-          router.push("/(platform)/dashboard/operator")
-          break
-        default:
-          router.push("/(platform)/dashboard/client")
-          break
+    } else {
+      if (isProtectedPage) {
+        router.replace("/login")
       }
-      return
     }
+  }, [user, profile, isLoading, pathname, router])
 
-    // CASO 3: Utente autenticato su una pagina protetta (controllo dei permessi)
-    // Questo blocco impedisce l'accesso a sezioni non autorizzate e corregge i reindirizzamenti errati.
-    if (pathname.startsWith("/admin") && userRole !== "admin") {
-      router.push("/(platform)/login") // O una pagina di accesso negato
-    } else if (pathname.startsWith("/(platform)/dashboard/operator") && userRole !== "operator") {
-      if (userRole === "admin") router.push("/admin/dashboard")
-      else router.push("/(platform)/dashboard/client")
-    } else if (pathname.startsWith("/(platform)/dashboard/client") && userRole !== "client") {
-      if (userRole === "admin") router.push("/admin/dashboard")
-      else if (userRole === "operator") router.push("/(platform)/dashboard/operator")
-    }
-  }, [isLoading, user, profile, pathname, router])
-
-  if (isLoading) {
-    return <LoadingSpinner />
+  const logout = async () => {
+    await logoutAction()
+    setUser(null)
+    setProfile(null)
+    router.push("/login")
   }
 
-  return <AuthContext.Provider value={{ user, session, profile, isLoading, logout }}>{children}</AuthContext.Provider>
+  // Show a full-screen loader only on auth pages to prevent layout shift
+  // while the initial auth check is happening.
+  if (isLoading && (pathname === "/login" || pathname === "/register")) {
+    return <LoadingSpinner fullScreen />
+  }
+
+  return <AuthContext.Provider value={{ user, profile, isLoading, logout }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {

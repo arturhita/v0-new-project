@@ -7,63 +7,69 @@ export async function getAdminDashboardData() {
   const supabase = createClient()
   noStore()
 
-  const { data: users, error: usersError } = await supabase.rpc("count_users_by_role")
-  const { data: revenue, error: revenueError } = await supabase.rpc("get_monthly_revenue")
-  const { data: consultations, error: consultationsError } = await supabase.rpc("get_monthly_consultations_count")
-  const { count: pendingOperatorsCount, error: pendingOperatorsError } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact" })
-    .eq("status", "pending")
-    .eq("role", "operator")
+  try {
+    const [
+      { data: users, error: usersError },
+      { data: revenue, error: revenueError },
+      { data: consultations, error: consultationsError },
+      { data: pendingOperators, error: pendingOperatorsError },
+      { data: activePromotions, error: activePromotionsError },
+    ] = await Promise.all([
+      supabase.rpc("count_users_by_role"),
+      supabase.rpc("get_monthly_revenue"),
+      supabase.rpc("get_monthly_consultations_count"),
+      supabase.from("profiles").select("id", { count: "exact" }).eq("status", "pending").eq("role", "operator"),
+      supabase
+        .from("promotions")
+        .select("id", { count: "exact" })
+        .gte("end_date", new Date().toISOString())
+        .lte("start_date", new Date().toISOString()),
+    ])
 
-  const { count: activePromotionsCount, error: activePromotionsError } = await supabase
-    .from("promotions")
-    .select("id", { count: "exact" })
-    .gte("end_date", new Date().toISOString())
-    .lte("start_date", new Date().toISOString())
+    if (usersError || revenueError || consultationsError || pendingOperatorsError || activePromotionsError) {
+      console.error("Error fetching admin dashboard data:", {
+        usersError,
+        revenueError,
+        consultationsError,
+        pendingOperatorsError,
+        activePromotionsError,
+      })
+    }
 
-  const { data: newUsersThisMonthData, error: newUsersError } = await supabase.rpc("get_new_users_this_month")
-  const { data: newOperatorsThisWeekData, error: newOperatorsError } = await supabase.rpc("get_new_operators_this_week")
-  const { data: consultationsLast24hData, error: consultations24hError } =
-    await supabase.rpc("get_consultations_last_24h")
+    const operatorCount = users?.find((u: any) => u.role === "operator")?.count || 0
+    const clientCount = users?.find((u: any) => u.role === "client")?.count || 0
+    const totalUsers = operatorCount + clientCount
 
-  if (
-    usersError ||
-    revenueError ||
-    consultationsError ||
-    pendingOperatorsError ||
-    activePromotionsError ||
-    newUsersError ||
-    newOperatorsError ||
-    consultations24hError
-  ) {
-    console.error("Error fetching admin dashboard data:", {
-      usersError,
-      revenueError,
-      consultationsError,
-      pendingOperatorsError,
-      activePromotionsError,
-      newUsersError,
-      newOperatorsError,
-      consultations24hError,
-    })
-  }
+    const newUsersThisMonthData = await supabase.rpc("get_new_users_this_month")
+    const newOperatorsThisWeekData = await supabase.rpc("get_new_operators_this_week")
+    const consultationsLast24hData = await supabase.rpc("get_consultations_last_24h")
 
-  const operatorCount = users?.find((u: any) => u.role === "operator")?.count || 0
-  const clientCount = users?.find((u: any) => u.role === "client")?.count || 0
-  const totalUsers = operatorCount + clientCount
-
-  return {
-    kpis: {
-      totalUsers: totalUsers,
-      newUsersThisMonth: newUsersThisMonthData?.[0]?.count || 0,
-      activeOperators: operatorCount,
-      newOperatorsThisWeek: newOperatorsThisWeekData?.[0]?.count || 0,
-      revenueThisMonth: revenue?.[0]?.total_revenue || 0,
-      consultationsLast24h: consultationsLast24hData?.[0]?.count || 0,
-      activePromotions: activePromotionsCount || 0,
-      pendingOperatorRequests: pendingOperatorsCount || 0,
-    },
+    return {
+      kpis: {
+        totalUsers: totalUsers,
+        newUsersThisMonth: newUsersThisMonthData.data?.[0]?.count || 0,
+        activeOperators: operatorCount,
+        newOperatorsThisWeek: newOperatorsThisWeekData.data?.[0]?.count || 0,
+        revenueThisMonth: revenue?.[0]?.total_revenue || 0,
+        consultationsLast24h: consultationsLast24hData.data?.[0]?.count || 0,
+        activePromotions: activePromotions?.count || 0,
+        pendingOperatorRequests: pendingOperators?.count || 0,
+      },
+    }
+  } catch (error) {
+    console.error("A critical error occurred in getAdminDashboardData:", error)
+    return {
+      kpis: {
+        totalUsers: 0,
+        newUsersThisMonth: 0,
+        activeOperators: 0,
+        newOperatorsThisWeek: 0,
+        revenueThisMonth: 0,
+        consultationsLast24h: 0,
+        activePromotions: 0,
+        pendingOperatorRequests: 0,
+      },
+    }
   }
 }
 

@@ -1,62 +1,23 @@
 import { z } from "zod"
 
 export const LoginSchema = z.object({
-  email: z.string().email({
-    message: "L'email non è valida.",
-  }),
-  password: z.string().min(1, {
-    message: "La password è richiesta.",
-  }),
+  email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
+  password: z.string().min(1, { message: "La password è richiesta." }),
 })
 
-export const RegisterSchema = z.object({
-  email: z.string().email({
-    message: "Inserisci un'email valida.",
-  }),
-  password: z.string().min(8, {
-    message: "La password deve contenere almeno 8 caratteri.",
-  }),
-  fullName: z.string().min(3, {
-    message: "Il nome completo deve contenere almeno 3 caratteri.",
-  }),
-  role: z.enum(["client", "operator"], {
-    required_error: "Devi selezionare un tipo di account.",
-  }),
-  // Corretto per gestire il valore 'on' di una checkbox HTML
-  terms: z.literal("on", {
-    errorMap: () => ({ message: "Devi accettare i Termini di Servizio e l'Informativa sulla Privacy." }),
-  }),
-})
-
-export const OperatorApplicationSchema = z.object({
-  fullName: z.string().min(1, "Il nome completo è richiesto."),
-  email: z.string().email("Email non valida."),
-  phone: z.string().min(1, "Il numero di telefono è richiesto."),
-  specialization: z.string().min(1, "La specializzazione è richiesta."),
-  experience: z.string().min(1, "Descrivi la tua esperienza."),
-  motivation: z.string().min(1, "La motivazione è richiesta."),
-  cv: z
-    .any()
-    .refine((file) => file?.size <= 5000000, `La dimensione massima del file è 5MB.`)
-    .refine((file) => file?.type === "application/pdf", "Sono accettati solo file PDF."),
-})
-
-export const ReviewSchema = z.object({
-  rating: z.number().min(1).max(5),
-  comment: z
-    .string()
-    .min(10, "La recensione deve contenere almeno 10 caratteri.")
-    .max(1000, "La recensione non può superare i 1000 caratteri."),
-  consultation_id: z.string().uuid(),
-  operator_id: z.string().uuid(),
-})
-
-export const OperatorProfileSchema = z.object({
-  bio: z.string().max(1500, "La biografia non può superare i 1500 caratteri.").optional(),
-  services_description: z
-    .string()
-    .max(1000, "La descrizione dei servizi non può superare i 1000 caratteri.")
-    .optional(),
-  specialties: z.array(z.string()).optional(),
-  categories: z.array(z.string()).optional(),
-})
+export const RegisterSchema = z
+  .object({
+    firstName: z.string().min(1, { message: "Il nome è richiesto." }),
+    lastName: z.string().min(1, { message: "Il cognome è richiesto." }),
+    email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
+    password: z.string().min(6, { message: "La password deve essere di almeno 6 caratteri." }),
+    confirmPassword: z.string(),
+    role: z.enum(["client", "operator"]),
+    terms: z.literal(true, {
+      error_map: () => ({ message: "Devi accettare i Termini e le Condizioni." }),
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Le password non coincidono.",
+    path: ["confirmPassword"], // path of error
+  })

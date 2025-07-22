@@ -1,83 +1,84 @@
 "use server"
+
 import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
-import { AuthError } from "@supabase/supabase-js"
+import { revalidatePath } from "next/cache"
 
-export async function login(
-  prevState: { message: string; success: boolean },
-  formData: FormData,
-): Promise<{ message: string; success: boolean }> {
+export async function login(prevState: any, formData: FormData) {
   const supabase = createClient()
-
   const validatedFields = LoginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return {
-      message: "Campi non validi.",
-      success: false,
-    }
+    return { error: "Campi non validi." }
   }
 
   const { email, password } = validatedFields.data
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error) {
-    console.error("Login error:", error.message)
-    if (error instanceof AuthError) {
-      return { message: "Credenziali non valide.", success: false }
-    }
-    return { message: "Errore durante il login. Riprova.", success: false }
+  if (loginError || !loginData.user) {
+    return { error: "Credenziali non valide." }
   }
 
-  return { message: "Login effettuato con successo!", success: true }
+  // Fetch profile to get the role for direct redirection
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", loginData.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    // This case is unlikely if RLS is correct, but good to handle
+    await supabase.auth.signOut() // Log out user if profile is missing
+    return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+  }
+
+  revalidatePath("/", "layout")
+  return { success: "Accesso effettuato!", role: profile.role }
 }
 
-export async function register(
-  prevState: { message: string; success: boolean },
-  formData: FormData,
-): Promise<{ message: string; success: boolean }> {
+export async function register(prevState: any, formData: FormData) {
   const supabase = createClient()
-
   const validatedFields = RegisterSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    const errorMessages = validatedFields.error.errors.map((e) => e.message).join(" ")
-    return {
-      message: `Campi non validi: ${errorMessages}`,
-      success: false,
-    }
+    const errors = validatedFields.error.flatten().fieldErrors
+    const firstError = Object.values(errors)[0]?.[0]
+    return { error: firstError || "Dati di input non validi." }
   }
 
-  // Corretto per usare 'fullName' come definito nello schema
-  const { email, password, fullName, role } = validatedFields.data
+  const { email, password, firstName, lastName, role } = validatedFields.data
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        // Corretto per passare 'fullName' come 'full_name' a Supabase
-        full_name: fullName,
+        full_name: `${firstName} ${lastName}`,
         role: role,
+        // We can add first_name and last_name to metadata if needed
+        // first_name: firstName,
+        // last_name: lastName,
       },
     },
   })
 
   if (error) {
-    console.error("Registration error:", error)
     if (error.message.includes("User already registered")) {
-      return { message: "Utente già registrato con questa email.", success: false }
+      return { error: "Un utente con questa email è già registrato." }
     }
-    return { message: "Errore durante la registrazione. Riprova.", success: false }
+    console.error("Supabase signUp error:", error)
+    return { error: "Impossibile creare l'account. Riprova." }
   }
 
-  if (!data.session) {
-    return { message: "Registrazione completata. Controlla la tua email per la verifica.", success: true }
-  }
+  return { success: "Registrazione completata! Controlla la tua email per la verifica." }
+}
 
-  return { message: "Registrazione effettuata con successo!", success: true }
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  revalidatePath("/", "layout")
 }
