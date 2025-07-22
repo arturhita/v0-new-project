@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
 import { toast } from "sonner"
@@ -25,6 +25,13 @@ type AuthContextType = {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "admin") return "/admin/dashboard"
+  if (role === "operator") return "/dashboard/operator"
+  if (role === "client") return "/dashboard/client"
+  return "/"
+}
 
 const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
   try {
@@ -47,52 +54,61 @@ const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
+  const pathname = usePathname()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoadingUser, setIsLoadingUser] = useState(true)
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
     router.push("/login")
   }, [supabase.auth, router])
 
-  // Effect 1: Get the user from Supabase auth state changes
+  // Effect 1: Handle auth state changes
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setIsLoadingUser(false)
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const userProfile = await fetchProfileSafely(session.user.id)
+        if (userProfile) {
+          setUser(session.user)
+          setProfile(userProfile)
+        } else {
+          toast.error("Profilo non trovato. Verrai disconnesso.")
+          await supabase.auth.signOut()
+          setUser(null)
+          setProfile(null)
+        }
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+      setIsLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [supabase.auth])
 
-  // Effect 2: Get the profile when the user object is available or changes
+  // Effect 2: Handle redirects based on auth state
   useEffect(() => {
-    if (user) {
-      setIsLoadingProfile(true)
-      fetchProfileSafely(user.id)
-        .then((userProfile) => {
-          if (userProfile) {
-            setProfile(userProfile)
-          } else {
-            toast.error("Profilo non trovato. Verrai disconnesso.")
-            logout()
-          }
-        })
-        .finally(() => {
-          setIsLoadingProfile(false)
-        })
-    } else {
-      // If there's no user, ensure profile is also null.
-      setProfile(null)
+    if (isLoading) {
+      return // Don't do anything while loading
     }
-  }, [user, logout])
 
-  const isLoading = isLoadingUser || isLoadingProfile
+    const isAuthenticated = !!user && !!profile
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/dashboard")
+
+    if (!isAuthenticated && isProtectedRoute) {
+      router.push("/login")
+    }
+
+    if (isAuthenticated && isAuthPage) {
+      router.push(getDashboardUrl(profile.role))
+    }
+  }, [isLoading, user, profile, pathname, router])
 
   if (isLoading) {
     return <LoadingSpinner fullScreen />
