@@ -1,62 +1,43 @@
 "use server"
-
-import { createClient } from "@/lib/supabase/server"
+import createServerClient from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-export async function getOperatorServices() {
-  const supabase = createClient()
+export async function saveOperatorServices(services: any) {
+  const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) return { error: "Not authenticated" }
 
-  if (!user) return null
+  // This assumes you have a table `operator_services`
+  const { error } = await supabase.from("operator_services").delete().eq("operator_id", user.id)
+  if (error) return { error: error.message }
 
-  const { data, error } = await supabase.from("profiles").select("services").eq("id", user.id).single()
+  const servicesToInsert = services.map((s: any) => ({ ...s, operator_id: user.id }))
+  const { error: insertError } = await supabase.from("operator_services").insert(servicesToInsert)
+  if (insertError) return { error: insertError.message }
 
-  if (error) {
-    console.error("Error fetching services:", error)
-    return null
-  }
-
-  return data.services
+  revalidatePath("/dashboard/operator/services")
+  return { success: true }
 }
 
-export function validateServicePricing(services: any): string | null {
-  const { chat, call, email } = services
-  if (chat.enabled && (chat.price_per_minute <= 0 || chat.price_per_minute > 100)) {
-    return "Il prezzo della chat deve essere tra 0.01 e 100."
-  }
-  if (call.enabled && (call.price_per_minute <= 0 || call.price_per_minute > 100)) {
-    return "Il prezzo delle chiamate deve essere tra 0.01 e 100."
-  }
-  if (email.enabled && (email.price <= 0 || email.price > 1000)) {
-    return "Il prezzo dei consulti scritti deve essere tra 0.01 e 1000."
+export async function getOperatorServices() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase.from("operator_services").select("*").eq("operator_id", user.id)
+  if (error) return []
+  return data
+}
+
+export function validateServicePricing(services: any[]): string | null {
+  for (const service of services) {
+    if (service.price_per_minute < 0.5 || service.price_per_minute > 10) {
+      return `Il prezzo per ${service.name} deve essere tra 0.50€ e 10.00€.`
+    }
   }
   return null
-}
-
-export async function saveOperatorServices(services: any) {
-  const validationError = validateServicePricing(services)
-  if (validationError) {
-    return { success: false, message: validationError }
-  }
-
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, message: "User not authenticated" }
-  }
-
-  const { error } = await supabase.from("profiles").update({ services }).eq("id", user.id)
-
-  if (error) {
-    console.error("Error saving services:", error)
-    return { success: false, message: error.message }
-  }
-
-  revalidatePath("/(platform)/dashboard/operator/services")
-  return { success: true, message: "Servizi aggiornati con successo." }
 }

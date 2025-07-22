@@ -1,93 +1,86 @@
 "use server"
 
-import type { z } from "zod"
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import type { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/schemas"
+import createServerClient from "@/lib/supabase/server"
+import type { z } from "zod"
+import type { LoginSchema, RegisterSchema } from "../schemas"
 
-export async function login(values: z.infer<typeof loginSchema>) {
-  const supabase = createClient()
-
-  const { data: signInData, error } = await supabase.auth.signInWithPassword(values)
+export async function login(formData: z.infer<typeof LoginSchema>) {
+  const supabase = await createServerClient()
+  const { error } = await supabase.auth.signInWithPassword(formData)
 
   if (error) {
-    return { error: "Credenziali non valide. Riprova." }
+    return { error: error.message }
   }
 
-  if (signInData.user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", signInData.user.id).single()
-
-    const role = profile?.role
-    let redirectTo = "/"
-    if (role === "admin") redirectTo = "/admin"
-    else if (role === "operator") redirectTo = "/dashboard/operator"
-    else if (role === "client") redirectTo = "/dashboard/client"
-
-    redirect(redirectTo)
-  }
-
-  return { error: "Errore imprevisto durante il login." }
+  revalidatePath("/", "layout")
+  redirect("/admin/dashboard") // Or user dashboard
 }
 
-export async function register(values: z.infer<typeof registerSchema>) {
-  const supabase = createClient()
-
+export async function register(formData: z.infer<typeof RegisterSchema>) {
+  const supabase = await createServerClient()
   const { error } = await supabase.auth.signUp({
-    email: values.email,
-    password: values.password,
+    email: formData.email,
+    password: formData.password,
     options: {
-      data: { full_name: values.fullName },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      data: {
+        full_name: formData.fullName,
+        role: "client",
+      },
     },
   })
 
   if (error) {
-    return {
-      error: error.message.includes("User already registered")
-        ? "Un utente con questa email è già registrato."
-        : `Errore: ${error.message}`,
-    }
+    return { error: error.message }
   }
 
-  return { success: "Registrazione completata! Controlla la tua email per la verifica." }
-}
-
-export async function requestPasswordReset(values: z.infer<typeof resetPasswordSchema>) {
-  const supabase = createClient()
-  const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/update-password`,
-  })
-
-  if (error) {
-    return { error: "Impossibile inviare l'email di reset. Riprova." }
-  }
-
-  return { success: "Se l'email è corretta, riceverai un link per reimpostare la password." }
-}
-
-export async function updatePassword(values: z.infer<typeof updatePasswordSchema>) {
-  const supabase = createClient()
-  const { error } = await supabase.auth.updateUser({ password: values.password })
-
-  if (error) {
-    return { error: "Impossibile aggiornare la password. Il link potrebbe essere scaduto." }
-  }
-
-  redirect("/login")
+  return { success: "Controlla la tua email per verificare il tuo account." }
 }
 
 export async function logout() {
-  const supabase = createClient()
+  const supabase = await createServerClient()
   await supabase.auth.signOut()
   redirect("/login")
 }
 
-// Note: signUpAsOperator is handled by registerOperator in operator.actions.ts
-// This is kept for reference in case any old component still calls it.
-// A better approach would be to refactor any calls to use registerOperator.
-export async function signUpAsOperator(values: any) {
-  console.warn("signUpAsOperator is deprecated. Use registerOperator instead.")
-  // Redirect to the main registration logic for operators
-  const { registerOperator } = await import("./operator.actions")
-  return registerOperator(values)
+export async function requestPasswordReset(email: string) {
+  const supabase = await createServerClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/update-password`,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+  return { success: "Controlla la tua email per il link di reset." }
+}
+
+export async function updatePassword(password: string) {
+  const supabase = await createServerClient()
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  redirect("/login")
+}
+
+export async function signUpAsOperator(formData: any) {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: "User not found" }
+
+  const { error } = await supabase.from("profiles").update({ role: "operator" }).eq("id", user.id)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath("/diventa-esperto")
+  return { success: "Registration successful" }
 }

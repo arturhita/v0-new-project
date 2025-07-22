@@ -1,22 +1,14 @@
-import type React from "react"
-;("use server")
-
-import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
-import { Banknote, Briefcase, Coins, MinusCircle, PlusCircle, Receipt, Users } from "lucide-react"
+"use server"
+import createServerClient from "@/lib/supabase/server"
+import type { LucideIcon } from "lucide-react"
 
 export function formatCurrency(amount: number | null | undefined) {
-  if (amount === null || amount === undefined) {
-    return "€0,00"
-  }
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount)
+  if (amount === null || amount === undefined) return "€0.00"
+  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount)
 }
 
 export function formatDate(dateString: string | null | undefined) {
-  if (!dateString) return "N/A"
+  if (!dateString) return "-"
   return new Date(dateString).toLocaleDateString("it-IT", {
     day: "2-digit",
     month: "short",
@@ -28,63 +20,51 @@ export function getServiceTypeLabel(type: string) {
   const labels: { [key: string]: string } = {
     chat: "Chat",
     call: "Chiamata",
-    email: "Consulto Scritto",
-    bonus: "Bonus",
-    adjustment: "Rettifica",
-    payout: "Pagamento",
+    written_consultation: "Consulto Scritto",
   }
-  return labels[type] || "Altro"
+  return labels[type] || "Sconosciuto"
 }
 
-export function getServiceTypeIcon(type: string) {
-  const icons: { [key: string]: React.ElementType } = {
-    chat: Users,
-    call: Banknote,
-    email: Briefcase,
-    bonus: PlusCircle,
-    adjustment: MinusCircle,
-    payout: Receipt,
-  }
-  return icons[type] || Coins
+export function getServiceTypeIcon(type: string): LucideIcon | null {
+  // This requires you to import the icons in the component where you use this.
+  // Example: import { MessageCircle, Phone, FileText } from 'lucide-react'
+  return null
 }
 
-export async function getOperatorEarningsSummary(operatorId: string) {
-  noStore()
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: operatorId })
-
-  if (error) {
-    console.error("Error fetching earnings summary:", error)
-    return {
-      totalRevenue: 0,
-      netEarnings: 0,
-      pendingPayout: 0,
-      paidOut: 0,
-    }
-  }
-  return data[0]
-}
-
-export async function getOperatorEarningsChartData(operatorId: string) {
-  noStore()
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_operator_monthly_earnings_chart", { p_operator_id: operatorId })
-
-  if (error) {
-    console.error("Error fetching earnings chart data:", error)
-    return []
-  }
+export async function getOperatorEarningsSummary() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: user.id }).single()
+  if (error) return null
   return data
 }
 
-export async function getOperatorRecentTransactions(operatorId: string) {
-  noStore()
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_operator_recent_transactions", { p_operator_id: operatorId })
+export async function getOperatorEarningsChartData() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase.rpc("get_operator_earnings_chart_data", { p_operator_id: user.id })
+  if (error) return []
+  return data
+}
 
-  if (error) {
-    console.error("Error fetching recent transactions:", error)
-    return []
-  }
+export async function getOperatorRecentTransactions() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase
+    .from("earnings")
+    .select("*")
+    .eq("operator_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(10)
+  if (error) return []
   return data
 }
