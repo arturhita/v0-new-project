@@ -33,3 +33,9 @@ export const updatePasswordSchema = z
     message: "Le password non coincidono.",
     path: ["confirmPassword"],
   })
+
+export const TicketStatus = z.enum(["Open", "InProgress", "Closed", "Resolved"])
+export type TicketStatus = z.infer<typeof TicketStatus>
+
+export const PayoutStatus = z.enum(["pending", "processing", "completed", "failed"])
+export type PayoutStatus = z.infer<typeof PayoutStatus>

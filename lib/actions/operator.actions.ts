@@ -2,19 +2,17 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
 import type { OperatorProfile } from "@/types/database"
 
-// Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
 }
 
-// Define Availability types
 export type AvailabilitySlot = {
   start: string
   end: string
@@ -69,8 +67,9 @@ export async function registerOperator(formData: FormData) {
 
   const { email, password, name, surname, stageName, bio, categories } = validatedFields.data
   const fullName = `${name} ${surname}`.trim()
+  const supabase = createAdminClient()
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -98,20 +97,19 @@ export async function registerOperator(formData: FormData) {
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+  const { error: profileError } = await supabase.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
     bio: bio,
     categories: categories.split(","),
     role: "operator",
-    status: "approved", // Profilo subito attivo come da descrizione pagina
+    status: "approved",
   })
 
   if (profileError) {
     console.error("Error creating operator profile:", profileError)
-    // Rollback auth user creation
-    await supabaseAdmin.auth.admin.deleteUser(userId)
+    await supabase.auth.admin.deleteUser(userId)
     return { success: false, message: profileError.message }
   }
 
@@ -141,8 +139,9 @@ export async function createOperator(formData: FormData) {
   }
 
   const { email, password, fullName, stageName } = validatedFields.data
+  const supabase = createAdminClient()
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -163,7 +162,7 @@ export async function createOperator(formData: FormData) {
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+  const { error: profileError } = await supabase.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
@@ -173,8 +172,7 @@ export async function createOperator(formData: FormData) {
 
   if (profileError) {
     console.error("Error creating operator profile:", profileError)
-    // Rollback auth user creation
-    await supabaseAdmin.auth.admin.deleteUser(userId)
+    await supabase.auth.admin.deleteUser(userId)
     return { message: profileError.message }
   }
 
@@ -205,6 +203,49 @@ export async function updateOperatorCommission(operatorId: string, commission: s
       success: false,
       message: error.message || "Errore nell'aggiornamento della commissione",
     }
+  }
+}
+
+export async function getOperatorPublicProfile(username: string) {
+  const supabase = createClient()
+  const { data: profiles, error: rpcError } = await supabase.rpc("get_public_profile_by_stage_name", {
+    stage_name_to_find: username,
+  })
+
+  if (rpcError) {
+    console.error(`Errore RPC durante la ricerca del profilo per "${username}":`, rpcError.message)
+    return null
+  }
+
+  if (!profiles || profiles.length === 0) {
+    console.log(`Profilo per "${username}" non trovato tramite RPC.`)
+    return null
+  }
+
+  const profile = profiles[0]
+  const services = profile.services as any
+  const chatService = services?.chat
+  const callService = services?.call
+  const emailService = services?.email
+
+  return {
+    id: profile.id,
+    full_name: profile.full_name,
+    stage_name: profile.stage_name,
+    avatar_url: profile.avatar_url,
+    bio: profile.bio,
+    specialization: profile.specialties || [],
+    tags: profile.categories || [],
+    rating: profile.average_rating,
+    reviews_count: profile.reviews_count,
+    is_online: profile.is_online,
+    availability: profile.availability as Availability | null,
+    services: [
+      chatService?.enabled && { service_type: "chat", price: chatService.price_per_minute },
+      callService?.enabled && { service_type: "call", price: callService.price_per_minute },
+      emailService?.enabled && { service_type: "written", price: emailService.price },
+    ].filter((service): service is { service_type: string; price: number } => service !== null && service !== false),
+    reviews: [],
   }
 }
 
@@ -263,7 +304,8 @@ export async function updateOperatorAvailability(userId: string, availability: a
 }
 
 export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
-  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("role", "operator")
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
 
   if (error) {
     console.error("Error fetching operator profiles:", error)
@@ -273,7 +315,7 @@ export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
 }
 
 export async function getOperatorForAdmin(operatorId: string) {
-  const supabase = supabaseAdmin
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -292,17 +334,17 @@ export async function updateOperatorDetails(prevState: any, formData: FormData) 
   const operatorId = formData.get("operatorId") as string
   if (!operatorId) return { message: "ID Operatore mancante.", error: true }
 
-  const supabase = supabaseAdmin
+  const supabase = createAdminClient()
 
   const { error } = await supabase
     .from("profiles")
     .update({
       stage_name: formData.get("name") as string,
-      email: formData.get("email") as string,
+      // email cannot be updated here directly, it's an auth property
       phone: formData.get("phone") as string,
       specialties: [formData.get("discipline") as string],
       bio: formData.get("description") as string,
-      is_active: formData.get("isActive") === "on",
+      status: formData.get("isActive") === "on" ? "Attivo" : "Sospeso",
     })
     .eq("id", operatorId)
 

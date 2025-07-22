@@ -45,7 +45,6 @@ export async function getOperatorDashboardData(operatorId: string) {
 
   if (profileError) {
     console.error("Error fetching operator profile for dashboard:", profileError)
-    // Return a default structure on error to avoid breaking the UI
     return {
       totalEarningsMonth: 0,
       pendingConsultations: 0,
@@ -63,7 +62,6 @@ export async function getOperatorDashboardData(operatorId: string) {
 
   if (statsError) {
     console.error("Error fetching operator dashboard stats:", statsError)
-    // Return a default structure on error
     return {
       totalEarningsMonth: 0,
       pendingConsultations: 0,
@@ -80,4 +78,20 @@ export async function getOperatorDashboardData(operatorId: string) {
     averageRating: profile.average_rating || 0,
     totalReviews: profile.reviews_count || 0,
   }
+}
+
+export async function getRecentActivities() {
+  const supabase = createClient()
+  // This is a mock implementation. Replace with real data.
+  const { data, error } = await supabase
+    .from("consultations")
+    .select("*")
+    .limit(5)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching recent activities:", error)
+    return []
+  }
+  return data
 }

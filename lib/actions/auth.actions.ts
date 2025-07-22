@@ -81,3 +81,13 @@ export async function logout() {
   await supabase.auth.signOut()
   redirect("/login")
 }
+
+// Note: signUpAsOperator is handled by registerOperator in operator.actions.ts
+// This is kept for reference in case any old component still calls it.
+// A better approach would be to refactor any calls to use registerOperator.
+export async function signUpAsOperator(values: any) {
+  console.warn("signUpAsOperator is deprecated. Use registerOperator instead.")
+  // Redirect to the main registration logic for operators
+  const { registerOperator } = await import("./operator.actions")
+  return registerOperator(values)
+}

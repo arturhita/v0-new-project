@@ -1,6 +1,6 @@
 "use server"
 
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export async function sendBroadcastNotification(formData: FormData) {
@@ -13,7 +13,7 @@ export async function sendBroadcastNotification(formData: FormData) {
   }
 
   try {
-    const supabase = supabaseAdmin
+    const supabase = createAdminClient()
 
     let userQuery = supabase.from("profiles").select("id")
 
@@ -22,7 +22,6 @@ export async function sendBroadcastNotification(formData: FormData) {
     } else if (recipientType === "operators") {
       userQuery = userQuery.eq("role", "operator")
     }
-    // For 'all', we don't add a role filter.
 
     const { data: users, error: usersError } = await userQuery
 
@@ -35,7 +34,6 @@ export async function sendBroadcastNotification(formData: FormData) {
       return { error: "Nessun destinatario trovato per i criteri selezionati." }
     }
 
-    // Assuming a 'notifications' table exists with at least these columns
     const notifications = users.map((user) => ({
       user_id: user.id,
       title,

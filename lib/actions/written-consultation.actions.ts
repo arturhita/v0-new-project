@@ -3,7 +3,20 @@
 import { revalidatePath } from "next/cache"
 import { getOperatorById } from "./operator.actions"
 
-// Mock data - In a real app, this would be a database table.
+export interface WrittenConsultation {
+  id: string
+  clientId: string
+  clientName: string
+  operatorId: string
+  operatorName: string
+  question: string
+  answer: string | null
+  status: "pending_operator_response" | "answered" | "cancelled"
+  cost: number
+  createdAt: Date
+  answeredAt: Date | null
+}
+
 const mockWrittenConsultations: WrittenConsultation[] = [
   {
     id: "wc_1",
@@ -21,22 +34,7 @@ const mockWrittenConsultations: WrittenConsultation[] = [
   },
 ]
 
-// Mock user wallet - In a real app, this would be part of the user's data.
 const mockUserWallets = new Map<string, number>([["user_client_123", 150.0]])
-
-export interface WrittenConsultation {
-  id: string
-  clientId: string
-  clientName: string
-  operatorId: string
-  operatorName: string
-  question: string
-  answer: string | null
-  status: "pending_operator_response" | "answered" | "cancelled"
-  cost: number
-  createdAt: Date
-  answeredAt: Date | null
-}
 
 export async function submitWrittenConsultation(formData: FormData) {
   const clientId = formData.get("clientId") as string
@@ -59,7 +57,6 @@ export async function submitWrittenConsultation(formData: FormData) {
     return { success: false, error: "Credito insufficiente nel wallet." }
   }
 
-  // Deduct from wallet
   mockUserWallets.set(clientId, clientWallet - cost)
 
   const newConsultation: WrittenConsultation = {
@@ -67,7 +64,7 @@ export async function submitWrittenConsultation(formData: FormData) {
     clientId,
     clientName: "Mario Rossi", // Mock name
     operatorId,
-    operatorName: operator.stageName,
+    operatorName: operator.stage_name,
     question,
     answer: null,
     status: "pending_operator_response",
@@ -108,8 +105,6 @@ export async function answerWrittenConsultation(formData: FormData) {
   consultation.answer = answer
   consultation.status = "answered"
   consultation.answeredAt = new Date()
-
-  // In a real app, credit the operator's earnings here.
 
   revalidatePath("/dashboard/client/written-consultations")
   revalidatePath("/dashboard/operator/written-consultations")

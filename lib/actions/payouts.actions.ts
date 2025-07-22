@@ -17,7 +17,8 @@ export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> 
 
   const { data, error } = await supabase
     .from("payout_requests")
-    .select(`
+    .select(
+      `
       id,
       created_at,
       amount,
@@ -25,7 +26,8 @@ export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> 
       profiles (
         stage_name
       )
-    `)
+    `,
+    )
     .order("created_at", { ascending: false })
 
   if (error) {

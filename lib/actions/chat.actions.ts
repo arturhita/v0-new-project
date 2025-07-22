@@ -179,10 +179,6 @@ export async function respondToChatRequest(
   return { success: true }
 }
 
-/**
- * NUOVA ACTION: Recupera i dettagli di una sessione di chat.
- * In un'app reale, questa funzione farebbe una query al database.
- */
 export async function getChatSessionDetails(sessionId: string): Promise<ChatSessionDetails | null> {
   console.log(`Recupero dettagli per la sessione: ${sessionId}`)
   // SIMULAZIONE: Recupera la sessione dalla nostra mappa mock
