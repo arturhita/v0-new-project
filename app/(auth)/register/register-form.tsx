@@ -46,7 +46,7 @@ export default function RegisterForm() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
+    <div className="relative flex flex-grow items-center justify-center overflow-hidden py-16">
       <GoldenConstellationBackground />
       <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">

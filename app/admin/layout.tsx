@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils"
 import React from "react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { AuthProvider } from "@/contexts/auth-context"
 import AdminDashboardUI from "./admin-dashboard-ui"
 import type { ReactNode } from "react"
 
@@ -156,9 +155,5 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
   }
 
-  return (
-    <AuthProvider>
-      <AdminDashboardUI>{children}</AdminDashboardUI>
-    </AuthProvider>
-  )
+  return <AdminDashboardUI>{children}</AdminDashboardUI>
 }

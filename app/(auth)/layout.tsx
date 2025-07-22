@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
+import { SiteNavbar } from "@/components/site-navbar"
+import { SiteFooter } from "@/components/site-footer"
 
 const getDashboardUrl = (role: string | undefined): string => {
   if (role === "admin") return "/admin"
@@ -17,11 +19,15 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
 
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
     const redirectUrl = getDashboardUrl(profile?.role)
-    console.log(`[AuthLayout] User is already logged in. Redirecting to ${redirectUrl}`)
     return redirect(redirectUrl)
   }
 
-  return <>{children}</>
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-900">
+      <SiteNavbar />
+      <main className="flex-grow flex flex-col">{children}</main>
+      <SiteFooter />
+    </div>
+  )
 }

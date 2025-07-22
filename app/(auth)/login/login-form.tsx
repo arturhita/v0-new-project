@@ -4,8 +4,9 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { z } from "zod"
 import { useTransition } from "react"
-import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { toast } from "sonner"
 
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
@@ -15,8 +16,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 
-// Questo è il PURO Componente Client.
 export function LoginForm() {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -29,18 +30,22 @@ export function LoginForm() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
-      // L'azione di login gestirà il reindirizzamento in caso di successo.
-      // Qui dobbiamo solo gestire il caso di errore.
       const result = await login(values)
       if (result?.error) {
         toast.error(result.error)
         form.reset()
       }
+      if (result?.success) {
+        toast.success("Login effettuato con successo!")
+        // Forza un refresh della pagina. Il componente server rileverà la sessione
+        // e gestirà il reindirizzamento.
+        router.refresh()
+      }
     })
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-900">
+    <div className="relative flex flex-grow items-center justify-center overflow-hidden py-16">
       <GoldenConstellationBackground />
       <Card className="z-10 w-full max-w-md border-slate-700 bg-slate-900/50 text-white backdrop-blur-sm">
         <CardHeader className="text-center">
