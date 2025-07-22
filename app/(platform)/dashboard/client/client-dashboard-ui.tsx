@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,7 +8,11 @@ import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Bell, MenuIcon, Home, Wallet, MessageSquare, Star, LifeBuoy, Briefcase, Mail, UserCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
+
+type Profile = {
+  full_name: string | null
+  avatar_url: string | null
+} | null
 
 const navItemsClient = [
   { href: "/dashboard/client", label: "Panoramica", icon: Home },
@@ -41,9 +44,8 @@ const NavItemClient = ({ item, pathname }: { item: (typeof navItemsClient)[0]; p
   )
 }
 
-export default function ClientDashboardUI({ children }: { children: React.ReactNode }) {
+export function ClientDashboardUI({ children, profile }: { children: React.ReactNode; profile: Profile }) {
   const pathname = usePathname()
-  const { profile } = useAuth()
 
   const SidebarNavClient = () => (
     <nav className="grid items-start gap-1.5 px-3">
@@ -54,19 +56,19 @@ export default function ClientDashboardUI({ children }: { children: React.ReactN
   )
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden md:block w-72 border-r border-gray-200 bg-white p-4">
-        <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg">
+    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr]">
+      <aside className="hidden md:flex flex-col border-r bg-white">
+        <div className="flex h-20 items-center justify-center border-b px-6 bg-gradient-to-br from-blue-600 to-blue-700">
           <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
             <span>Dashboard Cliente</span>
           </Link>
         </div>
-        <div className="py-5 flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto py-5">
           <SidebarNavClient />
         </div>
       </aside>
-      <div className="flex flex-1 flex-col">
-        <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 sm:p-6 md:p-8 sticky top-0 z-30">
+      <div className="flex flex-col">
+        <header className="flex h-20 items-center gap-4 border-b bg-white/95 backdrop-blur-sm px-4 sm:px-6 md:px-8 sticky top-0 z-30">
           <Sheet>
             <SheetTrigger asChild>
               <Button
@@ -78,8 +80,8 @@ export default function ClientDashboardUI({ children }: { children: React.ReactN
                 <span className="sr-only">Apri menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px] border-gray-200">
-              <div className="flex h-20 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
+            <SheetContent side="left" className="flex flex-col bg-white p-0 w-[280px]">
+              <div className="flex h-20 items-center justify-center border-b px-6 bg-gradient-to-br from-blue-600 to-blue-700">
                 <Link href="/dashboard/client" className="flex items-center gap-2.5 font-bold text-white text-lg">
                   <span>Dashboard</span>
                 </Link>

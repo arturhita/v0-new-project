@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import type { ReactNode } from "react"
 import { ClientDashboardUI } from "./client-dashboard-ui"
+import type { ReactNode } from "react"
 
 export default async function ClientDashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -13,19 +14,24 @@ export default async function ClientDashboardLayout({ children }: { children: Re
     return redirect("/login?message=Devi essere loggato per accedere.")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("role, full_name, avatar_url")
+    .eq("id", user.id)
+    .single()
 
-  // Redirect if the user is not a client
-  if (profile?.role !== "client") {
-    if (profile?.role === "admin") return redirect("/admin")
-    if (profile?.role === "operator") return redirect("/dashboard/operator")
-    return redirect("/")
+  if (error || !profile) {
+    console.error("Error fetching client profile:", error)
+    // This could happen if the profile wasn't created correctly.
+    // Log out the user and redirect to login with an error message.
+    await supabase.auth.signOut()
+    return redirect("/login?message=Errore nel caricamento del profilo. Effettua nuovamente il login.")
   }
 
-  return (
-    <div className="flex min-h-full w-full">
-      <ClientDashboardUI />
-      <main className="flex-1 p-4 md:p-8 lg:p-10">{children}</main>
-    </div>
-  )
+  if (profile.role !== "client") {
+    const targetUrl = profile.role === "admin" ? "/admin" : profile.role === "operator" ? "/dashboard/operator" : "/"
+    return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
+  }
+
+  return <ClientDashboardUI profile={profile}>{children}</ClientDashboardUI>
 }
