@@ -8,52 +8,40 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { registerSchema } from "@/lib/schemas"
 import { register } from "@/lib/actions/auth.actions"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import Link from "next/link"
-import { ConstellationBackground } from "@/components/constellation-background"
+import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
-import { Checkbox } from "@/components/ui/checkbox"
-import { MailCheck } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export default function RegisterPage() {
   const [isPending, startTransition] = useTransition()
   const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
-  const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullName: "",
       email: "",
       password: "",
       confirmPassword: "",
-      terms: false,
+      fullName: "",
+      role: "client",
     },
   })
 
   const onSubmit = (values: z.infer<typeof registerSchema>) => {
-    console.log("[RegisterPage] Attempting registration with:", {
-      email: values.email,
-      fullName: values.fullName,
-    })
-
     startTransition(async () => {
       try {
         const result = await register(values)
-        console.log("[RegisterPage] Registration result:", result)
-
         if (result.success) {
-          toast.success(result.success)
-          setRegistrationSuccess(true)
+          toast.success("Registrazione completata! Verrai reindirizzato...")
         } else if (result.error) {
-          console.error("[RegisterPage] Registration error:", result.error)
           toast.error(result.error)
         }
       } catch (error) {
-        console.error("[RegisterPage] Exception during registration:", error)
-        toast.error("Errore durante la registrazione. Riprova.")
+        toast.error("Errore imprevisto durante la registrazione. Riprova.")
       }
     })
   }
@@ -62,32 +50,13 @@ export default function RegisterPage() {
     return <LoadingSpinner fullScreen />
   }
 
-  if (registrationSuccess) {
-    return (
-      <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
-        <ConstellationBackground />
-        <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 text-center shadow-2xl shadow-green-500/10 backdrop-blur-sm">
-          <MailCheck className="mx-auto h-16 w-16 text-green-400" />
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">Registrazione quasi completata!</h1>
-          <p className="mt-4 text-slate-300">
-            Ti abbiamo inviato un'email di conferma. Clicca sul link nell'email per attivare il tuo account.
-          </p>
-          <p className="mt-2 text-sm text-slate-400">Se non la vedi, controlla la cartella spam.</p>
-          <Button asChild variant="gradient" className="mt-8 w-full">
-            <Link href="/login">Vai alla pagina di Login</Link>
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
-      <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900 py-12">
+      <GoldenConstellationBackground />
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-yellow-500/10 backdrop-blur-sm">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Crea il tuo Account</h1>
-          <p className="mt-2 text-slate-400">Unisciti alla nostra community di esperti e clienti.</p>
+          <p className="mt-2 text-slate-400">Inizia ora la tua esperienza sulla piattaforma.</p>
         </div>
 
         <Form {...form}>
@@ -102,7 +71,7 @@ export default function RegisterPage() {
                     <Input
                       placeholder="Mario Rossi"
                       {...field}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-yellow-500 focus:border-yellow-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -119,7 +88,7 @@ export default function RegisterPage() {
                     <Input
                       placeholder="tuamail@esempio.com"
                       {...field}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-yellow-500 focus:border-yellow-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -137,7 +106,7 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       {...field}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-yellow-500 focus:border-yellow-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -155,7 +124,7 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       {...field}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-yellow-500 focus:border-yellow-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -164,37 +133,43 @@ export default function RegisterPage() {
             />
             <FormField
               control={form.control}
-              name="terms"
+              name="role"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
+                <FormItem className="space-y-3">
+                  <FormLabel className="text-slate-300">Tipo di Account</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-500"
-                    />
+                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="client" className="text-yellow-400 border-slate-700" />
+                        </FormControl>
+                        <FormLabel className="font-normal text-slate-300">Cliente</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="operator" className="text-yellow-400 border-slate-700" />
+                        </FormControl>
+                        <FormLabel className="font-normal text-slate-300">Esperto</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-slate-400 font-normal">
-                      Accetto i{" "}
-                      <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
-                        Termini di Servizio
-                      </Link>
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
-              {isPending ? "Registrazione in corso..." : "Registrati"}
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-900 font-bold hover:from-yellow-400 hover:to-amber-400"
+              disabled={isPending}
+            >
+              {isPending ? "Registrazione in corso..." : "Inizia Ora"}
             </Button>
           </form>
         </Form>
 
         <p className="mt-6 text-center text-sm text-slate-400">
           Hai già un account?{" "}
-          <Link href="/login" className="font-medium text-sky-400 hover:text-sky-300">
+          <Link href="/login" className="font-medium text-yellow-400 hover:text-yellow-300">
             Accedi
           </Link>
         </p>

@@ -66,8 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
-    // Non è necessario il replace qui, onAuthStateChange gestirà il redirect
-  }, [supabase.auth])
+    router.replace("/login")
+  }, [supabase.auth, router])
 
   useEffect(() => {
     const {
@@ -80,12 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         const userProfile = await fetchProfileSafely(currentUser.id)
         if (userProfile) {
-          // Success case: User and profile are valid.
           console.log("[AuthContext] User and profile are valid. Setting state.")
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          // Failure case: User is authenticated but profile is missing. This is an invalid state.
           console.error(
             "[AuthContext] Profile fetch failed for authenticated user. Forcing logout to prevent auth loop.",
           )
@@ -95,7 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
         }
       } else {
-        // Logged out case
         console.log("[AuthContext] User is not authenticated. Clearing state.")
         setUser(null)
         setProfile(null)
@@ -106,25 +103,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, logout])
+  }, [supabase])
 
   useEffect(() => {
     if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+    const isAuthenticated = !!user && !!profile
 
     console.log(
-      `[AuthContext] Checking routes. Path: ${pathname}, IsProtected: ${isProtectedPage}, IsAuthenticated: ${!!user}`,
+      `[AuthContext] Route check. Path: ${pathname}, IsProtected: ${isProtectedPage}, IsAuthenticated: ${isAuthenticated}`,
     )
 
-    if (!user && isProtectedPage) {
+    if (!isAuthenticated && isProtectedPage) {
       console.log("[AuthContext] Redirecting to /login (unauthenticated on protected page).")
       router.replace("/login")
       return
     }
 
-    if (user && profile && isAuthPage) {
+    if (isAuthenticated && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin/dashboard"
       else if (profile.role === "operator") destination = "/dashboard/operator"

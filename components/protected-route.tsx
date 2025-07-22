@@ -45,6 +45,6 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = "/login" }
     return <>{children}</>
   }
 
-  // Otherwise, render nothing while redirecting
+  // Otherwise, render a spinner while redirecting to prevent flashing content
   return <LoadingSpinner fullScreen message="Reindirizzamento in corso..." />
 }
