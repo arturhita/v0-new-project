@@ -1,7 +1,7 @@
 "use client"
 
 import { useFormState, useFormStatus } from "react-dom"
-import { signUp } from "@/lib/actions/auth.actions"
+import { register } from "@/lib/actions/auth.actions"
 import { useEffect } from "react"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
@@ -25,7 +25,7 @@ function SignUpButton() {
 }
 
 export function RegisterForm() {
-  const [state, dispatch] = useFormState(signUp, initialState)
+  const [state, dispatch] = useFormState(register, initialState)
 
   useEffect(() => {
     if (state.message) {
