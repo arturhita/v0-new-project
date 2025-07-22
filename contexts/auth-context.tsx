@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
+import { runUserDiagnostics } from "@/lib/actions/diagnostics.actions"
 
 interface Profile {
   id: string
@@ -32,12 +33,11 @@ const fetchProfileWithRetry = async (
   delay = 1000,
 ): Promise<Profile | null> => {
   for (let i = 0; i < retries; i++) {
-    // Reverted to a direct, RLS-protected query. This is the standard approach.
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url, role")
       .eq("id", userId)
-      .single() // .single() will error if no row is found, which is what we want to check.
+      .single()
 
     if (data) {
       console.log(`Profilo trovato con query diretta (Tentativo ${i + 1}):`, data)
@@ -45,20 +45,38 @@ const fetchProfileWithRetry = async (
     }
 
     if (error && error.code !== "PGRST116") {
-      // PGRST116 is "No rows found"
       console.error(`Errore DB nella query del profilo (Tentativo ${i + 1}):`, error)
-      // If a critical error occurs (not "not found"), stop retrying.
       toast.error("Errore di sistema nel recupero del profilo.")
       return null
     }
 
-    // If we are here, it means no row was found (PGRST116). We will retry.
     console.warn(`Profilo per l'utente ${userId} non trovato (Tentativo ${i + 1}). Riprovo...`)
     await new Promise((res) => setTimeout(res, delay))
   }
 
-  console.error(`Profilo per l'utente ${userId} non trovato dopo ${retries} tentativi.`)
-  toast.error("Impossibile trovare il profilo utente dopo vari tentativi.")
+  // --- NEW DIAGNOSTIC STEP ---
+  console.error(`Profilo per l'utente ${userId} non trovato dopo ${retries} tentativi. Avvio diagnostica...`)
+  toast.error("Impossibile trovare il profilo utente. Avvio diagnostica automatica...")
+
+  const diagnostics = await runUserDiagnostics(userId)
+  console.log("RISULTATO DIAGNOSTICA:", diagnostics)
+
+  if (diagnostics.profile_found) {
+    console.error(
+      "CONCLUSIONE DIAGNOSTICA: Il profilo ESISTE ma non è accessibile. Il problema è quasi certamente nelle policy RLS del database.",
+    )
+    toast.error("Diagnostica: Problema di permessi rilevato. Contattare l'assistenza.")
+  } else if (diagnostics.auth_user_found) {
+    console.error(
+      "CONCLUSIONE DIAGNOSTICA: L'utente esiste ma il profilo NO. Il problema è nel processo di creazione del profilo durante la registrazione.",
+    )
+    toast.error("Diagnostica: Profilo utente mancante. Contattare l'assistenza.")
+  } else {
+    console.error("CONCLUSIONE DIAGNOSTICA: L'utente non esiste. Problema critico di autenticazione.")
+    toast.error("Diagnostica: Errore utente critico. Contattare l'assistenza.")
+  }
+  // --- END DIAGNOSTIC STEP ---
+
   return null
 }
 
@@ -84,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = session?.user ?? null
 
       if (currentUser) {
-        // Pass the user ID to the fetch function
         const userProfile = await fetchProfileWithRetry(supabase, currentUser.id)
 
         if (userProfile) {
