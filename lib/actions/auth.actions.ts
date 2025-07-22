@@ -40,7 +40,6 @@ export async function register(values: z.infer<typeof RegisterSchema>) {
   }
 
   // Step 2: Manually insert the profile into the 'public.profiles' table.
-  // This is the new, correct approach that avoids all permission issues.
   const { error: profileError } = await supabase.from("profiles").insert({
     id: authData.user.id,
     full_name: values.fullName,

@@ -30,10 +30,12 @@ export default function LoginPage() {
   const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     startTransition(async () => {
       const result = await login(values)
-      if (!result.success) {
+      if (result.success) {
+        toast.success(result.message)
+        // The AuthContext will handle the redirect, no need for router.push here
+      } else {
         toast.error(result.message)
       }
-      // On success, AuthContext will handle the redirect, so we don't need to do anything here.
     })
   }
 
@@ -51,8 +53,8 @@ export default function LoginPage() {
       <ConstellationBackground />
       <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Bentornato</h1>
-          <p className="mt-2 text-slate-400">Accedi al tuo account per continuare.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Accedi al tuo Account</h1>
+          <p className="mt-2 text-slate-400">Bentornato! Inserisci le tue credenziali.</p>
         </div>
 
         <Form {...form}>
