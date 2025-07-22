@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient as createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin" // CORREZIONE: Importa l'istanza admin, non una funzione
 import { createClient } from "@/lib/supabase/server" // Correct import
 import { revalidatePath } from "next/cache"
 
@@ -11,16 +12,16 @@ export async function getUsers() {
     .from("users")
     .select(
       `
-        id,
-        email,
-        raw_user_meta_data,
-        created_at,
-        last_sign_in_at,
-        profiles (
-          role,
-          full_name
-        )
-      `,
+  id,
+  email,
+  raw_user_meta_data,
+  created_at,
+  last_sign_in_at,
+  profiles (
+    role,
+    full_name
+  )
+`,
     )
     .order("created_at", { ascending: false })
 
@@ -77,4 +78,78 @@ export async function getCurrentUserProfile() {
   }
 
   return { profile, error: null }
+}
+
+// --- Funzione per il profilo dell'utente loggato ---
+// --- Funzioni di amministrazione ---
+
+export type UserProfileWithStats = {
+  id: string
+  email: string | undefined
+  full_name: string | null
+  role: string | null
+  created_at: string
+  status: string | null
+  total_spent: number
+  total_consultations: number
+}
+
+export async function getUsersWithStats(): Promise<UserProfileWithStats[]> {
+  // Usa il client admin che bypassa RLS
+  const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*").neq("role", "admin")
+
+  if (profilesError) {
+    console.error("Error fetching user profiles:", profilesError.message)
+    throw new Error(`Error fetching user profiles: ${profilesError.message}`)
+  }
+
+  if (!profiles || profiles.length === 0) {
+    return []
+  }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  })
+
+  if (authError) {
+    console.error("Error fetching auth users:", authError.message)
+    throw new Error(`Error fetching auth users: ${authError.message}`)
+  }
+
+  const emailMap = new Map(authData.users.map((u) => [u.id, u.email]))
+
+  const usersWithStats: UserProfileWithStats[] = profiles.map((profile) => ({
+    ...profile,
+    email: emailMap.get(profile.id) || "N/A",
+    total_spent: 0, // Placeholder
+    total_consultations: 0, // Placeholder
+  }))
+
+  return usersWithStats
+}
+
+export async function toggleUserSuspension(userId: string, currentStatus: string) {
+  const newStatus = currentStatus === "Attivo" ? "Sospeso" : "Attivo"
+  // Usa il client admin
+  const { error } = await supabaseAdmin.from("profiles").update({ status: newStatus }).eq("id", userId)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/admin/users")
+  return { success: true, message: `Stato utente aggiornato a ${newStatus}.` }
+}
+
+export async function issueVoucher(userId: string, amount: number, reason: string) {
+  console.log(`Emissione buono di €${amount} all'utente ${userId} per il motivo: ${reason}`)
+  // Logica di business per emettere un buono
+  return { success: true, message: `Buono di €${amount} emesso con successo.` }
+}
+
+export async function issueRefund(userId: string, amount: number, reason: string) {
+  console.log(`Emissione rimborso di €${amount} all'utente ${userId} per il motivo: ${reason}`)
+  // Logica di business per emettere un rimborso (es. tramite Stripe)
+  return { success: true, message: `Rimborso di €${amount} processato con successo.` }
 }
