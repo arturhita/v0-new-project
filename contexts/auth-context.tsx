@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Inizia come true
+  const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
@@ -39,54 +39,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth])
 
   useEffect(() => {
-    // Questo effetto viene eseguito una volta al montaggio per impostare il listener di autenticazione
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null
-      setUser(currentUser)
 
       if (currentUser) {
-        // Se l'utente è loggato, recupera il suo profilo
-        const { data: userProfile } = await supabase
+        // L'utente è loggato, recupera il suo profilo
+        const { data: userProfile, error } = await supabase
           .from("profiles")
           .select("id, full_name, avatar_url, role")
           .eq("id", currentUser.id)
           .single()
-        setProfile(userProfile as Profile | null)
+
+        if (error) {
+          // Se il profilo non esiste o c'è un errore, è uno stato anomalo.
+          // Disconnetti l'utente per evitare che rimanga bloccato.
+          console.error("Errore nel recupero del profilo, logout in corso:", error)
+          await supabase.auth.signOut()
+          setUser(null)
+          setProfile(null)
+        } else {
+          // Recupero di utente e profilo avvenuto con successo
+          setUser(currentUser)
+          setProfile(userProfile as Profile | null)
+        }
       } else {
-        // Se l'utente è sloggato, pulisce il profilo
+        // L'utente è disconnesso
+        setUser(null)
         setProfile(null)
       }
 
-      // Interrompe il caricamento solo dopo aver ottenuto lo stato di autenticazione definitivo
+      // Ora abbiamo uno stato definitivo, interrompi il caricamento
       setIsLoading(false)
     })
 
     return () => {
-      // Pulisce la sottoscrizione allo smontaggio
       subscription.unsubscribe()
     }
   }, [supabase])
 
   useEffect(() => {
-    // Questo effetto gestisce la logica di reindirizzamento in base allo stato di autenticazione
+    // Questo effetto gestisce i reindirizzamenti in base allo stato di autenticazione
     if (isLoading) {
-      return // Non fare nulla mentre stiamo ancora determinando lo stato di autenticazione
+      return // Non fare nulla mentre si controlla l'autenticazione
     }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
     if (!user && isProtectedPage) {
-      // Se l'utente non è loggato e tenta di accedere a una pagina protetta,
-      // reindirizzalo alla pagina di login.
+      // Non loggato e su una pagina protetta -> reindirizza al login
       router.replace("/login")
+      return
     }
 
     if (user && profile && isAuthPage) {
-      // Se l'utente è loggato e si trova su una pagina di login/registrazione,
-      // reindirizzalo alla sua dashboard corretta.
+      // Loggato e su una pagina di autenticazione -> reindirizza alla dashboard corretta
       let destination = "/"
       if (profile.role === "admin") destination = "/admin/dashboard"
       else if (profile.role === "operator") destination = "/dashboard/operator"
@@ -95,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, profile, isLoading, pathname, router])
 
-  // Mostra uno spinner a schermo intero durante il controllo iniziale dell'autenticazione per evitare sfarfallii
+  // Mostra uno spinner a schermo intero durante il controllo iniziale dell'autenticazione
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
