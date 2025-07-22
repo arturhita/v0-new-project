@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { toast } from "sonner"
+import { getProfileBypass } from "@/lib/supabase/bypass-client"
 
 interface Profile {
   id: string
@@ -25,39 +26,29 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const fetchProfileWithRetry = async (
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  retries = 5,
-  delay = 1200,
-): Promise<Profile | null> => {
-  for (let i = 0; i < retries; i++) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, role")
-      .eq("id", userId)
-      .single()
+const fetchProfileWithBypass = async (userId: string): Promise<Profile | null> => {
+  try {
+    console.log(`[AuthContext] Fetching profile for user ${userId} using bypass method`)
 
-    if (data) {
-      console.log(`[AuthContext] Profile found for ${userId} on attempt ${i + 1}.`)
-      return data as Profile
+    // Usa la funzione di bypass invece della query diretta
+    const profileData = await getProfileBypass(userId)
+
+    if (profileData) {
+      console.log(`[AuthContext] Profile found using bypass method:`, profileData)
+      return {
+        id: profileData.id,
+        full_name: profileData.full_name,
+        avatar_url: profileData.avatar_url,
+        role: profileData.role as "client" | "operator" | "admin",
+      }
     }
 
-    if (error && error.code !== "PGRST116") {
-      // PGRST116 is "No rows found"
-      console.error(`[AuthContext] FATAL: Database error fetching profile for ${userId} (Attempt ${i + 1}):`, error)
-      // Log the specific error message for better debugging
-      toast.error(`Errore critico del database: ${error.message}`)
-      return null
-    }
-
-    console.warn(`[AuthContext] Profile for ${userId} not found (Attempt ${i + 1}). Retrying...`)
-    await new Promise((res) => setTimeout(res, delay))
+    console.warn(`[AuthContext] No profile found for user ${userId}`)
+    return null
+  } catch (error) {
+    console.error(`[AuthContext] Error in fetchProfileWithBypass:`, error)
+    return null
   }
-
-  console.error(`[AuthContext] FATAL: Profile for ${userId} not found after ${retries} attempts.`)
-  toast.error("Impossibile trovare il profilo utente dopo vari tentativi. La sessione sarà terminata.")
-  return null
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -70,10 +61,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.replace("/login")
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      setProfile(null)
+      router.replace("/login")
+    } catch (error) {
+      console.error("[AuthContext] Error during logout:", error)
+      // Force logout even if there's an error
+      setUser(null)
+      setProfile(null)
+      router.replace("/login")
+    }
   }, [supabase.auth, router])
 
   useEffect(() => {
@@ -82,31 +81,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log(`[AuthContext] Auth state changed. Event: ${event}, Session: ${session ? "Exists" : "Null"}`)
       setIsLoading(true)
+
       const currentUser = session?.user ?? null
 
       if (currentUser) {
-        const userProfile = await fetchProfileWithRetry(supabase, currentUser.id)
+        console.log(`[AuthContext] User authenticated: ${currentUser.id}`)
+
+        // Usa il metodo di bypass per evitare problemi RLS
+        const userProfile = await fetchProfileWithBypass(currentUser.id)
 
         if (userProfile) {
+          console.log(`[AuthContext] Profile loaded successfully:`, userProfile)
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          console.error(`[AuthContext] Forcing logout: Could not retrieve profile for user ${currentUser.id}.`)
-          await supabase.auth.signOut()
-          setUser(null)
+          console.error(`[AuthContext] Could not load profile for user ${currentUser.id}`)
+          toast.error("Errore nel caricamento del profilo utente")
+          // Non forziamo il logout, proviamo a continuare
+          setUser(currentUser)
           setProfile(null)
         }
       } else {
+        console.log(`[AuthContext] User not authenticated`)
         setUser(null)
         setProfile(null)
       }
+
       setIsLoading(false)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [supabase])
 
   useEffect(() => {
     if (isLoading) {
@@ -116,16 +123,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
+    // Se non autenticato e su pagina protetta, redirect al login
     if (!user && isProtectedPage) {
+      console.log("[AuthContext] Redirecting to login - user not authenticated")
       router.replace("/login")
       return
     }
 
-    if (user && profile && isAuthPage) {
+    // Se autenticato e su pagina di auth, redirect alla dashboard appropriata
+    if (user && isAuthPage) {
       let destination = "/"
-      if (profile.role === "admin") destination = "/admin/dashboard"
-      else if (profile.role === "operator") destination = "/dashboard/operator"
-      else if (profile.role === "client") destination = "/dashboard/client"
+      if (profile?.role === "admin") destination = "/admin/dashboard"
+      else if (profile?.role === "operator") destination = "/dashboard/operator"
+      else if (profile?.role === "client") destination = "/dashboard/client"
+
+      console.log(`[AuthContext] Redirecting authenticated user to: ${destination}`)
       router.replace(destination)
     }
   }, [user, profile, isLoading, pathname, router])

@@ -35,12 +35,17 @@ export default function RegisterPage() {
 
   const onSubmit = (values: z.infer<typeof registerSchema>) => {
     startTransition(async () => {
-      const result = await register(values)
-      if (result.success) {
-        toast.success(result.success)
-        setRegistrationSuccess(true)
-      } else if (result.error) {
-        toast.error(result.error)
+      try {
+        const result = await register(values)
+        if (result.success) {
+          toast.success(result.success)
+          setRegistrationSuccess(true)
+        } else if (result.error) {
+          toast.error(result.error)
+        }
+      } catch (error) {
+        console.error("[RegisterPage] Error during registration:", error)
+        toast.error("Errore durante la registrazione. Riprova.")
       }
     })
   }
