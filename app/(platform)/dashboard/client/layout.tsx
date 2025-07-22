@@ -1,18 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { AuthProvider } from "@/contexts/auth-context"
-import ClientDashboardUI from "./client-dashboard-ui"
 import type { ReactNode } from "react"
-
-const getDashboardUrl = (role: string | undefined): string => {
-  if (role === "admin") return "/admin"
-  if (role === "operator") return "/dashboard/operator"
-  return "/"
-}
+import { ClientDashboardUI } from "./client-dashboard-ui"
 
 export default async function ClientDashboardLayout({ children }: { children: ReactNode }) {
   const supabase = createClient()
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -23,14 +15,17 @@ export default async function ClientDashboardLayout({ children }: { children: Re
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
+  // Redirect if the user is not a client
   if (profile?.role !== "client") {
-    const targetUrl = getDashboardUrl(profile?.role)
-    return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
+    if (profile?.role === "admin") return redirect("/admin")
+    if (profile?.role === "operator") return redirect("/dashboard/operator")
+    return redirect("/")
   }
 
   return (
-    <AuthProvider>
-      <ClientDashboardUI>{children}</ClientDashboardUI>
-    </AuthProvider>
+    <div className="flex min-h-full w-full">
+      <ClientDashboardUI />
+      <main className="flex-1 p-4 md:p-8 lg:p-10">{children}</main>
+    </div>
   )
 }
