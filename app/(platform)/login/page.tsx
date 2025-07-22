@@ -1,109 +1,108 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
-import { useFormStatus } from "react-dom"
-import Link from "next/link"
-import Image from "next/image"
-import { toast } from "sonner"
-import { Eye, EyeOff } from "lucide-react"
-
-import { login } from "@/lib/actions/auth.actions"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import type { z } from "zod"
 import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { loginSchema } from "@/lib/schemas"
+import { login } from "@/lib/actions/auth.actions"
+import { useState, useTransition } from "react"
+import Link from "next/link"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
-      {pending ? "Accesso in corso..." : "Accedi"}
-    </Button>
-  )
-}
-
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, undefined)
-  const { isLoading, isAuthenticated } = useAuth()
-  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const { isLoading: isAuthLoading } = useAuth()
 
-  useEffect(() => {
-    if (state?.error) {
-      toast.error(state.error)
-    }
-    if (state?.success) {
-      toast.success(state.success)
-    }
-  }, [state])
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  })
 
-  if (isLoading || isAuthenticated) {
-    return <LoadingSpinner fullScreen />
+  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+    setError(null)
+    startTransition(async () => {
+      const result = await login(values)
+      if (!result.success) {
+        setError(result.message)
+      }
+      // On success, AuthContext will handle the redirect, no need to do anything here.
+    })
+  }
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <ConstellationBackground />
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 bg-slate-900 text-white">
-      <ConstellationBackground className="text-sky-300" />
-      <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-sky-500/20 bg-gray-950/50 p-8 shadow-2xl shadow-sky-500/10 backdrop-blur-sm">
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-background">
+      <ConstellationBackground />
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border/20 bg-background/80 p-8 shadow-2xl backdrop-blur-sm">
         <div className="text-center">
-          <Image
-            src="/images/moonthir-logo-white.png"
-            alt="Moonthir Logo"
-            width={150}
-            height={50}
-            className="mx-auto mb-4"
-            priority
-          />
-          <h1 className="text-3xl font-bold text-white">Bentornato</h1>
-          <p className="mt-2 text-gray-300/70">
-            Accedi al tuo account o{" "}
-            <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
-              registrati
-            </Link>
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Bentornato</h1>
+          <p className="mt-2 text-muted-foreground">Accedi per continuare la tua esperienza.</p>
         </div>
-        <form action={formAction} className="mt-8 space-y-6">
-          <div>
-            <Label htmlFor="email" className="text-gray-200/80">
-              Email
-            </Label>
-            <Input
-              id="email"
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-6">
+            <FormField
+              control={form.control}
               name="email"
-              type="email"
-              autoComplete="email"
-              required
-              placeholder="tua@email.com"
-              className="mt-1 bg-gray-900/60 border-sky-500/30 text-white placeholder:text-gray-400/50 focus:ring-sky-500"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="tuamail@esempio.com" {...field} className="bg-background/50" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label htmlFor="password" className="text-gray-200/80">
-              Password
-            </Label>
-            <div className="relative mt-1">
-              <Input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                required
-                placeholder="••••••••"
-                className="bg-gray-900/60 border-sky-500/30 text-white placeholder:text-gray-400/50 focus:ring-sky-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
-                aria-label={showPassword ? "Nascondi password" : "Mostra password"}
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
-          <SubmitButton />
-        </form>
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="••••••••" {...field} className="bg-background/50" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {error && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-center text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Accesso in corso..." : "Accedi"}
+            </Button>
+          </form>
+        </Form>
+
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          Non hai un account?{" "}
+          <Link href="/register" className="font-medium text-primary hover:underline">
+            Inizia ora
+          </Link>
+        </p>
       </div>
     </div>
   )
