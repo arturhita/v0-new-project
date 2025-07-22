@@ -13,3 +13,5 @@ export function LoadingSpinner({ className, fullScreen }: { className?: string; 
     />
   )
 }
+
+export default LoadingSpinner
