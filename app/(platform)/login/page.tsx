@@ -12,7 +12,7 @@ import { useTransition } from "react"
 import Link from "next/link"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
-import LoadingSpinner from "@/components/loading-spinner"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { toast } from "sonner"
 
 export default function LoginPage() {
