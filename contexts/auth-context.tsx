@@ -32,8 +32,6 @@ const fetchProfileWithRetry = async (
   delay = 1200,
 ): Promise<Profile | null> => {
   for (let i = 0; i < retries; i++) {
-    // The error was happening here because of a recursive RLS policy.
-    // The new '069-ultimate-auth-reset.sql' script fixes the policy.
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url, role")
@@ -45,12 +43,11 @@ const fetchProfileWithRetry = async (
       return data as Profile
     }
 
-    // PGRST116 means "No rows found", which is expected during the small delay
-    // between user creation and profile trigger execution. We retry for this.
-    // Any other error is a real problem.
     if (error && error.code !== "PGRST116") {
+      // PGRST116 is "No rows found"
       console.error(`[AuthContext] FATAL: Database error fetching profile for ${userId} (Attempt ${i + 1}):`, error)
-      toast.error("Errore critico del database nel recupero del profilo.")
+      // Log the specific error message for better debugging
+      toast.error(`Errore critico del database: ${error.message}`)
       return null
     }
 
@@ -58,9 +55,7 @@ const fetchProfileWithRetry = async (
     await new Promise((res) => setTimeout(res, delay))
   }
 
-  console.error(
-    `[AuthContext] FATAL: Profile for ${userId} not found after ${retries} attempts. This is a critical error.`,
-  )
+  console.error(`[AuthContext] FATAL: Profile for ${userId} not found after ${retries} attempts.`)
   toast.error("Impossibile trovare il profilo utente dopo vari tentativi. La sessione sarà terminata.")
   return null
 }
@@ -76,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // Setting state to null immediately provides a faster UI response
     setUser(null)
     setProfile(null)
     router.replace("/login")
@@ -97,8 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(currentUser)
           setProfile(userProfile)
         } else {
-          // If the profile is not found after all retries, it's a critical failure.
-          // Force a logout to prevent an inconsistent state.
           console.error(`[AuthContext] Forcing logout: Could not retrieve profile for user ${currentUser.id}.`)
           await supabase.auth.signOut()
           setUser(null)
@@ -124,13 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // If not authenticated and trying to access a protected page, redirect to login
     if (!user && isProtectedPage) {
       router.replace("/login")
       return
     }
 
-    // If authenticated and on an auth page, redirect to the appropriate dashboard
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin/dashboard"
