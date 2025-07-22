@@ -76,7 +76,7 @@ export default function SiteFooter() {
                 <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Azienda</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
-                    <Link href="#" className="text-base text-gray-400 hover:text-white">
+                    <Link href="/chi-siamo" className="text-base text-gray-400 hover:text-white">
                       Chi Siamo
                     </Link>
                   </li>
