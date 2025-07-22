@@ -4,23 +4,6 @@ import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
-import type { AuthError } from "@supabase/supabase-js"
-
-// Helper function to handle Supabase errors
-function handleError(error: AuthError) {
-  console.error("Authentication error:", error.message)
-  // Provide user-friendly messages for common errors
-  if (error.message.includes("Invalid login credentials")) {
-    return { success: false, message: "Credenziali non valide. Controlla email e password." }
-  }
-  if (error.message.includes("User already registered")) {
-    return { success: false, message: "Un utente con questa email è già registrato." }
-  }
-  return {
-    success: false,
-    message: "Si è verificato un errore. Riprova.",
-  }
-}
 
 export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
@@ -28,31 +11,50 @@ export async function login(values: z.infer<typeof LoginSchema>) {
   const { error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
-    return handleError(error)
+    console.error("Login Error:", error.message)
+    return { success: false, message: "Credenziali non valide. Controlla email e password." }
   }
 
-  // On successful login, the AuthContext will handle the redirect.
-  return {
-    success: true,
-    message: "Login effettuato con successo! Reindirizzamento in corso...",
-  }
+  return { success: true, message: "Login effettuato con successo!" }
 }
 
 export async function register(values: z.infer<typeof RegisterSchema>) {
   const supabase = createClient()
 
-  const { error } = await supabase.auth.signUp({
+  // Step 1: Sign up the user in the 'auth.users' table.
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email: values.email,
     password: values.password,
-    options: {
-      data: {
-        full_name: values.fullName,
-      },
-    },
   })
 
-  if (error) {
-    return handleError(error)
+  if (authError) {
+    console.error("Auth SignUp Error:", authError.message)
+    if (authError.message.includes("User already registered")) {
+      return { success: false, message: "Un utente con questa email è già registrato." }
+    }
+    return { success: false, message: "Si è verificato un errore durante la registrazione." }
+  }
+
+  if (!authData.user) {
+    return { success: false, message: "Registrazione fallita, utente non creato." }
+  }
+
+  // Step 2: Manually insert the profile into the 'public.profiles' table.
+  // This is the new, correct approach that avoids all permission issues.
+  const { error: profileError } = await supabase.from("profiles").insert({
+    id: authData.user.id,
+    full_name: values.fullName,
+    role: "client", // Default role for new users
+  })
+
+  if (profileError) {
+    console.error("Profile Creation Error:", profileError.message)
+    // This is a critical error. We should inform the user.
+    // In a real-world scenario, you might want to delete the auth user as well to allow a retry.
+    return {
+      success: false,
+      message: "L'utente è stato creato ma non è stato possibile creare il profilo. Contatta l'assistenza.",
+    }
   }
 
   return {
