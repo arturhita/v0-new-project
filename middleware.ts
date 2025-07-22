@@ -1,13 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-const getDashboardUrl = (role: string | undefined): string => {
-  if (role === "admin") return "/admin/dashboard"
-  if (role === "operator") return "/dashboard/operator"
-  if (role === "client") return "/dashboard/client"
-  return "/"
-}
-
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -24,62 +17,40 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ ...options, name, value })
+          // A new response object must be created for every cookie modification.
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           })
-          response.cookies.set({ ...options, name, value })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ ...options, name, value: "" })
+          // A new response object must be created for every cookie modification.
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           })
-          response.cookies.set({ ...options, name, value: "" })
+          response.cookies.set({ name, value: "", ...options })
         },
       },
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
-  const isAuthPage = pathname === "/login" || pathname === "/register"
-  const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/dashboard")
-
-  if (!user && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    const userRole = profile?.role
-    const userDashboardUrl = getDashboardUrl(userRole)
-
-    if (isAuthPage) {
-      return NextResponse.redirect(new URL(userDashboardUrl, request.url))
-    }
-
-    if (pathname.startsWith("/admin") && userRole !== "admin") {
-      return NextResponse.redirect(new URL(userDashboardUrl, request.url))
-    }
-    if (pathname.startsWith("/dashboard/operator") && userRole !== "operator") {
-      return NextResponse.redirect(new URL(userDashboardUrl, request.url))
-    }
-    if (pathname.startsWith("/dashboard/client") && userRole !== "client") {
-      return NextResponse.redirect(new URL(userDashboardUrl, request.url))
-    }
-  }
+  // This is the only responsibility of the middleware: to refresh the user's session.
+  // The client-side AuthProvider will handle all redirection logic.
+  await supabase.auth.getUser()
 
   return response
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|images|api).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images/ (your images)
+     * - api/ (API routes)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|images|api).*)",
+  ],
 }

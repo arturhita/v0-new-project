@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
 import { toast } from "sonner"
@@ -25,6 +25,13 @@ type AuthContextType = {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "admin") return "/admin/dashboard"
+  if (role === "operator") return "/dashboard/operator"
+  if (role === "client") return "/dashboard/client"
+  return "/"
+}
 
 const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
   try {
@@ -47,6 +54,7 @@ const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
+  const pathname = usePathname()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -57,17 +65,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login")
   }, [supabase.auth, router])
 
+  // Effect 1: Handle auth state changes from Supabase
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         const userProfile = await fetchProfileSafely(session.user.id)
         if (userProfile) {
           setUser(session.user)
           setProfile(userProfile)
         } else {
-          toast.error("Profilo utente non trovato. Verrai disconnesso.")
+          toast.error("Profilo non trovato. Verrai disconnesso.")
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
@@ -76,14 +85,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setProfile(null)
       }
+      // This is the key: set loading to false only after the initial check is complete.
       setIsLoading(false)
     })
 
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [supabase.auth])
 
+  // Effect 2: Handle redirects based on the auth state.
+  // This effect runs only when the loading is complete.
+  useEffect(() => {
+    if (isLoading) {
+      return // Don't do anything while loading
+    }
+
+    const isAuthenticated = !!user && !!profile
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/dashboard")
+
+    if (!isAuthenticated && isProtectedRoute) {
+      router.push("/login")
+    }
+
+    if (isAuthenticated && isAuthPage) {
+      router.push(getDashboardUrl(profile.role))
+    }
+  }, [isLoading, user, profile, pathname, router])
+
+  // Render a full-screen loader until the initial auth state is determined.
+  // This prevents any UI flicker or race conditions.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }

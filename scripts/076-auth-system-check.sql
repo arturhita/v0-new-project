@@ -1,79 +1,57 @@
--- This script is for diagnostic purposes only and does not modify any data.
--- Please run this script and share the output.
+```typescript file="middleware.ts"
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { NextResponse, type NextRequest } from "next/server"
 
-DO $$
-DECLARE
-    -- Section 1: Function and Trigger Checks
-    handle_new_user_exists BOOLEAN;
-    get_profile_bypass_exists BOOLEAN;
-    get_profile_direct_exists BOOLEAN;
+export async function middleware(request: NextRequest) {
+let response = NextResponse.next({
+  request: {
+    headers: request.headers,
+  },
+})
 
-    -- Section 2: RLS Policy Checks
-    profiles_select_policy_exists BOOLEAN;
-    profiles_update_policy_exists BOOLEAN;
-    
-    -- Section 3: Output
-    report TEXT := '--- Auth System Diagnostic Report ---';
-BEGIN
-    -- Section 1: Check for essential functions and triggers
-    report := report || E'\n\n--- Section 1: Functions & Triggers ---';
+const supabase = createServerClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    cookies: {
+      get(name: string) {
+        return request.cookies.get(name)?.value
+      },
+      set(name: string, value: string, options: CookieOptions) {
+        // A new response object must be created for every cookie modification.
+        response = NextResponse.next({
+          request: { headers: request.headers },
+        })
+        response.cookies.set({ name, value, ...options })
+      },
+      remove(name: string, options: CookieOptions) {
+        // A new response object must be created for every cookie modification.
+        response = NextResponse.next({
+          request: { headers: request.headers },
+        })
+        response.cookies.set({ name, value: "", ...options })
+      },
+    },
+  },
+)
 
-    SELECT EXISTS (
-        SELECT 1 FROM pg_trigger WHERE tgname = 'on_auth_user_created'
-    ) INTO handle_new_user_exists;
-    IF handle_new_user_exists THEN
-        report := report || E'\n[OK] Trigger "on_auth_user_created" exists.';
-    ELSE
-        report := report || E'\n[FAIL] Trigger "on_auth_user_created" is MISSING. This is critical for profile creation.';
-    END IF;
+// This is the only responsibility of the middleware: to refresh the user's session.
+// The client-side AuthProvider will handle all redirection logic.
+await supabase.auth.getUser()
 
-    SELECT EXISTS (
-        SELECT 1 FROM pg_proc WHERE proname = 'get_profile_bypass'
-    ) INTO get_profile_bypass_exists;
-    IF get_profile_bypass_exists THEN
-        report := report || E'\n[OK] Function "get_profile_bypass" exists.';
-    ELSE
-        report := report || E'\n[FAIL] Function "get_profile_bypass" is MISSING. The app relies on this for fetching profiles.';
-    END IF;
+return response
+}
 
-    SELECT EXISTS (
-        SELECT 1 FROM pg_proc WHERE proname = 'get_profile_direct'
-    ) INTO get_profile_direct_exists;
-    IF get_profile_direct_exists THEN
-        report := report || E'\n[OK] Function "get_profile_direct" exists.';
-    ELSE
-        report := report || E'\n[FAIL] Function "get_profile_direct" is MISSING. This is a fallback for fetching profiles.';
-    END IF;
-
-    -- Section 2: Check for RLS policies on 'profiles' table
-    report := report || E'\n\n--- Section 2: Row Level Security (RLS) on `profiles` table ---';
-
-    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'profiles' AND rowsecurity) THEN
-        report := report || E'\n[OK] RLS is enabled on the `profiles` table.';
-
-        SELECT EXISTS (
-            SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'Users can view their own profile.'
-        ) INTO profiles_select_policy_exists;
-        IF profiles_select_policy_exists THEN
-            report := report || E'\n[OK] RLS policy "Users can view their own profile." for SELECT exists.';
-        ELSE
-            report := report || E'\n[WARN] RLS policy for SELECT on profiles seems to be missing or named differently. This could cause issues.';
-        END IF;
-
-        SELECT EXISTS (
-            SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'Users can update their own profile.'
-        ) INTO profiles_update_policy_exists;
-        IF profiles_update_policy_exists THEN
-            report := report || E'\n[OK] RLS policy "Users can update their own profile." for UPDATE exists.';
-        ELSE
-            report := report || E'\n[WARN] RLS policy for UPDATE on profiles seems to be missing or named differently.';
-        END IF;
-    ELSE
-        report := report || E'\n[FAIL] RLS is NOT enabled on the `profiles` table. This is a major security risk and can cause auth failures.';
-    END IF;
-
-    report := report || E'\n\n--- End of Report ---';
-
-    -- Raise notice with the final report
-    RAISE NOTICE '%', report;
-END $$;
+export const config = {
+matcher: [
+  /*
+   * Match all request paths except for the ones starting with:
+   * - _next/static (static files)
+   * - _next/image (image optimization files)
+   * - favicon.ico (favicon file)
+   * - images/ (your images)
+   * - api/ (API routes)
+   */
+  "/((?!_next/static|_next/image|favicon.ico|images|api).*)",
+],
+}
