@@ -4,7 +4,6 @@ import { useActionState, useEffect, useState } from "react"
 import { useFormStatus } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 
@@ -27,8 +26,7 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined)
-  const router = useRouter()
-  const { isLoading } = useAuth()
+  const { isLoading, isAuthenticated } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
@@ -37,11 +35,14 @@ export default function LoginPage() {
     }
     if (state?.success) {
       toast.success(state.success)
-      router.refresh()
+      // Nessun router.refresh() qui. AuthContext gestirà il cambio di stato e il reindirizzamento.
     }
-  }, [state, router])
+  }, [state])
 
-  if (isLoading) {
+  // Mentre il contesto sta caricando lo stato dell'utente, o se l'utente è già autenticato,
+  // mostra uno spinner per evitare che il modulo appaia brevemente.
+  // Il contesto gestirà il reindirizzamento.
+  if (isLoading || isAuthenticated) {
     return <LoadingSpinner fullScreen />
   }
 
