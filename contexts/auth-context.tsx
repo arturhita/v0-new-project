@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { getProfileBypass, getProfileDirect } from "@/lib/supabase/bypass-client"
 import { toast } from "sonner"
@@ -25,13 +25,6 @@ type AuthContextType = {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-const getDashboardUrl = (role: string | undefined): string => {
-  if (role === "admin") return "/admin/dashboard"
-  if (role === "operator") return "/dashboard/operator"
-  if (role === "client") return "/dashboard/client"
-  return "/"
-}
 
 const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
   try {
@@ -54,29 +47,34 @@ const fetchProfileSafely = async (userId: string): Promise<Profile | null> => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
-  const pathname = usePathname()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // Always start loading
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
+    // The middleware will handle redirecting from protected pages.
+    // We can push to login for a faster client-side transition.
     router.push("/login")
   }, [supabase.auth, router])
 
-  // Effect 1: Handle auth state changes
   useEffect(() => {
+    // This is the standard and most robust way to handle auth state.
+    // onAuthStateChange fires once immediately with the current session,
+    // and then again whenever the auth state changes.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         const userProfile = await fetchProfileSafely(session.user.id)
         if (userProfile) {
           setUser(session.user)
           setProfile(userProfile)
         } else {
-          toast.error("Profilo non trovato. Verrai disconnesso.")
+          // This is a critical error state, a user exists in auth but not in our profiles table.
+          // Forcing a logout is the safest action.
+          toast.error("Impossibile caricare il profilo utente. Verrai disconnesso.")
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
@@ -85,31 +83,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setProfile(null)
       }
+      // Crucially, set loading to false only after the first check is complete.
       setIsLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      // Cleanup the subscription when the component unmounts.
+      subscription.unsubscribe()
+    }
   }, [supabase.auth])
 
-  // Effect 2: Handle redirects based on auth state
-  useEffect(() => {
-    if (isLoading) {
-      return // Don't do anything while loading
-    }
-
-    const isAuthenticated = !!user && !!profile
-    const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedRoute = pathname.startsWith("/admin") || pathname.startsWith("/dashboard")
-
-    if (!isAuthenticated && isProtectedRoute) {
-      router.push("/login")
-    }
-
-    if (isAuthenticated && isAuthPage) {
-      router.push(getDashboardUrl(profile.role))
-    }
-  }, [isLoading, user, profile, pathname, router])
-
+  // Render a full-screen loader until the initial auth state is determined.
+  // This prevents any UI flicker or race conditions.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
