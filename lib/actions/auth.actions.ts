@@ -27,8 +27,8 @@ export async function register(values: z.infer<typeof registerSchema>) {
     options: {
       data: {
         full_name: values.fullName,
-        role: "client", // Default role
       },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
