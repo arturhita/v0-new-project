@@ -13,13 +13,14 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { useAuth } from "@/contexts/auth-context"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
     <Button
       type="submit"
-      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
+      className="w-full bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-lg shadow-amber-500/20"
       disabled={pending}
     >
       {pending ? "Accesso in corso..." : "Accedi"}
@@ -30,20 +31,27 @@ function SubmitButton() {
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined)
   const router = useRouter()
+  const { isLoading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (state?.error) {
       toast.error(state.error)
     }
-    if (state?.success && state?.role) {
+    if (state?.success) {
       toast.success(state.success)
-      // Direct redirection based on the role returned from the server action
-      const targetDashboard =
-        state.role === "admin" ? "/admin" : state.role === "operator" ? "/dashboard/operator" : "/dashboard/client"
-      router.replace(targetDashboard)
+      // Il context gestirà il reindirizzamento dopo che lo stato si è aggiornato
+      router.refresh()
     }
   }, [state, router])
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full">
+        <ConstellationBackground />
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4">
@@ -53,20 +61,21 @@ export default function LoginPage() {
           <Image
             src="/images/moonthir-logo-white.png"
             alt="Moonthir Logo"
-            width={150}
-            height={150}
+            width={180}
+            height={60}
             className="mx-auto"
+            priority
           />
           <h2 className="mt-6 text-3xl font-extrabold text-white">Accedi al tuo account</h2>
           <p className="mt-2 text-sm text-gray-400">
             o{" "}
-            <Link href="/register" className="font-medium text-blue-400 hover:text-blue-300">
+            <Link href="/register" className="font-medium text-amber-400 hover:text-amber-300">
               crea un nuovo account
             </Link>
           </p>
         </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-blue-500/10">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-amber-500/10">
           <form action={formAction} className="space-y-6">
             <div>
               <Label htmlFor="email" className="text-gray-300">
@@ -77,7 +86,7 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 required
-                className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 bg-gray-800/50 border-gray-700 text-white focus:ring-amber-500 focus:border-amber-500"
                 placeholder="tu@esempio.com"
               />
             </div>
@@ -92,13 +101,14 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
-                  className="mt-1 bg-gray-900/50 border-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
+                  className="mt-1 bg-gray-800/50 border-gray-700 text-white focus:ring-amber-500 focus:border-amber-500"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                  aria-label={showPassword ? "Nascondi password" : "Mostra password"}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
