@@ -1,4 +1,4 @@
-{`-- Drop the existing trigger and function to ensure a clean slate and avoid conflicts.
+-- Drop the existing trigger and function to ensure a clean slate and avoid conflicts.
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user();
 
@@ -23,11 +23,10 @@ $$;
 
 -- Create the trigger that fires the handle_new_user function
 -- automatically AFTER a new user is inserted into the auth.users table.
-CREATE TRIGGER on_auth_user_created
+CREATE TRIGGER on_auth_Euser_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Grant necessary permissions to ensure the trigger can operate correctly.
 GRANT USAGE ON SCHEMA auth TO postgres;
 GRANT SELECT ON TABLE auth.users TO postgres;
-`}
