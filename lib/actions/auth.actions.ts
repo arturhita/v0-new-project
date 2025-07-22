@@ -1,28 +1,29 @@
 "use server"
 
-import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { LoginSchema, RegisterSchema } from "@/lib/schemas"
-import { AuthError } from "@supabase/supabase-js"
+import type { z } from "zod"
+// Corrected to import lowercase versions
+import { loginSchema, registerSchema } from "../schemas"
+import { redirect } from "next/navigation"
 
-export async function login(values: z.infer<typeof LoginSchema>) {
+export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
+  // Using lowercase schema
+  const validatedFields = loginSchema.safeParse(values)
 
-  const validatedFields = LoginSchema.safeParse(values)
   if (!validatedFields.success) {
-    return { error: "Campi non validi." }
+    return { error: "Campi non validi!" }
   }
 
   const { email, password } = validatedFields.data
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
   if (error) {
-    if (error instanceof AuthError && error.message.includes("Email not confirmed")) {
+    if (error.message.includes("Email not confirmed")) {
       return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
     }
     console.error("Login error:", error.message)
@@ -32,49 +33,43 @@ export async function login(values: z.infer<typeof LoginSchema>) {
   return { success: "Login effettuato con successo!" }
 }
 
-export async function register(values: z.infer<typeof RegisterSchema>) {
+export async function register(values: z.infer<typeof registerSchema>) {
   const supabase = createClient()
+  // Using lowercase schema
+  const validatedFields = registerSchema.safeParse(values)
 
-  const validatedFields = RegisterSchema.safeParse(values)
   if (!validatedFields.success) {
-    return { error: "Campi non validi." }
+    return { error: "Campi non validi!" }
   }
 
-  const { email, password, fullName, role } = validatedFields.data
+  const { email, password, fullName } = validatedFields.data
 
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+  // The database trigger 'on_auth_user_created' will handle profile creation.
+  // We pass the full_name in the user metadata so the trigger can use it.
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        full_name: fullName,
+      },
+    },
   })
 
-  if (signUpError) {
-    console.error("SignUp Error:", signUpError)
+  if (error) {
+    console.error("Registration Error:", error.message)
     return { error: "Impossibile registrare l'utente. L'email potrebbe essere già in uso." }
   }
 
-  if (!signUpData.user) {
-    return { error: "Creazione utente fallita. Riprova." }
+  if (!data.session && data.user) {
+    return { success: "Registrazione quasi completata! Controlla la tua email per confermare il tuo account." }
   }
 
-  // The database trigger 'on_auth_user_created' will handle profile creation.
-  // We just need to update the role and full_name which are not available at sign-up time.
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .update({
-      full_name: fullName,
-      role: role,
-      // Set stage_name to full_name by default for operators
-      ...(role === "operator" && { stage_name: fullName }),
-    })
-    .eq("id", signUpData.user.id)
+  return { error: "Si è verificato un errore imprevisto durante la registrazione." }
+}
 
-  if (profileError) {
-    console.error("Profile Update Error:", profileError)
-    // Even if profile update fails, the user is created and can try to login.
-    // The profile will have default values from the trigger.
-    // A more robust solution might delete the user here, but for now, we let it pass.
-    return { warning: "Utente registrato, ma si è verificato un problema nel salvataggio dei dettagli del profilo." }
-  }
-
-  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }

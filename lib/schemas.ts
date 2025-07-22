@@ -1,24 +1,25 @@
 import { z } from "zod"
 
+// Exporting with lowercase 'l'
 export const loginSchema = z.object({
   email: z.string().email({
-    message: "Inserisci un'email valida.",
+    message: "Per favore inserisci un indirizzo email valido.",
   }),
   password: z.string().min(1, {
-    message: "La password è richiesta.",
+    message: "La password è obbligatoria.",
   }),
 })
 
+// Exporting with lowercase 'r'
 export const registerSchema = z
   .object({
-    fullName: z.string().min(3, { message: "Il nome completo è richiesto (min. 3 caratteri)." }),
-    email: z.string().email({ message: "Inserisci un'email valida." }),
-    password: z.string().min(8, { message: "La password deve contenere almeno 8 caratteri." }),
+    fullName: z.string().min(2, { message: "Il nome completo deve contenere almeno 2 caratteri." }),
+    email: z.string().email({ message: "Per favore inserisci un indirizzo email valido." }),
+    password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
     confirmPassword: z.string(),
     terms: z.literal(true, {
       errorMap: () => ({ message: "Devi accettare i Termini e Condizioni." }),
     }),
-    role: z.enum(["client", "operator"], { required_error: "Devi selezionare un ruolo." }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Le password non coincidono.",
