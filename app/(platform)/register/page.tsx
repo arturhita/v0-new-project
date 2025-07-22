@@ -15,16 +15,13 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
+import LoadingSpinner from "@/components/loading-spinner"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button
-      type="submit"
-      className="w-full bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-lg shadow-amber-500/20"
-      disabled={pending}
-    >
-      {pending ? "Creazione account..." : "Registrati"}
+    <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
+      {pending ? "Creazione Account..." : "Registrati"}
     </Button>
   )
 }
@@ -47,131 +44,125 @@ export default function RegisterPage() {
   }, [state, router])
 
   if (isLoading) {
-    return (
-      <div className="h-screen w-full">
-        <ConstellationBackground />
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4">
-      <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md space-y-8 py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 bg-slate-900 text-white">
+      <ConstellationBackground className="text-sky-300" />
+      <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-sky-500/20 bg-gray-950/50 p-8 shadow-2xl shadow-sky-500/10 backdrop-blur-sm">
         <div className="text-center">
           <Image
             src="/images/moonthir-logo-white.png"
             alt="Moonthir Logo"
-            width={180}
-            height={60}
-            className="mx-auto"
+            width={150}
+            height={50}
+            className="mx-auto mb-4"
             priority
           />
-          <h2 className="mt-6 text-3xl font-extrabold text-white">Crea un nuovo account</h2>
-          <p className="mt-2 text-sm text-gray-400">
-            o{" "}
-            <Link href="/login" className="font-medium text-amber-400 hover:text-amber-300">
-              accedi al tuo account
+          <h1 className="text-3xl font-bold text-white">Crea il tuo Account</h1>
+          <p className="mt-2 text-gray-300/70">
+            Hai già un account?{" "}
+            <Link href="/login" className="font-medium text-sky-400 hover:text-sky-300">
+              Accedi qui
             </Link>
           </p>
         </div>
-
-        <div className="bg-gray-900/50 backdrop-blur-sm p-8 rounded-2xl border border-gray-700 shadow-2xl shadow-amber-500/10">
-          <form action={formAction} className="space-y-6">
-            <div>
-              <Label htmlFor="fullName" className="text-gray-300">
-                Nome Completo
-              </Label>
+        <form action={formAction} className="mt-8 space-y-5">
+          <div>
+            <Label htmlFor="fullName" className="text-gray-200/80">
+              Nome Completo
+            </Label>
+            <Input
+              id="fullName"
+              name="fullName"
+              type="text"
+              required
+              placeholder="Mario Rossi"
+              className="mt-1 bg-gray-900/60 border-sky-500/30 text-white placeholder:text-gray-400/50 focus:ring-sky-500"
+            />
+          </div>
+          <div>
+            <Label htmlFor="email" className="text-gray-200/80">
+              Email
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              placeholder="tua@email.com"
+              className="mt-1 bg-gray-900/60 border-sky-500/30 text-white placeholder:text-gray-400/50 focus:ring-sky-500"
+            />
+          </div>
+          <div>
+            <Label htmlFor="password" className="text-gray-200/80">
+              Password
+            </Label>
+            <div className="relative mt-1">
               <Input
-                id="fullName"
-                name="fullName"
-                type="text"
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
                 required
-                className="mt-1 bg-gray-800/50 border-gray-700 text-white focus:ring-amber-500 focus:border-amber-500"
+                placeholder="••••••••"
+                className="bg-gray-900/60 border-sky-500/30 text-white placeholder:text-gray-400/50 focus:ring-sky-500"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
-            <div>
-              <Label htmlFor="email" className="text-gray-300">
-                Indirizzo Email
-              </Label>
+          </div>
+          <div>
+            <Label htmlFor="confirmPassword" className="text-gray-200/80">
+              Conferma Password
+            </Label>
+            <div className="relative mt-1">
               <Input
-                id="email"
-                name="email"
-                type="email"
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
                 required
-                className="mt-1 bg-gray-800/50 border-gray-700 text-white focus:ring-amber-500 focus:border-amber-500"
+                placeholder="••••••••"
+                className="bg-gray-900/60 border-sky-500/30 text-white placeholder:text-gray-400/50 focus:ring-sky-500"
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                aria-label={showConfirmPassword ? "Nascondi password" : "Mostra password"}
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
-            <div>
-              <Label htmlFor="password" className="text-gray-300">
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  className="mt-1 bg-gray-800/50 border-gray-700 text-white focus:ring-amber-500 focus:border-amber-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
-                  aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+          </div>
+          <div className="flex items-start space-x-3 pt-2">
+            <Checkbox
+              id="terms"
+              name="terms"
+              required
+              className="mt-0.5 border-sky-600 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label htmlFor="terms" className="text-sm font-normal text-gray-300/80">
+                Accetto i{" "}
+                <Link
+                  href="/legal/terms-and-conditions"
+                  target="_blank"
+                  className="underline text-sky-400 hover:text-sky-300"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
+                  Termini di Servizio
+                </Link>
+              </label>
             </div>
-            <div>
-              <Label htmlFor="confirmPassword" className="text-gray-300">
-                Conferma Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  required
-                  className="mt-1 bg-gray-800/50 border-gray-700 text-white focus:ring-amber-500 focus:border-amber-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
-                  aria-label={showConfirmPassword ? "Nascondi password" : "Mostra password"}
-                >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3 pt-2">
-              <Checkbox
-                id="terms"
-                name="terms"
-                required
-                className="mt-1 border-gray-600 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-              />
-              <div className="grid gap-1.5 leading-none">
-                <label
-                  htmlFor="terms"
-                  className="text-sm font-medium leading-none text-gray-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Accetto i{" "}
-                  <Link
-                    href="/legal/terms-and-conditions"
-                    target="_blank"
-                    className="font-medium text-amber-400 hover:text-amber-300 underline"
-                  >
-                    Termini e Condizioni
-                  </Link>
-                </label>
-              </div>
-            </div>
-            <SubmitButton />
-          </form>
-        </div>
+          </div>
+          <SubmitButton />
+        </form>
       </div>
     </div>
   )

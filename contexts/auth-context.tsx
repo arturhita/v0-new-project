@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
-import { LoadingSpinner } from "@/components/loading-spinner"
+import LoadingSpinner from "@/components/loading-spinner"
 
 interface Profile {
   id: string
@@ -35,79 +35,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    router.push("/login")
-  }, [router, supabase.auth])
+  }, [supabase.auth])
 
   useEffect(() => {
-    // Funzione per controllare la sessione e caricare il profilo
-    const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (session) {
-        setUser(session.user)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+
+      if (currentUser) {
         const { data: userProfile } = await supabase
           .from("profiles")
           .select("id, full_name, avatar_url, role")
-          .eq("id", session.user.id)
+          .eq("id", currentUser.id)
           .single()
         setProfile(userProfile as Profile | null)
-      }
-      setIsLoading(false)
-    }
-
-    checkUser()
-
-    // Listener per i cambiamenti di stato (login, logout)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-        if (currentUser) {
-          supabase
-            .from("profiles")
-            .select("id, full_name, avatar_url, role")
-            .eq("id", currentUser.id)
-            .single()
-            .then(({ data }) => setProfile(data as Profile | null))
-        }
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
+      } else {
         setProfile(null)
       }
+
+      if (event === "SIGNED_OUT") {
+        router.replace("/login")
+      }
+
+      setIsLoading(false)
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [supabase, router])
 
   useEffect(() => {
-    // La logica di reindirizzamento viene eseguita solo quando il caricamento è terminato
     if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // Utente non loggato su pagina protetta
     if (!user && isProtectedPage) {
       router.replace("/login")
       return
     }
 
-    // Utente loggato su pagina di login/registrazione
     if (user && profile && isAuthPage) {
-      const targetDashboard =
-        profile.role === "admin"
-          ? "/admin/dashboard"
-          : profile.role === "operator"
-            ? "/dashboard/operator"
-            : "/dashboard/client"
-      router.replace(targetDashboard)
+      let destination = "/"
+      if (profile.role === "admin") destination = "/admin"
+      else if (profile.role === "operator") destination = "/dashboard/operator"
+      else if (profile.role === "client") destination = "/dashboard/client"
+      router.replace(destination)
     }
   }, [user, profile, isLoading, pathname, router])
 
-  // Mostra uno spinner a schermo intero per evitare sfarfallii durante il controllo iniziale
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
