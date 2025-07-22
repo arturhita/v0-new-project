@@ -31,21 +31,18 @@ export default function LoginPage() {
     startTransition(async () => {
       const result = await login(values)
       if (result.success) {
-        toast.success(result.success)
-        // The AuthContext will handle the redirect, no need for router.push here
+        toast.success("Accesso effettuato con successo!")
+        // The AuthContext will handle the redirect automatically.
       } else if (result.error) {
         toast.error(result.error)
       }
     })
   }
 
+  // While the auth state is loading, or if the user is already logged in,
+  // show a loading spinner. The context will handle redirection.
   if (isAuthLoading || isAuthenticated) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
-        <ConstellationBackground />
-        <LoadingSpinner fullScreen />
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   return (

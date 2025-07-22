@@ -37,6 +37,7 @@ export default function RegisterPage() {
     startTransition(async () => {
       const result = await register(values)
       if (result.success) {
+        toast.success(result.success)
         setRegistrationSuccess(true)
       } else if (result.error) {
         toast.error(result.error)
@@ -45,12 +46,7 @@ export default function RegisterPage() {
   }
 
   if (isAuthLoading || isAuthenticated) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
-        <ConstellationBackground />
-        <LoadingSpinner fullScreen />
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   if (registrationSuccess) {
