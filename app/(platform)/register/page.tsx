@@ -6,7 +6,7 @@ import type { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { RegisterSchema } from "@/lib/schemas"
+import { registerSchema } from "@/lib/schemas"
 import { register } from "@/lib/actions/auth.actions"
 import { useState, useTransition } from "react"
 import Link from "next/link"
@@ -22,8 +22,8 @@ export default function RegisterPage() {
   const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
-  const form = useForm<z.infer<typeof RegisterSchema>>({
-    resolver: zodResolver(RegisterSchema),
+  const form = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: "",
       email: "",
@@ -33,13 +33,13 @@ export default function RegisterPage() {
     },
   })
 
-  const onSubmit = (values: z.infer<typeof RegisterSchema>) => {
+  const onSubmit = (values: z.infer<typeof registerSchema>) => {
     startTransition(async () => {
       const result = await register(values)
       if (result.success) {
         setRegistrationSuccess(true)
-      } else {
-        toast.error(result.message)
+      } else if (result.error) {
+        toast.error(result.error)
       }
     })
   }

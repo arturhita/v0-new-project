@@ -6,7 +6,7 @@ import type { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { LoginSchema } from "@/lib/schemas"
+import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
 import { useTransition } from "react"
 import Link from "next/link"
@@ -19,22 +19,22 @@ export default function LoginPage() {
   const [isPending, startTransition] = useTransition()
   const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
 
-  const form = useForm<z.infer<typeof LoginSchema>>({
-    resolver: zodResolver(LoginSchema),
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   })
 
-  const onSubmit = (values: z.infer<typeof LoginSchema>) => {
+  const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
       const result = await login(values)
       if (result.success) {
-        toast.success(result.message)
+        toast.success(result.success)
         // The AuthContext will handle the redirect, no need for router.push here
-      } else {
-        toast.error(result.message)
+      } else if (result.error) {
+        toast.error(result.error)
       }
     })
   }

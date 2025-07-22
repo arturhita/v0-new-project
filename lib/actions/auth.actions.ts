@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
-// Corrected imports to lowercase to match the schema file
 import { loginSchema, registerSchema } from "../schemas"
 import { redirect } from "next/navigation"
 
@@ -42,8 +41,6 @@ export async function register(values: z.infer<typeof registerSchema>) {
 
   const { email, password, fullName } = validatedFields.data
 
-  // The database trigger 'on_auth_user_created' will handle profile creation.
-  // We pass the full_name in the user metadata so the trigger can use it.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
