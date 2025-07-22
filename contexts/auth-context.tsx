@@ -50,51 +50,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Always start loading
+  const [isLoadingUser, setIsLoadingUser] = useState(true)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false)
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // The middleware will handle redirecting from protected pages.
-    // We can push to login for a faster client-side transition.
     router.push("/login")
   }, [supabase.auth, router])
 
+  // Effect 1: Get the user from Supabase auth state changes
   useEffect(() => {
-    // This is the standard and most robust way to handle auth state.
-    // onAuthStateChange fires once immediately with the current session,
-    // and then again whenever the auth state changes.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        const userProfile = await fetchProfileSafely(session.user.id)
-        if (userProfile) {
-          setUser(session.user)
-          setProfile(userProfile)
-        } else {
-          // This is a critical error state, a user exists in auth but not in our profiles table.
-          // Forcing a logout is the safest action.
-          toast.error("Impossibile caricare il profilo utente. Verrai disconnesso.")
-          await supabase.auth.signOut()
-          setUser(null)
-          setProfile(null)
-        }
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-      // Crucially, set loading to false only after the first check is complete.
-      setIsLoading(false)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setIsLoadingUser(false)
     })
 
-    return () => {
-      // Cleanup the subscription when the component unmounts.
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [supabase.auth])
 
-  // Render a full-screen loader until the initial auth state is determined.
-  // This prevents any UI flicker or race conditions.
+  // Effect 2: Get the profile when the user object is available or changes
+  useEffect(() => {
+    if (user) {
+      setIsLoadingProfile(true)
+      fetchProfileSafely(user.id)
+        .then((userProfile) => {
+          if (userProfile) {
+            setProfile(userProfile)
+          } else {
+            toast.error("Profilo non trovato. Verrai disconnesso.")
+            logout()
+          }
+        })
+        .finally(() => {
+          setIsLoadingProfile(false)
+        })
+    } else {
+      // If there's no user, ensure profile is also null.
+      setProfile(null)
+    }
+  }, [user, logout])
+
+  const isLoading = isLoadingUser || isLoadingProfile
+
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }

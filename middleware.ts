@@ -10,7 +10,7 @@ const getDashboardUrl = (role: string | undefined): string => {
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -25,18 +25,12 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          // A new response object must be created for every cookie modification.
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          response.cookies.set({ name, value, ...options })
+          request.cookies.set({ ...options, name, value })
+          response.cookies.set({ ...options, name, value })
         },
         remove(name: string, options: CookieOptions) {
-          // A new response object must be created for every cookie modification.
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          response.cookies.set({ name, value: "", ...options })
+          request.cookies.set({ ...options, name, value: "" })
+          response.cookies.set({ ...options, name, value: "" })
         },
       },
     },
@@ -73,21 +67,12 @@ export async function middleware(request: NextRequest) {
 
   // Role-based protection for protected routes
   if (pathname.startsWith("/admin") && userRole !== "admin") {
-    console.log(
-      `[Middleware] Role mismatch: User with role '${userRole}' tried to access admin route. Redirecting to ${userDashboardUrl}`,
-    )
     return NextResponse.redirect(new URL(userDashboardUrl, request.url))
   }
   if (pathname.startsWith("/dashboard/operator") && userRole !== "operator") {
-    console.log(
-      `[Middleware] Role mismatch: User with role '${userRole}' tried to access operator route. Redirecting to ${userDashboardUrl}`,
-    )
     return NextResponse.redirect(new URL(userDashboardUrl, request.url))
   }
   if (pathname.startsWith("/dashboard/client") && userRole !== "client") {
-    console.log(
-      `[Middleware] Role mismatch: User with role '${userRole}' tried to access client route. Redirecting to ${userDashboardUrl}`,
-    )
     return NextResponse.redirect(new URL(userDashboardUrl, request.url))
   }
 
