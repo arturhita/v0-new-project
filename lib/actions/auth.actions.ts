@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
 import { loginSchema, registerSchema } from "../schemas"
+import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
@@ -27,7 +28,6 @@ export async function login(values: z.infer<typeof loginSchema>) {
     return { error: "Credenziali non valide." }
   }
 
-  // On successful login, the AuthProvider will handle redirection.
   return { success: "Login effettuato con successo!" }
 }
 
@@ -39,13 +39,18 @@ export async function register(values: z.infer<typeof registerSchema>) {
     return { error: "Campi non validi!" }
   }
 
-  const { email, password } = validatedFields.data
+  const { email, password, fullName } = validatedFields.data
 
-  // The database trigger 'on_auth_user_created' will now handle profile creation.
-  // We no longer need to create the profile manually here.
+  // The database trigger 'on_auth_user_created' will handle profile creation.
+  // We pass the full_name in the user metadata so the trigger can use it.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        full_name: fullName,
+      },
+    },
   })
 
   if (error) {
@@ -54,9 +59,14 @@ export async function register(values: z.infer<typeof registerSchema>) {
   }
 
   if (!data.session && data.user) {
-    // This indicates the user was created but needs to confirm their email.
     return { success: "Registrazione quasi completata! Controlla la tua email per confermare il tuo account." }
   }
 
   return { error: "Si è verificato un errore imprevisto durante la registrazione." }
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }
