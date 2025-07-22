@@ -50,7 +50,7 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
       <GoldenConstellationBackground />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-yellow-500/10 backdrop-blur-sm">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Accedi al tuo Account</h1>
           <p className="mt-2 text-slate-400">Bentornato! Inserisci le tue credenziali.</p>
@@ -68,7 +68,7 @@ export default function LoginPage() {
                     <Input
                       placeholder="tuamail@esempio.com"
                       {...field}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-yellow-500 focus:border-yellow-500"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </FormControl>
                   <FormMessage />
@@ -86,18 +86,14 @@ export default function LoginPage() {
                       type="password"
                       placeholder="••••••••"
                       {...field}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-yellow-500 focus:border-yellow-500"
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-900 font-bold hover:from-yellow-400 hover:to-amber-400"
-              disabled={isPending}
-            >
+            <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
               {isPending ? "Accesso in corso..." : "Accedi"}
             </Button>
           </form>
@@ -105,7 +101,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-slate-400">
           Non hai un account?{" "}
-          <Link href="/register" className="font-medium text-yellow-400 hover:text-yellow-300">
+          <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
             Registrati
           </Link>
         </p>
