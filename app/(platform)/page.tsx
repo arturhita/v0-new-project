@@ -1,30 +1,22 @@
 import { Suspense } from "react"
 import HomepageClient from "./homepage-client"
-import { getFeaturedOperators, getRecentArticles } from "@/lib/actions/data.actions"
+import { getHomepageData } from "@/lib/actions/data.actions"
 import LoadingSpinner from "@/components/loading-spinner"
-import type { Profile } from "@/lib/schemas"
-import type { Article } from "@/lib/blog-data"
 
-// Define a simple type for the fetched data to avoid any type errors
-type Operator = Profile & { average_rating: number | null; review_count: number | null }
-type FetchedArticle = Article
+export const revalidate = 300 // Revalidate every 5 minutes
 
 export default async function HomePage() {
-  // Fetch data in parallel
-  const operatorsData = getFeaturedOperators() as Promise<Operator[]>
-  const articlesData = getRecentArticles() as Promise<FetchedArticle[]>
-
-  const [operators, articles] = await Promise.all([operatorsData, articlesData])
+  const homepageData = await getHomepageData()
 
   return (
     <Suspense
       fallback={
-        <div className="flex justify-center items-center min-h-screen">
+        <div className="w-full h-screen flex items-center justify-center bg-slate-900">
           <LoadingSpinner />
         </div>
       }
     >
-      <HomepageClient operators={operators} articles={articles} />
+      <HomepageClient initialData={homepageData} />
     </Suspense>
   )
 }
