@@ -30,22 +30,16 @@ export default function LoginPage() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
-      console.log("[LoginPage] Submitting form with values:", values.email)
+      // Il redirect ora è gestito interamente dalla server action.
+      // Il client deve solo gestire il caso di errore.
       const result = await login(values)
 
-      if (result?.success && result.redirectTo) {
-        console.log(`[LoginPage] Login action successful. Redirecting to ${result.redirectTo}`)
-        toast.success(result.success)
-        // **LA CORREZIONE CHIAVE**
-        // Eseguiamo una navigazione esplicita all'URL fornito dal server.
-        router.push(result.redirectTo)
-      } else if (result?.error) {
-        console.error("[LoginPage] Login action failed:", result.error)
+      if (result?.error) {
         toast.error(result.error)
         form.reset()
-      } else {
-        toast.error("Risposta inattesa dal server.")
       }
+      // Non c'è bisogno di un caso 'success' perché il redirect del server
+      // interromperà l'esecuzione e navigherà via da questa pagina.
     })
   }
 
