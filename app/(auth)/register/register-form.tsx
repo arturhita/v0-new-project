@@ -1,172 +1,117 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { z } from "zod"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { registerSchema } from "@/lib/schemas"
-import { register } from "@/lib/actions/auth.actions"
-import { useTransition } from "react"
-import Link from "next/link"
-import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
+import { useFormState, useFormStatus } from "react-dom"
+import { signUp } from "@/lib/actions/auth.actions"
+import { useEffect } from "react"
 import { toast } from "sonner"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
-export default function RegisterForm() {
-  const [isPending, startTransition] = useTransition()
+const initialState = {
+  errors: null,
+  message: null,
+  success: false,
+}
 
-  const form = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      terms: false,
-    },
-  })
+function SignUpButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" aria-disabled={pending}>
+      {pending ? "Creazione account..." : "Registrati"}
+    </Button>
+  )
+}
 
-  const onSubmit = (values: z.infer<typeof registerSchema>) => {
-    startTransition(async () => {
-      try {
-        const result = await register(values)
-        if (result.success) {
-          toast.success(result.success)
-          form.reset()
-        } else if (result.error) {
-          toast.error(result.error)
-        }
-      } catch (error) {
-        console.error("[RegisterForm] Exception during registration:", error)
-        toast.error("Errore durante la registrazione. Riprova.")
+export function RegisterForm() {
+  const [state, dispatch] = useFormState(signUp, initialState)
+
+  useEffect(() => {
+    if (state.message) {
+      if (state.success) {
+        toast.success(state.message)
+      } else if (!state.errors) {
+        toast.error(state.message)
       }
-    })
-  }
+    }
+  }, [state])
 
   return (
-    <div className="relative flex flex-grow items-center justify-center overflow-hidden py-16">
-      <GoldenConstellationBackground />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Crea il tuo Account</h1>
-          <p className="mt-2 text-slate-400">Unisciti alla nostra community di esperti e clienti.</p>
+    <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-lg">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">Crea un nuovo account</h2>
         </div>
+        {state.success ? (
+          <div className="text-center text-green-400 p-4 bg-green-900/20 rounded-md">
+            <p>{state.message}</p>
+          </div>
+        ) : (
+          <form action={dispatch} className="mt-8 space-y-6">
+            <div className="rounded-md shadow-sm -space-y-px">
+              <div>
+                <Label htmlFor="email-address" className="sr-only">
+                  Indirizzo Email
+                </Label>
+                <Input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Indirizzo Email"
+                />
+                {state.errors?.email && <p className="text-sm text-red-500 mt-1">{state.errors.email[0]}</p>}
+              </div>
+              <div>
+                <Label htmlFor="password" className="sr-only">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Password (min. 6 caratteri)"
+                />
+                {state.errors?.password && <p className="text-sm text-red-500 mt-1">{state.errors.password[0]}</p>}
+              </div>
+              <div>
+                <Label htmlFor="confirm-password" className="sr-only">
+                  Conferma Password
+                </Label>
+                <Input
+                  id="confirm-password"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Conferma Password"
+                />
+                {state.errors?.confirmPassword && (
+                  <p className="text-sm text-red-500 mt-1">{state.errors.confirmPassword[0]}</p>
+                )}
+              </div>
+            </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-slate-300">Nome Completo</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Mario Rossi"
-                      {...field}
-                      disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-slate-300">Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="tuamail@esempio.com"
-                      {...field}
-                      disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-slate-300">Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      {...field}
-                      disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-slate-300">Conferma Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      {...field}
-                      disabled={isPending}
-                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="terms"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isPending}
-                      className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-500"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm text-slate-400 font-normal">
-                      Accetto i{" "}
-                      <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
-                        Termini di Servizio
-                      </Link>
-                    </FormLabel>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-            <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
-              {isPending ? "Registrazione in corso..." : "Registrati"}
-            </Button>
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <Link href="/login" className="font-medium text-indigo-400 hover:text-indigo-300">
+                  Hai già un account? Accedi
+                </Link>
+              </div>
+            </div>
+
+            <div>
+              <SignUpButton />
+            </div>
           </form>
-        </Form>
-
-        <p className="mt-6 text-center text-sm text-slate-400">
-          Hai già un account?{" "}
-          <Link href="/login" className="font-medium text-sky-400 hover:text-sky-300">
-            Accedi
-          </Link>
-        </p>
+        )}
       </div>
     </div>
   )

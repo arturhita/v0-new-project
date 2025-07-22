@@ -1,16 +1,25 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import type { z } from "zod"
-import { loginSchema, registerSchema } from "../schemas"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
+import { z } from "zod"
 
-export async function login(values: z.infer<typeof loginSchema>) {
+const loginSchema = z.object({
+  email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
+  password: z.string().min(1, { message: "La password è richiesta." }),
+})
+
+export async function login(prevState: any, formData: FormData) {
   const supabase = createClient()
-  const validatedFields = loginSchema.safeParse(values)
+  const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { error: "Campi non validi!" }
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Dati non validi.",
+      success: false,
+    }
   }
 
   const { email, password } = validatedFields.data
@@ -21,51 +30,88 @@ export async function login(values: z.infer<typeof loginSchema>) {
   })
 
   if (error) {
-    if (error.message.includes("Email not confirmed")) {
-      return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
+    console.error("Login error:", error.message)
+    return {
+      errors: null,
+      message: "Credenziali non valide. Riprova.",
+      success: false,
     }
-    return { error: "Credenziali non valide." }
   }
 
-  // Non reindirizzare qui. Restituisci successo.
-  // Il client farà un refresh, e il componente server gestirà il reindirizzamento.
-  return { success: true }
+  return {
+    errors: null,
+    message: "Login effettuato con successo. Reindirizzamento...",
+    success: true,
+  }
 }
 
-export async function register(values: z.infer<typeof registerSchema>) {
+const signupSchema = z
+  .object({
+    email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
+    password: z.string().min(6, { message: "La password deve contenere almeno 6 caratteri." }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Le password non coincidono.",
+    path: ["confirmPassword"],
+  })
+
+export async function signUp(prevState: any, formData: FormData) {
+  const origin = headers().get("origin")
   const supabase = createClient()
-  const validatedFields = registerSchema.safeParse(values)
+
+  const validatedFields = signupSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { error: "Campi non validi!" }
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Dati non validi.",
+      success: false,
+    }
   }
 
-  const { email, password, fullName } = validatedFields.data
+  const { email, password } = validatedFields.data
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: {
-        full_name: fullName,
-      },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 
   if (error) {
-    console.error("Registration Error:", error.message)
-    return { error: "Impossibile registrare l'utente. L'email potrebbe essere già in uso." }
+    console.error("Signup error:", error.message)
+    if (error.message.includes("User already registered")) {
+      return {
+        errors: null,
+        message: "Questo indirizzo email è già registrato.",
+        success: false,
+      }
+    }
+    return {
+      errors: null,
+      message: "Errore durante la registrazione. Riprova.",
+      success: false,
+    }
   }
 
-  if (!data.session && data.user) {
-    return { success: "Registrazione quasi completata! Controlla la tua email per confermare il tuo account." }
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return {
+      errors: null,
+      message: "Questo indirizzo email è già registrato. Prova ad accedere.",
+      success: false,
+    }
   }
 
-  return { error: "Si è verificato un errore imprevisto durante la registrazione." }
+  return {
+    errors: null,
+    message: "Registrazione avvenuta! Controlla la tua email per confermare il tuo account.",
+    success: true,
+  }
 }
 
-export async function logout() {
+export async function signOut() {
   const supabase = createClient()
   await supabase.auth.signOut()
   redirect("/login")

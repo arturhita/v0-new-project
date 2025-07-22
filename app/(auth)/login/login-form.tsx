@@ -1,111 +1,96 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { z } from "zod"
-import { useTransition } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { toast } from "sonner"
-
-import { loginSchema } from "@/lib/schemas"
+import { useFormState, useFormStatus } from "react-dom"
 import { login } from "@/lib/actions/auth.actions"
-import { Button } from "@/components/ui/button"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+
+const initialState = {
+  errors: null,
+  message: null,
+  success: false,
+}
+
+function LoginButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" aria-disabled={pending}>
+      {pending ? "Accesso in corso..." : "Accedi"}
+    </Button>
+  )
+}
 
 export function LoginForm() {
+  const [state, dispatch] = useFormState(login, initialState)
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
 
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  })
-
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
-    startTransition(async () => {
-      const result = await login(values)
-      if (result?.error) {
-        toast.error(result.error)
-        form.reset()
-      }
-      if (result?.success) {
-        toast.success("Login effettuato con successo!")
-        // Forza un refresh della pagina. Il componente server rileverà la sessione
-        // e gestirà il reindirizzamento.
-        router.refresh()
-      }
-    })
-  }
+  useEffect(() => {
+    if (state.success) {
+      toast.success(state.message)
+      router.refresh()
+    } else if (state.message && !state.errors) {
+      toast.error(state.message)
+    }
+  }, [state, router])
 
   return (
-    <div className="relative flex flex-grow items-center justify-center overflow-hidden py-16">
-      <GoldenConstellationBackground />
-      <Card className="z-10 w-full max-w-md border-slate-700 bg-slate-900/50 text-white backdrop-blur-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">Accedi al tuo account</CardTitle>
-          <CardDescription className="text-slate-400">Bentornato! Inserisci le tue credenziali.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
+    <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-lg">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">Accedi al tuo account</h2>
+        </div>
+        <form action={dispatch} className="mt-8 space-y-6">
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <Label htmlFor="email-address" className="sr-only">
+                Indirizzo Email
+              </Label>
+              <Input
+                id="email-address"
                 name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-300">Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="tuamail@esempio.com"
-                        {...field}
-                        type="email"
-                        disabled={isPending}
-                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                type="email"
+                autoComplete="email"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Indirizzo Email"
               />
-              <FormField
-                control={form.control}
+              {state.errors?.email && <p className="text-sm text-red-500 mt-1">{state.errors.email[0]}</p>}
+            </div>
+            <div>
+              <Label htmlFor="password" className="sr-only">
+                Password
+              </Label>
+              <Input
+                id="password"
                 name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-300">Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="••••••••"
-                        {...field}
-                        type="password"
-                        disabled={isPending}
-                        className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                type="password"
+                autoComplete="current-password"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-900 text-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="Password"
               />
-              <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
-                {isPending ? "Accesso in corso..." : "Accedi"}
-              </Button>
-            </form>
-          </Form>
-          <div className="mt-6 text-center text-sm text-slate-400">
-            Non hai un account?{" "}
-            <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
-              Registrati ora
-            </Link>
+              {state.errors?.password && <p className="text-sm text-red-500 mt-1">{state.errors.password[0]}</p>}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <Link href="/register" className="font-medium text-indigo-400 hover:text-indigo-300">
+                Non hai un account? Registrati
+              </Link>
+            </div>
+          </div>
+
+          <div>
+            <LoginButton />
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
