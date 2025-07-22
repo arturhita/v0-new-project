@@ -58,8 +58,8 @@ export function SiteNavbar() {
     if (isLoading) {
       return (
         <div className="flex items-center space-x-4">
-          <Skeleton className="h-9 w-24 bg-slate-700" />
-          <Skeleton className="h-10 w-10 rounded-full bg-slate-700" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-10 w-10 rounded-full" />
         </div>
       )
     }
@@ -76,35 +76,41 @@ export function SiteNavbar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-56 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-white shadow-lg"
+            className="w-56 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg"
             align="end"
             forceMount
           >
             <div className="flex items-center justify-start gap-2 p-2">
               <div className="flex flex-col space-y-1 leading-none">
-                <p className="font-medium">{profile?.full_name || user?.email}</p>
-                <p className="w-[200px] truncate text-sm text-slate-400">{user?.email}</p>
+                <p className="font-medium text-slate-900">{profile?.full_name || user?.email}</p>
+                <p className="w-[200px] truncate text-sm text-slate-500">{user?.email}</p>
               </div>
             </div>
-            <DropdownMenuSeparator className="bg-slate-700" />
+            <DropdownMenuSeparator className="bg-slate-200" />
             {profile && (
               <DropdownMenuItem asChild>
-                <Link href={getDashboardLink()} className="flex items-center hover:bg-slate-800 cursor-pointer">
+                <Link
+                  href={getDashboardLink()}
+                  className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+                >
                   <User className="mr-2 h-4 w-4" />
                   Dashboard
                 </Link>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>
-              <Link href="/profile" className="flex items-center hover:bg-slate-800 cursor-pointer">
+              <Link
+                href="/profile"
+                className="flex items-center text-slate-700 hover:text-blue-600 hover:bg-blue-50 cursor-pointer"
+              >
                 <Settings className="mr-2 h-4 w-4" />
                 Profilo
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-slate-700" />
+            <DropdownMenuSeparator className="bg-slate-200" />
             <DropdownMenuItem
               onClick={logout}
-              className="flex items-center text-red-400 hover:!text-red-400 hover:!bg-red-900/50 cursor-pointer"
+              className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Esci
@@ -135,7 +141,7 @@ export function SiteNavbar() {
 
   const renderMobileAuthSection = () => {
     if (isLoading) {
-      return <Skeleton className="h-10 w-full rounded-md bg-slate-700" />
+      return <Skeleton className="h-10 w-full rounded-md" />
     }
     if (isAuthenticated) {
       return (
@@ -175,7 +181,7 @@ export function SiteNavbar() {
   }
 
   return (
-    <header className="bg-transparent">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center space-x-2 group">
@@ -209,10 +215,10 @@ export function SiteNavbar() {
       </div>
 
       {isMenuOpen && (
-        <div className="md:hidden bg-[#0B112B]/95 backdrop-blur-lg pb-8">
+        <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
             <NavigationMenuDemo />
-            <div className="flex flex-col space-y-2 pt-4 border-t border-blue-800">{renderMobileAuthSection()}</div>
+            <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">{renderMobileAuthSection()}</div>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { AuthProvider } from "@/contexts/auth-context"
 import ClientDashboardUI from "./client-dashboard-ui"
 import type { ReactNode } from "react"
 
@@ -27,5 +28,9 @@ export default async function ClientDashboardLayout({ children }: { children: Re
     return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
   }
 
-  return <ClientDashboardUI>{children}</ClientDashboardUI>
+  return (
+    <AuthProvider>
+      <ClientDashboardUI>{children}</ClientDashboardUI>
+    </AuthProvider>
+  )
 }

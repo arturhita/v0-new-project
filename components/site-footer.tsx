@@ -2,9 +2,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { Facebook, Twitter, Instagram } from "lucide-react"
 
-export function SiteFooter() {
+export default function SiteFooter() {
   return (
-    <footer className="bg-transparent text-gray-300">
+    <footer className="bg-[#102A75] text-gray-300">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-8 xl:col-span-1">
@@ -49,7 +49,7 @@ export function SiteFooter() {
                     </Link>
                   </li>
                   <li>
-                    <Link href="/esperti" className="text-base text-gray-400 hover:text-white">
+                    <Link href="/esperti/cartomanti" className="text-base text-gray-400 hover:text-white">
                       Esperti
                     </Link>
                   </li>
@@ -115,7 +115,7 @@ export function SiteFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-12 border-t border-blue-800/50 pt-8">
+        <div className="mt-12 border-t border-blue-800 pt-8">
           <p className="text-base text-gray-400 xl:text-center">
             &copy; {new Date().getFullYear()} Moonthir. Tutti i diritti riservati.
           </p>

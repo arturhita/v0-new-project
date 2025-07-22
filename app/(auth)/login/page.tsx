@@ -2,9 +2,9 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { LoginForm } from "./login-form"
 
-// Questo è ora un PURO Componente Server. Non c'è "use client".
 export default async function LoginPage() {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -14,14 +14,14 @@ export default async function LoginPage() {
 
     const role = profile?.role
     if (role === "admin") {
-      redirect("/admin")
+      return redirect("/admin")
     } else if (role === "operator") {
-      redirect("/dashboard/operator")
+      return redirect("/dashboard/operator")
     } else if (role === "client") {
-      redirect("/dashboard/client")
+      return redirect("/dashboard/client")
     } else {
       // Fallback se l'utente esiste ma non ha un ruolo o un profilo
-      redirect("/")
+      return redirect("/")
     }
   }
 
