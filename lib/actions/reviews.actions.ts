@@ -1,6 +1,6 @@
 "use server"
+import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import createServerClient from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function createReview(reviewData: {
@@ -9,52 +9,65 @@ export async function createReview(reviewData: {
   comment: string
   consultation_id: string
 }) {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
+  if (!user) return { error: "You must be logged in to leave a review." }
 
-  const { error } = await supabase.from("reviews").insert({
-    ...reviewData,
-    client_id: user.id,
-    status: "pending",
-  })
+  const { data, error } = await supabase
+    .from("reviews")
+    .insert({ ...reviewData, client_id: user.id, status: "pending" })
+    .select()
+    .single()
 
   if (error) {
     console.error("Error creating review:", error)
     return { error: error.message }
   }
-  return { success: true }
+
+  return { data }
 }
 
 export async function getPendingReviews() {
-  const { data, error } = await supabaseAdmin
+  const supabase = supabaseAdmin
+  const { data, error } = await supabase
     .from("reviews")
-    .select("*, profiles:client_id(full_name), operator:operator_id(full_name)")
+    .select("*, client:profiles!client_id(full_name), operator:profiles!operator_id(full_name)")
     .eq("status", "pending")
-  if (error) return []
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching pending reviews:", error)
+    return []
+  }
   return data
 }
 
 export async function getModeratedReviews() {
-  const { data, error } = await supabaseAdmin
+  const supabase = supabaseAdmin
+  const { data, error } = await supabase
     .from("reviews")
-    .select("*, profiles:client_id(full_name), operator:operator_id(full_name)")
+    .select("*, client:profiles!client_id(full_name), operator:profiles!operator_id(full_name)")
     .neq("status", "pending")
-  if (error) return []
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching moderated reviews:", error)
+    return []
+  }
   return data
 }
 
-export async function moderateReview(reviewId: string, status: "approved" | "rejected", admin_comment?: string) {
-  const { error } = await supabaseAdmin
-    .from("reviews")
-    .update({ status, admin_comment, moderated_at: new Date().toISOString() })
-    .eq("id", reviewId)
+export async function moderateReview(reviewId: string, newStatus: "approved" | "rejected") {
+  const supabase = supabaseAdmin
+  const { error } = await supabase.from("reviews").update({ status: newStatus }).eq("id", reviewId)
+
   if (error) {
     console.error("Error moderating review:", error)
     return { error: error.message }
   }
+
   revalidatePath("/admin/reviews")
   return { success: true }
 }

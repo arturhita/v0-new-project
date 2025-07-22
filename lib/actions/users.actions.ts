@@ -13,7 +13,7 @@ export async function getUsersWithStats() {
 
 export async function toggleUserSuspension(userId: string, isSuspended: boolean) {
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-    user_metadata: { is_suspended: !isSuspended },
+    user_metadata: { suspended: !isSuspended },
   })
   if (error) return { error: error.message }
   revalidatePath("/admin/users")
@@ -21,13 +21,13 @@ export async function toggleUserSuspension(userId: string, isSuspended: boolean)
 }
 
 export async function issueVoucher(userId: string, amount: number) {
-  // Placeholder logic
+  // Placeholder for voucher logic
   console.log(`Issuing voucher of ${amount} to user ${userId}`)
-  return { success: true }
+  return { success: `Voucher of ${amount} issued.` }
 }
 
-export async function issueRefund(transactionId: string, amount: number) {
-  // Placeholder logic
-  console.log(`Refunding ${amount} for transaction ${transactionId}`)
-  return { success: true }
+export async function issueRefund(transactionId: string) {
+  // Placeholder for refund logic
+  console.log(`Issuing refund for transaction ${transactionId}`)
+  return { success: `Refund for transaction ${transactionId} processed.` }
 }

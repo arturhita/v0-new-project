@@ -1,32 +1,31 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import createServerClient from "@/lib/supabase/server"
+import { headers } from "next/headers"
 import type { z } from "zod"
-import type { LoginSchema, RegisterSchema } from "../schemas"
+import type { RegisterSchema, LoginSchema, PasswordResetSchema, UpdatePasswordSchema } from "@/lib/schemas"
 
-export async function login(formData: z.infer<typeof LoginSchema>) {
-  const supabase = await createServerClient()
-  const { error } = await supabase.auth.signInWithPassword(formData)
+export async function login(values: z.infer<typeof LoginSchema>) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
     return { error: error.message }
   }
 
-  revalidatePath("/", "layout")
-  redirect("/admin/dashboard") // Or user dashboard
+  redirect("/")
 }
 
-export async function register(formData: z.infer<typeof RegisterSchema>) {
-  const supabase = await createServerClient()
+export async function register(values: z.infer<typeof RegisterSchema>) {
+  const supabase = createClient()
   const { error } = await supabase.auth.signUp({
-    email: formData.email,
-    password: formData.password,
+    email: values.email,
+    password: values.password,
     options: {
       data: {
-        full_name: formData.fullName,
-        role: "client",
+        full_name: values.fullName,
+        role: "client", // Default role
       },
     },
   })
@@ -35,52 +34,56 @@ export async function register(formData: z.infer<typeof RegisterSchema>) {
     return { error: error.message }
   }
 
-  return { success: "Controlla la tua email per verificare il tuo account." }
+  return { success: "Check your email to verify your account." }
 }
 
-export async function logout() {
-  const supabase = await createServerClient()
-  await supabase.auth.signOut()
-  redirect("/login")
-}
-
-export async function requestPasswordReset(email: string) {
-  const supabase = await createServerClient()
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/update-password`,
+export async function signUpAsOperator(values: z.infer<typeof RegisterSchema>) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.signUp({
+    email: values.email,
+    password: values.password,
+    options: {
+      data: {
+        full_name: values.fullName,
+        role: "operator",
+      },
+    },
   })
 
   if (error) {
     return { error: error.message }
   }
-  return { success: "Controlla la tua email per il link di reset." }
+
+  return { success: "Check your email to verify your account." }
 }
 
-export async function updatePassword(password: string) {
-  const supabase = await createServerClient()
-  const { error } = await supabase.auth.updateUser({ password })
-
-  if (error) {
-    return { error: error.message }
-  }
-
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
   redirect("/login")
 }
 
-export async function signUpAsOperator(formData: any) {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return { error: "User not found" }
-
-  const { error } = await supabase.from("profiles").update({ role: "operator" }).eq("id", user.id)
+export async function requestPasswordReset(values: z.infer<typeof PasswordResetSchema>) {
+  const supabase = createClient()
+  const origin = headers().get("origin")
+  const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+    redirectTo: `${origin}/auth/update-password`,
+  })
 
   if (error) {
     return { error: error.message }
   }
 
-  revalidatePath("/diventa-esperto")
-  return { success: "Registration successful" }
+  return { success: "Password reset link sent. Check your email." }
+}
+
+export async function updatePassword(values: z.infer<typeof UpdatePasswordSchema>) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.updateUser({ password: values.password })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: "Password updated successfully." }
 }

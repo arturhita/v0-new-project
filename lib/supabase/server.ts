@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
-export const createClient = () => {
+const createClientFunc = () => {
   const cookieStore = cookies()
 
   return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
@@ -30,3 +30,9 @@ export const createClient = () => {
     },
   })
 }
+
+// Export as a named export for consistency
+export const createClient = createClientFunc
+
+// Also export as a default export to fix the build error
+export default createClientFunc

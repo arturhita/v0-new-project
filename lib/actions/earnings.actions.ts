@@ -1,6 +1,6 @@
 "use server"
-import createServerClient from "@/lib/supabase/server"
-import type { LucideIcon } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
+import { CircleDollarSign, MessageSquare, Phone } from "lucide-react"
 
 export function formatCurrency(amount: number | null | undefined) {
   if (amount === null || amount === undefined) return "€0.00"
@@ -17,54 +17,78 @@ export function formatDate(dateString: string | null | undefined) {
 }
 
 export function getServiceTypeLabel(type: string) {
-  const labels: { [key: string]: string } = {
-    chat: "Chat",
-    call: "Chiamata",
-    written_consultation: "Consulto Scritto",
+  switch (type) {
+    case "chat":
+      return "Chat"
+    case "call":
+      return "Chiamata"
+    case "written_consultation":
+      return "Consulto Scritto"
+    default:
+      return "Sconosciuto"
   }
-  return labels[type] || "Sconosciuto"
 }
 
-export function getServiceTypeIcon(type: string): LucideIcon | null {
-  // This requires you to import the icons in the component where you use this.
-  // Example: import { MessageCircle, Phone, FileText } from 'lucide-react'
-  return null
+export function getServiceTypeIcon(type: string) {
+  switch (type) {
+    case "chat":
+      return MessageSquare
+    case "call":
+      return Phone
+    case "written_consultation":
+      return CircleDollarSign // Placeholder icon
+    default:
+      return CircleDollarSign
+  }
 }
 
 export async function getOperatorEarningsSummary() {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return null
-  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: user.id }).single()
-  if (error) return null
-  return data
+
+  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: user.id })
+  if (error) {
+    console.error("Error fetching earnings summary:", error)
+    return null
+  }
+  return data[0]
 }
 
 export async function getOperatorEarningsChartData() {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return []
+
   const { data, error } = await supabase.rpc("get_operator_earnings_chart_data", { p_operator_id: user.id })
-  if (error) return []
+  if (error) {
+    console.error("Error fetching chart data:", error)
+    return []
+  }
   return data
 }
 
 export async function getOperatorRecentTransactions() {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return []
+
   const { data, error } = await supabase
     .from("earnings")
     .select("*")
     .eq("operator_id", user.id)
     .order("created_at", { ascending: false })
     .limit(10)
-  if (error) return []
+
+  if (error) {
+    console.error("Error fetching recent transactions:", error)
+    return []
+  }
   return data
 }

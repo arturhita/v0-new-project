@@ -1,32 +1,52 @@
 "use server"
+import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import createServerClient from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getOperatorById(id: string) {
-  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("id", id).single()
-  if (error) return null
+  const supabase = createClient()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).eq("role", "operator").single()
+
+  if (error) {
+    console.error("Error fetching operator by ID:", error)
+    return null
+  }
   return data
 }
 
-export async function registerOperator(userId: string, operatorData: any) {
-  const { error } = await supabaseAdmin
-    .from("profiles")
-    .update({ ...operatorData, role: "operator" })
-    .eq("id", userId)
-  if (error) return { error: error.message }
-  return { success: true }
+export async function registerOperator(formData: FormData) {
+  // This is part of the auth flow now, see auth.actions.ts
+  // This function can be used for post-registration profile updates
+  console.log("Operator registration/profile update logic here.")
 }
 
 export async function getAllOperators() {
   const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("role", "operator")
-  if (error) return []
+
+  if (error) {
+    console.error("Error fetching all operators for admin:", error)
+    return []
+  }
   return data
 }
 
 export async function getOperatorPublicProfile(operatorName: string) {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase.rpc("get_operator_profile_by_name", { p_operator_name: operatorName }).single()
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`
+            id,
+            full_name,
+            avatar_url,
+            bio,
+            specialties,
+            services,
+            reviews ( id, rating, comment, created_at, client:profiles(full_name) )
+        `)
+    .eq("full_name", operatorName)
+    .eq("role", "operator")
+    .single()
+
   if (error) {
     console.error("Error fetching operator public profile:", error)
     return null
@@ -34,37 +54,38 @@ export async function getOperatorPublicProfile(operatorName: string) {
   return data
 }
 
-export async function createOperator(operatorData: any) {
-  const { error } = await supabaseAdmin.auth.admin.createUser({
-    email: operatorData.email,
-    password: operatorData.password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: operatorData.full_name,
-      role: "operator",
-    },
-  })
+export async function createOperator(formData: FormData) {
+  // This is handled by auth.actions.ts signUpAsOperator
+  console.log("Use signUpAsOperator for creation.")
+}
+
+export async function updateOperatorDetails(operatorId: string, updates: any) {
+  const { error } = await supabaseAdmin.from("profiles").update(updates).eq("id", operatorId)
+
   if (error) return { error: error.message }
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
   revalidatePath("/admin/operators")
   return { success: true }
 }
 
-export async function updateOperatorDetails(operatorId: string, details: any) {
-  const { error } = await supabaseAdmin.from("profiles").update(details).eq("id", operatorId)
-  if (error) return { error: error.message }
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: true }
-}
+export async function updateOperatorCommission(operatorId: string, newCommission: number) {
+  const { error } = await supabaseAdmin
+    .from("operator_settings")
+    .update({ commission_rate: newCommission })
+    .eq("user_id", operatorId)
 
-export async function updateOperatorCommission(operatorId: string, commission: number) {
-  const { error } = await supabaseAdmin.from("profiles").update({ commission_rate: commission }).eq("id", operatorId)
   if (error) return { error: error.message }
   revalidatePath(`/admin/operators/${operatorId}/edit`)
   return { success: true }
 }
 
 export async function getOperatorForAdmin(operatorId: string) {
-  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("id", operatorId).single()
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("*, operator_settings(*)")
+    .eq("id", operatorId)
+    .single()
+
   if (error) {
     console.error("Error fetching operator for admin:", error)
     return null

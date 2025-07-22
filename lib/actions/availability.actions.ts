@@ -1,34 +1,41 @@
 "use server"
-import createServerClient from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function saveOperatorAvailability(availability: any) {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "Not authenticated" }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("operator_availability")
-    .upsert({ operator_id: user.id, availability_data: availability }, { onConflict: "operator_id" })
-  if (error) return { error: error.message }
+    .upsert({ user_id: user.id, schedule: availability }, { onConflict: "user_id" })
+
+  if (error) {
+    console.error("Error saving availability:", error)
+    return { error: error.message }
+  }
   revalidatePath("/dashboard/operator/availability")
   return { success: true }
 }
 
 export async function getOperatorAvailability() {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return { schedule: {} }
 
   const { data, error } = await supabase
     .from("operator_availability")
-    .select("availability_data")
-    .eq("operator_id", user.id)
+    .select("schedule")
+    .eq("user_id", user.id)
     .single()
-  if (error || !data) return null
-  return data.availability_data
+
+  if (error || !data) {
+    return { schedule: {} }
+  }
+  return data
 }

@@ -1,8 +1,8 @@
 "use server"
-import createServerClient from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function getClientDashboardStats() {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -13,20 +13,21 @@ export async function getClientDashboardStats() {
     console.error("Error fetching client dashboard stats:", error)
     return null
   }
-  return data
+  return data[0]
 }
 
 export async function getFavoriteExperts() {
-  const supabase = await createServerClient()
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase.rpc("get_client_favorites", { p_client_id: user.id })
+  const { data, error } = await supabase.from("favorites").select("operator:profiles(*)").eq("client_id", user.id)
+
   if (error) {
     console.error("Error fetching favorite experts:", error)
     return []
   }
-  return data
+  return data.map((fav) => fav.operator)
 }

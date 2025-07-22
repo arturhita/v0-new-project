@@ -1,67 +1,72 @@
 "use server"
-
 import { supabaseAdmin } from "@/lib/supabase/admin"
+import type { Promotion } from "@/types/promotion.types"
 import { revalidatePath } from "next/cache"
 
-export async function createOrUpdatePromotion(promotionData: any) {
-  const { id, ...updateData } = promotionData
-  let result
+export async function createOrUpdatePromotion(
+  promotion: Omit<Promotion, "id" | "created_at" | "is_active"> & { id?: string },
+) {
+  const supabase = supabaseAdmin
+  const { id, ...updateData } = promotion
+
   if (id) {
-    result = await supabaseAdmin.from("promotions").update(updateData).eq("id", id)
+    const { data, error } = await supabase.from("promotions").update(updateData).eq("id", id).select().single()
+    if (error) return { error: error.message }
+    revalidatePath("/admin/promotions")
+    return { data }
   } else {
-    result = await supabaseAdmin.from("promotions").insert(updateData)
+    const { data, error } = await supabase.from("promotions").insert(updateData).select().single()
+    if (error) return { error: error.message }
+    revalidatePath("/admin/promotions")
+    return { data }
   }
-
-  if (result.error) {
-    console.error("Error saving promotion:", result.error)
-    return { error: result.error.message }
-  }
-
-  revalidatePath("/admin/promotions")
-  return { success: true }
 }
 
-export async function getCurrentPromotionPrice() {
-  const { data, error } = await supabaseAdmin
+export async function getCurrentPromotionPrice(serviceType: "chat" | "call", basePrice: number): Promise<number> {
+  const supabase = supabaseAdmin
+  const now = new Date().toISOString()
+
+  const { data: promotion, error } = await supabase
     .from("promotions")
-    .select("promotional_price")
+    .select("discount_percentage")
     .eq("is_active", true)
-    .lt("start_date", new Date().toISOString())
-    .gt("end_date", new Date().toISOString())
+    .or(`service_type.eq.all,service_type.eq.${serviceType}`)
+    .lte("start_date", now)
+    .gte("end_date", now)
+    .order("created_at", { ascending: false })
     .limit(1)
     .single()
 
-  if (error || !data) {
-    return null
+  if (error || !promotion) {
+    return basePrice
   }
-  return data.promotional_price
+
+  return basePrice * (1 - promotion.discount_percentage / 100)
 }
 
-export async function getPromotions() {
-  const { data, error } = await supabaseAdmin.from("promotions").select("*").order("created_at", { ascending: false })
+export async function getPromotions(): Promise<Promotion[]> {
+  const supabase = supabaseAdmin
+  const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
+
   if (error) {
     console.error("Error fetching promotions:", error)
     return []
   }
-  return data
+  return data || []
 }
 
-export async function deletePromotion(promotionId: string) {
-  const { error } = await supabaseAdmin.from("promotions").delete().eq("id", promotionId)
-  if (error) {
-    console.error("Error deleting promotion:", error)
-    return { error: error.message }
-  }
+export async function deletePromotion(id: string) {
+  const supabase = supabaseAdmin
+  const { error } = await supabase.from("promotions").delete().eq("id", id)
+  if (error) return { error: error.message }
   revalidatePath("/admin/promotions")
   return { success: true }
 }
 
-export async function togglePromotionStatus(promotionId: string, currentStatus: boolean) {
-  const { error } = await supabaseAdmin.from("promotions").update({ is_active: !currentStatus }).eq("id", promotionId)
-  if (error) {
-    console.error("Error toggling promotion status:", error)
-    return { error: error.message }
-  }
+export async function togglePromotionStatus(id: string, currentState: boolean) {
+  const supabase = supabaseAdmin
+  const { error } = await supabase.from("promotions").update({ is_active: !currentState }).eq("id", id)
+  if (error) return { error: error.message }
   revalidatePath("/admin/promotions")
   return { success: true }
 }

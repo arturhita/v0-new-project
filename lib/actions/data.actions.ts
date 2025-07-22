@@ -1,47 +1,53 @@
 "use server"
-import createServerClient from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import type { Operator } from "@/types/operator.types"
 
 export async function getHomepageData() {
-  const supabase = await createServerClient()
-  const { data: operators, error } = await supabase.rpc("get_featured_operators")
+  const supabase = createClient()
+  const { data: operators, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("role", "operator")
+    .eq("status", "active")
+    .limit(10)
+
   if (error) {
     console.error("Error fetching homepage data:", error)
     return { operators: [] }
   }
-  return { operators }
+  return { operators: (operators as Operator[]) || [] }
 }
 
 export function mapProfileToOperator(profile: any): Operator {
   return {
     id: profile.id,
-    fullName: profile.full_name,
-    specialties: profile.specialties || [],
-    profileImage: profile.profile_image_url,
-    isAvailable: profile.is_available,
-    averageRating: profile.average_rating || 0,
-    totalReviews: profile.total_reviews || 0,
+    full_name: profile.full_name,
+    avatar_url: profile.avatar_url,
     bio: profile.bio,
-    operator_name: profile.operator_name,
+    specialties: profile.specialties || [],
+    status: profile.status,
+    // Add other fields as necessary
   }
 }
 
 export async function getAllOperators(): Promise<Operator[]> {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase.rpc("get_all_operators_with_details")
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operators_with_reviews")
+
   if (error) {
     console.error("Error fetching all operators:", error)
     return []
   }
-  return data.map(mapProfileToOperator)
+  return data || []
 }
 
 export async function getOperatorsByCategory(category: string): Promise<Operator[]> {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase.rpc("get_operators_by_category_unaccented", { category_name: category })
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operators_by_category_with_reviews", { category_name: category })
+
   if (error) {
-    console.error("Error fetching operators by category:", error)
+    console.error(`Error fetching operators for category ${category}:`, error)
     return []
   }
-  return data.map(mapProfileToOperator)
+  return data || []
 }
