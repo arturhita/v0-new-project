@@ -45,6 +45,10 @@ import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-con
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { AuthProvider } from "@/contexts/auth-context"
+import { OperatorDashboard } from "@/app/operator/dashboard/page"
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -80,6 +84,12 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
       {item.label}
     </Link>
   )
+}
+
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "admin") return "/admin"
+  if (role === "client") return "/dashboard/client"
+  return "/"
 }
 
 function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
@@ -292,12 +302,36 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
   )
 }
 
-export default function OperatorDashboardLayoutWrapper({ children }: { children: React.ReactNode }) {
+export default async function OperatorDashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return redirect("/login?message=Devi essere loggato per accedere a questa pagina.")
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+  if (profile?.role !== "operator") {
+    const targetUrl = getDashboardUrl(profile?.role)
+    return redirect(targetUrl + "?error=Accesso non autorizzato.")
+  }
+
   return (
-    <OperatorStatusProvider>
-      <ChatRequestProvider>
-        <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
-      </ChatRequestProvider>
-    </OperatorStatusProvider>
+    <AuthProvider>
+      <OperatorStatusProvider>
+        <ChatRequestProvider>
+          <div className="flex min-h-screen">
+            <OperatorDashboard />
+            <main className="flex-1 p-6">
+              <OperatorDashboardLayoutContent>{children}</OperatorDashboardLayoutContent>
+            </main>
+          </div>
+        </ChatRequestProvider>
+      </OperatorStatusProvider>
+    </AuthProvider>
   )
 }

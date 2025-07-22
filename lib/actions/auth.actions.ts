@@ -5,13 +5,6 @@ import type { z } from "zod"
 import { loginSchema, registerSchema } from "../schemas"
 import { redirect } from "next/navigation"
 
-const getDashboardUrl = (role: string | undefined): string => {
-  if (role === "admin") return "/admin"
-  if (role === "operator") return "/dashboard/operator"
-  if (role === "client") return "/dashboard/client"
-  return "/" // Fallback to homepage
-}
-
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
   const validatedFields = loginSchema.safeParse(values)
@@ -22,40 +15,20 @@ export async function login(values: z.infer<typeof loginSchema>) {
 
   const { email, password } = validatedFields.data
 
-  const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (loginError) {
-    if (loginError.message.includes("Email not confirmed")) {
+  if (error) {
+    if (error.message.includes("Email not confirmed")) {
       return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
     }
     return { error: "Credenziali non valide." }
   }
 
-  if (!loginData.user) {
-    return { error: "Login fallito, utente non trovato dopo l'autenticazione." }
-  }
-
-  // Fetch profile to get the role
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", loginData.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    await supabase.auth.signOut()
-    return { error: "Profilo utente non trovato. Contattare l'assistenza." }
-  }
-
-  const redirectTo = getDashboardUrl(profile.role)
-
-  // **LA CORREZIONE CHIAVE**
-  // Eseguiamo il redirect direttamente dal server.
-  // Questo interrompe l'esecuzione qui e invia una risposta di redirect al browser.
-  return redirect(redirectTo)
+  // In caso di successo, restituisce solo un messaggio. Il client gestirà il refresh.
+  return { success: "Login effettuato con successo! Reindirizzamento in corso..." }
 }
 
 export async function register(values: z.infer<typeof registerSchema>) {

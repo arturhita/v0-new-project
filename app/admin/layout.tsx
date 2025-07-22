@@ -1,13 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  Bell,
-  MenuIcon,
   LayoutDashboard,
   Users,
   Wallet,
@@ -19,26 +13,20 @@ import {
   Sparkles,
   CheckCircle,
   ChevronDown,
-  Search,
   Moon,
   Scroll,
   Coins,
   Building,
   Settings,
-  LogOut,
   PlusCircle,
   Target,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
-import React, { Suspense } from "react"
-import { SiteNavbar } from "@/components/site-navbar"
-import { useAuth } from "@/contexts/auth-context"
-import type { ReactNode } from "react"
-
-interface AdminLayoutProps {
-  children: ReactNode
-}
+import React from "react"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { AuthProvider } from "@/contexts/auth-context"
+import AdminDashboardClient from "./admin-dashboard-client"
 
 const navItems = [
   { href: "/admin", label: "Cruscotto", icon: LayoutDashboard },
@@ -144,107 +132,39 @@ const CollapsibleNavItem = ({
   )
 }
 
-export default function ModernAdminDashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const { logout, profile } = useAuth()
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "operator") return "/dashboard/operator"
+  if (role === "client") return "/dashboard/client"
+  // Se è admin, rimane qui. Se è sconosciuto, va alla home.
+  return "/"
+}
 
-  const SidebarNav = () => (
-    <nav className="grid items-start gap-1.5 px-3">
-      {navItems.map((item) =>
-        "subItems" in item ? (
-          <CollapsibleNavItem key={item.label} item={item} pathname={pathname} />
-        ) : (
-          <NavItem key={item.label} item={item} pathname={pathname} />
-        ),
-      )}
-    </nav>
-  )
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return redirect("/login?message=Devi essere loggato per accedere a questa pagina.")
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+  if (profile?.role !== "admin") {
+    // Se non è un admin, reindirizza alla sua dashboard corretta o alla home.
+    const targetUrl = getDashboardUrl(profile?.role)
+    return redirect(targetUrl + "?error=Accesso non autorizzato.")
+  }
+
+  // Se l'utente è un admin, renderizza il contenuto del layout admin.
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Site Navbar */}
-      <SiteNavbar />
-
-      <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
-        <aside className="hidden border-r border-gray-200 bg-white md:block shadow-lg rounded-r-2xl m-0 md:m-3 md:my-3 md:mr-0 overflow-hidden">
-          <div className="flex h-full max-h-screen flex-col">
-            <div className="flex h-24 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
-              <Link href="/admin" className="flex items-center gap-3 font-bold text-white text-xl">
-                <span>Admin Panel</span>
-              </Link>
-            </div>
-            <div className="flex-1 overflow-auto py-6 space-y-4">
-              <SidebarNav />
-            </div>
-            <div className="mt-auto p-4 border-t border-gray-200">
-              <Button
-                onClick={logout}
-                variant="ghost"
-                className="w-full justify-start text-base font-medium text-gray-600 hover:text-blue-700 hover:bg-blue-100"
-              >
-                <LogOut className="mr-3 h-5 w-5" />
-                Disconnetti
-              </Button>
-            </div>
-          </div>
-        </aside>
-        <div className="flex flex-col">
-          <header className="flex h-24 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-8 sticky top-16 z-30">
-            <Suspense fallback={<div>Loading...</div>}>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 md:hidden rounded-full border-2 border-blue-300 text-blue-600 hover:bg-blue-100 bg-transparent"
-                  >
-                    <MenuIcon className="h-7 w-7" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="flex flex-col bg-white p-0 w-[300px]">
-                  <div className="flex h-24 items-center justify-center border-b border-gray-200 px-6 bg-gradient-to-br from-blue-600 to-blue-700">
-                    <Link href="/admin" className="flex items-center gap-3 font-bold text-white text-xl">
-                      <span>Admin Panel</span>
-                    </Link>
-                  </div>
-                  <div className="py-6 flex-1 overflow-auto">
-                    <SidebarNav />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </Suspense>
-            <div className="relative w-full max-w-md flex-1 ml-auto md:ml-0">
-              <Input
-                type="search"
-                placeholder="Cerca..."
-                className="w-full rounded-full bg-gray-100 border-transparent focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-400 pl-10 py-3 text-base shadow-inner"
-              />
-              <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            </div>
-            <div className="flex items-center gap-4 ml-auto">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-100"
-              >
-                <Bell className="h-6 w-6" />
-                <span className="sr-only">Notifiche</span>
-              </Button>
-              <Avatar className="h-11 w-11 border-2 border-blue-200 shadow-sm">
-                <AvatarImage
-                  src={profile?.avatar_url || "/placeholder.svg?height=40&width=40"}
-                  alt={profile?.full_name || "Admin"}
-                />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-semibold">
-                  {profile?.full_name?.charAt(0).toUpperCase() || "A"}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </header>
-          <main className="flex-1 overflow-x-hidden p-4 sm:p-6 md:p-8 lg:p-10">{children}</main>
-        </div>
+    <AuthProvider>
+      <div className="flex min-h-screen">
+        <AdminDashboardClient />
+        <main className="flex-1 p-6">{children}</main>
       </div>
-    </div>
+    </AuthProvider>
   )
 }

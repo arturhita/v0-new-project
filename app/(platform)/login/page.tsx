@@ -30,16 +30,19 @@ export default function LoginPage() {
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
     startTransition(async () => {
-      // Il redirect ora è gestito interamente dalla server action.
-      // Il client deve solo gestire il caso di errore.
       const result = await login(values)
 
-      if (result?.error) {
+      if (result?.success) {
+        toast.success(result.success)
+        // Questo refresh è ora sicuro. Innescherà una nuova richiesta al server.
+        // Se l'utente è loggato, il layout protetto della pagina di destinazione
+        // (es. /admin) lo lascerà entrare. Se è ancora su /login,
+        // il layout di /login lo reindirizzerà alla sua dashboard.
+        router.refresh()
+      } else if (result?.error) {
         toast.error(result.error)
         form.reset()
       }
-      // Non c'è bisogno di un caso 'success' perché il redirect del server
-      // interromperà l'esecuzione e navigherà via da questa pagina.
     })
   }
 
