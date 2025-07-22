@@ -5,6 +5,13 @@ import type { z } from "zod"
 import { loginSchema, registerSchema } from "../schemas"
 import { redirect } from "next/navigation"
 
+const getDashboardUrl = (role: string | undefined): string => {
+  if (role === "admin") return "/admin"
+  if (role === "operator") return "/dashboard/operator"
+  if (role === "client") return "/dashboard/client"
+  return "/" // Fallback to homepage
+}
+
 export async function login(values: z.infer<typeof loginSchema>) {
   try {
     console.log("[Action: login] Attempting to log in user:", values.email)
@@ -18,22 +25,45 @@ export async function login(values: z.infer<typeof loginSchema>) {
 
     const { email, password } = validatedFields.data
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (error) {
-      if (error.message.includes("Email not confirmed")) {
+    if (loginError) {
+      if (loginError.message.includes("Email not confirmed")) {
         console.warn(`[Action: login] Login failed for ${email}: Email not confirmed.`)
         return { error: "Registrazione non completata. Controlla la tua email per il link di conferma." }
       }
-      console.error(`[Action: login] Supabase login error for ${email}:`, error.message)
+      console.error(`[Action: login] Supabase login error for ${email}:`, loginError.message)
       return { error: "Credenziali non valide." }
     }
 
-    console.log("[Action: login] Login successful for:", values.email)
-    return { success: "Login effettuato con successo! Verrai reindirizzato a breve." }
+    if (!loginData.user) {
+      return { error: "Login fallito, utente non trovato dopo l'autenticazione." }
+    }
+
+    // Fetch profile to get the role and determine the redirect URL
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", loginData.user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.error(
+        `[Action: login] Critical error: User ${loginData.user.id} authenticated but profile not found.`,
+        profileError,
+      )
+      // Sign out the user to prevent an inconsistent state
+      await supabase.auth.signOut()
+      return { error: "Profilo utente non trovato. Contattare l'assistenza." }
+    }
+
+    const redirectTo = getDashboardUrl(profile.role)
+    console.log(`[Action: login] Login successful for ${email}. Determined redirect to: ${redirectTo}`)
+
+    return { success: "Login effettuato con successo! Reindirizzamento...", redirectTo }
   } catch (e) {
     console.error("[Action: login] UNHANDLED EXCEPTION:", e)
     return { error: "Errore imprevisto sul server durante il login." }

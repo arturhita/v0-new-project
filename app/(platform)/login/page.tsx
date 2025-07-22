@@ -33,18 +33,18 @@ export default function LoginPage() {
       console.log("[LoginPage] Submitting form with values:", values.email)
       const result = await login(values)
 
-      if (result?.success) {
-        console.log("[LoginPage] Login action successful. Refreshing router to sync session.")
+      if (result?.success && result.redirectTo) {
+        console.log(`[LoginPage] Login action successful. Redirecting to ${result.redirectTo}`)
         toast.success(result.success)
         // **LA CORREZIONE CHIAVE**
-        // Forza un refresh della pagina. Il middleware intercetterà la richiesta,
-        // vedrà l'utente loggato e lo reindirizzerà alla dashboard corretta.
-        // Questo sincronizza lo stato del server prima di qualsiasi altra azione.
-        router.refresh()
+        // Eseguiamo una navigazione esplicita all'URL fornito dal server.
+        router.push(result.redirectTo)
       } else if (result?.error) {
         console.error("[LoginPage] Login action failed:", result.error)
         toast.error(result.error)
         form.reset()
+      } else {
+        toast.error("Risposta inattesa dal server.")
       }
     })
   }
