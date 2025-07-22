@@ -2,20 +2,27 @@
 
 import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import type { loginSchema, registerSchema } from "@/lib/schemas"
+import type { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
 import type { AuthError } from "@supabase/supabase-js"
 
 // Helper function to handle Supabase errors
 function handleError(error: AuthError) {
   console.error("Authentication error:", error.message)
+  // Provide user-friendly messages for common errors
+  if (error.message.includes("Invalid login credentials")) {
+    return { success: false, message: "Credenziali non valide. Controlla email e password." }
+  }
+  if (error.message.includes("User already registered")) {
+    return { success: false, message: "Un utente con questa email è già registrato." }
+  }
   return {
     success: false,
-    message: error.message || "An unexpected error occurred.",
+    message: "Si è verificato un errore. Riprova.",
   }
 }
 
-export async function login(values: z.infer<typeof loginSchema>) {
+export async function login(values: z.infer<typeof LoginSchema>) {
   const supabase = createClient()
 
   const { error } = await supabase.auth.signInWithPassword(values)
@@ -27,11 +34,11 @@ export async function login(values: z.infer<typeof loginSchema>) {
   // On successful login, the AuthContext will handle the redirect.
   return {
     success: true,
-    message: "Login successful. Redirecting...",
+    message: "Login effettuato con successo! Reindirizzamento in corso...",
   }
 }
 
-export async function register(values: z.infer<typeof registerSchema>) {
+export async function register(values: z.infer<typeof RegisterSchema>) {
   const supabase = createClient()
 
   const { error } = await supabase.auth.signUp({
@@ -48,21 +55,14 @@ export async function register(values: z.infer<typeof registerSchema>) {
     return handleError(error)
   }
 
-  // On successful registration, the AuthContext will handle the redirect.
   return {
     success: true,
-    message: "Registration successful. Please check your email to verify your account.",
+    message: "Registrazione completata! Controlla la tua email per confermare il tuo account.",
   }
 }
 
-export async function signOut() {
+export async function logout() {
   const supabase = createClient()
-  const { error } = await supabase.auth.signOut()
-
-  if (error) {
-    console.error("Sign out error:", error)
-    // Even if there's an error, we redirect to login.
-  }
-
+  await supabase.auth.signOut()
   redirect("/login")
 }

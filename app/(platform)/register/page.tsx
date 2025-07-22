@@ -6,125 +6,166 @@ import type { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { registerSchema } from "@/lib/schemas"
+import { RegisterSchema } from "@/lib/schemas"
 import { register } from "@/lib/actions/auth.actions"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import Link from "next/link"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
+import { toast } from "sonner"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function RegisterPage() {
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const { isLoading: isAuthLoading } = useAuth()
+  const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
 
-  const form = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
+  const form = useForm<z.infer<typeof RegisterSchema>>({
+    resolver: zodResolver(RegisterSchema),
     defaultValues: {
       fullName: "",
       email: "",
       password: "",
+      confirmPassword: "",
+      terms: false,
     },
   })
 
-  const onSubmit = (values: z.infer<typeof registerSchema>) => {
-    setError(null)
-    setSuccessMessage(null)
+  const onSubmit = (values: z.infer<typeof RegisterSchema>) => {
     startTransition(async () => {
       const result = await register(values)
       if (result.success) {
-        setSuccessMessage(result.message)
+        toast.success(result.message)
         form.reset()
       } else {
-        setError(result.message)
+        toast.error(result.message)
       }
     })
   }
 
-  if (isAuthLoading) {
+  if (isAuthLoading || isAuthenticated) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <ConstellationBackground />
-        <LoadingSpinner />
+        <LoadingSpinner fullScreen />
       </div>
     )
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-background">
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border/20 bg-background/80 p-8 shadow-2xl backdrop-blur-sm">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Crea il tuo Account</h1>
-          <p className="mt-2 text-muted-foreground">Unisciti alla nostra community di esperti e clienti.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Crea il tuo Account</h1>
+          <p className="mt-2 text-slate-400">Unisciti alla nostra community di esperti e clienti.</p>
         </div>
 
-        {successMessage ? (
-          <div className="mt-8 rounded-md border border-green-500/50 bg-green-500/10 p-4 text-center text-green-700 dark:text-green-400">
-            <h3 className="font-bold">Registrazione completata!</h3>
-            <p className="text-sm">{successMessage}</p>
-          </div>
-        ) : (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-6">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Completo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Mario Rossi" {...field} className="bg-background/50" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="tuamail@esempio.com" {...field} className="bg-background/50" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} className="bg-background/50" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {error && (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-center text-sm text-destructive">
-                  {error}
-                </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Nome Completo</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Mario Rossi"
+                      {...field}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="tuamail@esempio.com"
+                      {...field}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-300">Conferma Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="terms"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-500"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-sm text-slate-400 font-normal">
+                      Accetto i{" "}
+                      <Link href="/legal/terms-and-conditions" className="underline text-blue-400 hover:text-blue-300">
+                        Termini di Servizio
+                      </Link>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+            <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
+              {isPending ? "Registrazione in corso..." : "Registrati"}
+            </Button>
+          </form>
+        </Form>
 
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "Registrazione in corso..." : "Registrati"}
-              </Button>
-            </form>
-          </Form>
-        )}
-
-        <p className="mt-8 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-center text-sm text-slate-400">
           Hai già un account?{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link href="/login" className="font-medium text-sky-400 hover:text-sky-300">
             Accedi
           </Link>
         </p>

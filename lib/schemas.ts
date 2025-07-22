@@ -2,18 +2,18 @@ import { z } from "zod"
 
 export const LoginSchema = z.object({
   email: z.string().email({
-    message: "Please enter a valid email address.",
+    message: "Per favore inserisci un indirizzo email valido.",
   }),
   password: z.string().min(1, {
-    message: "Password is required.",
+    message: "La password è obbligatoria.",
   }),
 })
 
 export const RegisterSchema = z
   .object({
-    fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-    email: z.string().email({ message: "Please enter a valid email address." }),
-    password: z.string().min(8, { message: "Password must be at least 8 characters." }),
+    fullName: z.string().min(2, { message: "Il nome completo deve contenere almeno 2 caratteri." }),
+    email: z.string().email({ message: "Per favore inserisci un indirizzo email valido." }),
+    password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
     confirmPassword: z.string(),
     terms: z.literal(true, {
       errorMap: () => ({ message: "Devi accettare i Termini e Condizioni." }),

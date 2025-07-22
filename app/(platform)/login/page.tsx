@@ -6,54 +6,55 @@ import type { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { loginSchema } from "@/lib/schemas"
+import { LoginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import Link from "next/link"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
 import LoadingSpinner from "@/components/loading-spinner"
+import { toast } from "sonner"
 
 export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const { isLoading: isAuthLoading } = useAuth()
+  const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
 
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<z.infer<typeof LoginSchema>>({
+    resolver: zodResolver(LoginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   })
 
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
-    setError(null)
+  const onSubmit = (values: z.infer<typeof LoginSchema>) => {
     startTransition(async () => {
       const result = await login(values)
-      if (!result.success) {
-        setError(result.message)
+      if (result.success) {
+        toast.success(result.message)
+        // On success, AuthContext will handle the redirect.
+      } else {
+        toast.error(result.message)
       }
-      // On success, AuthContext will handle the redirect, no need to do anything here.
     })
   }
 
-  if (isAuthLoading) {
+  if (isAuthLoading || isAuthenticated) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <ConstellationBackground />
-        <LoadingSpinner />
+        <LoadingSpinner fullScreen />
       </div>
     )
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-background">
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-900">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border/20 bg-background/80 p-8 shadow-2xl backdrop-blur-sm">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-sm">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Bentornato</h1>
-          <p className="mt-2 text-muted-foreground">Accedi per continuare la tua esperienza.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Bentornato</h1>
+          <p className="mt-2 text-slate-400">Accedi per continuare la tua esperienza.</p>
         </div>
 
         <Form {...form}>
@@ -63,9 +64,13 @@ export default function LoginPage() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-slate-300">Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="tuamail@esempio.com" {...field} className="bg-background/50" />
+                    <Input
+                      placeholder="tuamail@esempio.com"
+                      {...field}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -76,30 +81,28 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel className="text-slate-300">Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} className="bg-background/50" />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
+                      className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {error && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-center text-sm text-destructive">
-                {error}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button type="submit" variant="gradient" className="w-full" disabled={isPending}>
               {isPending ? "Accesso in corso..." : "Accedi"}
             </Button>
           </form>
         </Form>
 
-        <p className="mt-8 text-center text-sm text-muted-foreground">
+        <p className="mt-8 text-center text-sm text-slate-400">
           Non hai un account?{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
+          <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
             Inizia ora
           </Link>
         </p>
