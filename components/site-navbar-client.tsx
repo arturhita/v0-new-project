@@ -1,9 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { NavigationMenuDemo } from "@/components/navigation-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -14,10 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { User, Settings, LogOut, Menu, X } from "lucide-react"
 import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
-import { Skeleton } from "@/components/ui/skeleton"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { usePathname } from "next/navigation"
 import { logout } from "@/lib/actions/auth.actions"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { NavigationMenuDemo } from "./navigation-menu"
 
 type Profile = {
   full_name: string | null
@@ -25,26 +23,19 @@ type Profile = {
   role: string | null
 } | null
 
-interface SiteNavbarClientProps {
+type SiteNavbarClientProps = {
   user: SupabaseUser | null
   profile: Profile
 }
 
 export function SiteNavbarClient({ user, profile }: SiteNavbarClientProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const pathname = usePathname()
-  const router = useRouter()
-
-  useEffect(() => {
-    setIsLoading(false)
-  }, [user, profile])
 
   useEffect(() => {
     if (isMenuOpen) {
       setIsMenuOpen(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   const getDashboardLink = () => {
@@ -72,21 +63,7 @@ export function SiteNavbarClient({ user, profile }: SiteNavbarClientProps) {
     return user?.email?.charAt(0).toUpperCase() || "U"
   }
 
-  const handleLogout = async () => {
-    await logout()
-    router.refresh()
-  }
-
   const renderAuthSection = () => {
-    if (isLoading) {
-      return (
-        <div className="flex items-center space-x-4">
-          <Skeleton className="h-9 w-24 rounded-md bg-slate-700" />
-          <Skeleton className="h-10 w-10 rounded-full bg-slate-700" />
-        </div>
-      )
-    }
-
     if (user && profile) {
       return (
         <DropdownMenu>
@@ -129,13 +106,14 @@ export function SiteNavbarClient({ user, profile }: SiteNavbarClientProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-200" />
-            <DropdownMenuItem
-              onClick={handleLogout}
-              className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Esci
-            </DropdownMenuItem>
+            <form action={logout}>
+              <button type="submit" className="w-full text-left">
+                <DropdownMenuItem className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Esci
+                </DropdownMenuItem>
+              </button>
+            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       )
@@ -161,9 +139,6 @@ export function SiteNavbarClient({ user, profile }: SiteNavbarClientProps) {
   }
 
   const renderMobileAuthSection = () => {
-    if (isLoading) {
-      return <Skeleton className="h-10 w-full rounded-md bg-slate-700" />
-    }
     if (user && profile) {
       return (
         <>
@@ -173,10 +148,12 @@ export function SiteNavbarClient({ user, profile }: SiteNavbarClientProps) {
               Dashboard
             </Link>
           </Button>
-          <Button onClick={handleLogout} variant="ghost" className="w-full justify-center text-slate-300">
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
+          <form action={logout} className="w-full">
+            <Button type="submit" variant="ghost" className="w-full justify-center text-slate-300">
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </form>
         </>
       )
     }
@@ -200,47 +177,28 @@ export function SiteNavbarClient({ user, profile }: SiteNavbarClientProps) {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1E3C98] shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link href="/" className="flex items-center space-x-2 group">
-            <Image
-              src="/images/moonthir-logo-white.png"
-              alt="Moonthir Logo"
-              width={140}
-              height={40}
-              className="object-contain"
-              priority
-            />
-          </Link>
+    <>
+      <div className="hidden md:flex items-center space-x-4">{renderAuthSection()}</div>
 
-          <div className="hidden md:flex items-center">
-            <NavigationMenuDemo />
-          </div>
-
-          <div className="hidden md:flex items-center space-x-4">{renderAuthSection()}</div>
-
-          <div className="md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-white hover:bg-white/10"
-            >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
-        </div>
+      <div className="md:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="text-white hover:bg-white/10"
+        >
+          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </Button>
       </div>
 
       {isMenuOpen && (
-        <div className="md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
+        <div className="absolute top-16 left-0 right-0 md:hidden bg-[#1E3C98]/95 backdrop-blur-lg pb-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col space-y-4">
             <NavigationMenuDemo />
             <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">{renderMobileAuthSection()}</div>
           </div>
         </div>
       )}
-    </header>
+    </>
   )
 }
