@@ -2,78 +2,55 @@
 
 import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import type { LoginSchema, RegisterSchema } from "@/lib/schemas"
-import { redirect } from "next/navigation"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import type { registerSchema } from "@/lib/schemas"
 
-export async function login(values: z.infer<typeof LoginSchema>) {
+export async function login(values: z.infer<typeof z.ZodObject<{ email: z.ZodString; password: z.ZodString }>>) {
   const supabase = createClient()
-
   const { error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
-    console.error("Login Error:", error.message)
-    if (error.message === "Email not confirmed") {
+    if (error.message.includes("Email not confirmed")) {
       return {
         success: false,
         message: "Registrazione non completata. Controlla la tua email per il link di conferma.",
       }
     }
-    return { success: false, message: "Credenziali non valide. Controlla email e password." }
+    return { success: false, message: error.message }
   }
 
   return { success: true, message: "Login effettuato con successo!" }
 }
 
-export async function register(values: z.infer<typeof RegisterSchema>) {
+export async function register(values: z.infer<typeof registerSchema>) {
   const supabase = createClient()
 
-  // Step 1: Sign up the user in the 'auth.users' table.
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // The trigger in the database will now handle profile creation.
+  // We only need to sign up the user here.
+  const { data, error } = await supabase.auth.signUp({
     email: values.email,
     password: values.password,
+    options: {
+      // We can pass the full_name here if we want to store it in auth.users metadata
+      // The trigger can then access it via new.raw_user_meta_data ->> 'full_name'
+      data: {
+        full_name: values.full_name,
+      },
+    },
   })
 
-  if (authError) {
-    console.error("Auth SignUp Error:", authError.message)
-    if (authError.message.includes("User already registered")) {
-      return { success: false, message: "Un utente con questa email è già registrato." }
-    }
-    return { success: false, message: "Si è verificato un errore durante la registrazione." }
+  if (error) {
+    console.error("Sign Up Error:", error)
+    return { success: false, message: error.message }
   }
 
-  if (!authData.user) {
-    return { success: false, message: "Registrazione fallita, utente non creato." }
+  if (!data.user) {
+    console.error("Sign Up Error: No user data returned.")
+    return { success: false, message: "Errore durante la registrazione, nessun utente restituito." }
   }
 
-  // Step 2: Manually insert the profile into the 'public.profiles' table using the admin client.
-  // This bypasses RLS policies for this specific, trusted server-side operation.
-  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
-    id: authData.user.id,
-    full_name: values.fullName,
-    role: "client", // Default role for new users
-  })
-
-  if (profileError) {
-    console.error("Profile Creation Error:", profileError.message)
-
-    // IMPORTANT: If profile creation fails, delete the orphaned auth user to allow a clean retry.
-    await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-
-    return {
-      success: false,
-      message: "L'utente è stato creato ma non è stato possibile creare il profilo. Contatta l'assistenza.",
-    }
-  }
-
+  // The trigger creates the profile. We just need to inform the user.
   return {
     success: true,
-    message: "Registrazione completata! Controlla la tua email per confermare il tuo account.",
+    message: "Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account.",
   }
-}
-
-export async function logout() {
-  const supabase = createClient()
-  await supabase.auth.signOut()
-  redirect("/login")
 }
