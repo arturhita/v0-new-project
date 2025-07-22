@@ -6,7 +6,6 @@ import type { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-// Corrected to import lowercase 'registerSchema'
 import { registerSchema } from "@/lib/schemas"
 import { register } from "@/lib/actions/auth.actions"
 import { useState, useTransition } from "react"
@@ -24,7 +23,6 @@ export default function RegisterPage() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
 
   const form = useForm<z.infer<typeof registerSchema>>({
-    // Using lowercase schema
     resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: "",

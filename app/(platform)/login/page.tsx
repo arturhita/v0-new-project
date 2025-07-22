@@ -6,7 +6,6 @@ import type { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-// Corrected to import lowercase 'loginSchema'
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
 import { useTransition } from "react"
@@ -21,7 +20,6 @@ export default function LoginPage() {
   const { isLoading: isAuthLoading, isAuthenticated } = useAuth()
 
   const form = useForm<z.infer<typeof loginSchema>>({
-    // Using lowercase schema
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",

@@ -38,3 +38,7 @@ WITH CHECK (auth.uid() = id);
 -- This is a safeguard to make sure the policies are active.
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles FORCE ROW LEVEL SECURITY;
+
+-- Step 5: Clean up old functions that are no longer needed or could cause issues.
+DROP FUNCTION IF EXISTS get_my_profile();
+DROP FUNCTION IF EXISTS get_user_profile(user_id uuid);
