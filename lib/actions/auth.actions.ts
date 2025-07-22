@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server"
 import type { z } from "zod"
 import { loginSchema, registerSchema } from "../schemas"
-import { redirect } from "next/navigation"
 
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
@@ -27,7 +26,6 @@ export async function login(values: z.infer<typeof loginSchema>) {
     return { error: "Credenziali non valide." }
   }
 
-  // In caso di successo, restituisce solo un messaggio. Il client gestirà il refresh.
   return { success: "Login effettuato con successo! Reindirizzamento in corso..." }
 }
 
@@ -61,10 +59,4 @@ export async function register(values: z.infer<typeof registerSchema>) {
   }
 
   return { error: "Si è verificato un errore imprevisto durante la registrazione." }
-}
-
-export async function logout() {
-  const supabase = createClient()
-  await supabase.auth.signOut()
-  redirect("/login")
 }

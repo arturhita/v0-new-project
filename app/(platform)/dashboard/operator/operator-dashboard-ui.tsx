@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -40,16 +40,11 @@ import {
 import { cn } from "@/lib/utils"
 import type React from "react"
 import { Suspense, useEffect } from "react"
-import { OperatorStatusProvider, useOperatorStatus } from "@/contexts/operator-status-context"
-import { ChatRequestProvider, useChatRequest } from "@/contexts/chat-request-context"
+import { useOperatorStatus } from "@/contexts/operator-status-context"
+import { useChatRequest } from "@/contexts/chat-request-context"
 import { IncomingChatRequestModal } from "@/components/incoming-chat-request-modal"
 import { SiteNavbar } from "@/components/site-navbar"
 import { useAuth } from "@/contexts/auth-context"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { AuthProvider } from "@/contexts/auth-context"
-import OperatorDashboardUI from "./operator-dashboard-ui"
-import type { ReactNode } from "react"
 
 const navItemsOperator = [
   { href: "/dashboard/operator", label: "Santuario Personale", icon: LayoutDashboard },
@@ -87,15 +82,8 @@ const NavItemOperator = ({ item, pathname }: { item: (typeof navItemsOperator)[0
   )
 }
 
-const getDashboardUrl = (role: string | undefined): string => {
-  if (role === "admin") return "/admin"
-  if (role === "client") return "/dashboard/client"
-  return "/"
-}
-
-function OperatorDashboardLayoutContent({ children }: { children: React.ReactNode }) {
+export default function OperatorDashboardUI({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
   const { showRequest } = useChatRequest()
   const { logout, profile } = useAuth()
@@ -167,10 +155,8 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
   )
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Site Navbar */}
+    <div className="min-h-screen bg-gray-100 w-full">
       <SiteNavbar />
-
       <div className="grid w-full md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] pt-16">
         <aside className="hidden border-r border-blue-700 bg-blue-800 md:block shadow-xl rounded-r-xl m-0 md:m-2 md:my-2 md:mr-0 overflow-hidden relative z-10">
           <div className="flex h-full max-h-screen flex-col">
@@ -194,7 +180,6 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
             </div>
           </div>
         </aside>
-
         <div className="flex flex-col relative z-10">
           <header className="flex h-20 items-center gap-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-4 md:px-6 sticky top-16 z-30">
             <Suspense fallback={<div>Loading...</div>}>
@@ -221,13 +206,11 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
                 </SheetContent>
               </Sheet>
             </Suspense>
-
             <div className="flex-1">
               <h1 className="text-xl font-semibold text-gray-800 capitalize">
                 {pathname.split("/").pop()?.replace(/-/g, " ") || "Panoramica"}
               </h1>
             </div>
-
             <div className="flex items-center gap-3 ml-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -272,7 +255,6 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
               <Button
                 variant="ghost"
                 size="icon"
@@ -300,34 +282,5 @@ function OperatorDashboardLayoutContent({ children }: { children: React.ReactNod
         </div>
       </div>
     </div>
-  )
-}
-
-export default async function OperatorDashboardLayout({ children }: { children: ReactNode }) {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return redirect("/login?message=Devi essere loggato per accedere.")
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-  if (profile?.role !== "operator") {
-    const targetUrl = getDashboardUrl(profile?.role)
-    return redirect(`${targetUrl}?error=Accesso non autorizzato.`)
-  }
-
-  return (
-    <AuthProvider>
-      <OperatorStatusProvider>
-        <ChatRequestProvider>
-          <OperatorDashboardUI>{children}</OperatorDashboardUI>
-        </ChatRequestProvider>
-      </OperatorStatusProvider>
-    </AuthProvider>
   )
 }

@@ -35,9 +35,8 @@ export default function LoginPage() {
       if (result?.success) {
         toast.success(result.success)
         // Questo refresh è ora sicuro. Innescherà una nuova richiesta al server.
-        // Se l'utente è loggato, il layout protetto della pagina di destinazione
-        // (es. /admin) lo lascerà entrare. Se è ancora su /login,
-        // il layout di /login lo reindirizzerà alla sua dashboard.
+        // Il nuovo (auth)/layout.tsx intercetterà questa richiesta,
+        // vedrà che l'utente è loggato e lo reindirizzerà alla sua dashboard.
         router.refresh()
       } else if (result?.error) {
         toast.error(result.error)
