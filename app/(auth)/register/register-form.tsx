@@ -32,19 +32,12 @@ export function RegisterForm() {
 
   const onSubmit = (values: z.infer<typeof registerSchema>) => {
     startTransition(async () => {
-      try {
-        const result = await register(values)
-        if (result.success) {
-          toast.success(result.success)
-          setTimeout(() => {
-            router.push("/login")
-          }, 3000)
-        } else if (result.error) {
-          toast.error(result.error)
-        }
-      } catch (error) {
-        console.error("[RegisterForm] Exception during registration:", error)
-        toast.error("Errore imprevisto durante la registrazione. Riprova.")
+      const result = await register(values)
+      if (result.success) {
+        toast.success(result.success)
+        setTimeout(() => router.push("/login"), 3000)
+      } else if (result.error) {
+        toast.error(result.error)
       }
     })
   }
@@ -168,7 +161,6 @@ export function RegisterForm() {
               </Button>
             </form>
           </Form>
-
           <p className="mt-6 text-center text-sm text-slate-400">
             Hai già un account?{" "}
             <Link href="/login" className="font-medium text-sky-400 hover:text-sky-300">

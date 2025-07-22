@@ -7,27 +7,29 @@ import { useTransition } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
 
-import { loginSchema } from "@/lib/schemas"
-import { login } from "@/lib/actions/auth.actions"
+import { resetPasswordSchema } from "@/lib/schemas"
+import { requestPasswordReset } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function LoginForm() {
+export function ResetPasswordForm() {
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+  const form = useForm<z.infer<typeof resetPasswordSchema>>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { email: "" },
   })
 
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+  const onSubmit = (values: z.infer<typeof resetPasswordSchema>) => {
     startTransition(async () => {
-      const result = await login(values)
-      if (result?.error) {
-        toast.error(result.error)
+      const result = await requestPasswordReset(values)
+      if (result.success) {
+        toast.success(result.success)
         form.reset()
+      } else if (result.error) {
+        toast.error(result.error)
       }
     })
   }
@@ -36,12 +38,14 @@ export function LoginForm() {
     <div className="flex justify-center">
       <Card className="w-full max-w-md border-blue-900 bg-slate-900/60 text-white backdrop-blur-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-white">Accedi</CardTitle>
-          <CardDescription className="text-slate-400">Bentornato! Inserisci le tue credenziali.</CardDescription>
+          <CardTitle className="text-2xl font-bold tracking-tight text-white">Reimposta Password</CardTitle>
+          <CardDescription className="text-slate-400">
+            Inserisci la tua email per ricevere un link di reset.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="email"
@@ -61,39 +65,15 @@ export function LoginForm() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-300">Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="••••••••"
-                        {...field}
-                        type="password"
-                        disabled={isPending}
-                        className="border-slate-700 bg-slate-800/50 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="text-right text-sm">
-                <Link href="/reset-password" className="font-medium text-sky-400 hover:text-sky-300">
-                  Password dimenticata?
-                </Link>
-              </div>
               <Button type="submit" className="w-full btn-gradient" disabled={isPending}>
-                {isPending ? "Accesso in corso..." : "Accedi"}
+                {isPending ? "Invio in corso..." : "Invia link di reset"}
               </Button>
             </form>
           </Form>
           <div className="mt-6 text-center text-sm text-slate-400">
-            Non hai un account?{" "}
-            <Link href="/register" className="font-medium text-sky-400 hover:text-sky-300">
-              Registrati ora
+            Ricordi la password?{" "}
+            <Link href="/login" className="font-medium text-sky-400 hover:text-sky-300">
+              Accedi
             </Link>
           </div>
         </CardContent>
