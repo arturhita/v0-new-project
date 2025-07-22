@@ -1,30 +1,30 @@
-"use client";
+"use client"
 
-import { useTransition, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
-import { Send, RefreshCw } from 'lucide-react';
-import { sendBroadcastNotification } from "@/lib/actions/notifications.actions";
-import { toast } from "sonner";
+import { useTransition, useRef } from "react"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Input } from "@/components/ui/input"
+import { Send, RefreshCw } from "lucide-react"
+import { sendBroadcastNotification } from "@/lib/actions/notifications.actions"
+import { toast } from "sonner"
 
 export default function SystemNotificationsPage() {
-  const [isPending, startTransition] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
+  const [isPending, startTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
 
   const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
-      const result = await sendBroadcastNotification(formData);
+      const result = await sendBroadcastNotification(formData)
       if (result?.error) {
-        toast.error(result.error);
-      } else {
-        toast.success(result.success);
-        formRef.current?.reset();
+        toast.error(result.error)
+      } else if (result?.success) {
+        toast.success(result.success)
+        formRef.current?.reset()
       }
-    });
-  };
+    })
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -33,14 +33,8 @@ export default function SystemNotificationsPage() {
 
       <form ref={formRef} action={handleSubmit} className="p-6 bg-white rounded-lg shadow-xl space-y-6">
         <div>
-          <Label className="text-md font-medium text-slate-700">
-            Destinatari
-          </Label>
-          <RadioGroup
-            name="recipientType"
-            defaultValue="all"
-            className="mt-2 flex flex-col sm:flex-row gap-4 sm:gap-6"
-          >
+          <Label className="text-md font-medium text-slate-700">Destinatari</Label>
+          <RadioGroup name="recipientType" defaultValue="all" className="mt-2 flex flex-col sm:flex-row gap-4 sm:gap-6">
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="all" id="r1" />
               <Label htmlFor="r1" className="font-normal text-slate-600">
@@ -94,14 +88,10 @@ export default function SystemNotificationsPage() {
           disabled={isPending}
           className="w-full bg-gradient-to-r from-primary to-primary/80 text-white shadow-md hover:opacity-90 py-3 text-base"
         >
-          {isPending ? (
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="mr-2 h-4 w-4" />
-          )}
+          {isPending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
           Invia Notifica
         </Button>
       </form>
     </div>
-  );
+  )
 }

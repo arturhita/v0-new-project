@@ -4,7 +4,6 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
 import { z } from "zod"
 import type { OperatorProfile } from "@/types/database"
 
@@ -209,61 +208,6 @@ export async function updateOperatorCommission(operatorId: string, commission: s
   }
 }
 
-export async function getOperatorPublicProfile(username: string) {
-  noStore()
-  const supabase = createClient()
-
-  // Utilizziamo la funzione RPC 'get_public_profile_by_stage_name' per una ricerca più robusta
-  // che ignora maiuscole/minuscole, spazi extra e accenti.
-  const { data: profiles, error: rpcError } = await supabase.rpc("get_public_profile_by_stage_name", {
-    stage_name_to_find: username,
-  })
-
-  if (rpcError) {
-    console.error(`Errore RPC durante la ricerca del profilo per "${username}":`, rpcError.message)
-    return null
-  }
-
-  if (!profiles || profiles.length === 0) {
-    console.log(`Profilo per "${username}" non trovato tramite RPC.`)
-    return null
-  }
-
-  // Se vengono trovati più profili, registra un avviso e usa il primo.
-  // Questo può indicare un problema di integrità dei dati (nomi d'arte duplicati).
-  if (profiles.length > 1) {
-    console.warn(`Trovati profili multipli per il nome d'arte "${username}". Viene usato il primo risultato.`)
-  }
-
-  const profile = profiles[0]
-
-  const services = profile.services as any
-  // Accediamo in modo sicuro alle proprietà annidate
-  const chatService = services?.chat
-  const callService = services?.call
-  const emailService = services?.email
-
-  return {
-    id: profile.id,
-    full_name: profile.full_name,
-    stage_name: profile.stage_name,
-    avatar_url: profile.avatar_url,
-    bio: profile.bio,
-    specialization: profile.specialties || [],
-    tags: profile.categories || [],
-    rating: profile.average_rating,
-    reviews_count: profile.reviews_count,
-    is_online: profile.is_online,
-    availability: profile.availability as Availability | null,
-    services: [
-      chatService?.enabled && { service_type: "chat", price: chatService.price_per_minute },
-      callService?.enabled && { service_type: "call", price: callService.price_per_minute },
-      emailService?.enabled && { service_type: "written", price: emailService.price },
-    ].filter((service): service is { service_type: string; price: number } => service !== null && service !== false),
-    reviews: [], // Placeholder per le recensioni effettive
-  }
-}
-
 export async function getAllOperators() {
   const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
@@ -326,4 +270,48 @@ export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
     return []
   }
   return data as OperatorProfile[]
+}
+
+export async function getOperatorForAdmin(operatorId: string) {
+  const supabase = supabaseAdmin
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", operatorId)
+    .eq("role", "operator")
+    .single()
+
+  if (error) {
+    console.error("Error fetching operator for admin:", error)
+    return null
+  }
+  return data
+}
+
+export async function updateOperatorDetails(prevState: any, formData: FormData) {
+  const operatorId = formData.get("operatorId") as string
+  if (!operatorId) return { message: "ID Operatore mancante.", error: true }
+
+  const supabase = supabaseAdmin
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      stage_name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      specialties: [formData.get("discipline") as string],
+      bio: formData.get("description") as string,
+      is_active: formData.get("isActive") === "on",
+    })
+    .eq("id", operatorId)
+
+  if (error) {
+    console.error("Error updating operator details:", error)
+    return { message: "Errore nell'aggiornamento dei dati.", error: true }
+  }
+
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  revalidatePath("/admin/operators")
+  return { message: "Dati operatore aggiornati con successo.", error: false }
 }
