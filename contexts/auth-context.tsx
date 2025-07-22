@@ -50,19 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Always start loading
+  const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // The middleware will handle redirecting from protected pages.
-    // We can push to login for a faster client-side transition.
     router.push("/login")
   }, [supabase.auth, router])
 
   useEffect(() => {
-    // This is the standard and most robust way to handle auth state.
-    // onAuthStateChange fires once immediately with the current session,
-    // and then again whenever the auth state changes.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -72,9 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user)
           setProfile(userProfile)
         } else {
-          // This is a critical error state, a user exists in auth but not in our profiles table.
-          // Forcing a logout is the safest action.
-          toast.error("Impossibile caricare il profilo utente. Verrai disconnesso.")
+          toast.error("Profilo utente non trovato. Verrai disconnesso.")
           await supabase.auth.signOut()
           setUser(null)
           setProfile(null)
@@ -83,18 +76,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setProfile(null)
       }
-      // Crucially, set loading to false only after the first check is complete.
       setIsLoading(false)
     })
 
     return () => {
-      // Cleanup the subscription when the component unmounts.
       subscription.unsubscribe()
     }
   }, [supabase.auth])
 
-  // Render a full-screen loader until the initial auth state is determined.
-  // This prevents any UI flicker or race conditions.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
