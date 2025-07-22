@@ -92,7 +92,7 @@ const getDashboardUrl = (role: string | undefined): string => {
   return "/"
 }
 
-function OperatorDashboardLayoutContent({ children, userName }: { children: React.ReactNode; userName: string }) {
+function OperatorDashboardLayoutContent({ children, user }: { children: React.ReactNode; user: any }) {
   const pathname = usePathname()
   const router = useRouter()
   const { status, setStatus, operatorName, pauseTimer } = useOperatorStatus()
@@ -283,10 +283,10 @@ function OperatorDashboardLayoutContent({ children, userName }: { children: Reac
               <Avatar className="h-10 w-10 border-2 border-blue-200 shadow-sm relative group">
                 <AvatarImage
                   src={profile?.avatar_url || "/placeholder.svg?height=38&width=38"}
-                  alt={profile?.full_name || userName}
+                  alt={profile?.full_name || user?.full_name}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-medium">
-                  {profile?.full_name?.charAt(0).toUpperCase() || userName?.substring(0, 1).toUpperCase()}
+                  {profile?.full_name?.charAt(0).toUpperCase() || user?.full_name?.substring(0, 1).toUpperCase()}
                 </AvatarFallback>
                 <div className="absolute -inset-0.5 rounded-full border-2 border-transparent group-hover:border-blue-400 transition-all duration-300"></div>
               </Avatar>
@@ -309,14 +309,15 @@ export default async function OperatorDashboardLayout({ children }: { children: 
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/login?message=Devi essere loggato per accedere.")
+    return redirect("/login?message=Devi essere loggato per accedere.")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  if (!profile || profile.role !== "operator") {
-    redirect("/login?message=Accesso non autorizzato.")
+  // Permettiamo l'accesso sia agli operatori che agli admin
+  if (profile?.role !== "operator" && profile?.role !== "admin") {
+    return redirect("/?error=Accesso non autorizzato.")
   }
 
-  return <OperatorDashboardUI userName={profile.full_name}>{children}</OperatorDashboardUI>
+  return <OperatorDashboardUI user={user}>{children}</OperatorDashboardUI>
 }
