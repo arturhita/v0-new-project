@@ -7,34 +7,17 @@ import type { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSc
 
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
-
-  const { data, error } = await supabase.auth.signInWithPassword(values)
+  const { error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
     return { error: "Credenziali non valide. Riprova." }
   }
 
-  if (!data.user) {
-    return { error: "Login fallito, utente non trovato." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", data.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    await supabase.auth.signOut()
-    return { error: "Profilo utente non trovato. Contatta il supporto." }
-  }
-
-  return { success: true, role: profile.role }
+  return { success: true }
 }
 
 export async function register(values: z.infer<typeof registerSchema>) {
   const supabase = createClient()
-
   const { error } = await supabase.auth.signUp({
     email: values.email,
     password: values.password,
@@ -46,9 +29,10 @@ export async function register(values: z.infer<typeof registerSchema>) {
 
   if (error) {
     return {
-      error: error.message.includes("User already registered")
-        ? "Un utente con questa email è già registrato."
-        : `Errore: ${error.message}`,
+      error:
+        error.code === "user_already_exists"
+          ? "Un utente con questa email è già registrato."
+          : `Errore durante la registrazione: ${error.message}`,
     }
   }
 
