@@ -6,7 +6,6 @@ import { OperatorCard } from "@/components/operator-card"
 import type { Operator } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import type { Review } from "@/components/review-card"
-import { ConstellationBackground } from "@/components/constellation-background"
 
 interface HomepageClientProps {
   operators: Operator[]
@@ -52,10 +51,13 @@ export function HomepageClient({ operators, reviews, latestOperators }: Homepage
       `}</style>
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden pt-32 pb-20 md:pt-48 md:pb-32">
-          <ConstellationBackground className="absolute top-0 left-0 h-full w-full text-sky-300/70" />
-          <div className="container relative mx-auto px-4 text-center">
+        {/* Hero Section - RIPRISTINATA E CORRETTA */}
+        <section
+          className="relative flex h-[60vh] min-h-[500px] w-full flex-col items-center justify-center bg-cover bg-center bg-no-repeat px-4 text-center"
+          style={{ backgroundImage: "url('/images/hero-background.png')" }}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative z-10">
             <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl animate-fadeInUp">
               Il viaggio inizia da qui
             </h1>
@@ -102,7 +104,7 @@ export function HomepageClient({ operators, reviews, latestOperators }: Homepage
           </div>
         </section>
 
-        {/* Ultimi Esperti Section */}
+        {/* Ultimi Esperti Section - AGGIUNTA */}
         {latestOperators && latestOperators.length > 0 && (
           <section className="py-16 md:py-24 bg-slate-950">
             <div className="container mx-auto px-4">

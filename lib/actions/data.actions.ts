@@ -6,44 +6,36 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // SOLUZIONE DI RICOSTRUZIONE MANUALE: La più sicura contro i getter.
-  // Crea un oggetto completamente nuovo invece di clonare quello problematico.
+  // SOLUZIONE DEFINITIVA DI RICOSTRUZIONE MANUALE.
+  // Questo metodo è a prova di proiettile contro gli errori "getter-only".
+  // Creiamo un oggetto JavaScript pulito da zero.
+
   const rawServices = profile.services || {}
+
+  // Ricostruiamo manualmente l'oggetto 'services' per garantire che sia modificabile.
   const services = {
-    chat:
-      rawServices.chat && typeof rawServices.chat === "object"
-        ? {
-            enabled: rawServices.chat.enabled,
-            price_per_minute: rawServices.chat.price_per_minute,
-          }
-        : { enabled: false, price_per_minute: undefined },
-    call:
-      rawServices.call && typeof rawServices.call === "object"
-        ? {
-            enabled: rawServices.call.enabled,
-            price_per_minute: rawServices.call.price_per_minute,
-          }
-        : { enabled: false, price_per_minute: undefined },
-    email:
-      rawServices.email && typeof rawServices.email === "object"
-        ? {
-            enabled: rawServices.email.enabled,
-            price: rawServices.email.price,
-          }
-        : { enabled: false, price: undefined },
+    chat: {
+      enabled: rawServices.chat?.enabled ?? false,
+      price_per_minute: rawServices.chat?.price_per_minute,
+    },
+    call: {
+      enabled: rawServices.call?.enabled ?? false,
+      price_per_minute: rawServices.call?.price_per_minute,
+    },
+    email: {
+      enabled: rawServices.email?.enabled ?? false,
+      price: rawServices.email?.price,
+    },
   }
 
-  const chatService = services.chat
-  const callService = services.call
-  const emailService = services.email
-
   const chatPrice =
-    promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
+    promotionPrice !== null ? promotionPrice : services.chat.enabled ? services.chat.price_per_minute : undefined
   const callPrice =
-    promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
+    promotionPrice !== null ? promotionPrice : services.call.enabled ? services.call.price_per_minute : undefined
   const emailPrice =
-    promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
+    promotionPrice !== null ? promotionPrice * 6 : services.email.enabled ? services.email.price : undefined
 
+  // Costruiamo l'oggetto Operator finale con dati puliti.
   const operator: Operator = {
     id: profile.id,
     name: profile.stage_name || "Operatore",
