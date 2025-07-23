@@ -1,75 +1,139 @@
-"use server"
+;```typescriptreact file="components/constellation-background.tsx"
+"use client"
+import { useRef, useEffect } from "react"
 
-import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
+export const ConstellationBackground = () => {
+const canvasRef = useRef<HTMLCanvasElement>(null)
 
-export async function getAdminDashboardData() {
-  noStore()
-  const supabase = createAdminClient()
+useEffect(() => {
+const canvas = canvasRef.current
+if (!canvas) return
+const ctx = canvas.getContext("2d")
+if (!ctx) return
 
-  const { data, error } = await supabase.rpc("get_admin_dashboard_kpis").single()
+let w = (canvas.width = window.innerWidth)
+let h = (canvas.height = window.innerHeight)
+let animationFrameId: number
 
-  if (error) {
-    console.error("Error fetching admin dashboard KPIs:", error)
-    return {
-      kpis: {
-        totalUsers: 0,
-        newUsersThisMonth: 0,
-        activeOperators: 0,
-        newOperatorsThisWeek: 0,
-        revenueThisMonth: 0,
-        consultationsLast24h: 0,
-        activePromotions: 0,
-      },
+const handleResize = () => {
+  w = canvas.width = window.innerWidth
+  h = canvas.height = window.innerHeight
+}
+window.addEventListener("resize", handleResize)
+
+type Star = {
+  x: number
+  y: number
+  radius: number
+  originalRadius: number
+  vx: number
+  vy: number
+}
+
+const stars: Star[] = []
+const numStars = 250
+
+for (let i = 0; i &lt; numStars; i++) {
+  const radius = Math.random() * 1.2 + 0.8
+  stars.push({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    radius: radius,
+    originalRadius: radius,
+    vx: (Math.random() - 0.5) * 15,
+    vy: (Math.random() - 0.5) * 15,
+  })
+}
+
+const distance = (point1: { x: number; y: number }, point2: { x: number; y: number }) => {
+  const xs = point2.x - point1.x
+  const ys = point2.y - point1.y
+  return Math.sqrt(xs * xs + ys * ys)
+}
+
+const draw = () => {
+  if (!ctx) return
+  ctx.clearRect(0, 0, w, h)
+
+  // Draw stars
+  for (const star of stars) {
+    ctx.beginPath()
+    ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
+    ctx.fillStyle = \`rgba(255, 215, 0, ${Math.abs(Math.sin(star.radius))})` // Gold with opacity based on radius
+ctx.fill()
+\
+  }
+
+  // Draw lines
+  ctx.beginPath()\
+for (let i = 0; i &lt; stars.length;
+i++
+)
+{
+  \
+  for (let j = i + 1; j &lt; stars.length;
+  j++
+  )
+  {
+    const d = distance(stars[i], stars[j])
+    \
+    if (d &lt;
+    150
+    )
+    {
+      const opacity = 1 - d / 150
+      ctx.moveTo(stars[i].x, stars[i].y)
+      ctx.lineTo(stars[j].x, stars[j].y)
+      ctx.strokeStyle = `rgba(255, 215, 0, ${opacity * 0.3})` // Faint gold
+      ctx.lineWidth = 0.4
+      ctx.stroke()
+      ctx.beginPath() // Reset path for next line segment
     }
   }
-
-  return { kpis: data }
+}
+\
 }
 
-export async function getRecentActivities() {
-  noStore()
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("consultations")
-    .select(
-      `
-      id,
-      created_at,
-      price,
-      client:client_id ( full_name ),
-      operator:operator_id ( full_name )
-    `,
-    )
-    .order("created_at", { ascending: false })
-    .limit(5)
+const update = () => {
+  for (const s of stars) {
+    s.x += s.vx / 60
+    s.y += s.vy / 60
+    \
+    if (s.x &lt;
+    0 || s.x > w
+    ) s.vx = -s.vx\
+    if (s.y &lt;
+    0 || s.y > h
+    ) s.vy = -s.vy
 
-  if (error) {
-    console.error("Error fetching recent activities:", error)
-    return []
+    // Pulsating effect for "flashing"
+    s.radius = s.originalRadius * (1 + Math.sin(Date.now() / 400 + s.x) * 0.4)
   }
-  return data
 }
 
-export async function getOperatorDashboardData() {
-  noStore()
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+const tick = () => {
+  draw()
+  update()
+  animationFrameId = requestAnimationFrame(tick)
+}
 
-  if (!user) {
-    console.error("Operator not authenticated")
-    return null
-  }
+tick()
 
-  const { data, error } = await supabase.rpc("get_operator_dashboard_data", { p_operator_id: user.id }).single()
+return () => {
+  window.removeEventListener("resize", handleResize)
+  cancelAnimationFrame(animationFrameId)
+}
+\
+}, [])
 
-  if (error) {
-    console.error("Error fetching operator dashboard data:", error)
-    return null
-  }
-
-  return data
+return (
+<canvas
+  ref={canvasRef}
+  className="fixed top-0 left-0 -z-10"
+  style={{
+    background: "linear-gradient(to bottom, #0f172a, #1e293b, #0f172a)",
+  }}
+/>
+)
+\
 }

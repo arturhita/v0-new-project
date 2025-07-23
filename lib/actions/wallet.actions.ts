@@ -1,76 +1,36 @@
-"use server"
+```typescriptreact file="app/(platform)/page.tsx"
+[v0-no-op-code-block-prefix]import { getHomepageData, getLatestOperators } from "@/lib/actions/data.actions"
+import HomepageClient from "./homepage-client"
+import { Suspense } from "react"
+import LoadingSpinner from "@/components/loading-spinner"
 
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { revalidatePath } from "next/cache"
+export const revalidate = 300 // Revalidate every 5 minutes
 
-// Recupera il portafoglio dell'utente autenticato
-export async function getUserWallet() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default async function HomePage() {
+try {
+// Fetch data in parallel
+const homepageDataPromise = getHomepageData()
+const latestOperatorsPromise = getLatestOperators()
 
-  if (!user) {
-    return { error: "Utente non autenticato." }
-  }
+const [homepageData, latestOperators] = await Promise.all([homepageDataPromise, latestOperatorsPromise])
 
-  const { data, error } = await supabase.from("wallets").select("balance").eq("user_id", user.id).single()
+// Destructure all properties from homepageData
+const { operators, reviews, articles } = homepageData
 
-  if (error) {
-    console.error("Errore nel recupero del portafoglio:", error)
-    return { error: "Impossibile recuperare il saldo del portafoglio." }
-  }
-
-  return { balance: data.balance }
+return (
+  <Suspense fallback={<LoadingSpinner fullScreen />}>
+    <HomepageClient operators={operators} reviews={reviews} articles={articles} latestOperators={latestOperators} />
+  </Suspense>
+)
+} catch (error) {
+console.error("Failed to load homepage data:", error)
+return (
+  <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-center text-white">
+    <div>
+      <h1 className="text-2xl font-bold">Oops! Qualcosa è andato storto.</h1>
+      <p className="text-slate-400">Non è stato possibile caricare i dati per la homepage. Riprova più tardi.</p>
+    </div>
+  </div>
+)
 }
-
-// Aggiunge fondi al portafoglio (es. dopo un pagamento Stripe)
-export async function addFundsToWallet(userId: string, amount: number, description: string, metadata: object) {
-  if (amount <= 0) {
-    return { success: false, message: "L'importo deve essere positivo." }
-  }
-
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.rpc("update_wallet_balance", {
-    p_user_id: userId,
-    p_amount: amount,
-    p_transaction_type: "deposit",
-    p_description: description,
-    p_metadata: metadata,
-  })
-
-  if (error || !data.success) {
-    console.error("Errore nell'aggiungere fondi:", error || data.message)
-    return { success: false, message: "Errore durante la ricarica del portafoglio." }
-  }
-
-  revalidatePath("/dashboard/client/wallet")
-  return { success: true, new_balance: data.new_balance }
-}
-
-// Recupera lo storico delle transazioni per l'utente autenticato
-export async function getTransactionHistory() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "Utente non autenticato." }
-  }
-
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(50)
-
-  if (error) {
-    console.error("Errore nel recupero dello storico transazioni:", error)
-    return { error: "Impossibile recuperare lo storico delle transazioni." }
-  }
-
-  return { transactions: data }
 }
