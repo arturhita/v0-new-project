@@ -47,14 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser)
 
       if (currentUser) {
-        const { data: userProfile } = await supabase
-          .from("profiles")
-          .select("*") // Selezioniamo tutto per essere sicuri
-          .eq("id", currentUser.id)
-          .single()
+        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
 
-        // LA CORREZIONE CRITICA: Sanifichiamo l'oggetto profilo prima di impostarlo nello stato.
-        // Questo è il punto più importante per prevenire l'errore in tutta l'app.
+        // CRITICAL FIX: Sanitize the profile object before setting it in state.
         const cleanProfile = JSON.parse(JSON.stringify(userProfile || null))
         setProfile(cleanProfile as Profile | null)
       } else {

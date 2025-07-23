@@ -6,9 +6,10 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
+  const cleanProfile = JSON.parse(JSON.stringify(profile))
   // SOLUZIONE DI RICOSTRUZIONE MANUALE: La più sicura contro i getter.
   // Crea un oggetto completamente nuovo invece di clonare quello problematico.
-  const rawServices = profile.services || {}
+  const rawServices = cleanProfile.services || {}
   const services = {
     chat:
       rawServices.chat && typeof rawServices.chat === "object"
@@ -45,23 +46,25 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
   const operator: Operator = {
-    id: profile.id,
-    name: profile.stage_name || "Operatore",
-    avatarUrl: profile.avatar_url || "/placeholder.svg",
+    id: cleanProfile.id,
+    name: cleanProfile.stage_name || "Operatore",
+    avatarUrl: cleanProfile.avatar_url || "/placeholder.svg",
     specialization:
-      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
-    rating: profile.average_rating || 0,
-    reviewsCount: profile.reviews_count || 0,
-    description: profile.bio || "Nessuna descrizione disponibile.",
-    tags: profile.categories || [],
-    isOnline: profile.is_online || false,
+      (cleanProfile.specialties && cleanProfile.specialties[0]) ||
+      (cleanProfile.categories && cleanProfile.categories[0]) ||
+      "Esperto",
+    rating: cleanProfile.average_rating || 0,
+    reviewsCount: cleanProfile.reviews_count || 0,
+    description: cleanProfile.bio || "Nessuna descrizione disponibile.",
+    tags: cleanProfile.categories || [],
+    isOnline: cleanProfile.is_online || false,
     services: {
       chatPrice,
       callPrice,
       emailPrice,
     },
-    profileLink: `/operator/${profile.stage_name}`,
-    joinedDate: profile.created_at,
+    profileLink: `/operator/${cleanProfile.stage_name}`,
+    joinedDate: cleanProfile.created_at,
   }
 
   return operator
@@ -84,10 +87,10 @@ export async function getHomepageData() {
         .from("reviews")
         .select(
           `
-      id, rating, comment, created_at,
-      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-      operator:profiles!reviews_operator_id_fkey (stage_name)
-    `,
+  id, rating, comment, created_at,
+  client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+  operator:profiles!reviews_operator_id_fkey (stage_name)
+`,
         )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
@@ -107,7 +110,8 @@ export async function getHomepageData() {
     }
 
     const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-    const reviews = (reviewsData || []).map(
+    const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
+    const reviews = cleanReviewsData.map(
       (review: any) =>
         ({
           id: review.id,

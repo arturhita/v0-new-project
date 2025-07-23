@@ -48,7 +48,7 @@ export async function getOperatorDashboardData(operatorId: string) {
     return null
   }
 
-  const { data: stats, error: statsError } = await supabase.rpc("get_operator_dashboard_stats", {
+  const { data, error: statsError } = await supabase.rpc("get_operator_dashboard_stats", {
     p_operator_id: operatorId,
   })
 
@@ -57,12 +57,17 @@ export async function getOperatorDashboardData(operatorId: string) {
     return null
   }
 
-  // SANIFICAZIONE AGGRESSIVA: Garantisce che l'oggetto restituito sia semplice e sicuro.
-  const cleanStats = JSON.parse(JSON.stringify(stats || {}))
+  if (!data || data.length === 0) {
+    return null
+  }
+
+  // DEFENSIVE FIX: Sanitize data from RPC calls.
+  const sanitizedData = JSON.parse(JSON.stringify(data[0]))
+
   const cleanProfile = JSON.parse(JSON.stringify(profile || {}))
 
   return {
-    ...cleanStats,
+    ...sanitizedData,
     averageRating: cleanProfile.average_rating || 0,
     totalReviews: cleanProfile.reviews_count || 0,
   }
