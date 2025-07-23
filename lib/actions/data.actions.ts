@@ -1,5 +1,5 @@
 "use server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import type { BlogArticle } from "@/lib/blog-data"
@@ -29,26 +29,22 @@ export async function getHomepageData(): Promise<{
   reviews: Review[]
   articles: BlogArticle[]
 }> {
-  const supabase = createAdminClient()
   try {
     const [operatorsResult, reviewsResult, articlesResult] = await Promise.all([
-      supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo").limit(8),
-      supabase
+      supabaseAdmin.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo").limit(8),
+      supabaseAdmin
         .from("reviews")
-        .select(`
-            id, rating, comment, created_at,
-            client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-            operator:profiles!reviews_operator_id_fkey (stage_name)
-          `)
-        .eq("status", "approved")
+        .select(
+          `
+            id, rating, comment, created_at, service_type,
+            user_name, user_avatar,
+            operator:profiles!operator_id (stage_name)
+          `,
+        )
+        .eq("status", "Approved")
         .order("created_at", { ascending: false })
         .limit(3),
-      // Assuming your articles table is named 'blog_posts'
-      supabase
-        .from("blog_posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(3),
+      supabaseAdmin.from("blog_posts").select("*").order("created_at", { ascending: false }).limit(3),
     ])
 
     const { data: operators, error: operatorError } = operatorsResult
@@ -62,15 +58,18 @@ export async function getHomepageData(): Promise<{
 
     const mappedOperators = (operators || []).map(mapProfileToOperator)
 
-    const mappedReviews = (reviewsData || []).map((review: any) => ({
-      id: review.id,
-      user_name: review.client?.full_name || "Utente Anonimo",
-      user_type: "Utente",
-      operator_name: review.operator?.stage_name || "Operatore",
-      rating: review.rating,
-      comment: review.comment,
-      created_at: review.created_at,
-    }))
+    const mappedReviews = (reviewsData || []).map(
+      (review: any) =>
+        ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          created_at: review.created_at,
+          user_name: review.user_name || "Utente Anonimo",
+          user_avatar_url: review.user_avatar || null,
+          service_type: review.service_type,
+        }) as Review,
+    )
 
     return {
       operators: mappedOperators,
@@ -84,9 +83,8 @@ export async function getHomepageData(): Promise<{
 }
 
 export async function getLatestOperators(): Promise<Operator[]> {
-  const supabase = createAdminClient()
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .eq("role", "operator")

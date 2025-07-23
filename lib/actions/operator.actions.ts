@@ -2,30 +2,9 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
-import type { FormData } from "formdata-node"
-
-const safeParseFloat = (value: any): number => {
-  if (value === null || value === undefined || String(value).trim() === "") return 0
-  const num = Number.parseFloat(String(value))
-  return isNaN(num) ? 0 : num
-}
-
-export type AvailabilitySlot = {
-  start: string
-  end: string
-}
-
-export type DayAvailability = {
-  enabled: boolean
-  slots: AvailabilitySlot[]
-}
-
-export type Availability = {
-  [key: string]: DayAvailability
-}
 
 const RegisterOperatorSchema = z
   .object({
@@ -57,9 +36,8 @@ export async function registerOperator(formData: FormData) {
 
   const { email, password, name, surname, stageName, bio, categories } = validatedFields.data
   const fullName = `${name} ${surname}`.trim()
-  const supabase = createAdminClient()
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -82,7 +60,7 @@ export async function registerOperator(formData: FormData) {
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
@@ -93,7 +71,7 @@ export async function registerOperator(formData: FormData) {
   })
 
   if (profileError) {
-    await supabase.auth.admin.deleteUser(userId)
+    await supabaseAdmin.auth.admin.deleteUser(userId)
     return { success: false, message: profileError.message }
   }
 
@@ -118,9 +96,8 @@ export async function createOperator(formData: FormData) {
   }
 
   const { email, password, fullName, stageName } = validatedFields.data
-  const supabase = createAdminClient()
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -136,7 +113,7 @@ export async function createOperator(formData: FormData) {
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabase.from("profiles").insert({
+  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
@@ -145,7 +122,7 @@ export async function createOperator(formData: FormData) {
   })
 
   if (profileError) {
-    await supabase.auth.admin.deleteUser(userId)
+    await supabaseAdmin.auth.admin.deleteUser(userId)
     return { message: profileError.message }
   }
 
@@ -153,36 +130,25 @@ export async function createOperator(formData: FormData) {
   redirect("/admin/operators")
 }
 
-export async function getOperatorById(id: string) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
-  if (error) {
-    console.error("Error fetching operator by ID:", error)
-    return null
-  }
-  return data
-}
-
-export async function getOperatorByName(name: string) {
+export async function getOperatorByName(username: string) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("full_name", name)
-    .eq("role", "operator")
-    .single()
+  const { data, error } = await supabase.rpc("get_public_profile_by_stage_name", {
+    stage_name_to_find: username,
+  })
+
   if (error) {
-    console.error("Error fetching operator by name:", error.message)
+    console.error(`Errore RPC durante la ricerca del profilo per "${username}":`, error.message)
     return null
   }
-  return data
+
+  return data && data.length > 0 ? data[0] : null
 }
 
 export async function getAllOperators() {
   const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
   if (error) {
-    console.error("Error fetching all operators:", error)
+    console.error("Error fetching operators:", error)
     return []
   }
   return data

@@ -1,29 +1,45 @@
 import type React from "react"
 ;("use server")
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { Phone, MessageSquare, Edit } from "lucide-react"
 
-export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount)
+import { createClient } from "@/lib/supabase/server"
+import { format } from "date-fns"
+import { it } from "date-fns/locale"
+import { BarChart, DollarSign, MessageSquare, Phone } from "lucide-react"
+
+export function formatCurrency(amount: number | null | undefined) {
+  if (amount === null || amount === undefined) {
+    return "€0,00"
+  }
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount)
 }
 
-export function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("it-IT", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
+export function formatDate(date: string | Date) {
+  return format(new Date(date), "d MMM yyyy", { locale: it })
 }
 
 export function getServiceTypeLabel(type: string) {
-  const map: { [key: string]: string } = { call: "Chiamata", chat: "Chat", written: "Scritto" }
-  return map[type] || "Sconosciuto"
+  const labels: { [key: string]: string } = {
+    chat: "Chat",
+    call: "Chiamata",
+    email: "Consulto Scritto",
+    bonus: "Bonus",
+    adjustment: "Rettifica",
+  }
+  return labels[type] || type
 }
 
 export function getServiceTypeIcon(type: string) {
-  const map: { [key: string]: React.ElementType } = { call: Phone, chat: MessageSquare, written: Edit }
-  return map[type] || Edit
+  const icons: { [key: string]: React.ElementType } = {
+    chat: MessageSquare,
+    call: Phone,
+    email: BarChart,
+    bonus: DollarSign,
+    adjustment: DollarSign,
+  }
+  return icons[type] || DollarSign
 }
 
 export async function getOperatorEarningsSummary() {
@@ -33,9 +49,11 @@ export async function getOperatorEarningsSummary() {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase.rpc("get_operator_earnings_summary", { p_operator_id: user.id }).single()
-  if (error) return null
+  const { data, error } = await supabase.rpc("get_operator_earnings_summary", { p_operator_id: user.id }).single()
+  if (error) {
+    console.error("Error fetching earnings summary:", error)
+    return null
+  }
   return data
 }
 
@@ -46,9 +64,11 @@ export async function getOperatorEarningsChartData() {
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase.rpc("get_operator_earnings_chart_data", { p_operator_id: user.id })
-  if (error) return []
+  const { data, error } = await supabase.rpc("get_operator_earnings_chart_data", { p_operator_id: user.id })
+  if (error) {
+    console.error("Error fetching chart data:", error)
+    return []
+  }
   return data
 }
 
@@ -59,13 +79,16 @@ export async function getOperatorRecentTransactions() {
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase
+  const { data, error } = await supabase
     .from("earnings")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("operator_id", user.id)
     .order("created_at", { ascending: false })
     .limit(10)
-  if (error) return []
+
+  if (error) {
+    console.error("Error fetching recent transactions:", error)
+    return []
+  }
   return data
 }

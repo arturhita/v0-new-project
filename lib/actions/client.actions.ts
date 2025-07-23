@@ -1,38 +1,45 @@
 "use server"
+
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { unstable_noStore as noStore } from "next/cache"
+import { mapProfileToOperator } from "./data.actions"
 
-export async function getClientDashboardStats() {
+export async function getClientDashboardStats(clientId: string) {
+  noStore()
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase.rpc("get_client_dashboard_stats", { p_client_id: user.id }).single()
+  const { data, error } = await supabase.rpc("get_client_dashboard_stats", {
+    p_client_id: clientId,
+  })
+
   if (error) {
-    console.error("Error fetching client dashboard stats:", error)
-    return null
+    return {
+      recentConsultationsCount: 0,
+      unreadMessagesCount: 0,
+      walletBalance: 0,
+    }
   }
-  return data
+
+  const stats = data[0]
+
+  return {
+    recentConsultationsCount: stats.recent_consultations_count || 0,
+    unreadMessagesCount: stats.unread_messages_count || 0,
+    walletBalance: stats.wallet_balance || 0,
+  }
 }
 
-export async function getFavoriteExperts() {
+export async function getFavoriteExperts(clientId: string) {
+  noStore()
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase
-    .from("favorites")
-    .select("operator:operator_id(id, full_name, avatar_url, availability_status)")
-    .eq("user_id", user.id)
+  const { data, error } = await supabase.rpc("get_favorite_operators", {
+    p_client_id: clientId,
+  })
+
   if (error) {
-    console.error("Error fetching favorite experts:", error)
     return []
   }
-  return data.map((fav: any) => fav.operator)
+
+  return (data || []).map((profile) => mapProfileToOperator(profile))
 }

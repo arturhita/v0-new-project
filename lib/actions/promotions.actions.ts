@@ -1,69 +1,124 @@
 "use server"
-import { createAdminClient } from "@/lib/supabase/admin"
+
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
+import type { Promotion } from "@/types/promotion.types"
 
-export async function createOrUpdatePromotion(promotionData: any) {
-  const supabase = createAdminClient()
-  const { id, ...updateData } = promotionData
-  let result
-  if (id) {
-    result = await supabase.from("promotions").update(updateData).eq("id", id).select()
-  } else {
-    result = await supabase.from("promotions").insert(updateData).select()
-  }
+const PromotionSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().min(1, "Il titolo è obbligatorio."),
+  description: z.string().optional(),
+  specialPrice: z.number().positive("Il prezzo speciale deve essere positivo."),
+  originalPrice: z.number().positive("Il prezzo originale deve essere positivo."),
+  discountPercentage: z.number().int().min(0).max(100),
+  validDays: z.array(z.string()).min(1, "Seleziona almeno un giorno."),
+  startDate: z.string().min(1, "La data di inizio è obbligatoria."),
+  endDate: z.string().min(1, "La data di fine è obbligatoria."),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  isActive: z.boolean(),
+})
 
-  if (result.error) {
-    console.error("Error creating/updating promotion:", result.error)
-    return { success: false, error: result.error }
-  }
-  revalidatePath("/admin/promotions")
-  return { success: true, data: result.data }
-}
+const mapToCamelCase = (p: any): Promotion => ({
+  id: p.id,
+  title: p.title,
+  description: p.description,
+  specialPrice: p.special_price,
+  originalPrice: p.original_price,
+  discountPercentage: p.discount_percentage,
+  validDays: p.valid_days,
+  startDate: p.start_date,
+  endDate: p.end_date,
+  startTime: p.start_time,
+  endTime: p.end_time,
+  isActive: p.is_active,
+  createdAt: p.created_at,
+  updatedAt: p.updated_at,
+})
 
-export async function getCurrentPromotionPrice(serviceType: string, basePrice: number) {
-  const supabase = createAdminClient()
-  const { data: promotion, error } = await supabase
-    .from("promotions")
-    .select("discount_percentage")
-    .eq("is_active", true)
-    .or(`applicable_services.cs.{"${serviceType}"},applicable_services.cs.{"all"}`)
-    .single()
+const mapToSnakeCase = (p: any) => ({
+  title: p.title,
+  description: p.description,
+  special_price: p.specialPrice,
+  original_price: p.originalPrice,
+  discount_percentage: p.discountPercentage,
+  valid_days: p.validDays,
+  start_date: p.startDate,
+  end_date: p.endDate,
+  start_time: p.startTime || null,
+  end_time: p.endTime || null,
+  is_active: p.isActive,
+})
 
-  if (error || !promotion) {
-    return basePrice
-  }
+export async function getPromotions(): Promise<Promotion[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("promotions").select("*").order("created_at", { ascending: false })
 
-  return basePrice * (1 - promotion.discount_percentage / 100)
-}
-
-export async function getPromotions() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("promotions").select("*")
   if (error) {
     console.error("Error fetching promotions:", error)
     return []
   }
-  return data
+
+  return data.map(mapToCamelCase)
+}
+
+export async function createOrUpdatePromotion(formData: Omit<Promotion, "createdAt" | "updatedAt">) {
+  const validatedFields = PromotionSchema.safeParse(formData)
+
+  if (!validatedFields.success) {
+    return { success: false, error: "Dati non validi.", details: validatedFields.error.flatten().fieldErrors }
+  }
+
+  const supabase = createClient()
+  const dbData = mapToSnakeCase(validatedFields.data)
+
+  if (formData.id) {
+    const { data, error } = await supabase.from("promotions").update(dbData).eq("id", formData.id).select().single()
+    if (error) {
+      return { success: false, error: "Impossibile aggiornare la promozione." }
+    }
+    revalidatePath("/admin/promotions")
+    revalidatePath("/")
+    return { success: true, data: mapToCamelCase(data) }
+  } else {
+    const { data, error } = await supabase.from("promotions").insert(dbData).select().single()
+    if (error) {
+      return { success: false, error: "Impossibile creare la promozione." }
+    }
+    revalidatePath("/admin/promotions")
+    revalidatePath("/")
+    return { success: true, data: mapToCamelCase(data) }
+  }
 }
 
 export async function deletePromotion(id: string) {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { error } = await supabase.from("promotions").delete().eq("id", id)
+
   if (error) {
-    console.error("Error deleting promotion:", error)
-    return { success: false, error }
+    return { success: false, error: "Impossibile eliminare la promozione." }
   }
+
   revalidatePath("/admin/promotions")
+  revalidatePath("/")
   return { success: true }
 }
 
 export async function togglePromotionStatus(id: string, currentStatus: boolean) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("promotions").update({ is_active: !currentStatus }).eq("id", id)
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("promotions")
+    .update({ is_active: !currentStatus })
+    .eq("id", id)
+    .select()
+    .single()
+
   if (error) {
-    console.error("Error toggling promotion status:", error)
-    return { success: false, error }
+    return { success: false, error: "Impossibile aggiornare lo stato." }
   }
+
   revalidatePath("/admin/promotions")
-  return { success: true }
+  revalidatePath("/")
+  return { success: true, data: mapToCamelCase(data) }
 }

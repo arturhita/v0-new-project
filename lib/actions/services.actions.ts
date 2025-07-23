@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
@@ -233,22 +232,36 @@ export async function validateServicePricing(settings: ConsultationSettings) {
   }
 }
 
-export async function updateOperatorServices(services: any) {
+export async function updateOperatorServices(prevState: any, formData: FormData) {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
 
-  const adminSupabase = createAdminClient()
-  // This is a placeholder for a more complex upsert logic
-  const { error } = await adminSupabase.from("operator_services").delete().eq("user_id", user.id)
-  if (error) return { success: false, error }
+  if (!user) {
+    return { error: "Utente non autenticato." }
+  }
 
-  const servicesToInsert = services.map((s: any) => ({ ...s, user_id: user.id }))
-  const { error: insertError } = await adminSupabase.from("operator_services").insert(servicesToInsert)
-  if (insertError) return { success: false, error: insertError }
+  const servicesData = formData.get("services")
+  if (typeof servicesData !== "string") {
+    return { error: "Dati dei servizi non validi." }
+  }
 
-  revalidatePath("/dashboard/operator/services")
-  return { success: true }
+  try {
+    const parsedServices = servicesSchema.parse(JSON.parse(servicesData))
+
+    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
+
+    if (error) {
+      console.error("Supabase error updating services:", error)
+      return { error: "Impossibile aggiornare i servizi. Riprova." }
+    }
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (e) {
+    console.error("Validation or parsing error:", e)
+    return { error: "I dati inviati non sono validi." }
+  }
 }

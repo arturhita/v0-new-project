@@ -1,35 +1,63 @@
 "use server"
-import { createAdminClient } from "@/lib/supabase/admin"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-export async function updateCommissionRequestStatus(id: string, status: "approved" | "rejected") {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("commission_requests").update({ status }).eq("id", id)
-  if (error) return { success: false, error }
-  revalidatePath("/admin/commission-requests")
-  return { success: true }
-}
+const CommissionRequestSchema = z.object({
+  requestedCommission: z.coerce
+    .number()
+    .min(0, "La percentuale non può essere negativa.")
+    .max(100, "La percentuale non può superare 100."),
+  justification: z
+    .string()
+    .min(10, "La motivazione deve contenere almeno 10 caratteri.")
+    .max(500, "La motivazione non può superare i 500 caratteri."),
+})
 
-export async function getAllCommissionRequests() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("commission_requests").select("*, profiles(full_name)")
-  if (error) return []
-  return data
-}
-
-export async function submitCommissionRequest(amount: number) {
+export async function submitCommissionRequest(prevState: any, formData: FormData) {
   const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
 
-  const adminSupabase = createAdminClient()
-  const { error } = await adminSupabase.from("commission_requests").insert({ user_id: user.id, amount })
-  if (error) return { success: false, error }
-  revalidatePath("/dashboard/operator/commission-request")
-  return { success: true }
+  if (!user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const validatedFields = CommissionRequestSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Dati non validi.",
+      errors: validatedFields.error.flatten().fieldErrors,
+    }
+  }
+
+  const { requestedCommission, justification } = validatedFields.data
+
+  const { data: profile } = await supabase.from("profiles").select("commission_rate").eq("id", user.id).single()
+
+  if (!profile) {
+    return { success: false, message: "Profilo operatore non trovato." }
+  }
+
+  const { error: insertError } = await supabase.from("commission_requests").insert({
+    operator_id: user.id,
+    current_commission_rate: profile.commission_rate || 15,
+    requested_commission_rate: requestedCommission,
+    justification,
+  })
+
+  if (insertError) {
+    return { success: false, message: `Errore del database: ${insertError.message}` }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/commission-request")
+  revalidatePath("/admin/commission-requests-log")
+
+  return { success: true, message: "Richiesta inviata con successo!" }
 }
 
 export async function getCommissionRequestsForOperator() {
@@ -39,8 +67,63 @@ export async function getCommissionRequestsForOperator() {
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase.from("commission_requests").select("*").eq("user_id", user.id)
+  const { data, error } = await supabase
+    .from("commission_requests")
+    .select("*")
+    .eq("operator_id", user.id)
+    .order("created_at", { ascending: false })
+
   if (error) return []
   return data
+}
+
+export async function getAllCommissionRequests() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("commission_requests")
+    .select(`*, profile:profiles(stage_name)`)
+    .order("status", { ascending: true })
+    .order("created_at", { ascending: false })
+
+  if (error) return []
+  return data
+}
+
+export async function updateCommissionRequestStatus(
+  requestId: string,
+  operatorId: string,
+  newStatus: "approved" | "rejected",
+  newCommission?: number,
+) {
+  const supabase = createClient()
+
+  if (newStatus === "approved" && newCommission === undefined) {
+    return { success: false, message: "La nuova commissione è richiesta per l'approvazione." }
+  }
+
+  if (newStatus === "approved") {
+    const { error: updateProfileError } = await supabase
+      .from("profiles")
+      .update({ commission_rate: newCommission })
+      .eq("id", operatorId)
+
+    if (updateProfileError) {
+      return { success: false, message: `Errore aggiornamento profilo: ${updateProfileError.message}` }
+    }
+  }
+
+  const { error: updateRequestError } = await supabase
+    .from("commission_requests")
+    .update({ status: newStatus })
+    .eq("id", requestId)
+
+  if (updateRequestError) {
+    return { success: false, message: `Errore aggiornamento richiesta: ${updateRequestError.message}` }
+  }
+
+  revalidatePath("/admin/commission-requests-log")
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  revalidatePath("/admin/operators")
+
+  return { success: true, message: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
 }

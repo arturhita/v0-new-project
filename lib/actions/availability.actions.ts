@@ -1,37 +1,45 @@
 "use server"
+
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
-
-export async function saveOperatorAvailability(availability: any) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
-
-  const adminSupabase = createAdminClient()
-  const { error } = await adminSupabase
-    .from("operator_availability")
-    .upsert({ user_id: user.id, schedule: availability }, { onConflict: "user_id" })
-  if (error) return { success: false, error }
-  revalidatePath("/dashboard/operator/availability")
-  return { success: true }
-}
 
 export async function getOperatorAvailability() {
   const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return null
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase
-    .from("operator_availability")
-    .select("schedule")
-    .eq("user_id", user.id)
-    .single()
-  if (error) return null
-  return data.schedule
+  if (!user) {
+    return null
+  }
+
+  const { data, error } = await supabase.from("profiles").select("availability").eq("id", user.id).single()
+
+  if (error) {
+    console.error("Error fetching availability:", error)
+    return null
+  }
+
+  return data.availability
+}
+
+export async function saveOperatorAvailability(availability: any) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, message: "User not authenticated." }
+  }
+
+  const { error } = await supabase.from("profiles").update({ availability }).eq("id", user.id)
+
+  if (error) {
+    console.error("Error saving availability:", error)
+    return { success: false, message: "Failed to save availability." }
+  }
+
+  revalidatePath("/(platform)/dashboard/operator/availability")
+  return { success: true, message: "Availability saved successfully." }
 }

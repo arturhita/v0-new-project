@@ -1,58 +1,81 @@
 "use server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
+
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-export async function createReview(reviewData: { consultation_id: string; rating: number; comment: string }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "User not authenticated" }
+export interface NewReviewSchema {
+  user_id: string
+  operator_id: string
+  operator_name: string
+  user_name: string
+  user_avatar?: string
+  rating: number
+  comment: string
+  service_type: "chat" | "call" | "email"
+  consultation_id: string
+  is_verified: boolean
+}
 
-  const adminSupabase = createAdminClient()
-  const { data, error } = await adminSupabase
+export async function createReview(reviewData: NewReviewSchema) {
+  const supabase = createAdminClient()
+  const status = reviewData.rating >= 4 ? "Approved" : "Pending"
+
+  const { data, error } = await supabase
     .from("reviews")
-    .insert({
-      ...reviewData,
-      user_id: user.id,
-    })
+    .insert([{ ...reviewData, status }])
     .select()
+    .single()
 
   if (error) {
-    console.error("Error creating review:", error)
-    return { error }
+    return { success: false, error }
   }
 
-  revalidatePath(`/operator/*`)
-  return { data }
+  revalidatePath("/")
+  revalidatePath(`/operator/${reviewData.operator_name}`)
+  revalidatePath(`/admin/reviews`)
+
+  return { success: true, review: data }
 }
 
 export async function getPendingReviews() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("reviews")
-    .select("*, profiles:user_id(full_name)")
-    .eq("status", "pending")
-  return { data, error }
+    .select(`*`)
+    .eq("status", "Pending")
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    return []
+  }
+  return data
 }
 
 export async function getModeratedReviews() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("reviews")
-    .select("*, profiles:user_id(full_name)")
-    .neq("status", "pending")
-  return { data, error }
+    .select("*")
+    .in("status", ["Approved", "Rejected"])
+    .order("created_at", { ascending: false })
+    .limit(50)
+
+  if (error) {
+    return []
+  }
+  return data
 }
 
-export async function moderateReview(reviewId: string, status: "approved" | "rejected") {
+export async function moderateReview(reviewId: string, approved: boolean) {
   const supabase = createAdminClient()
-  const { data, error } = await supabase.from("reviews").update({ status }).eq("id", reviewId).select()
+  const newStatus = approved ? "Approved" : "Rejected"
+
+  const { error } = await supabase.from("reviews").update({ status: newStatus }).eq("id", reviewId)
+
   if (error) {
-    console.error("Error moderating review:", error)
-    return { error }
+    return { success: false, error }
   }
+
   revalidatePath("/admin/reviews")
-  return { data }
+  return { success: true }
 }

@@ -1,12 +1,16 @@
 "use server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 
 export async function getTickets() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("support_tickets").select("*, profiles(full_name)")
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("support_tickets")
+    .select(`id, created_at, subject, status, priority, user:profiles ( full_name, email )`)
+    .order("created_at", { ascending: false })
+
   if (error) {
-    console.error("Error fetching tickets:", error)
     return []
   }
+
   return data
 }
