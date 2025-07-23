@@ -3,14 +3,14 @@ import { getHomepageData } from "@/lib/actions/data.actions"
 import { HomepageClient } from "./homepage-client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
-// This is now a Server Component, which is the recommended way to fetch data in Next.js.
-// It fetches data on the server and passes it down to a Client Component for interactivity.
+// Questo è un Server Component, che recupera i dati sul server e li passa
+// a un Client Component per l'interattività.
 export default async function UnveillyHomePage() {
   try {
-    // Fetch data directly on the server.
+    // Recupera i dati direttamente sul server.
     const data = await getHomepageData()
 
-    // Pass the clean data as props to the Client Component.
+    // Passa i dati già puliti come props al Client Component.
     return (
       <Suspense
         fallback={
@@ -24,7 +24,7 @@ export default async function UnveillyHomePage() {
     )
   } catch (error) {
     console.error("Failed to load homepage data on the server:", error)
-    // Render a user-friendly error message if data fetching fails.
+    // Mostra un messaggio di errore se il recupero dati fallisce.
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-center text-white">
         <div>

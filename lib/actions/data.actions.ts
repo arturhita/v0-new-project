@@ -5,7 +5,6 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
-// This mapper now assumes it receives a plain, sanitized JS object.
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
   const services = profile.services || {}
   const chatService = services.chat || {}
@@ -79,8 +78,7 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    // BRUTE-FORCE SANITIZATION: Use JSON stringify/parse to ensure a plain object.
-    // This is the most aggressive and reliable way to strip proxies/getters.
+    // SANIFICAZIONE AGGRESSIVA: Garantisce che gli oggetti siano semplici e modificabili.
     const cleanOperatorsData = JSON.parse(JSON.stringify(operatorsData || []))
     const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
 
@@ -119,7 +117,6 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  // APPLY THE FIX HERE AS WELL
   const cleanData = JSON.parse(JSON.stringify(data || []))
   return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
@@ -140,7 +137,6 @@ export async function getAllOperators() {
     return []
   }
 
-  // APPLY THE FIX HERE AS WELL
   const cleanData = JSON.parse(JSON.stringify(data || []))
   return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
