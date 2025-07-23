@@ -19,8 +19,11 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
-import { useAuth } from "@/contexts/auth-context"
 import { getOperatorDashboardData } from "@/lib/actions/dashboard.actions"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import LoadingSpinner from "@/components/loading-spinner"
+import { Suspense } from "react"
 
 type OperatorStats = {
   totalEarningsMonth: number
@@ -92,35 +95,63 @@ const StatCard = ({
   </Card>
 )
 
-export default function OperatorDashboardPage() {
-  const { user, profile } = useAuth()
-  const [stats, setStats] = useState<OperatorStats | null>(null)
-  const [loading, setLoading] = useState(true)
+export default async function OperatorDashboardPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  try {
+    const dashboardData = await getOperatorDashboardData()
+
+    // BELT AND SUSPENDERS: Sanitize both the user and dashboard data before passing to client.
+    // This ensures no frozen objects ever reach the client component.
+    const cleanUser = JSON.parse(JSON.stringify(user))
+    const cleanDashboardData = JSON.parse(JSON.stringify(dashboardData))
+
+    return (
+      <Suspense fallback={<LoadingSpinner fullScreen />}>
+        <OperatorDashboardClient user={cleanUser} initialDashboardData={cleanDashboardData} />
+      </Suspense>
+    )
+  } catch (error) {
+    console.error("Failed to load operator dashboard:", error)
+    return (
+      <div className="flex h-full w-full items-center justify-center text-red-500">
+        <p>Impossibile caricare i dati della dashboard.</p>
+      </div>
+    )
+  }
+}
+
+function OperatorDashboardClient({ user, initialDashboardData }: { user: any; initialDashboardData: OperatorStats }) {
+  const [stats, setStats] = useState<OperatorStats | null>(initialDashboardData)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user?.id) {
-      const fetchData = async () => {
-        setLoading(true)
-        setError(null)
-        try {
-          const data = await getOperatorDashboardData(user.id)
-          if (data) {
-            setStats(data)
-          } else {
-            setError("Impossibile caricare i dati della dashboard.")
-          }
-        } catch (e) {
-          console.error(e)
-          setError("Si è verificato un errore durante il caricamento dei dati.")
-        } finally {
-          setLoading(false)
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await getOperatorDashboardData(user.id)
+        if (data) {
+          setStats(data)
+        } else {
+          setError("Impossibile caricare i dati della dashboard.")
         }
+      } catch (e) {
+        console.error(e)
+        setError("Si è verificato un errore durante il caricamento dei dati.")
+      } finally {
+        setLoading(false)
       }
-      fetchData()
-    } else if (!user) {
-      setLoading(false)
     }
+    fetchData()
   }, [user])
 
   if (loading) {
@@ -163,8 +194,6 @@ export default function OperatorDashboardPage() {
     )
   }
 
-  const cleanUser = JSON.parse(JSON.stringify(user))
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* Background Effects */}
@@ -178,7 +207,7 @@ export default function OperatorDashboardPage() {
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <SparklesIcon className="w-8 h-8 mr-3 text-yellow-400" />
-              Benvenuto nel tuo Santuario, {profile?.full_name || user?.user_metadata?.full_name || "Operatore"}!
+              Benvenuto nel tuo Santuario, {user?.user_metadata?.full_name || "Operatore"}!
             </h1>
             <p className="text-white/70 text-lg">Ecco una panoramica della tua attività mistica.</p>
           </div>
