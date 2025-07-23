@@ -1,60 +1,102 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Check, X, PhoneIncoming } from "lucide-react"
-import { useChatRequest } from "@/contexts/chat-request-context"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { respondToChatRequest } from "@/lib/actions/chat.actions"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 
-export function IncomingChatRequestModal() {
-  const { request, isVisible, accept, decline } = useChatRequest()
-  const audioRef = useRef<HTMLAudioElement>(null)
+interface ChatRequest {
+  consultation_id: string
+  client_id: string
+  client_name: string
+  client_avatar_url: string | null
+}
 
-  useEffect(() => {
-    if (isVisible && audioRef.current) {
-      audioRef.current
-        .play()
-        .catch((error) => console.log("La riproduzione audio è stata bloccata dal browser:", error))
+interface IncomingChatRequestModalProps {
+  request: ChatRequest
+  onClose: () => void
+}
+
+export default function IncomingChatRequestModal({ request, onClose }: IncomingChatRequestModalProps) {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleResponse = async (accepted: boolean) => {
+    setIsLoading(true)
+    const { consultation_id } = request
+
+    const result = await respondToChatRequest({ consultation_id, accepted })
+
+    if (result.success && accepted) {
+      toast.success("Richiesta accettata! Verrai reindirizzato alla chat.")
+      router.push(`/chat/${consultation_id}`)
+      onClose()
+    } else if (result.success && !accepted) {
+      toast.info("Richiesta rifiutata.")
+      onClose()
+    } else {
+      toast.error(result.error || "Si è verificato un errore.")
     }
-  }, [isVisible])
+    setIsLoading(false)
+  }
 
-  if (!isVisible || !request) {
-    return null
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
-      <Card className="w-full max-w-md shadow-2xl border-indigo-500/50 bg-slate-900/80 text-white animate-in fade-in-0 zoom-in-95">
-        <CardHeader className="text-center">
-          <div className="mx-auto bg-indigo-500/20 rounded-full p-4 w-fit mb-4 border border-indigo-500/30">
-            <PhoneIncoming className="h-10 w-10 text-indigo-300 animate-pulse" />
+    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-[425px] bg-slate-800 border-slate-700 text-white">
+        <DialogHeader>
+          <DialogTitle className="text-yellow-400">Nuova Richiesta di Chat</DialogTitle>
+          <DialogDescription>Hai una nuova richiesta di consulenza via chat.</DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center space-x-4 py-4">
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={request.client_avatar_url || ""} />
+            <AvatarFallback className="bg-blue-600 text-white text-2xl">
+              {getInitials(request.client_name)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-lg font-semibold">{request.client_name}</p>
+            <p className="text-sm text-slate-400">vuole iniziare una chat con te.</p>
           </div>
-          <CardTitle className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
-            Richiesta di Chat in Arrivo
-          </CardTitle>
-          <CardDescription className="text-slate-400 mt-2 text-base">
-            L'utente <span className="font-bold text-white">{request.fromUserName}</span> vuole avviare una chat con te.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="flex justify-center gap-4 mt-4">
+        </div>
+        <DialogFooter>
           <Button
-            onClick={decline}
-            variant="destructive"
-            size="lg"
-            className="flex-1 bg-red-600/80 hover:bg-red-600 text-white text-lg font-bold gap-2"
+            variant="outline"
+            onClick={() => handleResponse(false)}
+            disabled={isLoading}
+            className="border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-400"
           >
-            <X className="h-6 w-6" /> Rifiuta
+            Rifiuta
           </Button>
           <Button
-            onClick={accept}
-            size="lg"
-            className="flex-1 bg-green-600/80 hover:bg-green-600 text-white text-lg font-bold gap-2"
+            onClick={() => handleResponse(true)}
+            disabled={isLoading}
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
-            <Check className="h-6 w-6" /> Accetta
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Accetta
           </Button>
-        </CardFooter>
-      </Card>
-      <audio ref={audioRef} src="/sounds/notification.mp3" preload="auto" />
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

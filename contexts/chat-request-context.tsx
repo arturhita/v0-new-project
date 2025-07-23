@@ -1,63 +1,86 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useCallback, useMemo } from "react"
-import { respondToChatRequest } from "@/lib/actions/chat.actions"
-import { toast } from "@/components/ui/use-toast"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "./auth-context"
+import IncomingChatRequestModal from "@/components/incoming-chat-request-modal"
+import type { RealtimeChannel } from "@supabase/supabase-js"
 
 interface ChatRequest {
-  sessionId: string
-  fromUserId: string
-  fromUserName: string
+  consultation_id: string
+  client_id: string
+  client_name: string
+  client_avatar_url: string | null
 }
 
 interface ChatRequestContextType {
-  request: ChatRequest | null
-  isVisible: boolean
-  showRequest: (request: ChatRequest) => void
-  accept: () => void
-  decline: () => void
+  incomingRequest: ChatRequest | null
+  clearRequest: () => void
 }
 
 const ChatRequestContext = createContext<ChatRequestContextType | undefined>(undefined)
 
-export function ChatRequestProvider({ children }: { children: React.ReactNode }) {
-  const [request, setRequest] = useState<ChatRequest | null>(null)
-  const [isVisible, setIsVisible] = useState(false)
+export function ChatRequestProvider({ children }: { children: ReactNode }) {
+  const { profile } = useAuth()
+  const supabase = createClient()
+  const [incomingRequest, setIncomingRequest] = useState<ChatRequest | null>(null)
 
-  const showRequest = useCallback((newRequest: ChatRequest) => {
-    setRequest(newRequest)
-    setIsVisible(true)
+  const clearRequest = useCallback(() => {
+    setIncomingRequest(null)
   }, [])
 
-  const hideRequest = useCallback(() => {
-    setIsVisible(false)
-    setRequest(null)
-  }, [])
+  useEffect(() => {
+    if (profile?.role !== "operator") {
+      return
+    }
 
-  const accept = useCallback(async () => {
-    if (!request) return
-    toast({ title: "Richiesta Accettata", description: `Stai per avviare la chat con ${request.fromUserName}.` })
-    // In un'app reale, qui si aprirebbe la finestra di chat per l'operatore
-    // window.open(`/dashboard/operator/chat/${request.sessionId}`, '_blank');
-    console.log("Chat accettata, sessione:", request.sessionId)
-    await respondToChatRequest(request.sessionId, "accepted")
-    hideRequest()
-  }, [request, hideRequest])
+    const channel: RealtimeChannel = supabase
+      .channel(`realtime:live_consultations:operator:${profile.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "live_consultations",
+          filter: `operator_id=eq.${profile.id}`,
+        },
+        async (payload) => {
+          const newConsultation = payload.new as any
+          if (newConsultation.status === "requested") {
+            // Fetch client details
+            const { data: clientProfile, error } = await supabase
+              .from("profiles")
+              .select("full_name, avatar_url")
+              .eq("id", newConsultation.client_id)
+              .single()
 
-  const decline = useCallback(async () => {
-    if (!request) return
-    toast({ title: "Richiesta Rifiutata", variant: "destructive" })
-    await respondToChatRequest(request.sessionId, "declined")
-    hideRequest()
-  }, [request, hideRequest])
+            if (error) {
+              console.error("Error fetching client profile for notification:", error)
+              return
+            }
 
-  const value = useMemo(
-    () => ({ request, isVisible, showRequest, accept, decline }),
-    [request, isVisible, showRequest, accept, decline],
+            setIncomingRequest({
+              consultation_id: newConsultation.id,
+              client_id: newConsultation.client_id,
+              client_name: clientProfile.full_name || "Nuovo Cliente",
+              client_avatar_url: clientProfile.avatar_url,
+            })
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile, supabase])
+
+  return (
+    <ChatRequestContext.Provider value={{ incomingRequest, clearRequest }}>
+      {children}
+      {incomingRequest && <IncomingChatRequestModal request={incomingRequest} onClose={clearRequest} />}
+    </ChatRequestContext.Provider>
   )
-
-  return <ChatRequestContext.Provider value={value}>{children}</ChatRequestContext.Provider>
 }
 
 export function useChatRequest() {

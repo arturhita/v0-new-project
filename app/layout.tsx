@@ -1,36 +1,34 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-provider"
-import { Toaster } from "sonner"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
-import { CookieBanner } from "@/components/cookie-banner"
+import { SiteNavbar } from "@/components/site-navbar"
+import { Toaster } from "@/components/ui/sonner"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata = {
-  title: "Moonthir - Consulenti del benessere",
-  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
+export const metadata: Metadata = {
+  title: "Moonthir - Consulenti Esperti al Tuo Servizio",
+  description:
+    "Trova i migliori consulenti e cartomanti per una consulenza immediata e personalizzata. Chatta o parla con i nostri esperti.",
     generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
-    <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-900`}>
+    <html lang="it">
+      <body className={`${inter.className} bg-[#0F172A] text-slate-100`}>
         <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>
-              {children}
-              <Toaster richColors position="top-center" />
-              <CookieBanner />
-            </ChatRequestProvider>
-          </OperatorStatusProvider>
+          <ConstellationBackground />
+          <SiteNavbar />
+          <main className="pt-16">{children}</main>
+          <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>
     </html>
