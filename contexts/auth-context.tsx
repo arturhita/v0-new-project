@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Start true until initial check is done
+  const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
@@ -44,12 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const manageSession = async (session: Session | null) => {
+      setIsLoading(true)
       if (session?.user) {
-        // Hard clone the user object immediately to get a clean POJO
         const cleanUser = JSON.parse(JSON.stringify(session.user)) as User
         setUser(cleanUser)
 
-        // Fetch profile based on the user ID
         const { data: rawProfile, error } = await supabase
           .from("profiles")
           .select("*")
@@ -60,10 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // Hard clone the profile object immediately
           const cleanProfile = JSON.parse(JSON.stringify(rawProfile)) as Profile
-
-          // Defensive check for services object
           if (!cleanProfile.services) {
             cleanProfile.services = {
               chat: { enabled: false, price_per_minute: 0 },
@@ -79,53 +75,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setProfile(null)
       }
-      // Mark loading as false only after all async operations are complete
       setIsLoading(false)
     }
 
-    // 1. Check for an initial session on component mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       manageSession(session)
     })
 
-    // 2. Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // When auth state changes, re-run the whole session management logic
-      setIsLoading(true)
       manageSession(session)
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase]) // Dependency array is minimal and stable
+  }, [supabase])
 
-  // Separate effect for handling redirection logic
   useEffect(() => {
     if (isLoading) {
-      return // Don't do anything while session is being checked
+      return
     }
 
-    const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isAuthenticated = !!user
-
-    // If user is on an auth page but is authenticated, redirect to dashboard
-    if (isAuthenticated && isAuthPage) {
-      let destination = "/"
-      if (profile?.role === "admin") destination = "/admin"
-      else if (profile?.role === "operator") destination = "/dashboard/operator"
-      else if (profile?.role === "client") destination = "/dashboard/client"
-      router.replace(destination)
-    }
-
-    // If user is on a protected page but is not authenticated, redirect to login
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
-    if (!isAuthenticated && isProtectedPage) {
+    if (!user && isProtectedPage) {
       router.replace("/login")
     }
-  }, [user, profile, isLoading, pathname, router])
+  }, [user, isLoading, pathname, router])
 
   return (
     <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
