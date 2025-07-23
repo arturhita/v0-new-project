@@ -146,13 +146,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return redirect("/login?message=Devi essere loggato per accedere.")
+    redirect("/login")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  if (profile?.role !== "admin") {
-    return redirect("/login?message=Non hai i permessi per accedere a questa pagina.")
+  if (!profile || profile.role !== "admin") {
+    redirect("/")
   }
 
   return <AdminDashboardUI>{children}</AdminDashboardUI>

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { LoginForm } from "./login-form"
+import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 
 export default async function LoginPage() {
   const supabase = createClient()
@@ -14,8 +15,17 @@ export default async function LoginPage() {
     if (role === "admin") redirect("/admin")
     if (role === "operator") redirect("/dashboard/operator")
     if (role === "client") redirect("/dashboard/client")
-    redirect("/") // Fallback for users with no role or other issues
+    redirect("/") // Fallback
   }
 
-  return <LoginForm />
+  return (
+    <div className="w-full flex-grow flex items-center justify-center p-4 bg-slate-900">
+      <div className="relative w-full max-w-md">
+        <GoldenConstellationBackground />
+        <div className="relative z-10">
+          <LoginForm />
+        </div>
+      </div>
+    </div>
+  )
 }

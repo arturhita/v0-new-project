@@ -310,14 +310,13 @@ export default async function OperatorDashboardLayout({ children }: { children: 
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return redirect("/login?message=Devi essere loggato per accedere.")
+    redirect("/login")
   }
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  // Allow both operators and admins to see the operator dashboard
-  if (profile?.role !== "operator" && profile?.role !== "admin") {
-    return redirect("/login?message=Accesso non autorizzato.")
+  if (!profile || profile.role !== "operator") {
+    redirect("/")
   }
 
   return <OperatorDashboardUI user={user}>{children}</OperatorDashboardUI>
