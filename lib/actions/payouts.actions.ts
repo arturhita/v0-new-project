@@ -17,7 +17,8 @@ export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> 
 
   const { data, error } = await supabase
     .from("payout_requests")
-    .select(`
+    .select(
+      `
       id,
       created_at,
       amount,
@@ -25,11 +26,11 @@ export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> 
       profiles (
         stage_name
       )
-    `)
+    `,
+    )
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching payout requests:", error.message)
     return []
   }
 
@@ -50,33 +51,12 @@ export async function updatePayoutStatus(
 ): Promise<{ success: boolean; message: string }> {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (profileError || profile?.role !== "admin") {
-    return {
-      success: false,
-      message: "Permesso negato. Solo gli amministratori possono aggiornare lo stato dei pagamenti.",
-    }
-  }
-
   const { error } = await supabase
     .from("payout_requests")
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .eq("id", requestId)
 
   if (error) {
-    console.error("Error updating payout status:", error)
     return { success: false, message: `Errore del database: ${error.message}` }
   }
 

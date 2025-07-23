@@ -15,7 +15,6 @@ export async function getClientDashboardStats(clientId: string) {
   })
 
   if (error) {
-    console.error("Error fetching client dashboard stats:", error)
     return {
       recentConsultationsCount: 0,
       unreadMessagesCount: 0,
@@ -42,7 +41,6 @@ export async function getFavoriteExperts(clientId: string) {
   })
 
   if (error) {
-    console.error("Error fetching favorite experts:", error)
     return []
   }
 
@@ -59,14 +57,12 @@ export async function toggleFavoriteOperator(clientId: string, operatorId: strin
       .match({ client_id: clientId, operator_id: operatorId })
 
     if (error) {
-      console.error("Error removing favorite:", error)
       return { success: false, error: error.message }
     }
   } else {
     const { error } = await supabase.from("favorite_operators").insert({ client_id: clientId, operator_id: operatorId })
 
     if (error) {
-      console.error("Error adding favorite:", error)
       return { success: false, error: error.message }
     }
   }

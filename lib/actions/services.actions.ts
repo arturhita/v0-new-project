@@ -19,15 +19,19 @@ export interface ConsultationSettings {
 const servicesSchema = z.object({
   chat: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.coerce.number().min(0),
+    price_per_minute: z.number().min(0),
   }),
   call: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.coerce.number().min(0),
+    price_per_minute: z.number().min(0),
+  }),
+  email: z.object({
+    enabled: z.boolean(),
+    price: z.number().min(0),
   }),
   video: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.coerce.number().min(0),
+    price_per_minute: z.number().min(0),
   }),
 })
 
@@ -225,7 +229,7 @@ export async function validateServicePricing(settings: ConsultationSettings) {
   }
 }
 
-export async function updateOperatorServices(services: z.infer<typeof servicesSchema>) {
+export async function updateOperatorServices(prevState: any, formData: FormData) {
   const supabase = createClient()
 
   const {
@@ -236,21 +240,23 @@ export async function updateOperatorServices(services: z.infer<typeof servicesSc
     return { error: "Utente non autenticato." }
   }
 
-  const validatedServices = servicesSchema.safeParse(services)
-
-  if (!validatedServices.success) {
+  const servicesData = formData.get("services")
+  if (typeof servicesData !== "string") {
     return { error: "Dati dei servizi non validi." }
   }
 
-  const { error } = await supabase.from("profiles").update({ services: validatedServices.data }).eq("id", user.id)
+  try {
+    const parsedServices = JSON.parse(servicesData)
 
-  if (error) {
-    return { error: `Errore durante l'aggiornamento dei servizi: ${error.message}` }
+    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
+
+    if (error) {
+      return { error: "Impossibile aggiornare i servizi. Riprova." }
+    }
+
+    revalidatePath("/", "layout")
+    return { success: "Servizi aggiornati con successo!" }
+  } catch (e) {
+    return { error: "I dati inviati non sono validi." }
   }
-
-  // Revalidate the entire layout to ensure AuthProvider and all other components get fresh data.
-  // This is the key to ensuring the UI reflects the change correctly.
-  revalidatePath("/", "layout")
-
-  return { success: "Servizi aggiornati con successo." }
 }

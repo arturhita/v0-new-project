@@ -9,14 +9,20 @@ export interface Review {
   created_at: string
   user_name: string
   user_avatar_url: string | null
-  service_type: "chat" | "call" | "written"
+  service_type: "chat" | "call" | "written" | "email"
 }
 
-export function ReviewCard({ review }: { review: Review }) {
+const ReviewCard = ({ review }: { review: Review }) => {
   const serviceMap = {
     chat: { label: "Chat", color: "bg-green-500/20 text-green-300 border-green-400/30" },
     call: { label: "Chiamata", color: "bg-blue-500/20 text-blue-300 border-blue-400/30" },
     written: { label: "Consulto Scritto", color: "bg-purple-500/20 text-purple-300 border-purple-400/30" },
+    email: { label: "Consulto Email", color: "bg-purple-500/20 text-purple-300 border-purple-400/30" },
+  }
+
+  const serviceInfo = serviceMap[review.service_type] || {
+    label: review.service_type,
+    color: "bg-gray-500/20 text-gray-300 border-gray-400/30",
   }
 
   return (
@@ -26,9 +32,8 @@ export function ReviewCard({ review }: { review: Review }) {
           <Image
             src={review.user_avatar_url || "/placeholder.svg?width=40&height=40&query=user+avatar"}
             alt={`Avatar di ${review.user_name}`}
-            layout="fill"
-            objectFit="cover"
-            className="rounded-full"
+            fill
+            className="rounded-full object-cover"
           />
         </div>
         <div className="flex-1">
@@ -47,17 +52,19 @@ export function ReviewCard({ review }: { review: Review }) {
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-4 h-4 transition-colors duration-300 ${i < review.rating ? "text-sky-400 fill-sky-400" : "text-slate-600"}`}
+                  className={`w-4 h-4 transition-colors duration-300 ${
+                    i < review.rating ? "text-sky-400 fill-sky-400" : "text-slate-600"
+                  }`}
                 />
               ))}
             </div>
           </div>
           <p className="mt-3 text-blue-200 italic">"{review.comment}"</p>
-          <Badge className={`mt-3 text-xs border ${serviceMap[review.service_type]?.color || ""}`}>
-            {serviceMap[review.service_type]?.label || review.service_type}
-          </Badge>
+          <Badge className={`mt-3 text-xs border ${serviceInfo.color}`}>{serviceInfo.label}</Badge>
         </div>
       </div>
     </div>
   )
 }
+
+export default ReviewCard

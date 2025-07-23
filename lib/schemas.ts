@@ -21,7 +21,8 @@ export const RegisterSchema = z
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Le password non coincidono.",
-    path: ["confirmPassword"], // path of error
+    path: ["confirmPassword"],
   })
 
-// ... other schemas remain the same
+export type TicketStatus = "Open" | "In Progress" | "Resolved" | "Closed"
+export type PayoutStatus = "Pending" | "Processing" | "Completed" | "Rejected"

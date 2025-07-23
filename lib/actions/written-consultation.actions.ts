@@ -3,27 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { getOperatorById } from "./operator.actions"
 
-// Mock data - In a real app, this would be a database table.
-const mockWrittenConsultations: WrittenConsultation[] = [
-  {
-    id: "wc_1",
-    clientId: "user_client_123",
-    clientName: "Mario Rossi",
-    operatorId: "op_luna_stellare",
-    operatorName: "Luna Stellare",
-    question: "Troverò l'amore entro la fine dell'anno? Sono nato il 15/05/1990.",
-    answer:
-      "Le carte mostrano un incontro significativo in autunno. Un'energia forte e compatibile si sta avvicinando. Sii aperto alle nuove conoscenze, specialmente nel mese di Ottobre. Le stelle favoriscono i legami duraturi in quel periodo.",
-    status: "answered",
-    cost: 30,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    answeredAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-]
-
-// Mock user wallet - In a real app, this would be part of the user's data.
-const mockUserWallets = new Map<string, number>([["user_client_123", 150.0]])
-
 export interface WrittenConsultation {
   id: string
   clientId: string
@@ -38,36 +17,39 @@ export interface WrittenConsultation {
   answeredAt: Date | null
 }
 
+const mockWrittenConsultations: WrittenConsultation[] = []
+const mockUserWallets = new Map<string, number>([["user_client_123", 150.0]])
+
 export async function submitWrittenConsultation(formData: FormData) {
   const clientId = formData.get("clientId") as string
   const operatorId = formData.get("operatorId") as string
   const question = formData.get("question") as string
 
   if (!clientId || !operatorId || !question) {
-    return { success: false, error: "Dati mancanti per la richiesta." }
+    return { success: false, error: "Dati mancanti." }
   }
 
   const operator = await getOperatorById(operatorId)
-  if (!operator || !operator.services.emailEnabled || !operator.services.emailPrice) {
+  const operatorServices = operator?.services as any
+  if (!operator || !operatorServices?.email?.enabled || !operatorServices?.email?.price) {
     return { success: false, error: "Operatore non disponibile per consulenze scritte." }
   }
 
-  const cost = operator.services.emailPrice
+  const cost = operatorServices.email.price
   const clientWallet = mockUserWallets.get(clientId) || 0
 
   if (clientWallet < cost) {
-    return { success: false, error: "Credito insufficiente nel wallet." }
+    return { success: false, error: "Credito insufficiente." }
   }
 
-  // Deduct from wallet
   mockUserWallets.set(clientId, clientWallet - cost)
 
   const newConsultation: WrittenConsultation = {
     id: `wc_${Date.now()}`,
     clientId,
-    clientName: "Mario Rossi", // Mock name
+    clientName: "Mario Rossi", // Mock
     operatorId,
-    operatorName: operator.stageName,
+    operatorName: operator.stage_name,
     question,
     answer: null,
     status: "pending_operator_response",
@@ -81,7 +63,7 @@ export async function submitWrittenConsultation(formData: FormData) {
   revalidatePath("/dashboard/client/written-consultations")
   revalidatePath("/dashboard/operator/written-consultations")
 
-  return { success: true, message: "La tua domanda è stata inviata con successo!" }
+  return { success: true, message: "Domanda inviata!" }
 }
 
 export async function getWrittenConsultationsForClient(clientId: string) {
@@ -97,7 +79,7 @@ export async function answerWrittenConsultation(formData: FormData) {
   const answer = formData.get("answer") as string
 
   if (!consultationId || !answer) {
-    return { success: false, error: "Dati mancanti per la risposta." }
+    return { success: false, error: "Dati mancanti." }
   }
 
   const consultation = mockWrittenConsultations.find((c) => c.id === consultationId)
@@ -109,10 +91,8 @@ export async function answerWrittenConsultation(formData: FormData) {
   consultation.status = "answered"
   consultation.answeredAt = new Date()
 
-  // In a real app, credit the operator's earnings here.
-
   revalidatePath("/dashboard/client/written-consultations")
   revalidatePath("/dashboard/operator/written-consultations")
 
-  return { success: true, message: "Risposta inviata con successo!" }
+  return { success: true, message: "Risposta inviata!" }
 }

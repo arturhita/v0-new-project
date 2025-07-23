@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import type { Promotion } from "@/types/promotion.types"
 
-// Schema for validation
 const PromotionSchema = z.object({
   id: z.string().uuid().optional(),
   title: z.string().min(1, "Il titolo è obbligatorio."),
@@ -21,7 +20,6 @@ const PromotionSchema = z.object({
   isActive: z.boolean(),
 })
 
-// Map database snake_case to JS camelCase
 const mapToCamelCase = (p: any): Promotion => ({
   id: p.id,
   title: p.title,
@@ -39,7 +37,6 @@ const mapToCamelCase = (p: any): Promotion => ({
   updatedAt: p.updated_at,
 })
 
-// Map JS camelCase to database snake_case
 const mapToSnakeCase = (p: any) => ({
   title: p.title,
   description: p.description,
@@ -77,20 +74,16 @@ export async function createOrUpdatePromotion(formData: Omit<Promotion, "created
   const dbData = mapToSnakeCase(validatedFields.data)
 
   if (formData.id) {
-    // Update
     const { data, error } = await supabase.from("promotions").update(dbData).eq("id", formData.id).select().single()
     if (error) {
-      console.error("Error updating promotion:", error)
       return { success: false, error: "Impossibile aggiornare la promozione." }
     }
     revalidatePath("/admin/promotions")
     revalidatePath("/")
     return { success: true, data: mapToCamelCase(data) }
   } else {
-    // Create
     const { data, error } = await supabase.from("promotions").insert(dbData).select().single()
     if (error) {
-      console.error("Error creating promotion:", error)
       return { success: false, error: "Impossibile creare la promozione." }
     }
     revalidatePath("/admin/promotions")
@@ -104,7 +97,6 @@ export async function deletePromotion(id: string) {
   const { error } = await supabase.from("promotions").delete().eq("id", id)
 
   if (error) {
-    console.error("Error deleting promotion:", error)
     return { success: false, error: "Impossibile eliminare la promozione." }
   }
 
@@ -123,7 +115,6 @@ export async function togglePromotionStatus(id: string, currentStatus: boolean) 
     .single()
 
   if (error) {
-    console.error("Error toggling promotion status:", error)
     return { success: false, error: "Impossibile aggiornare lo stato." }
   }
 
@@ -142,7 +133,7 @@ export async function getCurrentPromotionPrice(): Promise<number | null> {
 
   const { data, error } = await supabase
     .from("promotions")
-    .select("special_price") // CORRECTED: was discount_price
+    .select("special_price")
     .eq("is_active", true)
     .lte("start_date", today)
     .gte("end_date", today)

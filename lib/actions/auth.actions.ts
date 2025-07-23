@@ -44,9 +44,8 @@ export async function login(prevState: any, formData: FormData) {
     return { error: "Credenziali non valide. Riprova." }
   }
 
-  // Revalidate the entire layout to ensure AuthProvider gets fresh data
   revalidatePath("/", "layout")
-  redirect("/") // Redirect to home, AuthProvider will handle routing to the correct dashboard
+  redirect("/")
 }
 
 export async function register(prevState: any, formData: FormData) {

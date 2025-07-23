@@ -2,20 +2,16 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { unstable_noStore as noStore } from "next/cache"
 import { z } from "zod"
-import type { OperatorProfile } from "@/types/database"
 
-// Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
   const num = Number.parseFloat(String(value))
   return isNaN(num) ? 0 : num
 }
 
-// Define Availability types
 export type AvailabilitySlot = {
   start: string
   end: string
@@ -47,17 +43,7 @@ const RegisterOperatorSchema = z
   })
 
 export async function registerOperator(formData: FormData) {
-  const rawFormData = {
-    name: formData.get("name"),
-    surname: formData.get("surname"),
-    email: formData.get("email"),
-    password: formData.get("password"),
-    confirmPassword: formData.get("confirmPassword"),
-    stageName: formData.get("stageName"),
-    bio: formData.get("bio"),
-    categories: formData.get("categories"),
-  }
-
+  const rawFormData = Object.fromEntries(formData.entries())
   const validatedFields = RegisterOperatorSchema.safeParse(rawFormData)
 
   if (!validatedFields.success) {
@@ -70,8 +56,9 @@ export async function registerOperator(formData: FormData) {
 
   const { email, password, name, surname, stageName, bio, categories } = validatedFields.data
   const fullName = `${name} ${surname}`.trim()
+  const supabase = createAdminClient()
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -82,7 +69,6 @@ export async function registerOperator(formData: FormData) {
   })
 
   if (authError) {
-    console.error("Error creating operator auth user:", authError)
     if (authError.message.includes("User already exists")) {
       return {
         success: false,
@@ -93,26 +79,20 @@ export async function registerOperator(formData: FormData) {
     return { success: false, message: authError.message }
   }
 
-  if (!authData.user) {
-    return { success: false, message: "Impossibile creare l'utente operatore." }
-  }
-
   const userId = authData.user.id
 
-  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+  const { error: profileError } = await supabase.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
     bio: bio,
     categories: categories.split(","),
     role: "operator",
-    status: "approved", // Profilo subito attivo come da descrizione pagina
+    status: "approved",
   })
 
   if (profileError) {
-    console.error("Error creating operator profile:", profileError)
-    // Rollback auth user creation
-    await supabaseAdmin.auth.admin.deleteUser(userId)
+    await supabase.auth.admin.deleteUser(userId)
     return { success: false, message: profileError.message }
   }
 
@@ -127,12 +107,7 @@ const OperatorSchema = z.object({
 })
 
 export async function createOperator(formData: FormData) {
-  const validatedFields = OperatorSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    fullName: formData.get("fullName"),
-    stageName: formData.get("stageName"),
-  })
+  const validatedFields = OperatorSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
     return {
@@ -142,8 +117,9 @@ export async function createOperator(formData: FormData) {
   }
 
   const { email, password, fullName, stageName } = validatedFields.data
+  const supabase = createAdminClient()
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -154,17 +130,12 @@ export async function createOperator(formData: FormData) {
   })
 
   if (authError) {
-    console.error("Error creating operator auth user:", authError)
     return { message: authError.message }
-  }
-
-  if (!authData.user) {
-    return { message: "Impossibile creare l'utente operatore." }
   }
 
   const userId = authData.user.id
 
-  const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+  const { error: profileError } = await supabase.from("profiles").insert({
     id: userId,
     full_name: fullName,
     stage_name: stageName,
@@ -173,9 +144,7 @@ export async function createOperator(formData: FormData) {
   })
 
   if (profileError) {
-    console.error("Error creating operator profile:", profileError)
-    // Rollback auth user creation
-    await supabaseAdmin.auth.admin.deleteUser(userId)
+    await supabase.auth.admin.deleteUser(userId)
     return { message: profileError.message }
   }
 
@@ -183,85 +152,24 @@ export async function createOperator(formData: FormData) {
   redirect("/admin/operators")
 }
 
-export async function updateOperatorCommission(operatorId: string, commission: string) {
+export async function getOperatorById(id: string) {
   const supabase = createClient()
-  try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ commission_rate: safeParseFloat(commission) })
-      .eq("id", operatorId)
-
-    if (error) throw error
-
-    revalidatePath("/admin/operators")
-    revalidatePath(`/admin/operators/${operatorId}/edit`)
-
-    return {
-      success: true,
-      message: "Commissione aggiornata con successo!",
-    }
-  } catch (error: any) {
-    console.error("Errore aggiornamento commissione:", error)
-    return {
-      success: false,
-      message: error.message || "Errore nell'aggiornamento della commissione",
-    }
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+  if (error) {
+    console.error(`Error fetching operator ${id}:`, error)
+    return null
   }
+  return data
 }
 
-export async function getOperatorPublicProfile(username: string) {
-  noStore()
+export async function getOperatorByName(name: string) {
   const supabase = createClient()
-
-  // Utilizziamo la funzione RPC 'get_public_profile_by_stage_name' per una ricerca più robusta
-  // che ignora maiuscole/minuscole, spazi extra e accenti.
-  const { data: profiles, error: rpcError } = await supabase.rpc("get_public_profile_by_stage_name", {
-    stage_name_to_find: username,
-  })
-
-  if (rpcError) {
-    console.error(`Errore RPC durante la ricerca del profilo per "${username}":`, rpcError.message)
+  const { data, error } = await supabase.from("profiles").select("*").eq("stage_name", name).single()
+  if (error) {
+    console.error(`Error fetching operator by name ${name}:`, error)
     return null
   }
-
-  if (!profiles || profiles.length === 0) {
-    console.log(`Profilo per "${username}" non trovato tramite RPC.`)
-    return null
-  }
-
-  // Se vengono trovati più profili, registra un avviso e usa il primo.
-  // Questo può indicare un problema di integrità dei dati (nomi d'arte duplicati).
-  if (profiles.length > 1) {
-    console.warn(`Trovati profili multipli per il nome d'arte "${username}". Viene usato il primo risultato.`)
-  }
-
-  const profile = profiles[0]
-
-  const services = profile.services as any
-  // Accediamo in modo sicuro alle proprietà annidate
-  const chatService = services?.chat
-  const callService = services?.call
-  const emailService = services?.email
-
-  return {
-    id: profile.id,
-    full_name: profile.full_name,
-    stage_name: profile.stage_name,
-    avatar_url: profile.avatar_url,
-    bio: profile.bio,
-    specialization: profile.specialties || [],
-    tags: profile.categories || [],
-    rating: profile.average_rating,
-    reviews_count: profile.reviews_count,
-    is_online: profile.is_online,
-    availability: profile.availability as Availability | null,
-    services: [
-      chatService?.enabled && { service_type: "chat", price: chatService.price_per_minute },
-      callService?.enabled && { service_type: "call", price: callService.price_per_minute },
-      emailService?.enabled && { service_type: "written", price: emailService.price },
-    ].filter((service): service is { service_type: string; price: number } => service !== null && service !== false),
-    reviews: [], // Placeholder per le recensioni effettive
-  }
+  return data
 }
 
 export async function getAllOperators() {
@@ -272,119 +180,4 @@ export async function getAllOperators() {
     return []
   }
   return data
-}
-
-export async function getOperatorById(id: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "id, full_name, stage_name, email, phone, bio, specialties, categories, status, commission_rate, created_at, avatar_url, services",
-    )
-    .eq("id", id)
-    .single()
-  if (error) {
-    console.error(`Error fetching operator ${id}:`, error)
-    return null
-  }
-  // Also fetch email from auth table for consistency
-  const { data: authData } = await supabaseAdmin.auth.admin.getUserById(id)
-  if (data && authData.user) {
-    data.email = authData.user.email
-  }
-  return data
-}
-
-export async function updateOperatorProfile(userId: string, profileData: Partial<OperatorProfile>) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").update(profileData).eq("id", userId).select().single()
-
-  if (error) {
-    console.error("Error updating operator profile:", error)
-    return { error: "Impossibile aggiornare il profilo." }
-  }
-
-  if (data.stage_name) {
-    revalidatePath(`/operator/${data.stage_name}`)
-  }
-  revalidatePath("/(platform)/dashboard/operator/profile")
-
-  return { data }
-}
-
-export async function updateOperatorAvailability(userId: string, availability: any) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").update({ availability }).eq("id", userId).select().single()
-
-  if (error) {
-    console.error("Error updating availability:", error)
-    return { error: "Impossibile aggiornare la disponibilità." }
-  }
-
-  if (data.stage_name) {
-    revalidatePath(`/operator/${data.stage_name}`)
-  }
-  revalidatePath("/(platform)/dashboard/operator/availability")
-
-  return { data }
-}
-
-export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
-  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("role", "operator")
-
-  if (error) {
-    console.error("Error fetching operator profiles:", error)
-    return []
-  }
-  return data as OperatorProfile[]
-}
-
-const servicesSchema = z.object({
-  chat: z.object({
-    enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
-  }),
-  call: z.object({
-    enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
-  }),
-  video: z.object({
-    enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
-  }),
-})
-
-export async function updateOperatorServices(prevState: any, formData: FormData) {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "Utente non autenticato." }
-  }
-
-  const servicesData = formData.get("services")
-  if (typeof servicesData !== "string") {
-    return { error: "Dati dei servizi non validi." }
-  }
-
-  try {
-    const parsedServices = servicesSchema.parse(JSON.parse(servicesData))
-
-    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
-
-    if (error) {
-      console.error("Supabase error updating services:", error)
-      return { error: "Impossibile aggiornare i servizi. Riprova." }
-    }
-
-    // Revalidate the entire layout to ensure AuthContext is updated everywhere
-    revalidatePath("/")
-    return { success: true }
-  } catch (e) {
-    console.error("Validation or parsing error:", e)
-    return { error: "I dati inviati non sono validi." }
-  }
 }
