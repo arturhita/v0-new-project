@@ -1,52 +1,63 @@
-"use client"
-
-import { Star, User } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+import { Star } from "lucide-react"
+import Image from "next/image"
+import { Badge } from "@/components/ui/badge"
 
 export interface Review {
   id: string
   rating: number
   comment: string
-  author: string
-  authorAvatar: string
-  operatorName: string
-  date: string
+  created_at: string
+  user_name: string
+  user_avatar_url: string | null
+  service_type: "chat" | "call" | "written"
 }
 
-interface ReviewCardProps {
-  review: Review
-}
+export function ReviewCard({ review }: { review: Review }) {
+  const serviceMap = {
+    chat: { label: "Chat", color: "bg-green-500/20 text-green-300 border-green-400/30" },
+    call: { label: "Chiamata", color: "bg-blue-500/20 text-blue-300 border-blue-400/30" },
+    written: { label: "Consulto Scritto", color: "bg-purple-500/20 text-purple-300 border-purple-400/30" },
+  }
 
-export function ReviewCard({ review }: ReviewCardProps) {
   return (
-    <Card className="flex flex-col h-full bg-secondary/50 border-primary/20">
-      <CardHeader>
-        <div className="flex items-center space-x-1">
-          {[...Array(5)].map((_, i) => (
-            <Star
-              key={i}
-              className={cn("w-5 h-5", i < review.rating ? "text-yellow-400 fill-current" : "text-muted-foreground")}
-            />
-          ))}
+    <div className="border-t border-white/10 pt-6 first:border-t-0 first:pt-0">
+      <div className="flex items-start space-x-4">
+        <div className="relative w-10 h-10 flex-shrink-0">
+          <Image
+            src={review.user_avatar_url || "/placeholder.svg?width=40&height=40&query=user+avatar"}
+            alt={`Avatar di ${review.user_name}`}
+            layout="fill"
+            objectFit="cover"
+            className="rounded-full"
+          />
         </div>
-      </CardHeader>
-      <CardContent className="flex-grow">
-        <p className="text-muted-foreground italic">"{review.comment}"</p>
-      </CardContent>
-      <CardFooter className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={review.authorAvatar || "/placeholder.svg"} alt={review.author} />
-            <AvatarFallback>
-              <User />
-            </AvatarFallback>
-          </Avatar>
-          <span className="font-semibold">{review.author}</span>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">{review.user_name}</p>
+              <p className="text-xs text-blue-300">
+                {new Date(review.created_at).toLocaleDateString("it-IT", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+            </div>
+            <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  className={`w-4 h-4 transition-colors duration-300 ${i < review.rating ? "text-sky-400 fill-sky-400" : "text-slate-600"}`}
+                />
+              ))}
+            </div>
+          </div>
+          <p className="mt-3 text-blue-200 italic">"{review.comment}"</p>
+          <Badge className={`mt-3 text-xs border ${serviceMap[review.service_type]?.color || ""}`}>
+            {serviceMap[review.service_type]?.label || review.service_type}
+          </Badge>
         </div>
-        <div className="text-muted-foreground">{review.date}</div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   )
 }

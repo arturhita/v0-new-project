@@ -1,10 +1,15 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import type { Operator } from "@/components/operator-card"
+import type { Review } from "@/components/review-card"
+import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // The definitive fix: clone the nested services object immediately.
+  // FIX DEFINITIVO: Clona in modo aggressivo l'oggetto `services` annidato.
+  // Questo è il punto cruciale: il campo JSONB di Supabase deve essere clonato
+  // separatamente per garantire che le sue proprietà (es. `enabled`) diventino
+  // scrivibili e non più dei `getter` di sola lettura.
   const rawServices = structuredClone(profile.services || {})
   const chatService = rawServices.chat || {}
   const callService = rawServices.call || {}
@@ -39,129 +44,103 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
 }
 
 export async function getHomepageData() {
-  console.log("Fetching homepage data...")
-  const supabase = createClient()
+  const supabase = supabaseAdmin
+  const promotionPrice = await getCurrentPromotionPrice()
 
   try {
-    const { data: promotionData, error: promotionError } = await supabase
-      .from("promotions")
-      .select("price_per_minute")
-      .eq("is_active", true)
-      .eq("type", "first_consultation")
-      .single()
-
-    if (promotionError && promotionError.code !== "PGRST116") {
-      // PGRST116 means no rows found, which is not a critical error here.
-      console.error("Error fetching promotion:", promotionError)
-    }
-    const promotionPrice = promotionData?.price_per_minute || null
-
-    const { data: profilesData, error: profilesError } = await supabase
-      .from("profiles")
-      .select(
-        `
-        id,
-        stage_name,
-        avatar_url,
-        specialties,
-        categories,
-        average_rating,
-        reviews_count,
-        bio,
-        is_online,
-        services,
-        created_at
-      `,
-      )
-      .eq("role", "operator")
-      .eq("application_status", "approved")
-      .order("is_online", { ascending: false })
-      .order("average_rating", { ascending: false, nulls: "last" })
-      .limit(8)
-
-    if (profilesError) {
-      console.error("Error fetching operator profiles:", profilesError)
-      throw new Error("Could not fetch operator profiles.")
-    }
-
-    // Deep clone the data immediately after fetching to prevent read-only errors.
-    const cleanProfilesData = structuredClone(profilesData)
-    const operators = cleanProfilesData.map((profile) => mapProfileToOperator(profile, promotionPrice))
-
-    const { data: reviewsData, error: reviewsError } = await supabase
-      .from("reviews")
-      .select(
-        `
-        id,
-        rating,
-        comment,
-        created_at,
-        client:profiles!client_id (
-          stage_name,
-          avatar_url
-        ),
-        operator:profiles!operator_id (
-          stage_name
+    const [operatorsResult, reviewsResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select(`*`)
+        .eq("role", "operator")
+        .eq("status", "Attivo")
+        .order("is_online", { ascending: false })
+        .limit(8),
+      supabase
+        .from("reviews")
+        .select(
+          `
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+      operator:profiles!reviews_operator_id_fkey (stage_name)
+    `,
         )
-      `,
-      )
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(3)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(3),
+    ])
 
+    const { data: operatorsData, error: operatorsError } = operatorsResult
+    const { data: reviewsData, error: reviewsError } = reviewsResult
+
+    if (operatorsError) {
+      console.error("Error fetching homepage operators:", operatorsError)
+      throw new Error("Database error fetching operators.")
+    }
     if (reviewsError) {
-      console.error("Error fetching reviews:", reviewsError)
-      throw new Error("Could not fetch reviews.")
+      console.error("Error fetching recent reviews:", reviewsError)
+      throw new Error("Database error fetching reviews.")
     }
 
-    const cleanReviewsData = structuredClone(reviewsData)
-    const reviews = cleanReviewsData.map((review: any) => ({
-      id: review.id,
-      rating: review.rating,
-      comment: review.comment,
-      author: review.client?.stage_name || "Utente",
-      authorAvatar: review.client?.avatar_url || "/placeholder.svg",
-      operatorName: review.operator?.stage_name || "Operatore",
-      date: new Date(review.created_at).toLocaleDateString("it-IT"),
-    }))
+    // Manteniamo la clonazione a livello superiore come buona pratica di sicurezza.
+    const cleanOperatorsData = structuredClone(operatorsData || [])
+    const cleanReviewsData = structuredClone(reviewsData || [])
 
-    console.log("Successfully fetched homepage data.")
+    const operators = cleanOperatorsData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
+    const reviews = cleanReviewsData.map(
+      (review: any) =>
+        ({
+          id: review.id,
+          user_name: review.client?.full_name || "Utente Anonimo",
+          user_type: "Utente",
+          operator_name: review.operator?.stage_name || "Operatore",
+          rating: review.rating,
+          comment: review.comment,
+          created_at: review.created_at,
+        }) as Review,
+    )
+
     return { operators, reviews }
-  } catch (error: any) {
-    console.error("An unexpected error occurred in getHomepageData:", error)
-    // Re-throw the original error to be caught by the client component
+  } catch (error) {
+    console.error("A general error occurred while fetching homepage data:", error)
     throw error
   }
 }
 
-export async function getOperatorsByCategory(category: string) {
-  const supabase = createClient()
+export async function getOperatorsByCategory(categorySlug: string) {
+  const supabase = supabaseAdmin
+  const slug = decodeURIComponent(categorySlug)
+  const promotionPrice = await getCurrentPromotionPrice()
+
   const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
-    category_name: category,
+    category_slug: slug,
   })
 
   if (error) {
-    console.error("Error fetching operators by category:", error)
-    throw new Error("Could not fetch operators for this category.")
+    console.error(`Error fetching operators for category ${slug} via RPC:`, error.message)
+    return []
   }
 
-  const cleanData = structuredClone(data)
-  return cleanData.map((profile: any) => mapProfileToOperator(profile, null))
+  const cleanData = structuredClone(data || [])
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getAllOperators() {
-  const supabase = createClient()
+  const supabase = supabaseAdmin
+  const promotionPrice = await getCurrentPromotionPrice()
+
   const { data, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select(`*`)
     .eq("role", "operator")
-    .eq("application_status", "approved")
+    .eq("status", "Attivo")
+    .order("is_online", { ascending: false })
 
   if (error) {
-    console.error("Error fetching all operators:", error)
-    throw new Error("Could not fetch all operators.")
+    console.error(`Error fetching all operators:`, error.message)
+    return []
   }
 
-  const cleanData = structuredClone(data)
-  return cleanData.map((profile: any) => mapProfileToOperator(profile, null))
+  const cleanData = structuredClone(data || [])
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
