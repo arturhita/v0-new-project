@@ -46,9 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const manageSession = async (session: Session | null) => {
       setIsLoading(true)
       if (session?.user) {
+        // Hard clone the user object immediately to get a clean POJO
         const cleanUser = JSON.parse(JSON.stringify(session.user)) as User
         setUser(cleanUser)
 
+        // Fetch profile based on the user ID
         const { data: rawProfile, error } = await supabase
           .from("profiles")
           .select("*")
@@ -59,7 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
+          // Hard clone the profile object immediately
           const cleanProfile = JSON.parse(JSON.stringify(rawProfile)) as Profile
+
+          // Defensive check for services object
           if (!cleanProfile.services) {
             cleanProfile.services = {
               chat: { enabled: false, price_per_minute: 0 },
@@ -75,16 +80,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         setProfile(null)
       }
+      // Mark loading as false only after all async operations are complete
       setIsLoading(false)
     }
 
+    // 1. Check for an initial session on component mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       manageSession(session)
     })
 
+    // 2. Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // When auth state changes, re-run the whole session management logic
       manageSession(session)
     })
 
@@ -93,9 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase])
 
+  // Separate effect for handling redirection logic for protected routes
   useEffect(() => {
     if (isLoading) {
-      return
+      return // Don't do anything while session is being checked
     }
 
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
