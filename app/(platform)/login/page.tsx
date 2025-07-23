@@ -4,7 +4,6 @@ import { useActionState, useEffect, useState } from "react"
 import { useFormStatus } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 
@@ -13,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { useAuth } from "@/contexts/auth-context"
+import LoadingSpinner from "@/components/loading-spinner"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -25,8 +26,8 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined)
-  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
+  const { isLoading, isAuthenticated } = useAuth()
 
   useEffect(() => {
     if (state?.error) {
@@ -34,14 +35,23 @@ export default function LoginPage() {
     }
     if (state?.success) {
       toast.success(state.success)
-      // This refresh is important to update server components after login
-      router.refresh()
+      // DO NOT call router.refresh() or router.push() here.
+      // The AuthProvider is responsible for redirection.
+      // This prevents the race condition that caused the crash.
     }
-  }, [state, router])
+  }, [state])
 
-  // The isLoading check and LoadingSpinner have been removed.
-  // The page will now render its content immediately.
-  // The AuthProvider handles redirection if the user is already logged in.
+  // Show a loading spinner only during the initial auth check.
+  // Once the check is done, the AuthProvider will redirect if necessary.
+  if (isLoading) {
+    return <LoadingSpinner fullScreen />
+  }
+
+  // If user is authenticated, AuthProvider will redirect, but we can show a message
+  // while the redirect is happening.
+  if (isAuthenticated) {
+    return <LoadingSpinner fullScreen message="Accesso effettuato. Reindirizzamento in corso..." />
+  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 bg-slate-900 text-white">
