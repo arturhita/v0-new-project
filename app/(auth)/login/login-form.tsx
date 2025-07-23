@@ -32,8 +32,10 @@ export function LoginForm() {
         form.reset()
       } else if (result?.success) {
         toast.success("Accesso effettuato con successo!")
-        // This will trigger the middleware to re-evaluate the user's session
-        // and perform the correct redirect.
+        // SOLUZIONE: Invece di un redirect client-side, facciamo un refresh.
+        // Questo ricarica i dati del server per la pagina corrente.
+        // Il middleware intercetterà questa richiesta, vedrà l'utente
+        // loggato sulla pagina /login, e lo reindirizzerà correttamente.
         router.refresh()
       }
     })

@@ -9,8 +9,6 @@ import { getCurrentPromotionPrice } from "./promotions.actions"
 // This prevents the "infinite recursion" error in RLS policies.
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // Defensive deep copy to ensure services is a plain, mutable object.
-  // This prevents potential errors with read-only properties from the database driver.
   const services = profile.services ? JSON.parse(JSON.stringify(profile.services)) : {}
   const chatService = services.chat || {}
   const callService = services.call || {}

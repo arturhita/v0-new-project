@@ -12,10 +12,12 @@ import { useTransition } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function RegisterForm() {
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -33,7 +35,7 @@ export function RegisterForm() {
       const result = await register(values)
       if (result.success) {
         toast.success(result.success)
-        form.reset()
+        setTimeout(() => router.push("/login"), 3000)
       } else if (result.error) {
         toast.error(result.error)
       }
