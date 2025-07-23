@@ -8,15 +8,13 @@ export default function SiteFooter() {
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-8 xl:col-span-1">
-            <Link href="/">
-              <Image
-                src="/images/moonthir-logo-white.png"
-                alt="Moonthir Logo"
-                width={160}
-                height={45}
-                className="object-contain cursor-pointer"
-              />
-            </Link>
+            <Image
+              src="/images/moonthir-logo-white.png"
+              alt="Moonthir Logo"
+              width={160}
+              height={45}
+              className="object-contain"
+            />
             <p className="text-gray-400 text-sm">
               La tua guida personale nel mondo dell'astrologia e della cartomanzia.
             </p>
@@ -51,7 +49,7 @@ export default function SiteFooter() {
                     </Link>
                   </li>
                   <li>
-                    <Link href="/esperti" className="text-base text-gray-400 hover:text-white">
+                    <Link href="/esperti/cartomanti" className="text-base text-gray-400 hover:text-white">
                       Esperti
                     </Link>
                   </li>
@@ -66,7 +64,7 @@ export default function SiteFooter() {
                     </Link>
                   </li>
                   <li>
-                    <Link href="/faq" className="text-base text-gray-400 hover:text-white">
+                    <Link href="#" className="text-base text-gray-400 hover:text-white">
                       FAQ
                     </Link>
                   </li>
@@ -78,7 +76,7 @@ export default function SiteFooter() {
                 <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Azienda</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
-                    <Link href="/chi-siamo" className="text-base text-gray-400 hover:text-white">
+                    <Link href="#" className="text-base text-gray-400 hover:text-white">
                       Chi Siamo
                     </Link>
                   </li>

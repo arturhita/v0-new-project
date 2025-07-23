@@ -1,82 +1,71 @@
 "use server"
 
-import type { z } from "zod"
-import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import type { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/schemas"
+import { LoginSchema, RegisterSchema } from "@/lib/schemas"
+import { AuthError } from "@supabase/supabase-js"
+import { redirect } from "next/navigation"
 
-export async function login(values: z.infer<typeof loginSchema>) {
+export async function login(prevState: any, formData: FormData) {
+  const validatedFields = LoginSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return { error: "Email o password non validi." }
+  }
+
+  const { email, password } = validatedFields.data
   const supabase = createClient()
 
-  const { data, error } = await supabase.auth.signInWithPassword(values)
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
   if (error) {
-    return { error: "Credenziali non valide. Riprova." }
+    if (error instanceof AuthError) {
+      return { error: "Credenziali non valide. Controlla email e password." }
+    }
+    return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
-  if (!data.user) {
-    return { error: "Login fallito, utente non trovato." }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", data.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    await supabase.auth.signOut()
-    return { error: "Profilo utente non trovato. Contatta il supporto." }
-  }
-
-  return { success: true, role: profile.role }
+  return { success: "Login effettuato con successo!" }
 }
 
-export async function register(values: z.infer<typeof registerSchema>) {
+export async function register(prevState: any, formData: FormData) {
+  const rawData = Object.fromEntries(formData.entries())
+  const dataToValidate = {
+    ...rawData,
+    terms: rawData.terms === "on",
+  }
+
+  const validatedFields = RegisterSchema.safeParse(dataToValidate)
+
+  if (!validatedFields.success) {
+    const firstError = validatedFields.error.errors[0].message
+    return { error: firstError || "Dati non validi." }
+  }
+
+  const { email, password, fullName } = validatedFields.data
   const supabase = createClient()
 
   const { error } = await supabase.auth.signUp({
-    email: values.email,
-    password: values.password,
+    email,
+    password,
     options: {
-      data: { full_name: values.fullName },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      data: {
+        full_name: fullName,
+      },
     },
   })
 
   if (error) {
-    return {
-      error: error.message.includes("User already registered")
-        ? "Un utente con questa email è già registrato."
-        : `Errore: ${error.message}`,
+    if (error.message.includes("User already registered")) {
+      return { error: "Un utente con questa email è già registrato." }
     }
+    console.error("Supabase SignUp Error:", error)
+    return { error: "Si è verificato un errore durante la registrazione." }
   }
 
-  return { success: "Registrazione completata! Controlla la tua email per la verifica." }
-}
-
-export async function requestPasswordReset(values: z.infer<typeof resetPasswordSchema>) {
-  const supabase = createClient()
-  const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/update-password`,
-  })
-
-  if (error) {
-    return { error: "Impossibile inviare l'email di reset. Riprova." }
-  }
-
-  return { success: "Se l'email è corretta, riceverai un link per reimpostare la password." }
-}
-
-export async function updatePassword(values: z.infer<typeof updatePasswordSchema>) {
-  const supabase = createClient()
-  const { error } = await supabase.auth.updateUser({ password: values.password })
-
-  if (error) {
-    return { error: "Impossibile aggiornare la password. Il link potrebbe essere scaduto." }
-  }
-
-  redirect("/login")
+  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
 }
 
 export async function logout() {

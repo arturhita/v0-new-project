@@ -5,9 +5,6 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
-// This function MUST use the admin client to bypass RLS for public data fetching.
-// This prevents the "infinite recursion" error in RLS policies.
-
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
   // Manually reconstruct the services object to ensure it's a plain, mutable JS object.
   // This prevents errors like "Cannot set property of #<Object> which has only a getter"
@@ -27,6 +24,7 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
   const callPrice =
     promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
+  // Email price is usually different, let's say it's 6x the per-minute price
   const emailPrice =
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
@@ -106,7 +104,7 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    // Re-throw the error so the calling component can handle it (e.g., show an error message).
+    // Re-throw the error so the calling component (e.g., page.tsx) can catch it and display an error boundary.
     throw error
   }
 }
