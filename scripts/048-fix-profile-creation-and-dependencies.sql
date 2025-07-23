@@ -1,7 +1,10 @@
--- Drop the existing function to replace it
+-- Step 1: Drop the dependent trigger first to resolve the dependency issue.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Step 2: Now it's safe to drop the function.
 DROP FUNCTION IF EXISTS public.handle_new_user();
 
--- Recreate the function with a default services object
+-- Step 3: Recreate the function with the correct default services object.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -25,7 +28,7 @@ BEGIN
     new.raw_user_meta_data->>'full_name',
     user_email,
     user_role::public.user_role,
-    -- Provide a default, structured services object
+    -- Provide a default, structured services object to prevent errors on new user creation
     '{
       "chat": {"enabled": false, "price_per_minute": 0},
       "call": {"enabled": false, "price_per_minute": 0},
@@ -36,8 +39,7 @@ BEGIN
 END;
 $$;
 
--- Re-apply the trigger to the users table
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- Step 4: Re-apply the trigger to the users table.
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

@@ -67,11 +67,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (error) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
+          } else if (rawProfile) {
+            // DEFINITIVE FIX: Use JSON.parse(JSON.stringify(...)) for a "hard clone".
+            // This strips any Supabase-specific getters or proxies, creating a
+            // plain old JavaScript object (POJO) that is safe to use and modify
+            // anywhere in the application, finally resolving the "getter" error.
+            const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
+            setProfile(cleanProfile)
           } else {
-            // As per your suggestion, clone the profile object.
-            // This provides a 'clean' mutable object to the rest of the app,
-            // preventing the "only a getter" error.
-            setProfile(rawProfile ? structuredClone(rawProfile) : null)
+            setProfile(null)
           }
           setIsLoading(false)
         })
