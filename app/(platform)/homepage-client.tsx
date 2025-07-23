@@ -2,7 +2,8 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import OperatorCard from "@/components/operator-card"
-import ArticleCard from "@/components/article-card"
+// Modificato: da 'import ArticleCard' a 'import { ArticleCard }' (importazione nominativa)
+import { ArticleCard } from "@/components/article-card"
 import ConstellationBackground from "@/components/constellation-background"
 import { ArrowRight } from "lucide-react"
 import type { Operator } from "@/components/operator-card"
@@ -10,9 +11,9 @@ import type { BlogArticle as Article } from "@/lib/blog-data"
 
 interface HomepageClientProps {
   operators: Operator[]
-  reviews: any[] // Assuming reviews can be of any structure for now
+  reviews: any[]
   latestOperators: Operator[]
-  articles?: Article[] // Make articles optional to avoid breaking if not passed
+  articles?: Article[]
 }
 
 export default function HomepageClient({ operators, reviews, latestOperators, articles = [] }: HomepageClientProps) {

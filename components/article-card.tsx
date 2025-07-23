@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { type BlogArticle, blogCategories } from "@/lib/blog-data"
 import { Calendar, User } from "lucide-react"
 
-export default function ArticleCard({ article }: { article: BlogArticle }) {
+// Modificato: da 'export default function' a 'export function' (esportazione nominativa)
+export function ArticleCard({ article }: { article: BlogArticle }) {
   const category = blogCategories.find((c) => c.slug === article.category)
 
   return (
