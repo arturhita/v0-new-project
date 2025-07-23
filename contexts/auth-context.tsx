@@ -68,9 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else {
-            // --- IMPLEMENTAZIONE DELLA TUA SOLUZIONE ---
             // Use structuredClone to create a clean, mutable copy of the profile.
-            // This definitively solves the "getter-only" error.
             setProfile(rawProfile ? structuredClone(rawProfile) : null)
           }
           setIsLoading(false)
@@ -81,20 +79,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, supabase])
 
-  // Effect 3: Handle all application redirects based on the definitive auth state.
+  // Effect 3: Handle redirects for already-logged-in users visiting auth pages.
   useEffect(() => {
     if (isLoading) {
       return
     }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    if (!user && isProtectedPage) {
-      router.replace("/login")
-      return
-    }
-
+    // If a logged-in user manually navigates to /login or /register, redirect them away.
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"
