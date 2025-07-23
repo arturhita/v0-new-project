@@ -5,8 +5,10 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { createClient } from "@/lib/supabase/client"
 import type { User, Session } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
-interface Profile {
+// Define a clean, plain Profile type
+export interface Profile {
   id: string
   full_name: string | null
   avatar_url: string | null
@@ -29,6 +31,8 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// This is the single source of truth for auth data.
+// It aggressively sanitizes data from Supabase to prevent read-only errors.
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
@@ -40,11 +44,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    router.push("/login")
-  }, [supabase.auth, router])
+    // No need to push, onAuthStateChange will handle the redirect logic
+  }, [supabase.auth])
 
   useEffect(() => {
     const manageSession = async (session: Session | null) => {
+      setIsLoading(true)
       if (session?.user) {
         const { data: rawProfile, error } = await supabase
           .from("profiles")
@@ -52,19 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("id", session.user.id)
           .single()
 
-        // Sanitize user object immediately
+        // THE DEFINITIVE FIX: Aggressively sanitize all data from Supabase
+        // by creating deep clones. This creates plain, mutable JavaScript objects.
         const cleanUser = JSON.parse(JSON.stringify(session.user))
         setUser(cleanUser)
 
         if (error) {
-          console.error("Error fetching profile:", error.message)
+          console.error("Auth Provider: Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // THE DEFINITIVE FIX: Deep clone the raw profile data from Supabase.
-          // This creates a plain JavaScript object, stripping all getters and preventing the error.
           const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
 
-          // Defensive check for services object, just in case.
+          // Defensive check for services object integrity
           if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
             cleanProfile.services = {
               chat: { enabled: false, price_per_minute: 0 },
@@ -74,7 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           setProfile(cleanProfile as Profile)
         } else {
-          // Profile doesn't exist, but user does.
           setProfile(null)
         }
       } else {
@@ -90,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       manageSession(session)
     })
 
-    // Also check session on initial load
+    // Check session on initial load
     supabase.auth.getSession().then(({ data: { session } }) => {
       manageSession(session)
     })
@@ -100,20 +103,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase])
 
+  // Centralized redirection logic
   useEffect(() => {
-    if (isLoading) {
-      return
-    }
+    if (isLoading) return
 
+    const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+
     if (!user && isProtectedPage) {
       router.replace("/login")
     }
-  }, [user, isLoading, pathname, router])
+
+    if (user && isAuthPage) {
+      let destination = "/dashboard/client"
+      if (profile?.role === "admin") destination = "/admin"
+      if (profile?.role === "operator") destination = "/dashboard/operator"
+      router.replace(destination)
+    }
+  }, [user, profile, isLoading, pathname, router])
 
   return (
     <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
-      {children}
+      {isLoading ? (
+        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+          <LoadingSpinner />
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   )
 }

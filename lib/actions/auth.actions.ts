@@ -44,8 +44,9 @@ export async function login(prevState: any, formData: FormData) {
     return { error: "Credenziali non valide. Riprova." }
   }
 
+  // Revalidate the entire layout to ensure AuthProvider gets fresh data
   revalidatePath("/", "layout")
-  redirect("/auth/callback")
+  redirect("/") // Redirect to home, AuthProvider will handle routing to the correct dashboard
 }
 
 export async function register(prevState: any, formData: FormData) {
@@ -77,5 +78,5 @@ export async function register(prevState: any, formData: FormData) {
     return { error: `Si è verificato un errore: ${error.message}` }
   }
 
-  return { success: "Registrazione avvenuta con successo! Controlla la tua email per confermare l'account." }
+  return { success: "Registrazione quasi completata! Controlla la tua email per confermare l'account." }
 }

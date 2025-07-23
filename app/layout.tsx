@@ -1,38 +1,34 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
 import "./globals.css"
-import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "@/components/ui/toaster"
-import { CookieBanner } from "@/components/cookie-banner"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
-
-const inter = Inter({ subsets: ["latin"] })
+import { AuthProvider } from "@/contexts/auth-provider"
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenti del benessere",
-  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
-    generator: 'v0.dev'
+  title: "v0 App",
+  description: "Created with v0",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-900`}>
-        <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>
-              {children}
-              <Toaster />
-              <CookieBanner />
-            </ChatRequestProvider>
-          </OperatorStatusProvider>
-        </AuthProvider>
+      <head>
+        <style>{`
+html {
+  font-family: ${GeistSans.style.fontFamily};
+  --font-sans: ${GeistSans.variable};
+  --font-mono: ${GeistMono.variable};
+}
+        `}</style>
+      </head>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   )
