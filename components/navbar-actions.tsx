@@ -1,25 +1,47 @@
 "use client"
 
 import Link from "next/link"
+import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
+import { UserIcon, Settings, LogOut, Menu, X, LayoutDashboard } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
-import { AuthButton } from "./auth-button" // Importa il nuovo componente
-import { LayoutDashboard, User } from "lucide-react"
+import { logout } from "@/lib/actions/auth.actions"
+import { NavigationMenuDemo } from "./navigation-menu"
 
-export function NavbarActions() {
-  const { user, profile } = useAuth()
+type Profile = {
+  full_name: string | null
+  avatar_url: string | null
+  role: string | null
+} | null
 
-  const getDashboardUrl = () => {
-    if (!profile) return "/"
+interface NavbarActionsProps {
+  user: User | null
+  profile: Profile
+}
+
+export function NavbarActions({ user, profile }: NavbarActionsProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false)
+    }
+  }, [pathname])
+
+  const getDashboardLink = () => {
+    if (!profile) return "/login"
     switch (profile.role) {
       case "admin":
         return "/admin"
@@ -28,63 +50,144 @@ export function NavbarActions() {
       case "client":
         return "/dashboard/client"
       default:
-        return "/"
+        return "/login"
     }
   }
 
-  if (!user || !profile) {
-    return (
-      <div className="flex items-center gap-2">
-        <Button
-          asChild
-          variant="outline"
-          className="border-sky-400 text-sky-400 hover:bg-sky-400/10 hover:text-sky-300 bg-transparent"
-        >
-          <Link href="/login">Accedi</Link>
-        </Button>
-        <Button asChild className="btn-gradient">
-          <Link href="/register">Registrati</Link>
-        </Button>
-      </div>
-    )
+  const getInitials = () => {
+    if (profile?.full_name) {
+      return profile.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+    }
+    return user?.email?.charAt(0).toUpperCase() || "U"
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10 border-2 border-sky-500">
-            <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name ?? "User"} />
-            <AvatarFallback>{profile.full_name?.charAt(0).toUpperCase() ?? "U"}</AvatarFallback>
-          </Avatar>
+    <>
+      {/* Desktop View */}
+      <div className="hidden md:flex items-center space-x-4">
+        {!user || !profile ? (
+          <>
+            <Button
+              asChild
+              variant="outline"
+              className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] font-semibold transition-colors duration-300 bg-transparent"
+            >
+              <Link href="/login">Accedi</Link>
+            </Button>
+            <Button
+              asChild
+              className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+            >
+              <Link href="/register">Inizia Ora</Link>
+            </Button>
+          </>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-white/10">
+                <Avatar className="h-10 w-10 border-2 border-white/20">
+                  <AvatarImage src={profile.avatar_url || ""} alt={profile.full_name || ""} />
+                  <AvatarFallback className="bg-blue-700 text-white">{getInitials()}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-56 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg"
+              align="end"
+              forceMount
+            >
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{profile.full_name}</p>
+                  <p className="w-[200px] truncate text-xs leading-none text-muted-foreground">{user.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={getDashboardLink()}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Profilo</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <form action={logout}>
+                <button type="submit" className="w-full">
+                  <DropdownMenuItem>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Esci</span>
+                  </DropdownMenuItem>
+                </button>
+              </form>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      {/* Mobile View */}
+      <div className="md:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="text-white hover:bg-white/10"
+        >
+          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{profile.full_name}</p>
-            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+      </div>
+
+      {isMenuOpen && (
+        <div className="md:hidden absolute top-16 left-0 right-0 bg-[#1E3C98]/95 backdrop-blur-lg pb-8 px-4 sm:px-6 lg:px-8 flex flex-col space-y-4 animate-in slide-in-from-top-2 fade-in-25">
+          <NavigationMenuDemo />
+          <div className="flex flex-col space-y-2 pt-4 border-t border-blue-700">
+            {!user || !profile ? (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="text-white border-white/80 hover:bg-white hover:text-[#1E3C98] w-full justify-center font-semibold bg-transparent"
+                >
+                  <Link href="/login">Accedi</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="font-bold text-[#1E3C98] bg-yellow-400 hover:bg-yellow-300 shadow-md w-full justify-center"
+                >
+                  <Link href="/register">Inizia Ora</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-center text-white border-blue-600 bg-blue-700"
+                >
+                  <Link href={getDashboardLink()}>
+                    <UserIcon className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <form action={logout} className="w-full">
+                  <Button type="submit" variant="ghost" className="w-full justify-center text-slate-300">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </form>
+              </>
+            )}
           </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={getDashboardUrl()}>
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/profile">
-            <User className="mr-2 h-4 w-4" />
-            <span>Profilo</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {/* Usa il nuovo componente AuthButton */}
-        <DropdownMenuItem asChild>
-          <AuthButton />
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </div>
+      )}
+    </>
   )
 }

@@ -31,8 +31,8 @@ export function LoginForm() {
       } else if (result?.success && result.role) {
         toast.success("Accesso effettuato con successo! Reindirizzamento...")
 
-        // SOLUZIONE: Usa un reindirizzamento a pagina intera per garantire
-        // che il cookie di sessione venga elaborato dal browser.
+        // SOLUZIONE DEFINITIVA: Usa un reindirizzamento a pagina intera per garantire
+        // che il cookie di sessione venga elaborato dal browser prima della nuova richiesta.
         let redirectPath = "/"
         switch (result.role) {
           case "admin":
@@ -45,7 +45,8 @@ export function LoginForm() {
             redirectPath = "/dashboard/client"
             break
         }
-        // Questo forza un nuovo caricamento della pagina dal server.
+        // Questo forza un nuovo caricamento della pagina dal server,
+        // risolvendo la race condition.
         window.location.assign(redirectPath)
       }
     })
