@@ -6,15 +6,10 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // Manually reconstruct the services object to ensure it's a plain, mutable JS object.
-  // This prevents errors like "Cannot set property of #<Object> which has only a getter"
-  // that can occur with objects returned from some database drivers.
-  const rawServices = profile.services || {}
-  const services = {
-    chat: rawServices.chat ? { ...rawServices.chat } : undefined,
-    call: rawServices.call ? { ...rawServices.call } : undefined,
-    email: rawServices.email ? { ...rawServices.email } : undefined,
-  }
+  // The `services` object from Supabase might be immutable or have getters.
+  // Deep cloning it with JSON.stringify/parse ensures we have a plain, mutable JS object,
+  // which is the most robust way to prevent "Cannot set property of #<Object> which has only a getter" errors.
+  const services = profile.services ? JSON.parse(JSON.stringify(profile.services)) : {}
 
   const chatService = services.chat || {}
   const callService = services.call || {}
@@ -24,7 +19,6 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
   const callPrice =
     promotionPrice !== null ? promotionPrice : callService.enabled ? callService.price_per_minute : undefined
-  // Email price is usually different, let's say it's 6x the per-minute price
   const emailPrice =
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
@@ -50,25 +44,27 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
 }
 
 export async function getHomepageData() {
+  // Using supabaseAdmin to bypass RLS for public data fetching, which can prevent infinite recursion errors.
+  const supabase = supabaseAdmin
   const promotionPrice = await getCurrentPromotionPrice()
 
   try {
     const [operatorsResult, reviewsResult] = await Promise.all([
-      supabaseAdmin
+      supabase
         .from("profiles")
         .select(`*`)
         .eq("role", "operator")
         .eq("status", "Attivo")
         .order("is_online", { ascending: false })
         .limit(8),
-      supabaseAdmin
+      supabase
         .from("reviews")
         .select(
           `
-     id, rating, comment, created_at,
-     client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-     operator:profiles!reviews_operator_id_fkey (stage_name)
-   `,
+       id, rating, comment, created_at,
+       client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+       operator:profiles!reviews_operator_id_fkey (stage_name)
+     `,
         )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
@@ -104,16 +100,17 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    // Re-throw the error so the calling component (e.g., page.tsx) can catch it and display an error boundary.
+    // Re-throw the error so the calling component can catch it.
     throw error
   }
 }
 
 export async function getOperatorsByCategory(categorySlug: string) {
+  const supabase = supabaseAdmin
   const slug = decodeURIComponent(categorySlug)
   const promotionPrice = await getCurrentPromotionPrice()
 
-  const { data, error } = await supabaseAdmin.rpc("get_operators_by_category_case_insensitive", {
+  const { data, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
     category_slug: slug,
   })
 
@@ -126,9 +123,10 @@ export async function getOperatorsByCategory(categorySlug: string) {
 }
 
 export async function getAllOperators() {
+  const supabase = supabaseAdmin
   const promotionPrice = await getCurrentPromotionPrice()
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("profiles")
     .select(`*`)
     .eq("role", "operator")
