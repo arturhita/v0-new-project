@@ -1,5 +1,6 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
@@ -15,24 +16,20 @@ const CommissionRequestSchema = z.object({
     .max(500, "La motivazione non può superare i 500 caratteri."),
 })
 
-export async function submitCommissionRequest(prevState: any, formData: FormData) {
+export async function submitCommissionRequest(formData: FormData) {
   const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, message: "Utente non autenticato." }
+    throw new Error("Utente non autenticato.")
   }
 
   const validatedFields = CommissionRequestSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return {
-      success: false,
-      message: "Dati non validi.",
-      errors: validatedFields.error.flatten().fieldErrors,
-    }
+    throw new Error("Dati non validi.")
   }
 
   const { requestedCommission, justification } = validatedFields.data
@@ -40,7 +37,7 @@ export async function submitCommissionRequest(prevState: any, formData: FormData
   const { data: profile } = await supabase.from("profiles").select("commission_rate").eq("id", user.id).single()
 
   if (!profile) {
-    return { success: false, message: "Profilo operatore non trovato." }
+    throw new Error("Profilo operatore non trovato.")
   }
 
   const { error: insertError } = await supabase.from("commission_requests").insert({
@@ -51,7 +48,7 @@ export async function submitCommissionRequest(prevState: any, formData: FormData
   })
 
   if (insertError) {
-    return { success: false, message: `Errore del database: ${insertError.message}` }
+    throw insertError
   }
 
   revalidatePath("/(platform)/dashboard/operator/commission-request")
@@ -60,75 +57,22 @@ export async function submitCommissionRequest(prevState: any, formData: FormData
   return { success: true, message: "Richiesta inviata con successo!" }
 }
 
-export async function getCommissionRequestsForOperator() {
+export async function getCommissionRequestsForOperator(operatorId: string) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
-
-  const { data, error } = await supabase
-    .from("commission_requests")
-    .select("*")
-    .eq("operator_id", user.id)
-    .order("created_at", { ascending: false })
-
-  if (error) return []
+  const { data, error } = await supabase.from("commission_requests").select("*").eq("operator_id", operatorId)
+  if (error) throw error
   return data
 }
 
 export async function getAllCommissionRequests() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("commission_requests")
-    .select(
-      `
-      *,
-      profile:profiles(stage_name)
-    `,
-    )
-    .order("status", { ascending: true })
-    .order("created_at", { ascending: false })
-
-  if (error) return []
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("commission_requests").select("*, profiles(username)")
+  if (error) throw error
   return data
 }
 
-export async function updateCommissionRequestStatus(
-  requestId: string,
-  operatorId: string,
-  newStatus: "approved" | "rejected",
-  newCommission?: number,
-) {
-  const supabase = createClient()
-
-  if (newStatus === "approved" && newCommission === undefined) {
-    return { success: false, message: "La nuova commissione è richiesta per l'approvazione." }
-  }
-
-  if (newStatus === "approved") {
-    const { error: updateProfileError } = await supabase
-      .from("profiles")
-      .update({ commission_rate: newCommission })
-      .eq("id", operatorId)
-
-    if (updateProfileError) {
-      return { success: false, message: `Errore aggiornamento profilo: ${updateProfileError.message}` }
-    }
-  }
-
-  const { error: updateRequestError } = await supabase
-    .from("commission_requests")
-    .update({ status: newStatus })
-    .eq("id", requestId)
-
-  if (updateRequestError) {
-    return { success: false, message: `Errore aggiornamento richiesta: ${updateRequestError.message}` }
-  }
-
-  revalidatePath("/admin/commission-requests-log")
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  revalidatePath("/admin/operators")
-
-  return { success: true, message: `Richiesta ${newStatus === "approved" ? "approvata" : "rifiutata"}.` }
+export async function updateCommissionRequestStatus(id: string, status: "approved" | "rejected") {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("commission_requests").update({ status }).eq("id", id)
+  if (error) throw error
 }

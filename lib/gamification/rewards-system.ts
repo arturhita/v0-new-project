@@ -21,7 +21,56 @@ export interface Reward {
 }
 
 export const CLIENT_REWARDS: Reward[] = []
-export const OPERATOR_REWARDS: Reward[] = []
+
+export const OPERATOR_REWARDS: Reward[] = [
+  {
+    id: "LEVEL_UP",
+    name: "Level Up",
+    description: "Avanzamento di livello",
+    type: "experience",
+    cost: 0,
+    category: "Level",
+    userType: "operator",
+    availability: 1,
+    isActive: true,
+    isFeatured: false,
+    createdBy: "admin",
+    createdAt: new Date(),
+    points: 100,
+  },
+  {
+    id: "FIRST_CONSULTATION",
+    name: "First Consultation",
+    description: "Prima consulenza completata",
+    type: "experience",
+    cost: 0,
+    category: "Consultation",
+    userType: "operator",
+    availability: 1,
+    isActive: true,
+    isFeatured: false,
+    createdBy: "admin",
+    createdAt: new Date(),
+    points: 50,
+    badge: "first_consultation",
+  },
+  {
+    id: "POSITIVE_REVIEW",
+    name: "Positive Review",
+    description: "Ricevuta una recensione positiva (4+ stelle)",
+    type: "experience",
+    cost: 0,
+    category: "Review",
+    userType: "operator",
+    availability: 1,
+    isActive: true,
+    isFeatured: false,
+    createdBy: "admin",
+    createdAt: new Date(),
+    points: 20,
+  },
+]
+
 export const ALL_REWARDS = [...CLIENT_REWARDS, ...OPERATOR_REWARDS]
 
 export class RewardsService {

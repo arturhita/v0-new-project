@@ -42,46 +42,44 @@ export interface SendMessageResult {
   error?: string
 }
 
-export async function sendMessageAction(
-  conversationId: string,
-  text: string,
-  senderId: string,
-  senderName: string,
-  senderAvatar?: string,
-): Promise<SendMessageResult> {
-  if (!text.trim()) {
+export async function sendMessageAction(sessionId: string, content: string): Promise<SendMessageResult> {
+  const session = mockChatSessions.get(sessionId)
+  if (!session) {
+    return { success: false, error: "Sessione chat non trovata." }
+  }
+  if (!content.trim()) {
     return { success: false, error: "Il messaggio non può essere vuoto." }
   }
   const newMessage: Message = {
     id: `msg_client_${Date.now()}`,
-    senderId,
-    senderName,
-    text,
+    senderId: session.client.id,
+    senderName: session.client.name,
+    text: content,
     timestamp: new Date(),
-    avatar: senderAvatar,
+    avatar: session.client.avatar,
   }
+  session.messages.push(newMessage)
   await new Promise((resolve) => setTimeout(resolve, 300))
   return { success: true, message: newMessage }
 }
 
-export async function sendOperatorMessageAction(
-  conversationId: string,
-  text: string,
-  senderId: string,
-  senderName: string,
-  senderAvatar?: string,
-): Promise<SendMessageResult> {
-  if (!text.trim()) {
+export async function sendOperatorMessageAction(sessionId: string, content: string): Promise<SendMessageResult> {
+  const session = mockChatSessions.get(sessionId)
+  if (!session) {
+    return { success: false, error: "Sessione chat non trovata." }
+  }
+  if (!content.trim()) {
     return { success: false, error: "Il messaggio non può essere vuoto." }
   }
   const newMessage: Message = {
     id: `msg_op_${Date.now()}`,
-    senderId,
-    senderName,
-    text,
+    senderId: session.operator.id,
+    senderName: session.operator.name,
+    text: content,
     timestamp: new Date(),
-    avatar: senderAvatar,
+    avatar: session.operator.avatar,
   }
+  session.messages.push(newMessage)
   await new Promise((resolve) => setTimeout(resolve, 300))
   return { success: true, message: newMessage }
 }
@@ -113,7 +111,7 @@ export async function initiateChatRequest(userId: string, operatorId: string): P
   const sessionId = `session_${Date.now()}`
   const newSession: ChatSessionDetails = {
     id: sessionId,
-    status: "active",
+    status: "pending",
     client: {
       id: client.id,
       name: client.name,
@@ -126,16 +124,7 @@ export async function initiateChatRequest(userId: string, operatorId: string): P
       avatar: operator.avatar,
       ratePerMinute: operator.ratePerMinute,
     },
-    messages: [
-      {
-        id: `msg_sys_${Date.now()}`,
-        senderId: "system",
-        senderName: "System",
-        text: `Chat avviata con ${operator.name}. La tariffa è di €${operator.ratePerMinute.toFixed(2)}/minuto.`,
-        timestamp: new Date(),
-        type: "system",
-      },
-    ],
+    messages: [],
     createdAt: new Date(),
   }
   mockChatSessions.set(sessionId, newSession)
@@ -143,10 +132,15 @@ export async function initiateChatRequest(userId: string, operatorId: string): P
 }
 
 export async function respondToChatRequest(
-  sessionId: string,
-  response: "accepted" | "declined",
+  requestId: string,
+  response: "accepted" | "rejected",
 ): Promise<{ success: boolean }> {
-  console.log(`Server Action: L'operatore ha risposto alla sessione ${sessionId} con: ${response}`)
+  console.log(`Server Action: L'operatore ha risposto alla sessione ${requestId} con: ${response}`)
+  const session = mockChatSessions.get(requestId)
+  if (!session) {
+    return { success: false }
+  }
+  session.status = response === "accepted" ? "active" : "rejected"
   await new Promise((resolve) => setTimeout(resolve, 300))
   return { success: true }
 }

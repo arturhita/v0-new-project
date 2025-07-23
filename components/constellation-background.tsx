@@ -3,7 +3,8 @@
 import { Stars } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const ConstellationBackground = ({
+// Corretto: Modificato in esportazione nominata per risolvere l'errore di importazione.
+export const ConstellationBackground = ({
   className,
   goldVisible = false,
 }: {
@@ -17,6 +18,7 @@ const ConstellationBackground = ({
       className,
     )}
   >
+    {/* Orsa Maggiore LAMPEGGIANTE */}
     <div className="absolute top-20 left-20 animate-pulse">
       <svg width="120" height="80" viewBox="0 0 120 80" className="opacity-50">
         <circle cx="10" cy="20" r="2" fill="currentColor" className="animate-pulse" />
@@ -55,6 +57,8 @@ const ConstellationBackground = ({
         <line x1="75" y1="45" x2="55" y2="50" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
       </svg>
     </div>
+
+    {/* Cassiopea LAMPEGGIANTE */}
     <div className="absolute top-40 right-32 animate-pulse">
       <svg width="100" height="60" viewBox="0 0 100 60" className="opacity-50">
         <circle
@@ -103,6 +107,8 @@ const ConstellationBackground = ({
         <line x1="70" y1="15" x2="90" y2="35" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
       </svg>
     </div>
+
+    {/* Stelle sparse animate con movimento LAMPEGGIANTI */}
     {[...Array(50)].map((_, i) => (
       <div
         key={i}
@@ -124,5 +130,3 @@ const ConstellationBackground = ({
     ))}
   </div>
 )
-
-export default ConstellationBackground

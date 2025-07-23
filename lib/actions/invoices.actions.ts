@@ -1,5 +1,6 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
@@ -21,16 +22,11 @@ const CreateInvoiceSchema = z.object({
 export type InvoiceItem = z.infer<typeof InvoiceItemSchema>
 
 export async function getOperatorsForInvoiceCreation() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, stage_name")
-    .eq("role", "operator")
-    .order("stage_name")
-
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("profiles").select("id, username").eq("role", "operator")
   if (error) {
-    console.error("Error fetching operators:", error)
-    return []
+    console.error("Error fetching operators for invoice:", error)
+    throw error
   }
   return data
 }
@@ -96,61 +92,21 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function getInvoicesForAdmin() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("invoices")
-    .select(
-      `
-      id,
-      invoice_number,
-      issue_date,
-      due_date,
-      status,
-      total_amount,
-      profile:profiles!user_id (
-        stage_name
-      ),
-      invoice_items:invoice_items!invoice_id (
-        id,
-        description,
-        item_type,
-        quantity,
-        unit_price,
-        total
-      )
-    `,
-    )
-    .order("issue_date", { ascending: false })
-
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("invoices").select("*, profiles(username)")
   if (error) {
-    console.error("Error fetching invoices for admin:", error.message)
-    throw new Error(`Impossibile caricare le fatture: ${error.message}`)
+    console.error("Error fetching invoices for admin:", error)
+    throw error
   }
   return data
 }
 
-export async function getInvoicesForOperator() {
+export async function getInvoicesForOperator(operatorId: string) {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return []
-
-  const { data, error } = await supabase
-    .from("invoices")
-    .select(
-      `
-      *,
-      invoice_items:invoice_items!invoice_id(*)
-    `,
-    )
-    .eq("user_id", user.id)
-    .order("issue_date", { ascending: false })
-
+  const { data, error } = await supabase.from("invoices").select("*").eq("operator_id", operatorId)
   if (error) {
     console.error("Error fetching invoices for operator:", error)
-    return []
+    throw error
   }
   return data
 }

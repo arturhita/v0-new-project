@@ -1,8 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import type { PayoutStatus } from "@/lib/schemas"
-import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export type PayoutRequestWithOperator = {
   id: string
@@ -13,33 +11,16 @@ export type PayoutRequestWithOperator = {
 }
 
 export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("payout_requests")
-    .select(
-      `
-      id,
-      created_at,
-      amount,
-      status,
-      profiles (
-        stage_name
-      )
-    `,
-    )
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    return []
-  }
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.from("payouts").select("*, profiles(username)")
+  if (error) throw error
 
   const formattedData = data.map((req: any) => ({
     id: req.id,
     created_at: req.created_at,
     amount: req.amount,
     status: req.status,
-    operatorName: req.profiles ? req.profiles.stage_name : "Operatore Sconosciuto",
+    operatorName: req.profiles ? req.profiles.username : "Operatore Sconosciuto",
   }))
 
   return formattedData
@@ -47,20 +28,13 @@ export async function getPayoutRequests(): Promise<PayoutRequestWithOperator[]> 
 
 export async function updatePayoutStatus(
   requestId: string,
-  newStatus: PayoutStatus,
+  newStatus: "completed" | "rejected",
 ): Promise<{ success: boolean; message: string }> {
-  const supabase = createClient()
-
-  const { error } = await supabase
-    .from("payout_requests")
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq("id", requestId)
-
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("payouts").update({ status: newStatus }).eq("id", requestId)
   if (error) {
     return { success: false, message: `Errore del database: ${error.message}` }
   }
-
-  revalidatePath("/admin/payouts")
 
   return { success: true, message: `Stato del pagamento aggiornato a ${newStatus}.` }
 }

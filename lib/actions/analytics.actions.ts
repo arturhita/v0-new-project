@@ -1,65 +1,13 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { subMonths, startOfMonth, format, endOfMonth } from "date-fns"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function getComprehensiveAnalytics() {
-  const supabase = createClient()
-  const now = new Date()
-
-  const timeSeriesPromises = Array.from({ length: 12 }).map((_, i) => {
-    const date = subMonths(now, 11 - i)
-    const monthStart = startOfMonth(date).toISOString()
-    const monthEnd = endOfMonth(date).toISOString()
-    const monthLabel = format(date, "MMM yy")
-
-    const revenuePromise = supabase
-      .from("transactions")
-      .select("amount")
-      .eq("type", "deposit")
-      .gte("created_at", monthStart)
-      .lt("created_at", monthEnd)
-
-    const usersPromise = supabase
-      .from("profiles")
-      .select("id", { count: "exact" })
-      .gte("created_at", monthStart)
-      .lt("created_at", monthEnd)
-
-    const consultationsPromise = supabase
-      .from("consultations")
-      .select("id", { count: "exact" })
-      .gte("created_at", monthStart)
-      .lt("created_at", monthEnd)
-
-    return Promise.all([revenuePromise, usersPromise, consultationsPromise]).then(
-      ([revenueRes, usersRes, consultationsRes]) => ({
-        month: monthLabel,
-        revenue: revenueRes.data?.reduce((sum, t) => sum + t.amount, 0) || 0,
-        users: usersRes.count || 0,
-        consultations: consultationsRes.count || 0,
-      }),
-    )
-  })
-
-  const thisMonthStart = startOfMonth(now).toISOString()
-  const topOperatorsPromise = supabase.rpc("get_top_operators_by_consultations", {
-    from_date: thisMonthStart,
-    to_date: now.toISOString(),
-    limit_count: 5,
-  })
-
-  const popularCategoriesPromise = supabase.rpc("get_consultation_counts_by_category")
-
-  const [timeSeriesData, topOperatorsRes, popularCategoriesRes] = await Promise.all([
-    Promise.all(timeSeriesPromises),
-    topOperatorsPromise,
-    popularCategoriesPromise,
-  ])
-
-  return {
-    timeSeries: timeSeriesData,
-    topOperators: topOperatorsRes.data || [],
-    popularCategories: popularCategoriesRes.data || [],
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.rpc("get_comprehensive_analytics")
+  if (error) {
+    console.error("Error fetching comprehensive analytics:", error)
+    throw error
   }
+  return data
 }

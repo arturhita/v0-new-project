@@ -24,5 +24,5 @@ export const RegisterSchema = z
     path: ["confirmPassword"],
   })
 
-export type TicketStatus = "Open" | "In Progress" | "Resolved" | "Closed"
+export const TicketStatus = z.enum(["open", "in_progress", "closed"])
 export type PayoutStatus = "Pending" | "Processing" | "Completed" | "Rejected"

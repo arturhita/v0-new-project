@@ -53,25 +53,28 @@ export async function saveOperatorServices(settings: ConsultationSettings) {
     }
 
     // Transform settings to database format
-    const servicesData = {
-      chat: {
+    const servicesData = [
+      {
+        type: "chat",
         enabled: settings.chatEnabled,
         price_per_minute: settings.chatPricePerMinute,
       },
-      call: {
+      {
+        type: "call",
         enabled: settings.callEnabled,
         price_per_minute: settings.callPricePerMinute,
       },
-      email: {
+      {
+        type: "email",
         enabled: settings.emailEnabled,
         price: settings.emailPricePerConsultation,
       },
-      video: {
+      {
+        type: "video",
         enabled: settings.videoEnabled,
         price_per_minute: settings.videoPricePerMinute,
       },
-      min_duration: settings.minDurationCallChat,
-    }
+    ]
 
     // Use RPC function to update services
     const { data, error } = await supabase.rpc("update_operator_services", {
@@ -229,34 +232,14 @@ export async function validateServicePricing(settings: ConsultationSettings) {
   }
 }
 
-export async function updateOperatorServices(prevState: any, formData: FormData) {
+export async function updateOperatorServices(operatorId: string, services: any) {
   const supabase = createClient()
+  // This is a simplified example. You'd likely have a more complex logic
+  // to update, insert, and delete services.
+  const { data, error } = await supabase
+    .from("operator_services")
+    .upsert(services.map((s: any) => ({ ...s, operator_id: operatorId })))
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "Utente non autenticato." }
-  }
-
-  const servicesData = formData.get("services")
-  if (typeof servicesData !== "string") {
-    return { error: "Dati dei servizi non validi." }
-  }
-
-  try {
-    const parsedServices = JSON.parse(servicesData)
-
-    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
-
-    if (error) {
-      return { error: "Impossibile aggiornare i servizi. Riprova." }
-    }
-
-    revalidatePath("/", "layout")
-    return { success: "Servizi aggiornati con successo!" }
-  } catch (e) {
-    return { error: "I dati inviati non sono validi." }
-  }
+  if (error) throw error
+  return data
 }

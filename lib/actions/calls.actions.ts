@@ -2,6 +2,7 @@
 
 import { twilioClient, type CallSession } from "@/lib/twilio"
 import { revalidatePath } from "next/cache"
+import { createClient } from "@/lib/supabase/server"
 
 const mockCallSessions = new Map<string, CallSession>()
 const mockUserWallets = new Map<string, number>([
@@ -16,12 +17,26 @@ export interface InitiateCallResult {
   estimatedCost?: number
 }
 
-export async function initiateCallAction(
-  clientId: string,
-  operatorId: string,
-  operatorPhone: string,
-  ratePerMinute: number,
-): Promise<InitiateCallResult> {
+export async function initiateCallAction(operatorId: string): Promise<InitiateCallResult> {
+  const supabase = createClient()
+  const { data: operatorData, error: operatorError } = await supabase
+    .from("operators")
+    .select("phone_number, rate_per_minute")
+    .eq("id", operatorId)
+    .single()
+
+  if (operatorError) {
+    console.error("Error fetching operator data:", operatorError)
+    return {
+      success: false,
+      error: "Errore nel sistema. Riprova più tardi.",
+    }
+  }
+
+  const operatorPhone = operatorData.phone_number
+  const ratePerMinute = operatorData.rate_per_minute
+  const clientId = "user123" // Assuming a default client for simplicity
+
   try {
     const clientWallet = mockUserWallets.get(clientId) || 0
     const minimumCredit = ratePerMinute * 2
@@ -73,16 +88,16 @@ export async function initiateCallAction(
   }
 }
 
-export async function endCallAction(sessionId: string): Promise<{ success: boolean }> {
+export async function endCallAction(callId: string): Promise<{ success: boolean }> {
   try {
-    const session = mockCallSessions.get(sessionId)
+    const session = mockCallSessions.get(callId)
     if (!session || !session.twilioCallSid) {
       return { success: false }
     }
     await twilioClient.calls(session.twilioCallSid).update({ status: "completed" })
     session.status = "completed"
     session.endTime = new Date()
-    mockCallSessions.set(sessionId, session)
+    mockCallSessions.set(callId, session)
     return { success: true }
   } catch (error) {
     console.error("Error ending call:", error)
@@ -91,7 +106,19 @@ export async function endCallAction(sessionId: string): Promise<{ success: boole
 }
 
 export async function getUserWalletAction(userId: string): Promise<number> {
-  return mockUserWallets.get(userId) || 0
+  const supabase = createClient()
+  const { data: walletData, error: walletError } = await supabase
+    .from("wallets")
+    .select("balance")
+    .eq("user_id", userId)
+    .single()
+
+  if (walletError) {
+    console.error("Error fetching user wallet:", walletError)
+    return 0
+  }
+
+  return walletData.balance || 0
 }
 
 async function getOperatorCommissionRate(operatorId: string): Promise<number> {
@@ -103,14 +130,14 @@ async function getOperatorCommissionRate(operatorId: string): Promise<number> {
 }
 
 export async function processCallBillingAction(
-  sessionId: string,
-  durationSeconds: number,
+  callId: string,
+  duration: number,
 ): Promise<{ success: boolean; finalCost?: number }> {
   try {
-    const session = mockCallSessions.get(sessionId)
+    const session = mockCallSessions.get(callId)
     if (!session) return { success: false }
 
-    const durationMinutes = Math.ceil(durationSeconds / 60)
+    const durationMinutes = Math.ceil(duration / 60)
     const totalCost = durationMinutes * session.ratePerMinute
     const operatorCommissionRate = await getOperatorCommissionRate(session.operatorId)
     const operatorEarning = totalCost * (operatorCommissionRate / 100)
@@ -122,12 +149,12 @@ export async function processCallBillingAction(
     const operatorWallet = mockUserWallets.get(session.operatorId) || 0
     mockUserWallets.set(session.operatorId, operatorWallet + operatorEarning)
 
-    session.duration = durationSeconds
+    session.duration = duration
     session.cost = totalCost
     session.operatorEarning = operatorEarning
     session.platformFee = platformFee
     session.status = "completed"
-    mockCallSessions.set(sessionId, session)
+    mockCallSessions.set(callId, session)
 
     revalidatePath("/dashboard/client/wallet")
     revalidatePath("/dashboard/operator/earnings")

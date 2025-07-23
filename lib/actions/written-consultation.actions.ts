@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { getOperatorById } from "./operator.actions"
+import { createClient } from "@/lib/supabase/server"
 
 export interface WrittenConsultation {
   id: string
@@ -17,8 +18,7 @@ export interface WrittenConsultation {
   answeredAt: Date | null
 }
 
-const mockWrittenConsultations: WrittenConsultation[] = []
-const mockUserWallets = new Map<string, number>([["user_client_123", 150.0]])
+const supabase = createClient()
 
 export async function submitWrittenConsultation(formData: FormData) {
   const clientId = formData.get("clientId") as string
@@ -36,29 +36,47 @@ export async function submitWrittenConsultation(formData: FormData) {
   }
 
   const cost = operatorServices.email.price
-  const clientWallet = mockUserWallets.get(clientId) || 0
+  const { data: clientWalletData, error: walletError } = await supabase
+    .from("user_wallets")
+    .select("balance")
+    .eq("user_id", clientId)
+    .single()
 
-  if (clientWallet < cost) {
+  if (walletError || !clientWalletData || clientWalletData.balance < cost) {
     return { success: false, error: "Credito insufficiente." }
   }
 
-  mockUserWallets.set(clientId, clientWallet - cost)
+  const { error: updateWalletError } = await supabase
+    .from("user_wallets")
+    .update({ balance: clientWalletData.balance - cost })
+    .eq("user_id", clientId)
 
-  const newConsultation: WrittenConsultation = {
-    id: `wc_${Date.now()}`,
-    clientId,
-    clientName: "Mario Rossi", // Mock
-    operatorId,
-    operatorName: operator.stage_name,
-    question,
-    answer: null,
-    status: "pending_operator_response",
-    cost,
-    createdAt: new Date(),
-    answeredAt: null,
+  if (updateWalletError) {
+    return { success: false, error: "Errore nell'aggiornamento del credito." }
   }
 
-  mockWrittenConsultations.unshift(newConsultation)
+  const { data: consultationData, error: consultationError } = await supabase
+    .from("written_consultations")
+    .insert([
+      {
+        id: `wc_${Date.now()}`,
+        clientId,
+        clientName: "Mario Rossi", // Mock
+        operatorId,
+        operatorName: operator.stage_name,
+        question,
+        answer: null,
+        status: "pending_operator_response",
+        cost,
+        createdAt: new Date(),
+        answeredAt: null,
+      },
+    ])
+    .select()
+
+  if (consultationError) {
+    return { success: false, error: "Errore nell'inserimento della consultazione." }
+  }
 
   revalidatePath("/dashboard/client/written-consultations")
   revalidatePath("/dashboard/operator/written-consultations")
@@ -67,29 +85,58 @@ export async function submitWrittenConsultation(formData: FormData) {
 }
 
 export async function getWrittenConsultationsForClient(clientId: string) {
-  return mockWrittenConsultations.filter((c) => c.clientId === clientId)
+  const { data: consultationsData, error: consultationsError } = await supabase
+    .from("written_consultations")
+    .select("*")
+    .eq("clientId", clientId)
+
+  if (consultationsError || !consultationsData) {
+    return []
+  }
+
+  return consultationsData
 }
 
 export async function getWrittenConsultationsForOperator(operatorId: string) {
-  return mockWrittenConsultations.filter((c) => c.operatorId === operatorId)
+  const { data: consultationsData, error: consultationsError } = await supabase
+    .from("written_consultations")
+    .select("*")
+    .eq("operatorId", operatorId)
+
+  if (consultationsError || !consultationsData) {
+    return []
+  }
+
+  return consultationsData
 }
 
-export async function answerWrittenConsultation(formData: FormData) {
-  const consultationId = formData.get("consultationId") as string
-  const answer = formData.get("answer") as string
-
+export async function answerWrittenConsultation(consultationId: string, answer: string) {
   if (!consultationId || !answer) {
     return { success: false, error: "Dati mancanti." }
   }
 
-  const consultation = mockWrittenConsultations.find((c) => c.id === consultationId)
-  if (!consultation) {
+  const { data: consultationData, error: consultationError } = await supabase
+    .from("written_consultations")
+    .select("*")
+    .eq("id", consultationId)
+    .single()
+
+  if (consultationError || !consultationData) {
     return { success: false, error: "Consultazione non trovata." }
   }
 
-  consultation.answer = answer
-  consultation.status = "answered"
-  consultation.answeredAt = new Date()
+  const { error: updateConsultationError } = await supabase
+    .from("written_consultations")
+    .update({
+      answer,
+      status: "answered",
+      answeredAt: new Date(),
+    })
+    .eq("id", consultationId)
+
+  if (updateConsultationError) {
+    return { success: false, error: "Errore nell'aggiornamento della consultazione." }
+  }
 
   revalidatePath("/dashboard/client/written-consultations")
   revalidatePath("/dashboard/operator/written-consultations")

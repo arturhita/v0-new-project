@@ -156,7 +156,7 @@ export async function getOperatorById(id: string) {
   const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
   if (error) {
-    console.error(`Error fetching operator ${id}:`, error)
+    console.error("Error fetching operator by ID:", error)
     return null
   }
   return data
@@ -164,9 +164,9 @@ export async function getOperatorById(id: string) {
 
 export async function getOperatorByName(name: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("stage_name", name).single()
+  const { data, error } = await supabase.from("profiles").select("*").eq("username", name).single()
   if (error) {
-    console.error(`Error fetching operator by name ${name}:`, error)
+    console.error("Error fetching operator by name:", error.message)
     return null
   }
   return data
@@ -176,7 +176,7 @@ export async function getAllOperators() {
   const supabase = createClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("role", "operator")
   if (error) {
-    console.error("Error fetching operators:", error)
+    console.error("Error fetching all operators:", error)
     return []
   }
   return data

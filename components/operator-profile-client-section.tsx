@@ -4,17 +4,39 @@ import { OperatorBadges } from "@/components/operator-badges"
 import ReviewCard, { type Review } from "@/components/review-card"
 import { OperatorAvailabilityCalendar } from "@/components/operator-availability-calendar"
 import type { Availability } from "@/lib/actions/operator.actions"
+import { Button } from "@/components/ui/button"
+import { useState } from "react"
 
 interface OperatorProfileClientSectionProps {
   bio: string
   reviews: Review[]
   availability: Availability | null
+  operatorId: string
 }
 
-const OperatorProfileClientSection = ({ bio, reviews, availability }: OperatorProfileClientSectionProps) => {
+const OperatorProfileClientSection = ({
+  bio,
+  reviews,
+  availability,
+  operatorId,
+}: OperatorProfileClientSectionProps) => {
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  const handleFavorite = async () => {
+    // Add to favorites logic
+    setIsFavorite(!isFavorite)
+  }
+
   return (
     <div className="mt-8">
-      <Tabs defaultValue="about" className="w-full">
+      <div className="flex gap-4 mt-4">
+        <Button>Inizia Chat</Button>
+        <Button variant="outline">Consulenza Scritta</Button>
+        <Button variant="ghost" onClick={handleFavorite}>
+          {isFavorite ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+        </Button>
+      </div>
+      <Tabs defaultValue="about" className="w-full mt-8">
         <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700">
           <TabsTrigger value="about">Chi Sono</TabsTrigger>
           <TabsTrigger value="reviews">Recensioni ({reviews.length})</TabsTrigger>

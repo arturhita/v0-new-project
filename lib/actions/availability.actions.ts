@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
 
 export interface TimeSlot {
   id: string
@@ -18,56 +17,25 @@ export interface WeeklyAvailability {
   [key: string]: DayAvailability
 }
 
-export async function saveOperatorAvailability(userId: string, availability: any) {
+export async function saveOperatorAvailability(operatorId: string, availability: any) {
   const supabase = createClient()
-
-  try {
-    // Transform the availability data to match database format
-    const transformedAvailability: any = {}
-
-    Object.entries(availability).forEach(([day, dayData]) => {
-      if (dayData.active && dayData.slots.length > 0) {
-        transformedAvailability[day.toLowerCase()] = dayData.slots.map((slot) => ({
-          start: slot.start,
-          end: slot.end,
-        }))
-      }
-    })
-
-    // Update availability using the database function
-    const { error } = await supabase.from("profiles").update({ availability: transformedAvailability }).eq("id", userId)
-
-    if (error) {
-      console.error("Error updating availability:", error)
-      return {
-        success: false,
-        message: "Errore durante il salvataggio della disponibilità.",
-      }
-    }
-
-    // Revalidate relevant paths
-    revalidatePath("/(platform)/dashboard/operator/availability")
-
-    return {
-      success: true,
-      message: "Disponibilità salvata con successo!",
-    }
-  } catch (error: any) {
-    console.error("Error in saveOperatorAvailability:", error)
-    return {
-      success: false,
-      message: error.message || "Errore imprevisto durante il salvataggio.",
-    }
-  }
+  const { data, error } = await supabase
+    .from("operator_availability")
+    .upsert({ operator_id: operatorId, availability_data: availability })
+  if (error) throw error
+  return data
 }
 
-export async function getOperatorAvailability(userId: string) {
+export async function getOperatorAvailability(operatorId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("availability").eq("id", userId).single()
-
+  const { data, error } = await supabase
+    .from("operator_availability")
+    .select("availability_data")
+    .eq("operator_id", operatorId)
+    .single()
   if (error) {
-    console.error("Error fetching availability:", error)
-    return null
+    if (error.code === "PGRST116") return null // Not found is ok
+    throw error
   }
-  return data.availability
+  return data?.availability_data
 }
