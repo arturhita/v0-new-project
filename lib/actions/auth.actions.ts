@@ -1,7 +1,9 @@
+"use server"
+
 import type { z } from "zod"
-import type { loginSchema } from "@/lib/validations/auth"
-import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import type { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/schemas"
 
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
@@ -9,7 +11,7 @@ export async function login(values: z.infer<typeof loginSchema>) {
   const { data, error } = await supabase.auth.signInWithPassword(values)
 
   if (error) {
-    return { error: error.message }
+    return { error: "Credenziali non valide. Riprova." }
   }
 
   if (!data.user) {
@@ -23,19 +25,77 @@ export async function login(values: z.infer<typeof loginSchema>) {
     .single()
 
   if (profileError || !profile) {
-    // User is logged in, but has no profile/role. Redirect to home.
+    // L'utente è loggato ma non ha un profilo/ruolo. Reindirizza alla home.
+    // Questo è un fallback, idealmente non dovrebbe accadere con il trigger del DB.
     redirect("/")
   }
 
-  // Redirect based on role
+  // Reindirizza in base al ruolo
   switch (profile.role) {
     case "admin":
       redirect("/admin")
+      break
     case "operator":
       redirect("/dashboard/operator")
+      break
     case "client":
       redirect("/dashboard/client")
+      break
     default:
       redirect("/")
+      break
   }
+}
+
+export async function register(values: z.infer<typeof registerSchema>) {
+  const supabase = createClient()
+
+  const { error } = await supabase.auth.signUp({
+    email: values.email,
+    password: values.password,
+    options: {
+      data: { full_name: values.fullName },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+    },
+  })
+
+  if (error) {
+    return {
+      error: error.message.includes("User already registered")
+        ? "Un utente con questa email è già registrato."
+        : `Errore: ${error.message}`,
+    }
+  }
+
+  return { success: "Registrazione completata! Controlla la tua email per la verifica." }
+}
+
+export async function requestPasswordReset(values: z.infer<typeof resetPasswordSchema>) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/update-password`,
+  })
+
+  if (error) {
+    return { error: "Impossibile inviare l'email di reset. Riprova." }
+  }
+
+  return { success: "Se l'email è corretta, riceverai un link per reimpostare la password." }
+}
+
+export async function updatePassword(values: z.infer<typeof updatePasswordSchema>) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.updateUser({ password: values.password })
+
+  if (error) {
+    return { error: "Impossibile aggiornare la password. Il link potrebbe essere scaduto." }
+  }
+
+  redirect("/login")
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }

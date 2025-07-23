@@ -1,33 +1,17 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+"use client"
+
 import { LoginForm } from "./login-form"
-import { ConstellationBackground } from "@/components/constellation-background"
+import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 
-export default async function LoginPage() {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    if (profile?.role === "admin") {
-      redirect("/admin")
-    } else if (profile?.role === "operator") {
-      redirect("/dashboard/operator")
-    } else if (profile?.role === "client") {
-      redirect("/dashboard/client")
-    } else {
-      redirect("/") // Fallback for users with no role or other issues
-    }
-  }
-
+export default function LoginPage() {
   return (
-    <div className="relative flex-grow flex items-center justify-center p-4 overflow-hidden">
-      <ConstellationBackground />
-      <div className="w-full max-w-md z-10">
-        <LoginForm />
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0a192f]">
+      <GoldenConstellationBackground />
+      <div className="relative z-10 w-full max-w-md p-4 sm:p-8">
+        <div className="rounded-2xl border border-blue-100/20 bg-slate-900/50 p-8 shadow-2xl shadow-blue-500/10 backdrop-blur-lg">
+          <h1 className="mb-6 text-center text-3xl font-bold text-white">Bentornato su Moonthir</h1>
+          <LoginForm />
+        </div>
       </div>
     </div>
   )
