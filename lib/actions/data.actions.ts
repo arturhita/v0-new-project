@@ -6,10 +6,33 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // The `services` object from Supabase might be immutable or have getters.
-  // Deep cloning it with JSON.stringify/parse ensures we have a plain, mutable JS object,
-  // which is the most robust way to prevent "Cannot set property of #<Object> which has only a getter" errors.
-  const services = profile.services ? JSON.parse(JSON.stringify(profile.services)) : {}
+  // ULTIMATE FIX: Manually reconstruct the services object property by property.
+  // This is the most robust way to prevent "getter" errors by ensuring we work with a plain,
+  // mutable JavaScript object, completely detached from the database driver's special objects.
+  const rawServices = profile.services || {}
+  const services = {
+    chat:
+      rawServices.chat && typeof rawServices.chat === "object"
+        ? {
+            enabled: rawServices.chat.enabled,
+            price_per_minute: rawServices.chat.price_per_minute,
+          }
+        : {},
+    call:
+      rawServices.call && typeof rawServices.call === "object"
+        ? {
+            enabled: rawServices.call.enabled,
+            price_per_minute: rawServices.call.price_per_minute,
+          }
+        : {},
+    email:
+      rawServices.email && typeof rawServices.email === "object"
+        ? {
+            enabled: rawServices.email.enabled,
+            price: rawServices.email.price,
+          }
+        : {},
+  }
 
   const chatService = services.chat || {}
   const callService = services.call || {}
@@ -44,7 +67,6 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
 }
 
 export async function getHomepageData() {
-  // Using supabaseAdmin to bypass RLS for public data fetching, which can prevent infinite recursion errors.
   const supabase = supabaseAdmin
   const promotionPrice = await getCurrentPromotionPrice()
 
@@ -100,7 +122,6 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    // Re-throw the error so the calling component can catch it.
     throw error
   }
 }
