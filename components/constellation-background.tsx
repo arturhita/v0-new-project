@@ -12,78 +12,90 @@ export const ConstellationBackground = () => {
 
     let w = (canvas.width = window.innerWidth)
     let h = (canvas.height = window.innerHeight)
+    let animationFrameId: number
+    let time = 0
 
     window.addEventListener("resize", () => {
       w = canvas.width = window.innerWidth
       h = canvas.height = window.innerHeight
     })
 
-    const stars: { x: number; y: number; radius: number; vx: number; vy: number }[] = []
+    const stars: {
+      x: number
+      y: number
+      radius: number
+      vx: number
+      vy: number
+      pulseOffset: number
+    }[] = []
     const numStars = 200
 
     for (let i = 0; i < numStars; i++) {
       stars.push({
         x: Math.random() * w,
         y: Math.random() * h,
-        radius: Math.random() * 1 + 1,
-        vx: Math.floor(Math.random() * 50) - 25,
-        vy: Math.floor(Math.random() * 50) - 25,
+        radius: Math.random() * 1.5 + 0.5,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        pulseOffset: Math.random() * Math.PI * 2,
       })
     }
 
     const draw = () => {
       if (!ctx) return
+      time += 0.01
       ctx.clearRect(0, 0, w, h)
       ctx.globalCompositeOperation = "lighter"
 
-      for (let i = 0, x = stars.length; i < x; i++) {
+      for (let i = 0; i < stars.length; i++) {
         const s = stars[i]
-        ctx.fillStyle = "#fff"
+        const pulse = Math.sin(time + s.pulseOffset) * 0.4 + 0.8 // Pulsing factor between 0.4 and 1.2
+
         ctx.beginPath()
-        ctx.arc(s.x, s.y, s.radius, 0, 2 * Math.PI)
+        const gradient = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.radius * pulse)
+        gradient.addColorStop(0, "rgba(255, 215, 0, 0.8)") // Gold center
+        gradient.addColorStop(0.5, "rgba(255, 215, 0, 0.4)")
+        gradient.addColorStop(1, "rgba(255, 215, 0, 0)")
+
+        ctx.fillStyle = gradient
+        ctx.arc(s.x, s.y, s.radius * pulse * 2, 0, 2 * Math.PI)
         ctx.fill()
-        ctx.fillStyle = "black"
-        ctx.stroke()
       }
 
       ctx.beginPath()
-      for (let i = 0, x = stars.length; i < x; i++) {
+      for (let i = 0; i < stars.length; i++) {
         const starI = stars[i]
-        ctx.moveTo(starI.x, starI.y)
-        for (let j = 0, y = stars.length; j < y; j++) {
+        for (let j = i + 1; j < stars.length; j++) {
           const starJ = stars[j]
-          if (distance(starI, starJ) < 150) {
+          const dist = distance(starI, starJ)
+          if (dist < 150) {
+            ctx.moveTo(starI.x, starI.y)
             ctx.lineTo(starJ.x, starJ.y)
+            ctx.strokeStyle = `rgba(255, 215, 0, ${1 - dist / 150})` // Fading gold lines
+            ctx.lineWidth = 0.5
+            ctx.stroke()
           }
         }
       }
-      ctx.lineWidth = 0.05
-      ctx.strokeStyle = "white"
-      ctx.stroke()
     }
 
     const distance = (point1: { x: number; y: number }, point2: { x: number; y: number }) => {
-      let xs = 0
-      let ys = 0
-      xs = point2.x - point1.x
-      xs = xs * xs
-      ys = point2.y - point1.y
-      ys = ys * ys
-      return Math.sqrt(xs + ys)
+      const xs = point2.x - point1.x
+      const ys = point2.y - point1.y
+      return Math.sqrt(xs * xs + ys * ys)
     }
 
     const update = () => {
-      for (let i = 0, x = stars.length; i < x; i++) {
+      for (let i = 0; i < stars.length; i++) {
         const s = stars[i]
-        s.x += s.vx / 60
-        s.y += s.vy / 60
+        s.x += s.vx
+        s.y += s.vy
 
         if (s.x < 0 || s.x > w) s.vx = -s.vx
         if (s.y < 0 || s.y > h) s.vy = -s.vy
       }
     }
 
-    let animationFrameId: number
     const tick = () => {
       draw()
       update()
@@ -93,10 +105,7 @@ export const ConstellationBackground = () => {
     tick()
 
     return () => {
-      window.removeEventListener("resize", () => {
-        w = canvas.width = window.innerWidth
-        h = canvas.height = window.innerHeight
-      })
+      window.removeEventListener("resize", () => {})
       cancelAnimationFrame(animationFrameId)
     }
   }, [])

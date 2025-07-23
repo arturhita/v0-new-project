@@ -43,7 +43,7 @@ export async function getHomepageData(): Promise<{
         .select(
           `
             id, rating, comment, created_at, service_type,
-            client:profiles!reviews_client_id_fkey (name, avatar_url),
+            client:profiles!reviews_client_id_fkey (full_name, avatar_url),
             operator:profiles!reviews_operator_id_fkey (stage_name)
           `,
         )
@@ -73,7 +73,7 @@ export async function getHomepageData(): Promise<{
       (review: any) =>
         ({
           id: review.id,
-          user_name: review.client?.name || "Utente Anonimo",
+          user_name: review.client?.full_name || "Utente Anonimo",
           user_avatar_url: review.client?.avatar_url,
           operator_name: review.operator?.stage_name || "Operatore",
           rating: review.rating,
