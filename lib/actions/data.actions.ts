@@ -6,34 +6,14 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // ULTIMATE FIX: Manually reconstruct the services object property by property.
-  // This is the most robust way to prevent "getter" errors by ensuring we work with a plain,
-  // mutable JavaScript object, completely detached from the database driver's special objects.
-  const rawServices = profile.services || {}
-  const services = {
-    chat:
-      rawServices.chat && typeof rawServices.chat === "object"
-        ? {
-            enabled: rawServices.chat.enabled,
-            price_per_minute: rawServices.chat.price_per_minute,
-          }
-        : {},
-    call:
-      rawServices.call && typeof rawServices.call === "object"
-        ? {
-            enabled: rawServices.call.enabled,
-            price_per_minute: rawServices.call.price_per_minute,
-          }
-        : {},
-    email:
-      rawServices.email && typeof rawServices.email === "object"
-        ? {
-            enabled: rawServices.email.enabled,
-            price: rawServices.email.price,
-          }
-        : {},
-  }
+  // ULTIMATE FIX: Deep clone the entire profile object using JSON methods.
+  // This is the most aggressive and reliable way to strip any special properties
+  // (like getters/setters) that the database driver might add, ensuring we work
+  // with a plain, mutable JavaScript object. This definitively prevents the
+  // "Cannot set property of #<Object> which has only a getter" error.
+  const cleanProfile = JSON.parse(JSON.stringify(profile))
 
+  const services = cleanProfile.services || {}
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -46,23 +26,25 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
   return {
-    id: profile.id,
-    name: profile.stage_name || "Operatore",
-    avatarUrl: profile.avatar_url || "/placeholder.svg",
+    id: cleanProfile.id,
+    name: cleanProfile.stage_name || "Operatore",
+    avatarUrl: cleanProfile.avatar_url || "/placeholder.svg",
     specialization:
-      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
-    rating: profile.average_rating || 0,
-    reviewsCount: profile.reviews_count || 0,
-    description: profile.bio || "Nessuna descrizione disponibile.",
-    tags: profile.categories || [],
-    isOnline: profile.is_online || false,
+      (cleanProfile.specialties && cleanProfile.specialties[0]) ||
+      (cleanProfile.categories && cleanProfile.categories[0]) ||
+      "Esperto",
+    rating: cleanProfile.average_rating || 0,
+    reviewsCount: cleanProfile.reviews_count || 0,
+    description: cleanProfile.bio || "Nessuna descrizione disponibile.",
+    tags: cleanProfile.categories || [],
+    isOnline: cleanProfile.is_online || false,
     services: {
       chatPrice,
       callPrice,
       emailPrice,
     },
-    profileLink: `/operator/${profile.stage_name}`,
-    joinedDate: profile.created_at,
+    profileLink: `/operator/${cleanProfile.stage_name}`,
+    joinedDate: cleanProfile.created_at,
   }
 }
 
@@ -98,11 +80,11 @@ export async function getHomepageData() {
 
     if (operatorsError) {
       console.error("Error fetching homepage operators:", operatorsError)
-      throw operatorsError
+      throw new Error("Database error fetching operators.")
     }
     if (reviewsError) {
       console.error("Error fetching recent reviews:", reviewsError)
-      throw reviewsError
+      throw new Error("Database error fetching reviews.")
     }
 
     const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
