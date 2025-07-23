@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useAuth } from "@/contexts/auth-context"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -11,60 +12,75 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { useRouter } from "next/navigation"
-import LoadingSpinner from "./loading-spinner"
+import { LogOut, LayoutDashboard } from "lucide-react"
 
-export function SiteNavbar() {
-  const { profile, logout, isLoading, isAuthenticated } = useAuth()
-  const router = useRouter()
+export default function SiteNavbar() {
+  const pathname = usePathname()
+  const { user, profile, logout } = useAuth()
 
-  const handleLogout = async () => {
-    await logout()
-  }
+  const navLinks = [
+    { href: "/esperti/cartomanzia", label: "Esperti" },
+    { href: "/tarocchi-online", label: "Tarocchi Online" },
+    { href: "/oroscopo", label: "Oroscopo" },
+    { href: "/affinita-di-coppia", label: "Affinità di Coppia" },
+    { href: "/astromag", label: "Astromag" },
+    { href: "/diventa-esperto", label: "Lavora con noi" },
+  ]
 
-  const getDashboardLink = () => {
+  const getDashboardUrl = () => {
     if (!profile) return "/login"
     switch (profile.role) {
       case "admin":
         return "/admin"
       case "operator":
-        return "/(platform)/dashboard/operator"
+        return "/operator/dashboard"
       case "client":
       default:
-        return "/(platform)/dashboard/client"
+        return "/client/dashboard"
     }
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/images/moonthir-logo.png" alt="Moonthir Logo" width={32} height={32} />
-          <span className="font-bold text-lg">Moonthir</span>
+    <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm">
+      <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <Link href="/" className="flex items-center space-x-2">
+          <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={120} height={40} />
         </Link>
-        <NavigationMenu className="hidden md:flex">
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <Link href="/esperti/cartomanzia" legacyBehavior passHref>
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>Esperti</NavigationMenuLink>
-              </Link>
-            </NavigationMenuItem>
-            {/* Altri link di navigazione */}
-          </NavigationMenuList>
-        </NavigationMenu>
-        <div className="flex items-center gap-2">
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : isAuthenticated ? (
+        <div className="hidden lg:flex">
+          <NavigationMenu>
+            <NavigationMenuList>
+              {navLinks.map((link) => (
+                <NavigationMenuItem key={link.href}>
+                  <Link href={link.href} legacyBehavior passHref>
+                    <NavigationMenuLink
+                      className={navigationMenuTriggerStyle()}
+                      active={pathname.startsWith(link.href)}
+                    >
+                      {link.label}
+                    </NavigationMenuLink>
+                  </Link>
+                </NavigationMenuItem>
+              ))}
+            </NavigationMenuList>
+          </NavigationMenu>
+        </div>
+        <div className="flex items-center space-x-2">
+          {user ? (
             <>
-              <Button variant="ghost" onClick={() => router.push(getDashboardLink())}>
-                Dashboard
+              <Button variant="ghost" size="icon" asChild>
+                <Link href={getDashboardUrl()}>
+                  <LayoutDashboard className="h-5 w-5" />
+                  <span className="sr-only">Dashboard</span>
+                </Link>
               </Button>
-              <Button onClick={handleLogout}>Logout</Button>
+              <Button variant="ghost" size="icon" onClick={logout}>
+                <LogOut className="h-5 w-5" />
+                <span className="sr-only">Logout</span>
+              </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" asChild>
+              <Button variant="outline" asChild>
                 <Link href="/login">Accedi</Link>
               </Button>
               <Button asChild>

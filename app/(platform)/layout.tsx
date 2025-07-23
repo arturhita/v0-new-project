@@ -1,8 +1,8 @@
 import type React from "react"
 import SiteNavbar from "@/components/site-navbar"
-import SiteFooter from "@/components/site-footer" // Corretto: importazione di default
+import SiteFooter from "@/components/site-footer"
 import { AuthProvider } from "@/contexts/auth-context"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "sonner" // Corretto: importazione dalla libreria 'sonner'
 import { ChatRequestProvider } from "@/contexts/chat-request-context"
 import { OperatorStatusProvider } from "@/contexts/operator-status-context"
 

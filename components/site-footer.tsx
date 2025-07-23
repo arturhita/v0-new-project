@@ -4,121 +4,94 @@ import { Facebook, Twitter, Instagram } from "lucide-react"
 
 export default function SiteFooter() {
   return (
-    <footer className="bg-[#102A75] text-gray-300">
-      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="xl:grid xl:grid-cols-3 xl:gap-8">
-          <div className="space-y-8 xl:col-span-1">
-            <Image
-              src="/images/moonthir-logo-white.png"
-              alt="Moonthir Logo"
-              width={160}
-              height={45}
-              className="object-contain"
-            />
-            <p className="text-gray-400 text-sm">
-              La tua guida personale nel mondo dell'astrologia e della cartomanzia.
-            </p>
-            <div className="flex space-x-6">
-              <a href="#" className="text-gray-400 hover:text-white">
-                <span className="sr-only">Facebook</span>
-                <Facebook className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white">
-                <span className="sr-only">Instagram</span>
-                <Instagram className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white">
-                <span className="sr-only">Twitter</span>
-                <Twitter className="h-6 w-6" />
-              </a>
+    <footer className="border-t border-slate-800 bg-slate-900">
+      <div className="container mx-auto max-w-7xl px-4 py-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
+          <div className="space-y-4">
+            <Link href="/">
+              <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={150} height={50} />
+            </Link>
+            <p className="text-sm text-slate-400">La tua guida nel mondo della cartomanzia e astrologia.</p>
+            <div className="flex space-x-4">
+              <Link href="#" className="text-slate-400 hover:text-white">
+                <Facebook className="h-5 w-5" />
+              </Link>
+              <Link href="#" className="text-slate-400 hover:text-white">
+                <Twitter className="h-5 w-5" />
+              </Link>
+              <Link href="#" className="text-slate-400 hover:text-white">
+                <Instagram className="h-5 w-5" />
+              </Link>
             </div>
           </div>
-          <div className="mt-12 grid grid-cols-2 gap-8 xl:mt-0 xl:col-span-2">
-            <div className="md:grid md:grid-cols-2 md:gap-8">
-              <div>
-                <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Servizi</h3>
-                <ul className="mt-4 space-y-4">
-                  <li>
-                    <Link href="/tarocchi-online" className="text-base text-gray-400 hover:text-white">
-                      Tarocchi
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/oroscopo" className="text-base text-gray-400 hover:text-white">
-                      Oroscopo
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/esperti/cartomanti" className="text-base text-gray-400 hover:text-white">
-                      Esperti
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-              <div className="mt-12 md:mt-0">
-                <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Supporto</h3>
-                <ul className="mt-4 space-y-4">
-                  <li>
-                    <a href="mailto:infomoonthir@gmail.com" className="text-base text-gray-400 hover:text-white">
-                      Contattaci
-                    </a>
-                  </li>
-                  <li>
-                    <Link href="/faq" className="text-base text-gray-400 hover:text-white">
-                      FAQ
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
-            <div className="md:grid md:grid-cols-2 md:gap-8">
-              <div>
-                <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Azienda</h3>
-                <ul className="mt-4 space-y-4">
-                  <li>
-                    <Link href="#" className="text-base text-gray-400 hover:text-white">
-                      Chi Siamo
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/astromag" className="text-base text-gray-400 hover:text-white">
-                      AstroMag
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/diventa-esperto" className="text-base text-gray-400 hover:text-white">
-                      Lavora con noi
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-              <div className="mt-12 md:mt-0">
-                <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Legale</h3>
-                <ul className="mt-4 space-y-4">
-                  <li>
-                    <Link href="/legal/privacy-policy" className="text-base text-gray-400 hover:text-white">
-                      Privacy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/legal/terms-and-conditions" className="text-base text-gray-400 hover:text-white">
-                      Termini e Condizioni
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/legal/cookie-policy" className="text-base text-gray-400 hover:text-white">
-                      Cookie
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
+          <div>
+            <h3 className="font-semibold text-white">Servizi</h3>
+            <ul className="mt-4 space-y-2 text-sm">
+              <li>
+                <Link href="/esperti/cartomanzia" className="text-slate-400 hover:text-white">
+                  Esperti
+                </Link>
+              </li>
+              <li>
+                <Link href="/tarocchi-online" className="text-slate-400 hover:text-white">
+                  Tarocchi Online
+                </Link>
+              </li>
+              <li>
+                <Link href="/oroscopo" className="text-slate-400 hover:text-white">
+                  Oroscopo
+                </Link>
+              </li>
+              <li>
+                <Link href="/affinita-di-coppia" className="text-slate-400 hover:text-white">
+                  Affinità di Coppia
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">Informazioni</h3>
+            <ul className="mt-4 space-y-2 text-sm">
+              <li>
+                <Link href="/faq" className="text-slate-400 hover:text-white">
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link href="/diventa-esperto" className="text-slate-400 hover:text-white">
+                  Lavora con noi
+                </Link>
+              </li>
+              <li>
+                <Link href="/astromag" className="text-slate-400 hover:text-white">
+                  Astromag
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">Legale</h3>
+            <ul className="mt-4 space-y-2 text-sm">
+              <li>
+                <Link href="/legal/terms-and-conditions" className="text-slate-400 hover:text-white">
+                  Termini e Condizioni
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/privacy-policy" className="text-slate-400 hover:text-white">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/cookie-policy" className="text-slate-400 hover:text-white">
+                  Cookie Policy
+                </Link>
+              </li>
+            </ul>
           </div>
         </div>
-        <div className="mt-12 border-t border-blue-800 pt-8">
-          <p className="text-base text-gray-400 xl:text-center">
-            &copy; {new Date().getFullYear()} Moonthir. Tutti i diritti riservati.
-          </p>
+        <div className="mt-8 border-t border-slate-800 pt-8 text-center text-sm text-slate-500">
+          <p>&copy; {new Date().getFullYear()} Moonthir. Tutti i diritti riservati.</p>
         </div>
       </div>
     </footer>
