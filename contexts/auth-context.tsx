@@ -3,7 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
+import type { User, Session } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 
 interface Profile {
@@ -11,7 +11,11 @@ interface Profile {
   full_name: string | null
   avatar_url: string | null
   role: "client" | "operator" | "admin"
-  services: any
+  services: {
+    chat: { enabled: boolean; price_per_minute: number }
+    call: { enabled: boolean; price_per_minute: number }
+    video: { enabled: boolean; price_per_minute: number }
+  }
   [key: string]: any
 }
 
@@ -32,95 +36,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // Start true until initial check is done
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
   }, [supabase.auth])
 
-  // Effect 1: Listen for auth state changes from Supabase.
   useEffect(() => {
+    const manageSession = async (session: Session | null) => {
+      if (session?.user) {
+        // Hard clone the user object immediately to get a clean POJO
+        const cleanUser = JSON.parse(JSON.stringify(session.user)) as User
+        setUser(cleanUser)
+
+        // Fetch profile based on the user ID
+        const { data: rawProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+
+        if (error) {
+          console.error("Error fetching profile:", error.message)
+          setProfile(null)
+        } else if (rawProfile) {
+          // Hard clone the profile object immediately
+          const cleanProfile = JSON.parse(JSON.stringify(rawProfile)) as Profile
+
+          // Defensive check for services object
+          if (!cleanProfile.services) {
+            cleanProfile.services = {
+              chat: { enabled: false, price_per_minute: 0 },
+              call: { enabled: false, price_per_minute: 0 },
+              video: { enabled: false, price_per_minute: 0 },
+            }
+          }
+          setProfile(cleanProfile)
+        } else {
+          setProfile(null)
+        }
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+      // Mark loading as false only after all async operations are complete
+      setIsLoading(false)
+    }
+
+    // 1. Check for an initial session on component mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      manageSession(session)
+    })
+
+    // 2. Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        // Hard clone the user object to create a clean POJO
-        const cleanUser = JSON.parse(JSON.stringify(session.user))
-        setUser(cleanUser)
-      } else {
-        setUser(null)
-      }
-
-      if (_event === "SIGNED_OUT") {
-        setProfile(null)
-        router.replace("/login")
-      }
+      // When auth state changes, re-run the whole session management logic
+      setIsLoading(true)
+      manageSession(session)
     })
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth, router])
-
-  // Effect 2: Fetch the user's profile when the user object changes.
-  useEffect(() => {
-    if (user) {
-      setIsLoading(true)
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single()
-        .then(({ data: rawProfile, error }) => {
-          if (error) {
-            console.error("Error fetching profile:", error.message)
-            setProfile(null)
-          } else if (rawProfile) {
-            // DEFINITIVE FIX:
-            // 1. Hard clone the profile to get a clean POJO, stripping Supabase proxies.
-            const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
-
-            // 2. Defensive check: If services is null/undefined (due to old data),
-            //    initialize it to prevent downstream errors.
-            if (!cleanProfile.services) {
-              cleanProfile.services = {
-                chat: { enabled: false, price_per_minute: 0 },
-                call: { enabled: false, price_per_minute: 0 },
-                video: { enabled: false, price_per_minute: 0 },
-              }
-            }
-            setProfile(cleanProfile)
-          } else {
-            setProfile(null)
-          }
-          setIsLoading(false)
-        })
-    } else {
-      setProfile(null)
-      setIsLoading(false)
+    return () => {
+      subscription.unsubscribe()
     }
-  }, [user, supabase])
+  }, [supabase]) // Dependency array is minimal and stable
 
-  // Effect 3: Protect routes
+  // Separate effect for handling redirection logic
   useEffect(() => {
     if (isLoading) {
-      return
+      return // Don't do anything while session is being checked
     }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+    const isAuthenticated = !!user
 
-    // If not authenticated and on a protected page, redirect to login
-    if (!user && isProtectedPage) {
-      router.replace("/login")
-      return
+    // If user is on an auth page but is authenticated, redirect to dashboard
+    if (isAuthenticated && isAuthPage) {
+      let destination = "/"
+      if (profile?.role === "admin") destination = "/admin"
+      else if (profile?.role === "operator") destination = "/dashboard/operator"
+      else if (profile?.role === "client") destination = "/dashboard/client"
+      router.replace(destination)
     }
 
-    // If authenticated and on an auth page, redirect to the correct dashboard
-    if (user && profile && isAuthPage) {
-      let destination = "/"
-      if (profile.role === "admin") destination = "/admin"
-      else if (profile.role === "operator") destination = "/dashboard/operator"
-      else if (profile.role === "client") destination = "/dashboard/client"
-      router.replace(destination)
+    // If user is on a protected page but is not authenticated, redirect to login
+    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+    if (!isAuthenticated && isProtectedPage) {
+      router.replace("/login")
     }
   }, [user, profile, isLoading, pathname, router])
 
