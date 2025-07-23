@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { start_live_consultation } from "./consultation_billing.actions"
+import { createLiveConsultation } from "./consultation_billing.actions"
 
 export async function sendMessage(consultationId: string, content: string) {
   const supabase = createClient()
@@ -47,7 +47,7 @@ export async function getConsultationDetailsAndMessages(consultationId: string) 
       `
       *,
       client:client_id (id, full_name, avatar_url),
-      operator:operator_id (id, full_name, avatar_url)
+      operator:operator_id (id, full_name, avatar_url, rate_per_minute)
     `,
     )
     .eq("id", consultationId)
@@ -79,7 +79,6 @@ export async function getConsultationDetailsAndMessages(consultationId: string) 
 export async function respondToChatRequest(requestId: string, accepted: boolean) {
   const supabase = createAdminClient()
 
-  // Step 1: Fetch the request to get client and operator IDs
   const { data: request, error: requestError } = await supabase
     .from("chat_requests")
     .select("*")
@@ -95,7 +94,6 @@ export async function respondToChatRequest(requestId: string, accepted: boolean)
     return { error: "Questa richiesta è già stata gestita." }
   }
 
-  // Step 2: Update the request status
   const { error: updateError } = await supabase
     .from("chat_requests")
     .update({ status: accepted ? "accepted" : "rejected" })
@@ -111,12 +109,10 @@ export async function respondToChatRequest(requestId: string, accepted: boolean)
     return { success: true, accepted: false }
   }
 
-  // Step 3: If accepted, start a new live consultation
   try {
-    const consultationResult = await start_live_consultation(request.client_id, request.operator_id, "chat")
+    const consultationResult = await createLiveConsultation(request.client_id, request.operator_id, "chat")
 
-    if (consultationResult.error) {
-      // Rollback status update if consultation start fails
+    if (consultationResult.error || !consultationResult.consultationId) {
       await supabase.from("chat_requests").update({ status: "pending" }).eq("id", requestId)
       return { error: `Impossibile avviare il consulto: ${consultationResult.error}` }
     }
@@ -128,7 +124,6 @@ export async function respondToChatRequest(requestId: string, accepted: boolean)
       consultationId: consultationResult.consultationId,
     }
   } catch (e: any) {
-    // Rollback status update if any exception occurs
     await supabase.from("chat_requests").update({ status: "pending" }).eq("id", requestId)
     return { error: `Errore critico nell'avvio del consulto: ${e.message}` }
   }

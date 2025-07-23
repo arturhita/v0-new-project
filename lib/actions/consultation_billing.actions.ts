@@ -1,5 +1,6 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -25,6 +26,33 @@ export async function requestConsultation(operatorId: string, serviceType: "chat
   }
 
   return { success: true, consultationId: data }
+}
+
+export async function createLiveConsultation(
+  clientId: string,
+  operatorId: string,
+  serviceType: "chat" | "call",
+): Promise<{ success: boolean; error?: string; consultationId?: string }> {
+  const supabase = createAdminClient()
+
+  const { data, error } = await supabase
+    .from("live_consultations")
+    .insert({
+      client_id: clientId,
+      operator_id: operatorId,
+      service_type: serviceType,
+      status: "active",
+      start_time: new Date().toISOString(),
+    })
+    .select("id")
+    .single()
+
+  if (error) {
+    console.error("Error creating live consultation:", error)
+    return { success: false, error: "Impossibile creare la sessione di consulenza." }
+  }
+
+  return { success: true, consultationId: data.id }
 }
 
 export async function endConsultation(
