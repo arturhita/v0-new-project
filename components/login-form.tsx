@@ -13,7 +13,7 @@ function SubmitButton() {
   return (
     <Button
       type="submit"
-      className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold"
+      className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold transition-colors"
       disabled={pending}
     >
       {pending ? "Accesso in corso..." : "Accedi"}
@@ -36,7 +36,7 @@ export function LoginForm() {
           type="email"
           placeholder="tu@esempio.com"
           required
-          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-500 focus:ring-yellow-500"
         />
       </div>
       <div className="space-y-2">
@@ -48,7 +48,7 @@ export function LoginForm() {
           name="password"
           type="password"
           required
-          className="bg-gray-800 border-gray-700 text-white"
+          className="bg-gray-800 border-gray-700 text-white focus:border-yellow-500 focus:ring-yellow-500"
         />
       </div>
       {state?.error && <p className="text-sm text-red-400 text-center">{state.error}</p>}

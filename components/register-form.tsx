@@ -6,15 +6,15 @@ import { register } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
 import { Checkbox } from "@/components/ui/checkbox"
+import Link from "next/link"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
     <Button
       type="submit"
-      className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold"
+      className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold transition-colors"
       disabled={pending}
     >
       {pending ? "Creazione account..." : "Registrati"}
@@ -37,7 +37,7 @@ export function RegisterForm() {
           type="text"
           placeholder="Mario Rossi"
           required
-          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-500 focus:ring-yellow-500"
         />
       </div>
       <div className="space-y-2">
@@ -50,7 +50,7 @@ export function RegisterForm() {
           type="email"
           placeholder="tu@esempio.com"
           required
-          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-500 focus:ring-yellow-500"
         />
       </div>
       <div className="space-y-2">
@@ -62,7 +62,7 @@ export function RegisterForm() {
           name="password"
           type="password"
           required
-          className="bg-gray-800 border-gray-700 text-white"
+          className="bg-gray-800 border-gray-700 text-white focus:border-yellow-500 focus:ring-yellow-500"
         />
       </div>
       <div className="space-y-2">
@@ -74,14 +74,18 @@ export function RegisterForm() {
           name="confirmPassword"
           type="password"
           required
-          className="bg-gray-800 border-gray-700 text-white"
+          className="bg-gray-800 border-gray-700 text-white focus:border-yellow-500 focus:ring-yellow-500"
         />
       </div>
       <div className="flex items-center space-x-2">
-        <Checkbox id="terms" name="terms" className="border-gray-700" />
+        <Checkbox
+          id="terms"
+          name="terms"
+          className="border-gray-600 data-[state=checked]:bg-yellow-500 data-[state=checked]:text-gray-900"
+        />
         <label htmlFor="terms" className="text-sm text-gray-400">
           Accetto i{" "}
-          <Link href="/legal/terms-and-conditions" className="underline text-yellow-400">
+          <Link href="/legal/terms-and-conditions" className="underline hover:text-yellow-400">
             Termini di Servizio
           </Link>
         </label>

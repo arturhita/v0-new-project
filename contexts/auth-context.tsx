@@ -45,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const manageSession = async (session: Session | null) => {
-      setIsLoading(true)
       if (session?.user) {
         // Hard clone the user object immediately to get a clean POJO
         const cleanUser = JSON.parse(JSON.stringify(session.user)) as User
@@ -65,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Hard clone the profile object immediately
           const cleanProfile = JSON.parse(JSON.stringify(rawProfile)) as Profile
 
-          // Defensive check for services object
-          if (!cleanProfile.services) {
+          // Defensive check for services object. This is critical.
+          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
             cleanProfile.services = {
               chat: { enabled: false, price_per_minute: 0 },
               call: { enabled: false, price_per_minute: 0 },
@@ -109,6 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+
+    // If not authenticated and on a protected page, redirect to login
     if (!user && isProtectedPage) {
       router.replace("/login")
     }
