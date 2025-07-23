@@ -58,8 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 2. Fetch profile when user state changes
   useEffect(() => {
-    if (user) {
+    // Set loading to true only when we start fetching a profile for a new user
+    if (user && !profile) {
       setIsLoading(true)
+    }
+
+    if (user) {
       supabase
         .from("profiles")
         .select("*")

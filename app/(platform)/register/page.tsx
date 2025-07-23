@@ -13,10 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-// Modificato: Importazione nominativa
 import { ConstellationBackground } from "@/components/constellation-background"
-import { useAuth } from "@/contexts/auth-context"
-import LoadingSpinner from "@/components/loading-spinner"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -30,7 +27,6 @@ function SubmitButton() {
 export default function RegisterPage() {
   const [state, formAction] = useActionState(register, undefined)
   const router = useRouter()
-  const { isLoading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
@@ -44,13 +40,10 @@ export default function RegisterPage() {
     }
   }, [state, router])
 
-  if (isLoading) {
-    return <LoadingSpinner fullScreen />
-  }
+  // The isLoading check and LoadingSpinner have been removed.
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 bg-slate-900 text-white">
-      {/* Modificato: Aggiunta prop 'goldVisible' */}
       <ConstellationBackground goldVisible={true} />
       <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-yellow-500/20 bg-gray-950/50 p-8 shadow-2xl shadow-yellow-500/10 backdrop-blur-sm">
         <div className="text-center">
@@ -108,7 +101,7 @@ export default function RegisterPage() {
                 type={showPassword ? "text" : "password"}
                 required
                 placeholder="••••••••"
-                className="bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+                className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
               />
               <button
                 type="button"
@@ -131,7 +124,7 @@ export default function RegisterPage() {
                 type={showConfirmPassword ? "text" : "password"}
                 required
                 placeholder="••••••••"
-                className="bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+                className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
               />
               <button
                 type="button"
