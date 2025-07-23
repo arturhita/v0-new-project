@@ -48,8 +48,8 @@ export async function login(prevState: any, formData: FormData) {
     return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
-  // Su successo, reindirizza sempre alla rotta di callback.
-  // Sarà questa rotta a gestire il reindirizzamento finale.
+  // On success, always redirect to the callback route.
+  // This route will handle the final redirection.
   redirect("/auth/callback")
 }
 
@@ -77,7 +77,7 @@ export async function register(prevState: any, formData: FormData) {
       data: {
         full_name: fullName,
       },
-      // Specifica un URL di reindirizzamento dopo la conferma dell'email
+      // Specify a redirect URL after email confirmation
       emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })

@@ -11,6 +11,7 @@ interface Profile {
   full_name: string | null
   avatar_url: string | null
   role: "client" | "operator" | "admin"
+  services: any
   [key: string]: any
 }
 
@@ -67,7 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else {
-            setProfile(rawProfile)
+            // As per your suggestion, clone the profile object.
+            // This provides a 'clean' mutable object to the rest of the app,
+            // preventing the "only a getter" error.
+            setProfile(rawProfile ? structuredClone(rawProfile) : null)
           }
           setIsLoading(false)
         })
