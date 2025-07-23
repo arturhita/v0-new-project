@@ -1,138 +1,94 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
-import type { User, Session } from "@supabase/supabase-js"
-import { usePathname, useRouter } from "next/navigation"
-import { LoadingSpinner } from "@/components/loading-spinner"
-
-// Define a clean, plain Profile type
-export interface Profile {
-  id: string
-  full_name: string | null
-  avatar_url: string | null
-  role: "client" | "operator" | "admin"
-  services: {
-    chat: { enabled: boolean; price_per_minute: number }
-    call: { enabled: boolean; price_per_minute: number }
-    video: { enabled: boolean; price_per_minute: number }
-  }
-  [key: string]: any
-}
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type { Session } from "@supabase/supabase-js"
+import { supabase } from "../utils/supabaseClient"
 
 type AuthContextType = {
-  user: User | null
-  profile: Profile | null
-  isAuthenticated: boolean
+  session: Session | null
+  profile: any | null // Replace 'any' with your profile type
   isLoading: boolean
-  logout: () => Promise<void>
+  signIn: (email: string) => Promise<void>
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// This is the single source of truth for auth data.
-// It aggressively sanitizes data from Supabase to prevent read-only errors.
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const router = useRouter()
-  const pathname = usePathname()
+type AuthProviderProps = {
+  children: ReactNode
+}
 
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [session, setSession] = useState<Session | null>(null)
+  const [profile, setProfile] = useState<any | null>(null) // Replace 'any' with your profile type
   const [isLoading, setIsLoading] = useState(true)
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-    // No need to push, onAuthStateChange will handle the redirect logic
-  }, [supabase.auth])
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+  }, [])
 
   useEffect(() => {
-    const manageSession = async (session: Session | null) => {
-      setIsLoading(true)
-      if (session?.user) {
-        const { data: rawProfile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-
-        // THE DEFINITIVE FIX: Aggressively sanitize all data from Supabase
-        // by creating deep clones. This creates plain, mutable JavaScript objects.
-        const cleanUser = JSON.parse(JSON.stringify(session.user))
-        setUser(cleanUser)
-
-        if (error) {
-          console.error("Auth Provider: Error fetching profile:", error.message)
-          setProfile(null)
-        } else if (rawProfile) {
-          const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
-
-          // Defensive check for services object integrity
-          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-            cleanProfile.services = {
-              chat: { enabled: false, price_per_minute: 0 },
-              call: { enabled: false, price_per_minute: 0 },
-              video: { enabled: false, price_per_minute: 0 },
-            }
-          }
-          setProfile(cleanProfile as Profile)
-        } else {
-          setProfile(null)
-        }
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
+    if (session?.user?.id) {
+      fetchProfile(session.user.id)
+    } else {
+      setProfile(null)
       setIsLoading(false)
     }
+  }, [session])
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      manageSession(session)
-    })
+  const fetchProfile = async (userId: string) => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
-    // Check session on initial load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      manageSession(session)
-    })
-
-    return () => {
-      subscription.unsubscribe()
+      if (error) {
+        // This might happen if the profile is not created yet, which is not a critical error
+        console.warn("Could not fetch profile:", error.message)
+        setProfile(null)
+      } else {
+        setProfile(data)
+      }
+    } catch (error: any) {
+      console.error("Unexpected error fetching profile:", error.message)
+      setProfile(null)
+    } finally {
+      setIsLoading(false) // This ensures loading is always turned off
     }
-  }, [supabase])
+  }
 
-  // Centralized redirection logic
-  useEffect(() => {
-    if (isLoading) return
-
-    const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
-
-    if (!user && isProtectedPage) {
-      router.replace("/login")
+  const signIn = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email })
+      if (error) throw error
+      alert("Check your email for the login link!")
+    } catch (error: any) {
+      alert(error.error_description || error.message)
     }
+  }
 
-    if (user && isAuthPage) {
-      let destination = "/dashboard/client"
-      if (profile?.role === "admin") destination = "/admin"
-      if (profile?.role === "operator") destination = "/dashboard/operator"
-      router.replace(destination)
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut()
+    } catch (error: any) {
+      console.error("Error signing out:", error.message)
     }
-  }, [user, profile, isLoading, pathname, router])
+  }
 
-  return (
-    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
-      {isLoading ? (
-        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
-          <LoadingSpinner />
-        </div>
-      ) : (
-        children
-      )}
-    </AuthContext.Provider>
-  )
+  const value: AuthContextType = {
+    session,
+    profile,
+    isLoading,
+    signIn,
+    signOut,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {
