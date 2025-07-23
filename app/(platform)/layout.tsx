@@ -1,6 +1,10 @@
 import type React from "react"
-import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
+import SiteNavbar from "@/components/site-navbar"
+import SiteFooter from "@/components/site-footer" // Corretto: importazione di default
+import { AuthProvider } from "@/contexts/auth-context"
+import { Toaster } from "@/components/ui/sonner"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
 
 export default function PlatformLayout({
   children,
@@ -8,10 +12,17 @@ export default function PlatformLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col min-h-screen">
-      <SiteNavbar />
-      <main className="flex-grow">{children}</main>
-      <SiteFooter />
-    </div>
+    <AuthProvider>
+      <ChatRequestProvider>
+        <OperatorStatusProvider>
+          <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+            <SiteNavbar />
+            <main className="flex-grow">{children}</main>
+            <SiteFooter />
+          </div>
+          <Toaster richColors position="top-right" />
+        </OperatorStatusProvider>
+      </ChatRequestProvider>
+    </AuthProvider>
   )
 }
