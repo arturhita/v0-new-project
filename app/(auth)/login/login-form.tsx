@@ -6,7 +6,8 @@ import type { z } from "zod"
 import { useTransition } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+// Rimuoviamo useRouter perché non ci serve più per il reindirizzamento
+// import { useRouter } from "next/navigation"
 
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
@@ -16,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function LoginForm() {
-  const router = useRouter()
+  // const router = useRouter() // Non più necessario
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -31,10 +32,14 @@ export function LoginForm() {
         toast.error(result.error)
         form.reset()
       } else if (result?.success) {
-        toast.success("Accesso effettuato con successo!")
-        // This will trigger the middleware to re-evaluate the user's session
-        // and perform the correct redirect.
-        router.refresh()
+        toast.success("Accesso effettuato con successo! Reindirizzamento...")
+
+        // SOLUZIONE DEFINITIVA:
+        // Eseguiamo un ricaricamento completo della pagina verso la homepage.
+        // Questo elimina ogni race condition con i cookie.
+        // Il middleware intercetterà questa navigazione e reindirizzerà
+        // l'utente loggato alla sua dashboard corretta.
+        window.location.assign("/")
       }
     })
   }

@@ -13,6 +13,7 @@ export async function login(values: z.infer<typeof loginSchema>) {
     return { error: "Credenziali non valide. Riprova." }
   }
 
+  // L'azione restituisce solo l'esito. Nient'altro.
   return { success: true }
 }
 
