@@ -23,8 +23,6 @@ export async function login(values: z.infer<typeof loginSchema>) {
     else if (role === "operator") redirectTo = "/dashboard/operator"
     else if (role === "client") redirectTo = "/dashboard/client"
 
-    // Questo reindirizzamento lato server è corretto.
-    // La pagina di destinazione verrà renderizzata con la nuova sessione.
     redirect(redirectTo)
   }
 
@@ -81,7 +79,5 @@ export async function updatePassword(values: z.infer<typeof updatePasswordSchema
 export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
-  // Il reindirizzamento ora è gestito dal listener in AuthProvider,
-  // ma lo manteniamo qui come fallback per le chiamate dirette.
   redirect("/login")
 }

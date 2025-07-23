@@ -14,7 +14,7 @@ export default async function RegisterPage() {
   }
 
   return (
-    <div className="w-full flex-grow flex items-center justify-center p-4 bg-slate-900">
+    <div className="w-full flex-grow flex items-center justify-center p-4">
       <div className="relative w-full max-w-md">
         <GoldenConstellationBackground />
         <div className="relative z-10">
