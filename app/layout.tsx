@@ -1,13 +1,12 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SiteNavbar } from "@/components/site-navbar"
 import SiteFooter from "@/components/site-footer"
 import { CookieBanner } from "@/components/cookie-banner"
-import LoadingSpinner from "@/components/loading-spinner"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -41,16 +40,15 @@ export default async function RootLayout({
 
   return (
     <html lang="it">
-      <body className={`${inter.className} bg-slate-50 text-slate-900`}>
+      <body className={`${inter.className} bg-gray-900 text-gray-200`}>
         <AuthProvider user={user} profile={profile}>
           <div className="flex flex-col min-h-screen">
             <SiteNavbar />
-            <main className="flex-grow flex flex-col pt-16">
-              <Suspense fallback={<LoadingSpinner fullScreen />}>{children}</Suspense>
-            </main>
+            <main className="flex-grow flex flex-col pt-16">{children}</main>
             <SiteFooter />
           </div>
           <CookieBanner />
+          <Toaster richColors position="top-center" />
         </AuthProvider>
       </body>
     </html>
