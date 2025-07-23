@@ -1,248 +1,174 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useAuth } from "@/contexts/auth-context"
+import { updateOperatorServices } from "@/lib/actions/operator.actions"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { MessageSquare, Phone, Video, Save, Loader2, AlertCircle } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
-import { getOperatorServices, saveOperatorServices } from "@/lib/actions/services.actions"
+import { useFormState, useFormStatus } from "react-dom"
+import { toast } from "sonner"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
-// Define the type for a single service
-interface Service {
-  enabled: boolean
-  price_per_minute: number
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+      {pending ? <LoadingSpinner size={20} /> : "Salva Modifiche"}
+    </Button>
+  )
 }
 
-// Define the type for all services
-interface ServicesState {
-  chat: Service
-  call: Service
-  video: Service
-}
+export default function ServicesPage() {
+  const { profile, isLoading: isAuthLoading } = useAuth()
+  const [services, setServices] = useState(profile?.services)
 
-const initialServicesState: ServicesState = {
-  chat: { enabled: false, price_per_minute: 0 },
-  call: { enabled: false, price_per_minute: 0 },
-  video: { enabled: false, price_per_minute: 0 },
-}
-
-export default function OperatorServicesPage() {
-  const [services, setServices] = useState<ServicesState>(initialServicesState)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [state, formAction] = useFormState(updateOperatorServices, null)
 
   useEffect(() => {
-    const loadServices = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const result = await getOperatorServices()
-        if (result.success && result.data) {
-          // THE FIX: Deep clone the object from Supabase before setting it in state.
-          // This creates a plain JavaScript object, removing any read-only getters.
-          const cleanData = JSON.parse(JSON.stringify(result.data))
-          setServices(cleanData)
-        } else {
-          throw new Error(result.message || "Impossibile caricare i servizi.")
-        }
-      } catch (e: any) {
-        console.error("Failed to load services:", e)
-        setError("Non è stato possibile caricare le impostazioni dei servizi. Riprova più tardi.")
-        toast({
-          title: "Errore di Caricamento",
-          description: e.message,
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+    if (profile) {
+      // Sync local state with the sanitized profile from context
+      setServices(profile.services)
     }
-    loadServices()
-  }, [])
+  }, [profile])
 
-  const handleToggle = (service: keyof ServicesState) => {
-    setServices((prev) => ({
-      ...prev,
-      [service]: {
-        ...prev[service],
-        enabled: !prev[service].enabled,
-      },
-    }))
-  }
+  useEffect(() => {
+    if (state?.success) {
+      toast.success("Servizi aggiornati con successo!")
+    }
+    if (state?.error) {
+      toast.error(state.error)
+    }
+  }, [state])
 
-  const handlePriceChange = (service: keyof ServicesState, value: string) => {
-    const price = Number.parseFloat(value)
-    if (!isNaN(price)) {
-      setServices((prev) => ({
+  const handleServiceToggle = (service: "chat" | "call" | "video") => {
+    setServices((prev) => {
+      if (!prev) return prev
+      return {
         ...prev,
-        [service]: {
-          ...prev[service],
-          price_per_minute: price,
-        },
-      }))
-    }
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const result = await saveOperatorServices(services)
-      if (result.success) {
-        toast({
-          title: "Servizi Aggiornati",
-          description: "Le tue impostazioni sono state salvate con successo.",
-          className: "bg-green-100 border-green-300 text-green-700",
-        })
-      } else {
-        throw new Error(result.message || "Errore durante il salvataggio.")
+        [service]: { ...prev[service], enabled: !prev[service].enabled },
       }
-    } catch (e: any) {
-      console.error("Failed to save services:", e)
-      toast({
-        title: "Errore nel Salvataggio",
-        description: e.message,
-        variant: "destructive",
-      })
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-      </div>
-    )
+  const handlePriceChange = (service: "chat" | "call" | "video", value: string) => {
+    const price = Number.parseFloat(value)
+    setServices((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        [service]: { ...prev[service], price_per_minute: isNaN(price) ? 0 : price },
+      }
+    })
   }
 
-  if (error) {
+  if (isAuthLoading || !services) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] bg-red-50 border border-red-200 rounded-lg p-6">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold text-red-700">Oops! Qualcosa è andato storto.</h2>
-        <p className="text-red-600 mt-2 text-center">{error}</p>
+      <div className="flex h-full w-full items-center justify-center">
+        <LoadingSpinner size={48} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Servizi</h1>
-          <p className="text-slate-500 mt-1">Attiva o disattiva i servizi che offri e imposta le tariffe al minuto.</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Salvataggio...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Salva Modifiche
-            </>
-          )}
-        </Button>
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Gestione Servizi</CardTitle>
+        <CardDescription>Attiva o disattiva i servizi che offri e imposta le tue tariffe al minuto.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={formAction} className="space-y-8">
+          {/* Hidden input to pass the full services object to the server action */}
+          <input type="hidden" name="services" value={JSON.stringify(services)} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configurazione Servizi di Consulenza</CardTitle>
-          <CardDescription>Le modifiche saranno visibili immediatamente sul tuo profilo pubblico.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
           {/* Chat Service */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="flex items-center gap-4">
-              <MessageSquare className="h-6 w-6 text-sky-600" />
-              <div>
-                <Label htmlFor="chat-switch" className="text-base font-medium">
-                  Consulenza via Chat
-                </Label>
-                <p className="text-sm text-slate-500">Servizio di messaggistica testuale in tempo reale.</p>
-              </div>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center">
+            <div className="flex flex-1 items-center justify-between sm:justify-start sm:gap-4">
+              <Label htmlFor="chat-enabled" className="text-lg font-medium">
+                Chat
+              </Label>
+              <Switch
+                id="chat-enabled"
+                checked={services.chat.enabled}
+                onCheckedChange={() => handleServiceToggle("chat")}
+              />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.10"
-                  min="0"
-                  value={services.chat.price_per_minute}
-                  onChange={(e) => handlePriceChange("chat", e.target.value)}
-                  className="w-28 pr-8"
-                  disabled={!services.chat.enabled}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">€/min</span>
-              </div>
-              <Switch id="chat-switch" checked={services.chat.enabled} onCheckedChange={() => handleToggle("chat")} />
+            <div className="flex items-center gap-2">
+              <Label htmlFor="chat-price">Tariffa (€/min)</Label>
+              <Input
+                id="chat-price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={services.chat.price_per_minute}
+                onChange={(e) => handlePriceChange("chat", e.target.value)}
+                className="w-28"
+                disabled={!services.chat.enabled}
+              />
             </div>
           </div>
 
           {/* Call Service */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="flex items-center gap-4">
-              <Phone className="h-6 w-6 text-green-600" />
-              <div>
-                <Label htmlFor="call-switch" className="text-base font-medium">
-                  Consulenza Telefonica
-                </Label>
-                <p className="text-sm text-slate-500">Chiamate vocali dirette con i clienti.</p>
-              </div>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center">
+            <div className="flex flex-1 items-center justify-between sm:justify-start sm:gap-4">
+              <Label htmlFor="call-enabled" className="text-lg font-medium">
+                Chiamata Audio
+              </Label>
+              <Switch
+                id="call-enabled"
+                checked={services.call.enabled}
+                onCheckedChange={() => handleServiceToggle("call")}
+              />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.10"
-                  min="0"
-                  value={services.call.price_per_minute}
-                  onChange={(e) => handlePriceChange("call", e.target.value)}
-                  className="w-28 pr-8"
-                  disabled={!services.call.enabled}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">€/min</span>
-              </div>
-              <Switch id="call-switch" checked={services.call.enabled} onCheckedChange={() => handleToggle("call")} />
+            <div className="flex items-center gap-2">
+              <Label htmlFor="call-price">Tariffa (€/min)</Label>
+              <Input
+                id="call-price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={services.call.price_per_minute}
+                onChange={(e) => handlePriceChange("call", e.target.value)}
+                className="w-28"
+                disabled={!services.call.enabled}
+              />
             </div>
           </div>
 
           {/* Video Service */}
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="flex items-center gap-4">
-              <Video className="h-6 w-6 text-purple-600" />
-              <div>
-                <Label htmlFor="video-switch" className="text-base font-medium">
-                  Consulenza Video (Prossimamente)
-                </Label>
-                <p className="text-sm text-slate-500">Videochiamate per un'esperienza più immersiva.</p>
-              </div>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center">
+            <div className="flex flex-1 items-center justify-between sm:justify-start sm:gap-4">
+              <Label htmlFor="video-enabled" className="text-lg font-medium">
+                Chiamata Video
+              </Label>
+              <Switch
+                id="video-enabled"
+                checked={services.video.enabled}
+                onCheckedChange={() => handleServiceToggle("video")}
+              />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.10"
-                  min="0"
-                  value={services.video.price_per_minute}
-                  onChange={(e) => handlePriceChange("video", e.target.value)}
-                  className="w-28 pr-8"
-                  disabled={true} // Always disabled for now
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">€/min</span>
-              </div>
-              <Switch id="video-switch" checked={services.video.enabled} disabled={true} />
+            <div className="flex items-center gap-2">
+              <Label htmlFor="video-price">Tariffa (€/min)</Label>
+              <Input
+                id="video-price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={services.video.price_per_minute}
+                onChange={(e) => handlePriceChange("video", e.target.value)}
+                className="w-28"
+                disabled={!services.video.enabled}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          <div className="flex justify-end">
+            <SubmitButton />
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

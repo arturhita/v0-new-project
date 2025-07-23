@@ -52,10 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("id", session.user.id)
           .single()
 
+        // Sanitize user object immediately
+        const cleanUser = JSON.parse(JSON.stringify(session.user))
+        setUser(cleanUser)
+
         if (error) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
-          setUser(JSON.parse(JSON.stringify(session.user)))
         } else if (rawProfile) {
           // THE DEFINITIVE FIX: Deep clone the raw profile data from Supabase.
           // This creates a plain JavaScript object, stripping all getters and preventing the error.
@@ -69,11 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               video: { enabled: false, price_per_minute: 0 },
             }
           }
-          setUser(JSON.parse(JSON.stringify(session.user)))
           setProfile(cleanProfile as Profile)
         } else {
           // Profile doesn't exist, but user does.
-          setUser(JSON.parse(JSON.stringify(session.user)))
           setProfile(null)
         }
       } else {

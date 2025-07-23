@@ -338,3 +338,53 @@ export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
   }
   return data as OperatorProfile[]
 }
+
+const servicesSchema = z.object({
+  chat: z.object({
+    enabled: z.boolean(),
+    price_per_minute: z.number().min(0),
+  }),
+  call: z.object({
+    enabled: z.boolean(),
+    price_per_minute: z.number().min(0),
+  }),
+  video: z.object({
+    enabled: z.boolean(),
+    price_per_minute: z.number().min(0),
+  }),
+})
+
+export async function updateOperatorServices(prevState: any, formData: FormData) {
+  const supabase = createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Utente non autenticato." }
+  }
+
+  const servicesData = formData.get("services")
+  if (typeof servicesData !== "string") {
+    return { error: "Dati dei servizi non validi." }
+  }
+
+  try {
+    const parsedServices = servicesSchema.parse(JSON.parse(servicesData))
+
+    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
+
+    if (error) {
+      console.error("Supabase error updating services:", error)
+      return { error: "Impossibile aggiornare i servizi. Riprova." }
+    }
+
+    // Revalidate the entire layout to ensure AuthContext is updated everywhere
+    revalidatePath("/")
+    return { success: true }
+  } catch (e) {
+    console.error("Validation or parsing error:", e)
+    return { error: "I dati inviati non sono validi." }
+  }
+}
