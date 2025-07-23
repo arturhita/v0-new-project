@@ -24,28 +24,22 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, undefined)
+  // Initialize state with a null error
+  const [state, formAction] = useActionState(login, { error: null })
   const [showPassword, setShowPassword] = useState(false)
   const { isLoading } = useAuth()
 
   useEffect(() => {
+    // This useEffect now ONLY handles displaying errors from the server action.
+    // It no longer handles the success case, which prevents the race condition.
     if (state?.error) {
       toast.error(state.error)
     }
-    if (state?.success) {
-      toast.success(state.success)
-      // DO NOT call router.refresh() or router.push() here.
-      // The AuthProvider is now responsible for all redirection.
-      // This prevents the race condition that caused the crash.
-    }
   }, [state])
 
-  // The page no longer shows a full-screen spinner. It renders its content,
-  // and the AuthProvider will redirect if the user is already logged in.
-  // This prevents the component from unmounting, which was a source of the error.
+  // If the AuthProvider is still performing the initial check, render nothing.
+  // This prevents the form from flashing if the user is already logged in and about to be redirected.
   if (isLoading) {
-    // We can return a minimal loading state or null to avoid rendering the form
-    // while the initial session check is in progress. This is safer.
     return null
   }
 

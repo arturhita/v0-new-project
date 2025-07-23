@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
   }, [supabase.auth])
 
-  // Effect 1: Listen for auth state changes from Supabase
+  // Effect 1: Listen for auth state changes from Supabase. This is the single source of truth for the user session.
   useEffect(() => {
     const {
       data: { subscription },
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [supabase.auth])
 
-  // Effect 2: Fetch the user's profile when the user object changes
+  // Effect 2: Fetch the user's profile ONLY when the user object changes.
   useEffect(() => {
     if (user) {
       setIsLoading(true) // We are now loading the profile data
@@ -75,15 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsLoading(false) // Finished loading profile
         })
     } else {
-      // No user, so no profile is needed, and we are not loading
+      // No user, so no profile is needed, and we are not loading.
       setProfile(null)
       setIsLoading(false)
     }
   }, [user, supabase])
 
-  // Effect 3: Handle all application redirects based on auth state
+  // Effect 3: Handle all application redirects based on the definitive auth state.
   useEffect(() => {
-    // Wait until the initial user and profile load is complete
+    // Wait until the initial user and profile load is complete before redirecting.
     if (isLoading) {
       return
     }
@@ -91,13 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // If a non-authenticated user tries to access a protected page, redirect them to login
+    // If a non-authenticated user tries to access a protected page, redirect them to login.
     if (!user && isProtectedPage) {
       router.replace("/login")
       return
     }
 
-    // If an authenticated user is on an auth page, redirect them to their dashboard
+    // If an authenticated user is on an auth page, redirect them to their dashboard.
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"
