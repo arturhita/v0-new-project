@@ -1,59 +1,82 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-export async function startConsultation(operatorId: string) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { success: false, message: "Utente non autenticato." }
-  }
-
+export async function startConsultation(client_id: string, operator_id: string, service_type: "chat" | "call") {
+  const supabase = createAdminClient()
   const { data, error } = await supabase.rpc("start_live_consultation", {
-    p_operator_id: operatorId,
+    p_client_id: client_id,
+    p_operator_id: operator_id,
+    p_service_type: service_type,
   })
 
   if (error) {
-    console.error("Errore RPC start_live_consultation:", error)
-    return { success: false, message: "Errore del server durante l'avvio della consulenza." }
+    console.error("Error starting consultation:", error)
+    return { success: false, error: error.message }
   }
 
-  return data
+  return { success: true, data }
 }
 
-export async function endConsultation(consultationId: string, durationSeconds: number) {
-  const supabase = createClient()
+export async function endConsultation(live_consultation_id: string) {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.rpc("end_live_consultation", {
+    p_live_consultation_id: live_consultation_id,
+  })
+
+  if (error) {
+    console.error("Error ending consultation:", error)
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, data }
+}
+
+export async function requestConsultation(
+  operator_id: string,
+  service_type: "chat" | "call",
+): Promise<{ success: boolean; error?: string; data?: { live_consultation_id: string } }> {
+  const supabase = createClient() // Use user-context client to get current user
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, message: "Utente non autenticato." }
+    return { success: false, error: "Utente non autenticato." }
   }
 
-  if (durationSeconds < 0) {
-    return { success: false, message: "La durata non può essere negativa." }
-  }
+  const client_id = user.id
+  const adminSupabase = createAdminClient()
 
-  const { data, error } = await supabase.rpc("end_live_consultation", {
-    p_consultation_id: consultationId,
-    p_duration_seconds: durationSeconds,
+  // 1. Check if the user can start the consultation
+  const { data: checkData, error: checkError } = await adminSupabase.rpc("can_start_consultation", {
+    p_client_id: client_id,
+    p_operator_id: operator_id,
+    p_service_type: service_type,
   })
 
-  if (error) {
-    console.error("Errore RPC end_live_consultation:", error)
-    return { success: false, message: "Errore del server durante la chiusura della consulenza." }
+  if (checkError) {
+    console.error("Error checking consultation possibility:", checkError)
+    return { success: false, error: "Errore durante la verifica dei requisiti." }
   }
 
-  if (data.success) {
-    revalidatePath("/dashboard/client/wallet")
-    revalidatePath("/dashboard/client/consultations")
-    revalidatePath("/dashboard/operator/earnings")
+  if (checkData.can_start === false) {
+    return { success: false, error: checkData.reason }
   }
 
-  return data
+  // 2. If check passes, start the consultation
+  const { data: startData, error: startError } = await adminSupabase.rpc("start_live_consultation", {
+    p_client_id: client_id,
+    p_operator_id: operator_id,
+    p_service_type: service_type,
+  })
+
+  if (startError) {
+    console.error("Error starting consultation:", startError)
+    return { success: false, error: "Impossibile avviare la consulenza." }
+  }
+
+  // Return the ID of the newly created live_consultations record
+  return { success: true, data: { live_consultation_id: startData } }
 }
