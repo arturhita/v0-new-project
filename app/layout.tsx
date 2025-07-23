@@ -1,40 +1,52 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { Toaster } from "sonner"
+import { AuthProvider } from "@/contexts/auth-context"
+import { createClient } from "@/lib/supabase/server"
 import "./globals.css"
-import { Toaster } from "@/components/ui/toaster"
-import { CookieBanner } from "@/components/cookie-banner"
-import { SiteNavbar } from "@/components/site-navbar"
-import SiteFooter from "@/components/site-footer"
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Analytics } from "@vercel/analytics/react"
-import { Suspense } from "react"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenti del benessere",
-  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
+  title: "Moonthir - Consulenza Mistica",
+  description: "La tua guida nel mondo della consulenza mistica e spirituale.",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
+// Il Root Layout è ora un Server Component asincrono
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // 1. Crea un client Supabase per il server.
+  const supabase = createClient()
+
+  // 2. Recupera la sessione utente corrente dal cookie.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let profile = null
+  if (user) {
+    // 3. Se l'utente è loggato, recupera il suo profilo dal database.
+    const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+    profile = userProfile
+  }
+
   return (
-    <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-900 flex flex-col min-h-screen`}>
-        <Suspense fallback={null}>
-          <SiteNavbar />
-          <main className="flex-grow flex flex-col pt-16">{children}</main>
-          <SiteFooter />
-          <Toaster />
-          <CookieBanner />
-        </Suspense>
-        <SpeedInsights />
-        <Analytics />
+    <html lang="it">
+      <body className={inter.className}>
+        {/* 
+          4. Inizializza l'AuthProvider con i dati utente e profilo recuperati sul server.
+             Questo "idrata" il contesto client con lo stato corretto fin dal primo rendering,
+             garantendo che il login sia mantenuto e non ci siano sfarfallii.
+        */}
+        <AuthProvider user={user} profile={profile}>
+          {children}
+        </AuthProvider>
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   )

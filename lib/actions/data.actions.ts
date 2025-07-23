@@ -5,9 +5,10 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
-// This is a local helper function, not a Server Action.
-// It is not exported to avoid being misinterpreted by the Next.js compiler.
-const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
+// This function MUST use the admin client to bypass RLS for public data fetching.
+// This prevents the "infinite recursion" error in RLS policies.
+
+export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
   const services = (profile.services as any) || {}
   const chatService = services.chat || {}
   const callService = services.call || {}
