@@ -4,11 +4,11 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import type { User } from "@supabase/supabase-js"
 import { Star, MessageCircle, Phone, Mail, Users, Sparkles, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
 import { initiateChatRequest } from "@/lib/actions/chat.actions"
 import { WrittenConsultationModal } from "./written-consultation-modal"
 
@@ -33,6 +33,7 @@ export interface Operator {
 
 interface OperatorCardProps {
   operator: Operator
+  user: User | null
   showNewBadge?: boolean
 }
 
@@ -43,11 +44,10 @@ const truncateText = (text: string, maxLength: number) => {
   return text.substring(0, maxLength) + "..."
 }
 
-export function OperatorCard({ operator, showNewBadge = false }: OperatorCardProps) {
+export function OperatorCard({ operator, user, showNewBadge = false }: OperatorCardProps) {
   const [isStartingChat, setIsStartingChat] = useState(false)
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const router = useRouter()
-  const { user } = useAuth()
 
   const isNewOperator =
     showNewBadge && operator.joinedDate
@@ -263,11 +263,12 @@ export function OperatorCard({ operator, showNewBadge = false }: OperatorCardPro
         </div>
         <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-yellow-600/30 transition-all duration-500 pointer-events-none"></div>
       </div>
-      {typeof operator.services.emailPrice === "number" && (
+      {typeof operator.services.emailPrice === "number" && user && (
         <WrittenConsultationModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
           operator={{ id: operator.id, name: operator.name, emailPrice: operator.services.emailPrice }}
+          user={user}
         />
       )}
     </>
