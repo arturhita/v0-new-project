@@ -12,9 +12,10 @@ import { ConstellationBackground } from "@/components/constellation-background"
 interface HomepageClientProps {
   operators: Operator[]
   reviews: Review[]
+  latestOperators: Operator[]
 }
 
-export function HomepageClient({ operators, reviews }: HomepageClientProps) {
+export function HomepageClient({ operators, reviews, latestOperators }: HomepageClientProps) {
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
@@ -108,35 +109,26 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section
-          className="relative flex h-[60vh] min-h-[500px] w-full flex-col items-center justify-center bg-cover bg-center bg-no-repeat px-4 text-center"
-          style={{ backgroundImage: "url('/images/hero-background.png')" }}
-        >
-          <div className="absolute inset-0 bg-black/60" />
-          <div className="relative z-10">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-              Trova il tuo Esperto, svela il tuo futuro
+        <section className="relative overflow-hidden pt-32 pb-20 md:pt-48 md:pb-32">
+          <ConstellationBackground className="absolute top-0 left-0 h-full w-full text-sky-300/70" />
+          <div className="container relative mx-auto px-4 text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+              Il viaggio inizia da qui
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-300 md:text-xl">
-              Connettiti con i migliori consulenti di cartomanzia, astrologia e medianità. Ottieni risposte chiare e
-              guida per il tuo percorso.
+              Connettiti con i migliori esperti di astrologia e tarocchi per una guida chiara e personalizzata.
             </p>
-            <div className="mt-8 flex justify-center gap-4">
-              <Button asChild size="lg" className="bg-indigo-500 hover:bg-indigo-600 text-white">
-                <Link href="/esperti">Scopri gli Esperti</Link>
-              </Button>
+            <div className="mt-10">
               <Button
                 asChild
                 size="lg"
-                variant="outline"
-                className="border-slate-400 text-white hover:bg-slate-800 bg-transparent"
+                className="bg-gradient-to-r from-sky-500 to-amber-400 text-white font-bold text-lg px-8 py-6 transition-transform duration-300 hover:scale-105"
               >
-                <Link href="/diventa-esperto">Diventa un Esperto</Link>
+                <Link href="/esperti">Cerca Esperti</Link>
               </Button>
             </div>
           </div>
         </section>
-
         {/* Operator Boxes Section */}
         <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
           <ConstellationBackground goldVisible={true} />
@@ -175,17 +167,14 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
             </div>
           </div>
         </section>
-
         {/* Operatori in Evidenza Section */}
-        <section className="py-16 sm:py-24">
+        <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
-            <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Operatori in Evidenza
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-400">
-              I nostri esperti più apprezzati, pronti ad aiutarti.
-            </p>
-            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold sm:text-4xl">Operatori in Evidenza</h2>
+              <p className="mt-4 text-lg text-slate-400">I nostri esperti più apprezzati, pronti ad aiutarti.</p>
+            </div>
+            <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {operators.map((operator) => (
                 <OperatorCard key={operator.id} operator={operator} />
               ))}
@@ -193,29 +182,35 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
             <div className="mt-12 text-center">
               <Button
                 asChild
-                size="lg"
                 variant="outline"
-                className="border-indigo-500 text-indigo-400 hover:bg-indigo-900/50 hover:text-indigo-300 bg-transparent"
+                className="border-sky-500 text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 bg-transparent"
               >
-                <Link href="/esperti">Vedi tutti gli esperti</Link>
+                <Link href="/esperti">
+                  Vedi tutti gli esperti <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
             </div>
           </div>
-        </section>
-
-        {/* Quote Section */}
-        <section className="py-12 md:py-16">
-          <div className="container mx-auto px-4">
-            <div className="bg-gradient-to-r from-blue-900/50 to-slate-800/50 rounded-2xl shadow-xl p-8 md:p-12">
-              <blockquote className="text-center">
-                <p className="text-2xl md:text-3xl italic text-white font-playfair">
-                  "L'intuizione è la voce dell'anima. Impara ad ascoltarla."
+        </section>{" "}
+        */
+        {/* Ultimi Esperti */}
+        {latestOperators && latestOperators.length > 0 && (
+          <section className="bg-slate-950/50 py-12 md:py-20">
+            <div className="container mx-auto px-4">
+              <div className="text-center">
+                <h2 className="text-3xl font-bold sm:text-4xl">Ultimi Esperti Arrivati</h2>
+                <p className="mt-4 text-lg text-slate-400">
+                  Scopri i nuovi talenti che si sono uniti alla nostra community.
                 </p>
-              </blockquote>
+              </div>
+              <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                {latestOperators.map((operator) => (
+                  <OperatorCard key={operator.id} operator={operator} />
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
-
+          </section>
+        )}
         {/* Services Section */}
         <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
           <ConstellationBackground goldVisible={false} />
@@ -266,22 +261,20 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
             </div>
           </div>
         </section>
-
         {/* Reviews Section */}
-        <section className="bg-slate-950 py-16 sm:py-24">
+        <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
-            <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">Cosa dicono di noi</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-400">
-              Le esperienze reali dei nostri utenti.
-            </p>
-            <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold sm:text-4xl">Cosa dicono di noi</h2>
+              <p className="mt-4 text-lg text-slate-400">Le esperienze autentiche dei nostri utenti.</p>
+            </div>
+            <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-3">
               {reviews.map((review) => (
                 <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           </div>
         </section>
-
         {/* Why Trust Us Section */}
         <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
           <ConstellationBackground goldVisible={false} />
@@ -357,7 +350,6 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
             </div>
           </div>
         </section>
-
         {/* New Talents Section */}
         {newTalents.length > 0 && (
           <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
@@ -379,7 +371,6 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
             </div>
           </section>
         )}
-
         {/* Ready to Reveal Section */}
         <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
           <ConstellationBackground goldVisible={true} />

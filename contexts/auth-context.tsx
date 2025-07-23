@@ -12,7 +12,6 @@ interface Profile {
   full_name: string | null
   avatar_url: string | null
   role: "client" | "operator" | "admin"
-  // Aggiungiamo altri campi che potrebbero essere presenti per completezza
   [key: string]: any
 }
 
@@ -49,7 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
 
-        // CRITICAL FIX: Sanitize the profile object before setting it in state.
+        // CORREZIONE CRITICA: Sanifica l'oggetto profilo prima di salvarlo nello stato.
+        // Questo previene l'errore "getter-only" in tutta l'applicazione.
         const cleanProfile = JSON.parse(JSON.stringify(userProfile || null))
         setProfile(cleanProfile as Profile | null)
       } else {

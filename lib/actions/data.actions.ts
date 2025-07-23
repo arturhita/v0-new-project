@@ -6,10 +6,9 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  const cleanProfile = JSON.parse(JSON.stringify(profile))
   // SOLUZIONE DI RICOSTRUZIONE MANUALE: La più sicura contro i getter.
   // Crea un oggetto completamente nuovo invece di clonare quello problematico.
-  const rawServices = cleanProfile.services || {}
+  const rawServices = profile.services || {}
   const services = {
     chat:
       rawServices.chat && typeof rawServices.chat === "object"
@@ -17,26 +16,26 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
             enabled: rawServices.chat.enabled,
             price_per_minute: rawServices.chat.price_per_minute,
           }
-        : {},
+        : { enabled: false, price_per_minute: undefined },
     call:
       rawServices.call && typeof rawServices.call === "object"
         ? {
             enabled: rawServices.call.enabled,
             price_per_minute: rawServices.call.price_per_minute,
           }
-        : {},
+        : { enabled: false, price_per_minute: undefined },
     email:
       rawServices.email && typeof rawServices.email === "object"
         ? {
             enabled: rawServices.email.enabled,
             price: rawServices.email.price,
           }
-        : {},
+        : { enabled: false, price: undefined },
   }
 
-  const chatService = services.chat || {}
-  const callService = services.call || {}
-  const emailService = services.email || {}
+  const chatService = services.chat
+  const callService = services.call
+  const emailService = services.email
 
   const chatPrice =
     promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
@@ -46,25 +45,23 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
   const operator: Operator = {
-    id: cleanProfile.id,
-    name: cleanProfile.stage_name || "Operatore",
-    avatarUrl: cleanProfile.avatar_url || "/placeholder.svg",
+    id: profile.id,
+    name: profile.stage_name || "Operatore",
+    avatarUrl: profile.avatar_url || "/placeholder.svg",
     specialization:
-      (cleanProfile.specialties && cleanProfile.specialties[0]) ||
-      (cleanProfile.categories && cleanProfile.categories[0]) ||
-      "Esperto",
-    rating: cleanProfile.average_rating || 0,
-    reviewsCount: cleanProfile.reviews_count || 0,
-    description: cleanProfile.bio || "Nessuna descrizione disponibile.",
-    tags: cleanProfile.categories || [],
-    isOnline: cleanProfile.is_online || false,
+      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
+    rating: profile.average_rating || 0,
+    reviewsCount: profile.reviews_count || 0,
+    description: profile.bio || "Nessuna descrizione disponibile.",
+    tags: profile.categories || [],
+    isOnline: profile.is_online || false,
     services: {
       chatPrice,
       callPrice,
       emailPrice,
     },
-    profileLink: `/operator/${cleanProfile.stage_name}`,
-    joinedDate: cleanProfile.created_at,
+    profileLink: `/operator/${profile.stage_name}`,
+    joinedDate: profile.created_at,
   }
 
   return operator
@@ -87,10 +84,10 @@ export async function getHomepageData() {
         .from("reviews")
         .select(
           `
-  id, rating, comment, created_at,
-  client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-  operator:profiles!reviews_operator_id_fkey (stage_name)
-`,
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+      operator:profiles!reviews_operator_id_fkey (stage_name)
+    `,
         )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
@@ -129,6 +126,26 @@ export async function getHomepageData() {
     console.error("A general error occurred while fetching homepage data:", error)
     throw error
   }
+}
+
+export async function getLatestOperators() {
+  const supabase = supabaseAdmin
+  const promotionPrice = await getCurrentPromotionPrice()
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`*`)
+    .eq("role", "operator")
+    .eq("status", "Attivo")
+    .order("created_at", { ascending: false })
+    .limit(4)
+
+  if (error) {
+    console.error(`Error fetching latest operators:`, error.message)
+    return []
+  }
+
+  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getOperatorsByCategory(categorySlug: string) {
