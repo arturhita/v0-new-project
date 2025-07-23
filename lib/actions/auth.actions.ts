@@ -25,9 +25,10 @@ export async function login(values: z.infer<typeof loginSchema>) {
     .single()
 
   if (profileError || !profile) {
-    // L'utente è loggato ma non ha un profilo/ruolo. Reindirizza alla home.
-    // Questo è un fallback, idealmente non dovrebbe accadere con il trigger del DB.
-    redirect("/")
+    // Se il profilo non esiste, è un problema grave.
+    // Eseguiamo il logout per evitare che l'utente rimanga in uno stato inconsistente.
+    await supabase.auth.signOut()
+    return { error: "Profilo utente non trovato. Contatta il supporto." }
   }
 
   // Reindirizza in base al ruolo
