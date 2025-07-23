@@ -9,7 +9,9 @@ import { getCurrentPromotionPrice } from "./promotions.actions"
 // This prevents the "infinite recursion" error in RLS policies.
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  const services = (profile.services as any) || {}
+  // Defensive deep copy to ensure services is a plain, mutable object.
+  // This prevents potential errors with read-only properties from the database driver.
+  const services = profile.services ? JSON.parse(JSON.stringify(profile.services)) : {}
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -97,7 +99,7 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    return { operators: [], reviews: [] }
+    throw error
   }
 }
 
