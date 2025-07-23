@@ -25,7 +25,7 @@ export default function UnveillyHomePage() {
         setData(result)
         setError(null)
       } catch (e: any) {
-        console.error("Failed to load homepage data in component:", e)
+        console.error("Error caught in component's fetchData:", e)
         setError("Impossibile caricare i dati della homepage. Riprova più tardi.")
       } finally {
         setIsLoading(false)

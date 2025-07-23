@@ -5,15 +5,10 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
+// This function now assumes it receives a plain, clean profile object.
+// The responsibility of cleaning the data is moved to the fetching functions.
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // ULTIMATE FIX: Deep clone the entire profile object using JSON methods.
-  // This is the most aggressive and reliable way to strip any special properties
-  // (like getters/setters) that the database driver might add, ensuring we work
-  // with a plain, mutable JavaScript object. This definitively prevents the
-  // "Cannot set property of #<Object> which has only a getter" error.
-  const cleanProfile = JSON.parse(JSON.stringify(profile))
-
-  const services = cleanProfile.services || {}
+  const services = profile.services || {}
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -26,25 +21,23 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
   return {
-    id: cleanProfile.id,
-    name: cleanProfile.stage_name || "Operatore",
-    avatarUrl: cleanProfile.avatar_url || "/placeholder.svg",
+    id: profile.id,
+    name: profile.stage_name || "Operatore",
+    avatarUrl: profile.avatar_url || "/placeholder.svg",
     specialization:
-      (cleanProfile.specialties && cleanProfile.specialties[0]) ||
-      (cleanProfile.categories && cleanProfile.categories[0]) ||
-      "Esperto",
-    rating: cleanProfile.average_rating || 0,
-    reviewsCount: cleanProfile.reviews_count || 0,
-    description: cleanProfile.bio || "Nessuna descrizione disponibile.",
-    tags: cleanProfile.categories || [],
-    isOnline: cleanProfile.is_online || false,
+      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
+    rating: profile.average_rating || 0,
+    reviewsCount: profile.reviews_count || 0,
+    description: profile.bio || "Nessuna descrizione disponibile.",
+    tags: profile.categories || [],
+    isOnline: profile.is_online || false,
     services: {
       chatPrice,
       callPrice,
       emailPrice,
     },
-    profileLink: `/operator/${cleanProfile.stage_name}`,
-    joinedDate: cleanProfile.created_at,
+    profileLink: `/operator/${profile.stage_name}`,
+    joinedDate: profile.created_at,
   }
 }
 
@@ -65,10 +58,10 @@ export async function getHomepageData() {
         .from("reviews")
         .select(
           `
-       id, rating, comment, created_at,
-       client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-       operator:profiles!reviews_operator_id_fkey (stage_name)
-     `,
+      id, rating, comment, created_at,
+      client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+      operator:profiles!reviews_operator_id_fkey (stage_name)
+    `,
         )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
@@ -87,8 +80,14 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-    const reviews = (reviewsData || []).map(
+    // THE DEFINITIVE FIX: Sanitize the data immediately after fetching and before any processing.
+    // This creates a "clean" deep copy, removing any special properties (like getters)
+    // from the database driver's response objects.
+    const cleanOperatorsData = JSON.parse(JSON.stringify(operatorsData || []))
+    const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
+
+    const operators = cleanOperatorsData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
+    const reviews = cleanReviewsData.map(
       (review: any) =>
         ({
           id: review.id,
@@ -104,7 +103,7 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    throw error
+    throw new Error("Failed to fetch homepage data.")
   }
 }
 
@@ -122,7 +121,9 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  // APPLY THE FIX HERE AS WELL
+  const cleanData = JSON.parse(JSON.stringify(data || []))
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getAllOperators() {
@@ -141,5 +142,7 @@ export async function getAllOperators() {
     return []
   }
 
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  // APPLY THE FIX HERE AS WELL
+  const cleanData = JSON.parse(JSON.stringify(data || []))
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
