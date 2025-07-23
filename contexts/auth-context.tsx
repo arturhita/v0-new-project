@@ -59,22 +59,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // 1. Clona profondamente il profilo per rimuovere i getter e renderlo modificabile.
+          // 1. Clona profondamente l'intero oggetto `rawProfile` per rimuovere i getter.
           const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
 
-          // 2. Assicura che l'oggetto 'services' esista.
+          // 2. Verifica se `services` esiste e se è un oggetto, altrimenti lo inizializza.
           if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
             cleanProfile.services = {}
           }
 
-          const services = cleanProfile.services
           const defaultService = { enabled: false, price_per_minute: 0 }
 
-          // 3. Per ogni servizio, applica i valori di default se mancanti,
-          // garantendo che chat, call, e video siano sempre oggetti validi e completi.
-          services.chat = { ...defaultService, ...(services.chat || {}) }
-          services.call = { ...defaultService, ...(services.call || {}) }
-          services.video = { ...defaultService, ...(services.video || {}) }
+          // Funzione ausiliaria per clonare e validare ogni singolo servizio.
+          const processService = (serviceObject: any) => {
+            // Se il servizio è assente o non è un oggetto, ritorna il default.
+            if (!serviceObject || typeof serviceObject !== "object") {
+              return defaultService
+            }
+
+            // 3. Esegue una clonazione profonda *indipendente* sul singolo servizio
+            // per garantire che sia un oggetto pulito e completamente modificabile.
+            const cleanService = JSON.parse(JSON.stringify(serviceObject))
+
+            // 4. Ricostruisce l'oggetto finale, garantendo che tutte le chiavi
+            // necessarie siano presenti e abbiano il tipo corretto.
+            return {
+              enabled: typeof cleanService.enabled === "boolean" ? cleanService.enabled : defaultService.enabled,
+              price_per_minute:
+                typeof cleanService.price_per_minute === "number"
+                  ? cleanService.price_per_minute
+                  : defaultService.price_per_minute,
+            }
+          }
+
+          // Applica il processo a ciascun servizio per renderlo sicuro e completo.
+          cleanProfile.services.chat = processService(cleanProfile.services.chat)
+          cleanProfile.services.call = processService(cleanProfile.services.call)
+          cleanProfile.services.video = processService(cleanProfile.services.video)
 
           setProfile(cleanProfile as Profile)
         } else {
