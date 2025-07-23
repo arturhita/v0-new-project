@@ -1,12 +1,13 @@
 "use client"
 
-import { useFormState, useFormStatus } from "react-dom"
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
 import { register } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
+import { Checkbox } from "@/components/ui/checkbox"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -16,40 +17,46 @@ function SubmitButton() {
       className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold"
       disabled={pending}
     >
-      {pending ? "Creazione in corso..." : "Crea Account"}
+      {pending ? "Creazione account..." : "Registrati"}
     </Button>
   )
 }
 
 export function RegisterForm() {
-  const [state, formAction] = useFormState(register, null)
+  const [state, formAction] = useActionState(register, null)
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="w-full space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="fullName">Nome Completo</Label>
+        <Label htmlFor="fullName" className="text-gray-300">
+          Nome Completo
+        </Label>
         <Input
           id="fullName"
           name="fullName"
           type="text"
           placeholder="Mario Rossi"
           required
-          className="bg-gray-800 border-gray-700 text-white"
+          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email" className="text-gray-300">
+          Email
+        </Label>
         <Input
           id="email"
           name="email"
           type="email"
           placeholder="tu@esempio.com"
           required
-          className="bg-gray-800 border-gray-700 text-white"
+          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password" className="text-gray-300">
+          Password
+        </Label>
         <Input
           id="password"
           name="password"
@@ -59,7 +66,9 @@ export function RegisterForm() {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Conferma Password</Label>
+        <Label htmlFor="confirmPassword" className="text-gray-300">
+          Conferma Password
+        </Label>
         <Input
           id="confirmPassword"
           name="confirmPassword"
@@ -72,13 +81,13 @@ export function RegisterForm() {
         <Checkbox id="terms" name="terms" className="border-gray-700" />
         <label htmlFor="terms" className="text-sm text-gray-400">
           Accetto i{" "}
-          <Link href="/legal/terms-and-conditions" className="underline hover:text-yellow-400">
+          <Link href="/legal/terms-and-conditions" className="underline text-yellow-400">
             Termini di Servizio
           </Link>
         </label>
       </div>
-      {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-      {state?.success && <p className="text-sm text-green-500">{state.success}</p>}
+      {state?.error && <p className="text-sm text-red-400 text-center">{state.error}</p>}
+      {state?.success && <p className="text-sm text-green-400 text-center">{state.success}</p>}
       <SubmitButton />
       <p className="text-center text-sm text-gray-400">
         Hai già un account?{" "}

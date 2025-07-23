@@ -1,6 +1,7 @@
 "use client"
 
-import { useFormState, useFormStatus } from "react-dom"
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
 import { login } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,23 +22,27 @@ function SubmitButton() {
 }
 
 export function LoginForm() {
-  const [state, formAction] = useFormState(login, null)
+  const [state, formAction] = useActionState(login, null)
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="w-full space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email" className="text-gray-300">
+          Email
+        </Label>
         <Input
           id="email"
           name="email"
           type="email"
           placeholder="tu@esempio.com"
           required
-          className="bg-gray-800 border-gray-700 text-white"
+          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password" className="text-gray-300">
+          Password
+        </Label>
         <Input
           id="password"
           name="password"
@@ -46,7 +51,7 @@ export function LoginForm() {
           className="bg-gray-800 border-gray-700 text-white"
         />
       </div>
-      {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
+      {state?.error && <p className="text-sm text-red-400 text-center">{state.error}</p>}
       <SubmitButton />
       <p className="text-center text-sm text-gray-400">
         Non hai un account?{" "}

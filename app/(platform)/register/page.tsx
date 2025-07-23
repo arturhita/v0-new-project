@@ -1,15 +1,10 @@
-"use client"
-
-import { useActionState, useEffect, useState } from "react"
-import { useFormStatus } from "react-dom"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { RegisterForm } from "@/components/register-form"
 import { ConstellationBackground } from "@/components/constellation-background"
+import { RegisterForm } from "@/components/register-form"
+import Image from "next/image"
 
-async function checkUserAndRedirect() {
+export default async function RegisterPage() {
   const supabase = createClient()
 
   const {
@@ -18,49 +13,23 @@ async function checkUserAndRedirect() {
 
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    if (profile?.role === "admin") redirect("/admin")
-    if (profile?.role === "operator") redirect("/dashboard/operator")
-    if (profile?.role === "client") redirect("/dashboard/client")
-    redirect("/")
+    if (profile?.role === "admin") {
+      redirect("/admin")
+    } else if (profile?.role === "operator") {
+      redirect("/dashboard/operator")
+    } else {
+      redirect("/dashboard/client")
+    }
   }
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <button type="submit" variant="gradient" className="w-full" disabled={pending}>
-      {pending ? "Creazione Account..." : "Registrati"}
-    </button>
-  )
-}
-
-export default function RegisterPage() {
-  const [state, formAction] = useActionState(checkUserAndRedirect, undefined)
-  const router = useRouter()
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-
-  useEffect(() => {
-    if (state?.error) {
-      toast.error(state.error)
-    }
-    if (state?.success) {
-      toast.success(state.success)
-      // Il redirect a /login dopo la registrazione è corretto.
-      // L'utente effettuerà il login per la prima volta.
-      router.push("/login")
-    }
-  }, [state, router])
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gray-900 text-white">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white">
       <ConstellationBackground />
-      <div className="relative z-10 w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600">
-            Crea il tuo Account
-          </h1>
-          <p className="text-gray-400 mt-2">Inizia il tuo viaggio con noi oggi stesso.</p>
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center space-y-8 rounded-xl bg-gray-900/80 p-8 shadow-2xl backdrop-blur-sm">
+        <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={150} height={50} />
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">Crea il tuo Account</h1>
+          <p className="text-gray-400">Inizia il tuo percorso con noi.</p>
         </div>
         <RegisterForm />
       </div>
