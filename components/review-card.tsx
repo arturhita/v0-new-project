@@ -12,7 +12,7 @@ export interface Review {
   service_type: "chat" | "call" | "written" | "email"
 }
 
-const ReviewCard = ({ review }: { review: Review }) => {
+export const ReviewCard = ({ review }: { review: Review }) => {
   const serviceMap = {
     chat: { label: "Chat", color: "bg-green-500/20 text-green-300 border-green-400/30" },
     call: { label: "Chiamata", color: "bg-blue-500/20 text-blue-300 border-blue-400/30" },
@@ -66,5 +66,3 @@ const ReviewCard = ({ review }: { review: Review }) => {
     </div>
   )
 }
-
-export default ReviewCard
