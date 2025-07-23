@@ -9,7 +9,7 @@ import { ReviewCard } from "@/components/review-card"
 import type { Review } from "@/components/review-card"
 import { ArticleCard } from "@/components/article-card"
 import type { Article } from "@/lib/schemas"
-import { ConstellationBackground } from "@/components/constellation-background"
+import ConstellationBackground from "@/components/constellation-background"
 import Image from "next/image"
 
 interface HomepageClientProps {
@@ -267,76 +267,76 @@ export default function HomepageClient({ operators, reviews, articles }: Homepag
       </div>
 
       <style jsx>{`
-        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
-        .font-playfair {
-          font-family: "Playfair Display", serif;
+      .font-playfair {
+        font-family: "Playfair Display", serif;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
         }
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
-        @keyframes fadeInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+      }
+      @keyframes fadeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
         }
-        @keyframes fadeInRight {
-          from {
-            opacity: 0;
-            transform: translateX(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+        to {
+          opacity: 1;
+          transform: translateX(0);
         }
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+      }
+      @keyframes fadeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
         }
-        @keyframes float {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+        to {
+          opacity: 1;
+          transform: translateX(0);
         }
-        .animate-fadeInUp {
-          animation: fadeInUp 1s ease-out forwards;
+      }
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
         }
-        .animate-fadeInLeft {
-          animation: fadeInLeft 0.8s ease-out forwards;
+        to {
+          opacity: 1;
+          transform: scale(1);
         }
-        .animate-fadeInRight {
-          animation: fadeInRight 0.8s ease-out forwards;
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
         }
-        .animate-scaleIn {
-          animation: scaleIn 0.6s ease-out forwards;
+        50% {
+          transform: translateY(-10px);
         }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-      `}</style>
+      }
+      .animate-fadeInUp {
+        animation: fadeInUp 1s ease-out forwards;
+      }
+      .animate-fadeInLeft {
+        animation: fadeInLeft 0.8s ease-out forwards;
+      }
+      .animate-fadeInRight {
+        animation: fadeInRight 0.8s ease-out forwards;
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.6s ease-out forwards;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+    `}</style>
     </div>
   )
 }
