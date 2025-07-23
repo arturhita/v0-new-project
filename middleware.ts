@@ -1,6 +1,20 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+// Funzione helper per ottenere il percorso della dashboard in base al ruolo
+const getDashboardPath = (role: string | undefined) => {
+  switch (role) {
+    case "admin":
+      return "/admin"
+    case "operator":
+      return "/dashboard/operator"
+    case "client":
+      return "/dashboard/client"
+    default:
+      return "/" // Fallback alla homepage se il ruolo non è definito
+  }
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -38,7 +52,7 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // Rinfresca la sessione se è scaduta.
+  // Rinfresca sempre la sessione per mantenerla attiva
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -50,7 +64,7 @@ export async function middleware(request: NextRequest) {
   const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
   const isAccessingAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
 
-  // Se l'utente non è loggato e cerca di accedere a una pagina protetta, reindirizza a /login
+  // CASO 1: Utente NON loggato tenta di accedere a una pagina protetta
   if (!user && isAccessingProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
@@ -58,24 +72,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Se l'utente è loggato e cerca di accedere a una pagina di autenticazione, reindirizza alla sua dashboard
+  // CASO 2: Utente LOGGATO si trova su una pagina di autenticazione (es. /login dopo il refresh)
   if (user && isAccessingAuthRoute) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-
-    let redirectPath = "/"
-    if (profile?.role) {
-      switch (profile.role) {
-        case "admin":
-          redirectPath = "/admin"
-          break
-        case "operator":
-          redirectPath = "/dashboard/operator"
-          break
-        case "client":
-          redirectPath = "/dashboard/client"
-          break
-      }
-    }
+    const redirectPath = getDashboardPath(profile?.role)
     return NextResponse.redirect(new URL(redirectPath, request.url))
   }
 
