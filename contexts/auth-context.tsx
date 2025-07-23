@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const currentUser = session?.user ?? null
+      const currentUser = session?.user ? JSON.parse(JSON.stringify(session.user)) : null
       setUser(currentUser)
 
       if (currentUser) {
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // CORREZIONE CRITICA: Sanifica l'oggetto profilo prima di salvarlo nello stato.
         // Questo previene l'errore "getter-only" in tutta l'applicazione.
-        const cleanProfile = JSON.parse(JSON.stringify(userProfile || null))
+        const cleanProfile = userProfile ? JSON.parse(JSON.stringify(userProfile)) : null
         setProfile(cleanProfile as Profile | null)
       } else {
         setProfile(null)
