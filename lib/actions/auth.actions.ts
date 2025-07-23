@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
 import { redirect } from "next/navigation"
+import { AuthError } from "@supabase/supabase-js"
 
 const LoginSchema = z.object({
   email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
@@ -34,20 +35,47 @@ export async function login(prevState: any, formData: FormData) {
   const { email, password } = validatedFields.data
   const supabase = createClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error) {
-    console.error("Login Error:", error.message)
-    return { error: "Credenziali non valide. Riprova." }
+  if (signInError) {
+    console.error("Login Error:", signInError.message)
+    if (signInError instanceof AuthError) {
+      return { error: "Credenziali non valide. Controlla email e password." }
+    }
+    return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
-  // On success, return an empty object.
-  // The session cookie is now set, and the client-side AuthProvider will detect the change.
-  // This is the key to preventing the race condition.
-  return {}
+  // --- LOGICA DI REDIRECT SUL SERVER ---
+  // 1. Recupera l'utente appena loggato
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: "Impossibile recuperare i dati utente dopo il login." }
+  }
+
+  // 2. Recupera il profilo per determinare il ruolo
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut() // Sicurezza: esegui il logout se il profilo non esiste
+    return { error: "Profilo utente non trovato. Contatta l'assistenza." }
+  }
+
+  // 3. Reindirizza alla dashboard corretta
+  let destination = "/"
+  if (profile.role === "admin") destination = "/admin"
+  else if (profile.role === "operator") destination = "/dashboard/operator"
+  else if (profile.role === "client") destination = "/dashboard/client"
+
+  redirect(destination)
 }
 
 export async function register(prevState: any, formData: FormData) {

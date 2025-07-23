@@ -25,7 +25,6 @@ function SubmitButton() {
 }
 
 export default function RegisterPage() {
-  // This component is also decoupled from the AuthContext.
   const [state, formAction] = useActionState(register, undefined)
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
@@ -37,8 +36,7 @@ export default function RegisterPage() {
     }
     if (state?.success) {
       toast.success(state.success)
-      // Redirect to login after successful registration is correct,
-      // as the user needs to confirm their email and then log in.
+      // Il redirect a /login dopo la registrazione è corretto.
       router.push("/login")
     }
   }, [state, router])

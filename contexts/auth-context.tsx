@@ -98,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // If an authenticated user is on an auth page, redirect them to their dashboard.
+    // This handles cases where a logged-in user manually visits /login.
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"
