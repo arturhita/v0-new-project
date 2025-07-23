@@ -1,6 +1,6 @@
 import type React from "react"
 import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
+import SiteFooter from "@/components/site-footer"
 import { ConstellationBackground } from "@/components/constellation-background"
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
