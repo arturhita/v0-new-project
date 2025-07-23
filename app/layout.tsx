@@ -5,8 +5,9 @@ import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-provider"
 import { OperatorStatusProvider } from "@/contexts/operator-status-context"
 import { ChatRequestProvider } from "@/contexts/chat-request-context"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "sonner"
 import { CookieBanner } from "@/components/cookie-banner"
+import { ClientConsultationProvider } from "@/contexts/client-consultation-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,9 +29,11 @@ export default function RootLayout({
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>
-              {children}
-              <Toaster richColors position="top-right" />
-              <CookieBanner />
+              <ClientConsultationProvider>
+                {children}
+                <Toaster richColors position="top-right" />
+                <CookieBanner />
+              </ClientConsultationProvider>
             </ChatRequestProvider>
           </OperatorStatusProvider>
         </AuthProvider>

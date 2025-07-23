@@ -1,80 +1,104 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { MessageCircle, Phone, Loader2, Send } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { requestConsultation } from "@/lib/actions/consultation_billing.actions"
-import type { OperatorProfile } from "@/types/operator.types"
+import { useAuth } from "@/contexts/auth-context"
+import { Loader2, Phone, MessageSquare } from "lucide-react"
+import type { OperatorWithServices } from "@/types/operator.types"
 
 interface StartConsultationActionsProps {
-  operator: OperatorProfile
+  operator: OperatorWithServices
 }
 
-export default function StartConsultationActions({ operator }: StartConsultationActionsProps) {
-  const [isPending, startTransition] = useTransition()
-  const [targetService, setTargetService] = useState<"chat" | "call" | null>(null)
+export function StartConsultationActions({ operator }: StartConsultationActionsProps) {
+  const { user } = useAuth()
   const router = useRouter()
+  const [isLoading, setIsLoading] = useState<"chat" | "call" | null>(null)
+  const [isWaiting, setIsWaiting] = useState(false)
 
-  const handleStartConsultation = (serviceType: "chat" | "call") => {
-    setTargetService(serviceType)
-    startTransition(async () => {
-      const result = await requestConsultation(operator.id, serviceType)
+  const handleRequest = async (type: "chat" | "call") => {
+    if (!user) {
+      toast.error("Devi effettuare l'accesso per iniziare una consulenza.")
+      router.push("/login")
+      return
+    }
 
-      if (result.success && result.data?.live_consultation_id) {
-        toast.success("Consulenza avviata! Verrai reindirizzato a breve.")
-        // TODO: Redirect to the correct page based on service type
-        router.push(`/chat/${result.data.live_consultation_id}`)
-      } else {
-        toast.error(result.error || "Si è verificato un errore sconosciuto.")
-      }
-      setTargetService(null)
-    })
+    if (user.id === operator.id) {
+      toast.error("Non puoi avviare una consulenza con te stesso.")
+      return
+    }
+
+    setIsLoading(type)
+
+    const result = await requestConsultation(operator.id, type)
+
+    if (result.success) {
+      toast.success("Richiesta inviata! In attesa della risposta dell'operatore...")
+      setIsWaiting(true)
+    } else {
+      toast.error(result.error || "Si è verificato un errore sconosciuto.")
+    }
+
+    setIsLoading(null)
   }
 
-  const isChatDisabled = !operator.is_online || !operator.chat_consult_rate || isPending
-  const isCallDisabled = !operator.is_online || !operator.phone_consult_rate || isPending
-  const isWrittenDisabled = !operator.written_consult_rate || isPending
+  const chatService = operator.services.find((s) => s.service_type === "chat")
+  const callService = operator.services.find((s) => s.service_type === "call")
+
+  if (isWaiting) {
+    return (
+      <div className="mt-6 p-4 bg-slate-800/50 rounded-lg text-center">
+        <div className="flex items-center justify-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <p className="font-semibold text-slate-300">Richiesta inviata. In attesa della risposta dell'operatore...</p>
+        </div>
+        <p className="text-sm text-slate-400 mt-2">
+          Verrai reindirizzato automaticamente alla chat non appena l'operatore accetterà.
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-col gap-4 w-full">
-      <Button
-        size="lg"
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg transition-all duration-300 ease-in-out transform hover:scale-105"
-        disabled={isChatDisabled}
-        onClick={() => handleStartConsultation("chat")}
-      >
-        {isPending && targetService === "chat" ? (
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        ) : (
-          <MessageCircle className="mr-2 h-5 w-5" />
-        )}
-        <span>Inizia Chat (€{operator.chat_consult_rate?.toFixed(2)}/min)</span>
-      </Button>
-      <Button
-        size="lg"
-        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-all duration-300 ease-in-out transform hover:scale-105"
-        disabled={isCallDisabled}
-        onClick={() => handleStartConsultation("call")}
-      >
-        {isPending && targetService === "call" ? (
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        ) : (
-          <Phone className="mr-2 h-5 w-5" />
-        )}
-        <span>Inizia Chiamata (€{operator.phone_consult_rate?.toFixed(2)}/min)</span>
-      </Button>
-      <Button
-        size="lg"
-        variant="outline"
-        className="w-full border-amber-400 text-amber-400 hover:bg-amber-400/10 hover:text-amber-300 font-bold text-lg transition-all duration-300 ease-in-out transform hover:scale-105 bg-transparent"
-        disabled={isWrittenDisabled}
-        // onClick={() => openWrittenConsultationModal()} // TODO: Implement this
-      >
-        <Send className="mr-2 h-5 w-5" />
-        <span>Consulto Scritto (€{operator.written_consult_rate?.toFixed(2)})</span>
-      </Button>
+    <div className="mt-6 space-y-4">
+      {chatService && (
+        <Button
+          onClick={() => handleRequest("chat")}
+          disabled={isLoading !== null || operator.status !== "online"}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg py-6 flex items-center justify-center gap-3 transition-all duration-300 transform hover:scale-105"
+        >
+          {isLoading === "chat" ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <>
+              <MessageSquare className="h-6 w-6" />
+              <span>Inizia Chat - €{chatService.rate_per_minute}/min</span>
+            </>
+          )}
+        </Button>
+      )}
+      {callService && (
+        <Button
+          onClick={() => handleRequest("call")}
+          disabled={isLoading !== null || operator.status !== "online"}
+          className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-lg py-6 flex items-center justify-center gap-3 transition-all duration-300 transform hover:scale-105"
+        >
+          {isLoading === "call" ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <>
+              <Phone className="h-6 w-6" />
+              <span>Inizia Chiamata - €{callService.rate_per_minute}/min</span>
+            </>
+          )}
+        </Button>
+      )}
+      {operator.status !== "online" && (
+        <p className="text-center text-amber-400 font-medium">L'operatore non è al momento disponibile.</p>
+      )}
     </div>
   )
 }
