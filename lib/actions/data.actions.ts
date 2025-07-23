@@ -9,7 +9,16 @@ import { getCurrentPromotionPrice } from "./promotions.actions"
 // This prevents the "infinite recursion" error in RLS policies.
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  const services = profile.services ? JSON.parse(JSON.stringify(profile.services)) : {}
+  // Manually reconstruct the services object to ensure it's a plain, mutable JS object.
+  // This prevents errors like "Cannot set property of #<Object> which has only a getter"
+  // that can occur with objects returned from some database drivers.
+  const rawServices = profile.services || {}
+  const services = {
+    chat: rawServices.chat ? { ...rawServices.chat } : undefined,
+    call: rawServices.call ? { ...rawServices.call } : undefined,
+    email: rawServices.email ? { ...rawServices.email } : undefined,
+  }
+
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -58,10 +67,10 @@ export async function getHomepageData() {
         .from("reviews")
         .select(
           `
-       id, rating, comment, created_at,
-       client:profiles!reviews_client_id_fkey (full_name, avatar_url),
-       operator:profiles!reviews_operator_id_fkey (stage_name)
-     `,
+     id, rating, comment, created_at,
+     client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+     operator:profiles!reviews_operator_id_fkey (stage_name)
+   `,
         )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
@@ -97,6 +106,7 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
+    // Re-throw the error so the calling component can handle it (e.g., show an error message).
     throw error
   }
 }
