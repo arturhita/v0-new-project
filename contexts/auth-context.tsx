@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 
+// L'interfaccia del profilo rimane invariata
 interface Profile {
   id: string
   full_name: string | null
@@ -19,13 +20,13 @@ interface Profile {
   [key: string]: any
 }
 
+// Il tipo del contesto ora include refreshProfile per aggiornamenti manuali
 type AuthContextType = {
   user: User | null
   profile: Profile | null
   isAuthenticated: boolean
   isLoading: boolean
   logout: () => Promise<void>
-  // Funzione esposta per permettere ai componenti di ricaricare il profilo
   refreshProfile: () => Promise<void>
 }
 
@@ -38,90 +39,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // Inizia sempre come true
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push("/login")
-  }, [supabase.auth, router])
-
-  // Funzione di "bonifica" del profilo, ora centralizzata e riutilizzabile
-  const fetchAndSetSanitizedProfile = useCallback(
-    async (userToFetch: User) => {
+  // Funzione centralizzata per recuperare e "bonificare" il profilo.
+  // Restituisce un profilo sanificato o null.
+  const getSanitizedProfile = useCallback(
+    async (userToFetch: User): Promise<Profile | null> => {
       const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", userToFetch.id).single()
 
-      if (error) {
-        console.error("Error fetching profile:", error.message)
-        setProfile(null)
-        return
+      if (error || !rawProfile) {
+        console.error("Errore nel recupero del profilo o profilo non trovato:", error?.message)
+        return null
       }
 
-      if (rawProfile) {
-        // STEP FONDAMENTALE: Clonazione profonda e aggressiva dell'intero oggetto
-        // ricevuto da Supabase. Questo crea un Plain Old JavaScript Object (POJO)
-        // garantito per essere "pulito" e privo di getter, setter o proxy.
-        const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
+      // PASSO PIÙ CRITICO: Clonazione profonda immediata dell'oggetto grezzo.
+      // Questo crea un Plain Old JavaScript Object (POJO), rimuovendo tutti i getter/proxy.
+      const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
 
-        // Logica di normalizzazione e validazione sull'oggetto GIA' CLONATO.
-        // Questo previene errori assicurando che `services` e i suoi figli esistano sempre.
-        if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-          cleanProfile.services = {}
-        }
-        const services = cleanProfile.services
-        const defaultService = { enabled: false, price_per_minute: 0 }
-
-        cleanProfile.services.chat = { ...defaultService, ...(services.chat || {}) }
-        cleanProfile.services.call = { ...defaultService, ...(services.call || {}) }
-        cleanProfile.services.video = { ...defaultService, ...(services.video || {}) }
-
-        setProfile(cleanProfile as Profile)
-      } else {
-        setProfile(null)
+      // Normalizzazione difensiva dell'oggetto 'services' sui dati GIA' CLONATI.
+      if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
+        cleanProfile.services = {}
       }
+      const services = cleanProfile.services
+      const defaultService = { enabled: false, price_per_minute: 0 }
+
+      // Ricostruisce l'oggetto services per garantire che sia completo e valido.
+      cleanProfile.services = {
+        chat: { ...defaultService, ...(services.chat || {}) },
+        call: { ...defaultService, ...(services.call || {}) },
+        video: { ...defaultService, ...(services.video || {}) },
+      }
+
+      return cleanProfile as Profile
     },
     [supabase],
   )
 
-  // Hook principale che gestisce i cambiamenti di stato dell'autenticazione
+  // Hook principale per gestire i cambiamenti di stato dell'autenticazione.
   useEffect(() => {
-    // Imposta lo stato iniziale su "caricamento"
-    setIsLoading(true)
-
-    // Gestisce la sessione al caricamento iniziale della pagina
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const cleanUser = JSON.parse(JSON.stringify(session.user))
-        setUser(cleanUser)
-        await fetchAndSetSanitizedProfile(cleanUser)
-      }
-      setIsLoading(false)
-    })
-
-    // Si iscrive ai futuri cambiamenti di stato (login, logout)
+    // onAuthStateChange si attiva immediatamente con la sessione corrente,
+    // gestendo sia il caricamento iniziale che i login/logout successivi.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setIsLoading(true)
       if (session?.user) {
+        // 1. "Bonifica" l'oggetto user immediatamente.
         const cleanUser = JSON.parse(JSON.stringify(session.user))
+        // 2. Ottiene un profilo già "bonificato".
+        const sanitizedProfile = await getSanitizedProfile(cleanUser)
+
+        // 3. Imposta lo stato solo con oggetti puliti e sicuri.
         setUser(cleanUser)
-        await fetchAndSetSanitizedProfile(cleanUser)
+        setProfile(sanitizedProfile)
       } else {
-        // Se l'utente fa logout, pulisce gli stati
+        // L'utente ha effettuato il logout, pulisce tutto.
         setUser(null)
         setProfile(null)
       }
       setIsLoading(false)
     })
 
-    // Pulisce la sottoscrizione quando il componente viene smontato
+    // Pulisce la sottoscrizione quando il componente viene smontato.
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, fetchAndSetSanitizedProfile])
+  }, [supabase, getSanitizedProfile])
 
-  // Hook per la protezione delle rotte
+  // Funzione per attivare manualmente un aggiornamento del profilo.
+  const refreshProfile = useCallback(async () => {
+    if (user) {
+      setIsLoading(true)
+      const sanitizedProfile = await getSanitizedProfile(user)
+      setProfile(sanitizedProfile)
+      setIsLoading(false)
+    }
+  }, [user, getSanitizedProfile])
+
+  // Funzione di logout.
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
+    // onAuthStateChange si occuperà di pulire lo stato di user/profile.
+    router.push("/login")
+  }, [supabase.auth, router])
+
+  // Hook per la protezione delle rotte.
   useEffect(() => {
     if (isLoading) return
 
@@ -130,12 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.replace("/login")
     }
   }, [user, isLoading, pathname, router])
-
-  const refreshProfile = useCallback(async () => {
-    if (user) {
-      await fetchAndSetSanitizedProfile(user)
-    }
-  }, [user, fetchAndSetSanitizedProfile])
 
   return (
     <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout, refreshProfile }}>
