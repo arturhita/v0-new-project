@@ -23,13 +23,14 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  // Initialize state with a null error. This component is now completely decoupled from the AuthContext.
+  // This component is now completely decoupled from the AuthContext.
+  // It does not know about `isLoading` or the user's auth state.
+  // This prevents the race condition that caused the crash.
   const [state, formAction] = useActionState(login, { error: null })
   const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     // This useEffect now ONLY handles displaying errors from the server action.
-    // It no longer handles the success case, which prevents the race condition.
     if (state?.error) {
       toast.error(state.error)
     }

@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { useAuth } from "@/contexts/auth-context"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -26,11 +25,11 @@ function SubmitButton() {
 }
 
 export default function RegisterPage() {
+  // This component is also decoupled from the AuthContext.
   const [state, formAction] = useActionState(register, undefined)
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const { isLoading } = useAuth()
 
   useEffect(() => {
     if (state?.error) {
@@ -43,10 +42,6 @@ export default function RegisterPage() {
       router.push("/login")
     }
   }, [state, router])
-
-  if (isLoading) {
-    return null
-  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 bg-slate-900 text-white">
