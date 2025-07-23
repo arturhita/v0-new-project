@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their own tickets." ON public.tickets FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage their own tickets." ON public.tickets FOR ALL USING (auth.uid() = public.tickets.user_id);
 CREATE POLICY "Admins can manage all tickets." ON public.tickets FOR ALL USING (public.is_admin(auth.uid()));
 
 
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view their own notifications." ON public.notifications FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can update their own notifications." ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view their own notifications." ON public.notifications FOR SELECT USING (auth.uid() = public.notifications.user_id);
+CREATE POLICY "Users can update their own notifications." ON public.notifications FOR UPDATE USING (auth.uid() = public.notifications.user_id);
 
 
 -- Tabelle per la chat
@@ -58,8 +58,8 @@ CREATE TABLE IF NOT EXISTS public.chat_sessions (
     ended_at TIMESTAMPTZ
 );
 ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Participants can access their chat sessions." ON public.chat_sessions FOR SELECT USING (auth.uid() = client_id OR auth.uid() = operator_id);
-CREATE POLICY "Participants can update their chat sessions." ON public.chat_sessions FOR UPDATE USING (auth.uid() = client_id OR auth.uid() = operator_id);
+CREATE POLICY "Participants can access their chat sessions." ON public.chat_sessions FOR SELECT USING (auth.uid() = public.chat_sessions.client_id OR auth.uid() = public.chat_sessions.operator_id);
+CREATE POLICY "Participants can update their chat sessions." ON public.chat_sessions FOR UPDATE USING (auth.uid() = public.chat_sessions.client_id OR auth.uid() = public.chat_sessions.operator_id);
 
 
 CREATE TABLE IF NOT EXISTS public.chat_messages (
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 );
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Participants can access messages in their sessions." ON public.chat_messages FOR SELECT USING (
-    session_id IN (SELECT id FROM public.chat_sessions WHERE auth.uid() = client_id OR auth.uid() = operator_id)
+    session_id IN (SELECT s.id FROM public.chat_sessions s WHERE auth.uid() = s.client_id OR auth.uid() = s.operator_id)
 );
 CREATE POLICY "Users can send messages in their sessions." ON public.chat_messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
 
@@ -88,6 +88,6 @@ CREATE TABLE IF NOT EXISTS public.written_consultations (
     answered_at TIMESTAMPTZ
 );
 ALTER TABLE public.written_consultations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Participants can access their written consultations." ON public.written_consultations FOR SELECT USING (auth.uid() = client_id OR auth.uid() = operator_id);
+CREATE POLICY "Participants can access their written consultations." ON public.written_consultations FOR SELECT USING (auth.uid() = public.written_consultations.client_id OR auth.uid() = public.written_consultations.operator_id);
 CREATE POLICY "Clients can create written consultations." ON public.written_consultations FOR INSERT WITH CHECK (auth.uid() = client_id);
 CREATE POLICY "Operators can answer written consultations." ON public.written_consultations FOR UPDATE USING (auth.uid() = operator_id) WITH CHECK (auth.uid() = operator_id);

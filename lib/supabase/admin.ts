@@ -1,20 +1,21 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Assicurati che le tue variabili d'ambiente siano definite nel tuo progetto Vercel
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl) {
-  throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_URL")
+/**
+ * Crea un client Supabase con privilegi di amministratore.
+ * Da usare ESCLUSIVAMENTE lato server.
+ * @returns {SupabaseClient}
+ */
+export const createAdminClient = () => {
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("URL Supabase o Service Role Key mancanti nelle variabili d'ambiente.")
+  }
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
-if (!supabaseServiceRoleKey) {
-  throw new Error("Missing env.SUPABASE_SERVICE_ROLE_KEY")
-}
-
-// Questo client ha privilegi di amministratore e deve essere usato solo lato server.
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
