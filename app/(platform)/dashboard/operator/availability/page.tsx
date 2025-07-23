@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarDays, PlusCircle, Trash2, ClockIcon, Loader2 } from "lucide-react"
+import { CalendarDays, Save, PlusCircle, Trash2, ClockIcon, Loader2 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import {
   saveOperatorAvailability,
   getOperatorAvailability,
   type WeeklyAvailability,
-  getOperatorAvailabilitySchedule,
 } from "@/lib/actions/availability.actions"
 
 const daysOfWeek = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
@@ -21,8 +20,7 @@ const timeSlots = Array.from({ length: 24 * 2 }, (_, i) => {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 })
 
-export default async function OperatorAvailabilityPage() {
-  const schedule = await getOperatorAvailabilitySchedule()
+export default function AvailabilityPage() {
   const [availability, setAvailability] = useState<WeeklyAvailability>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -153,12 +151,36 @@ export default async function OperatorAvailabilityPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <Card>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Orari Arcani</h1>
+        <Button
+          onClick={handleSaveAvailability}
+          disabled={saving}
+          className="bg-gradient-to-r from-[hsl(var(--primary-medium))] to-[hsl(var(--primary-dark))] text-white shadow-md hover:opacity-90"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Salva Modifiche
+            </>
+          )}
+        </Button>
+      </div>
+      <CardDescription className="text-slate-500 -mt-4">
+        Definisci i tuoi momenti di connessione con i cercatori, aggiungendo più fasce orarie se necessario.
+      </CardDescription>
+
+      <Card className="shadow-xl rounded-2xl">
         <CardHeader>
-          <CardTitle className="text-xl font-bold tracking-tight text-slate-800">Orari Arcani</CardTitle>
-          <CardDescription className="text-slate-500 -mt-4">
-            Definisci i tuoi momenti di connessione con i cercatori, aggiungendo più fasce orarie se necessario.
+          <CardTitle className="text-xl text-slate-700">Disponibilità Settimanale Ricorrente</CardTitle>
+          <CardDescription className="text-slate-500">
+            Imposta gli orari in cui sei generalmente disponibile per i consulti.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

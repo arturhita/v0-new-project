@@ -19,15 +19,19 @@ export interface ConsultationSettings {
 const servicesSchema = z.object({
   chat: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.coerce.number().min(0, "Il prezzo non può essere negativo."),
+    price_per_minute: z.number().min(0),
   }),
   call: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.coerce.number().min(0, "Il prezzo non può essere negativo."),
+    price_per_minute: z.number().min(0),
+  }),
+  email: z.object({
+    enabled: z.boolean(),
+    price: z.number().min(0),
   }),
   video: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.coerce.number().min(0, "Il prezzo non può essere negativo."),
+    price_per_minute: z.number().min(0),
   }),
 })
 
@@ -228,7 +232,7 @@ export async function validateServicePricing(settings: ConsultationSettings) {
   }
 }
 
-export async function updateOperatorServices(servicesData: unknown) {
+export async function updateOperatorServices(prevState: any, formData: FormData) {
   const supabase = createClient()
 
   const {
@@ -236,22 +240,28 @@ export async function updateOperatorServices(servicesData: unknown) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: "Utente non autenticato." }
+    return { error: "Utente non autenticato." }
   }
 
-  const validatedServices = servicesSchema.safeParse(servicesData)
-
-  if (!validatedServices.success) {
-    return { success: false, error: "Dati non validi.", details: validatedServices.error.flatten() }
+  const servicesData = formData.get("services")
+  if (typeof servicesData !== "string") {
+    return { error: "Dati dei servizi non validi." }
   }
 
-  const { error } = await supabase.from("profiles").update({ services: validatedServices.data }).eq("id", user.id)
+  try {
+    const parsedServices = servicesSchema.parse(JSON.parse(servicesData))
 
-  if (error) {
-    console.error("Error updating services:", error)
-    return { success: false, error: "Si è verificato un errore durante l'aggiornamento dei servizi." }
+    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
+
+    if (error) {
+      console.error("Supabase error updating services:", error)
+      return { error: "Impossibile aggiornare i servizi. Riprova." }
+    }
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (e) {
+    console.error("Validation or parsing error:", e)
+    return { error: "I dati inviati non sono validi." }
   }
-
-  revalidatePath("/dashboard/operator/services")
-  return { success: true, message: "Servizi aggiornati con successo!" }
 }
