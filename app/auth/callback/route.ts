@@ -1,35 +1,39 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get("code")
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get("next") ?? "/"
+export async function GET(request: NextRequest) {
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get("code")
 
   if (code) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (!error) {
-      // Dopo lo scambio del codice, recuperiamo il profilo per decidere dove reindirizzare
+      // **LOGICA DI REINDIRIZZAMENTO POST-CONFERMA**
+      // Dopo lo scambio del codice, recuperiamo l'utente e il suo profilo
       const {
         data: { user },
       } = await supabase.auth.getUser()
+
       if (user) {
         const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+        let destination = "/dashboard/client" // Default per i clienti
         if (profile?.role === "admin") {
-          return NextResponse.redirect(`${origin}/admin`)
+          destination = "/admin"
+        } else if (profile?.role === "operator") {
+          destination = "/dashboard/operator"
         }
-        if (profile?.role === "operator") {
-          return NextResponse.redirect(`${origin}/dashboard/operator`)
-        }
+        return NextResponse.redirect(new URL(destination, request.url))
       }
-      // Default redirect per i clienti o in caso di profilo non trovato
-      return NextResponse.redirect(`${origin}/dashboard/client`)
     }
   }
 
-  // return the user to an error page with instructions
-  console.error("Authentication error: No code found or error exchanging code.")
-  return NextResponse.redirect(`${origin}/login?error=auth_error`)
+  // In caso di errore, reindirizza alla pagina di login con un messaggio
+  console.error("Authentication callback error:", "Code not found or error exchanging code.")
+  const errorUrl = new URL("/login", request.url)
+  errorUrl.searchParams.set("error", "Impossibile completare l'autenticazione. Riprova.")
+  return NextResponse.redirect(errorUrl)
 }

@@ -53,7 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // PASSO PIÙ CRITICO: Clonazione profonda immediata dell'oggetto grezzo.
-      // Questo crea un Plain Old JavaScript Object (POJO), rimuovendo tutti i getter/proxy.
       const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
 
       // Normalizzazione difensiva dell'oggetto 'services' sui dati GIA' CLONATI.
@@ -77,30 +76,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Hook principale per gestire i cambiamenti di stato dell'autenticazione.
   useEffect(() => {
-    // onAuthStateChange si attiva immediatamente con la sessione corrente,
-    // gestendo sia il caricamento iniziale che i login/logout successivi.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsLoading(true)
       if (session?.user) {
-        // 1. "Bonifica" l'oggetto user immediatamente.
         const cleanUser = JSON.parse(JSON.stringify(session.user))
-        // 2. Ottiene un profilo già "bonificato".
         const sanitizedProfile = await getSanitizedProfile(cleanUser)
-
-        // 3. Imposta lo stato solo con oggetti puliti e sicuri.
         setUser(cleanUser)
         setProfile(sanitizedProfile)
       } else {
-        // L'utente ha effettuato il logout, pulisce tutto.
         setUser(null)
         setProfile(null)
       }
       setIsLoading(false)
     })
 
-    // Pulisce la sottoscrizione quando il componente viene smontato.
     return () => {
       subscription.unsubscribe()
     }
@@ -119,19 +110,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Funzione di logout.
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // onAuthStateChange si occuperà di pulire lo stato di user/profile.
     router.push("/login")
   }, [supabase.auth, router])
 
-  // Hook per la protezione delle rotte.
+  // Hook per la protezione delle rotte e reindirizzamento basato sul ruolo.
   useEffect(() => {
     if (isLoading) return
 
-    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
-    if (!user && isProtectedPage) {
-      router.replace("/login")
+    const isAuthPage = pathname === "/login" || pathname === "/register"
+
+    if (profile) {
+      // Se l'utente è autenticato e si trova su una pagina di login/registrazione,
+      // lo reindirizziamo alla sua dashboard.
+      if (isAuthPage) {
+        let destination = "/dashboard/client"
+        if (profile.role === "admin") destination = "/admin"
+        if (profile.role === "operator") destination = "/dashboard/operator"
+        router.replace(destination)
+        return
+      }
+
+      // **RETE DI SICUREZZA PER REINDIRIZZAMENTO**
+      // Controlla se l'utente è sulla dashboard sbagliata.
+      const role = profile.role
+      if (role === "client" && (pathname.startsWith("/admin") || pathname.startsWith("/dashboard/operator"))) {
+        router.replace("/dashboard/client")
+      } else if (role === "operator" && pathname.startsWith("/admin")) {
+        router.replace("/dashboard/operator")
+      }
+    } else {
+      // Se l'utente non è autenticato, protegge le pagine del dashboard/admin.
+      const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+      if (isProtectedPage) {
+        router.replace("/login")
+      }
     }
-  }, [user, isLoading, pathname, router])
+  }, [profile, isLoading, pathname, router])
 
   return (
     <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout, refreshProfile }}>
