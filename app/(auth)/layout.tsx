@@ -1,11 +1,17 @@
-import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
 import type React from "react"
+import { ConstellationBackground } from "@/components/constellation-background"
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+// Questo layout definisce la UI per le pagine di autenticazione (login, register).
+// È minimale e non include la navbar o il footer principali.
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-slate-900 p-4">
-      <GoldenConstellationBackground />
-      <div className="z-10 w-full">{children}</div>
+    <div className="relative flex min-h-screen flex-col items-center justify-center">
+      <ConstellationBackground />
+      <main className="z-10">{children}</main>
     </div>
   )
 }

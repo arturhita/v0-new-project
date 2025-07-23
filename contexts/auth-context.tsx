@@ -7,13 +7,11 @@ import type { User } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 
-// Definizione dei tipi per il profilo e il contesto
 interface Profile {
   id: string
   full_name: string | null
   avatar_url: string | null
   role: "client" | "operator" | "admin"
-  // Aggiungere altri campi del profilo se necessario
 }
 
 type AuthContextType = {
@@ -38,51 +36,53 @@ export function AuthProvider({
   const supabase = createClient()
   const router = useRouter()
 
-  // Inizializza lo stato con i dati forniti dal server (da app/layout.tsx)
   const [user, setUser] = useState(initialUser)
   const [profile, setProfile] = useState(initialProfile)
-  // isLoading è true solo all'inizio, finché non abbiamo la certezza dello stato
-  const [isLoading, setIsLoading] = useState(initialUser === undefined)
+  // Lo stato di caricamento è attivo solo se i dati iniziali non sono disponibili.
+  const [isLoading, setIsLoading] = useState(initialUser === null && typeof window !== "undefined")
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // Non è necessario un redirect qui, l'evento SIGNED_OUT lo gestirà
+    // Il listener onAuthStateChange gestirà il reindirizzamento.
   }, [supabase.auth])
 
   useEffect(() => {
-    // Questo listener reagisce ai cambiamenti di stato di autenticazione nel client
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-
-      if (currentUser) {
-        // Se l'utente è loggato, recupera il suo profilo
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
-        setProfile(userProfile as Profile)
-      } else {
-        // Se l'utente non è loggato, pulisce il profilo
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN") {
+        // Se l'utente effettua il login (es. in un'altra scheda), ricarica per sincronizzare lo stato del server.
+        router.refresh()
+      } else if (event === "SIGNED_OUT") {
+        // Se l'utente si disconnette, pulisce lo stato client e reindirizza al login.
+        setUser(null)
         setProfile(null)
-        router.push("/login") // Reindirizza al login se l'utente si scollega
+        router.push("/login")
       }
       setIsLoading(false)
     })
 
-    // Pulisce il listener quando il componente viene smontato
+    // Se non abbiamo ricevuto dati dal server, facciamo un controllo finale sul client.
+    if (isLoading) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          setIsLoading(false)
+        }
+      })
+    }
+
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [router, supabase, isLoading])
 
-  // Se i dati iniziali dal server cambiano, aggiorna lo stato
+  // Sincronizza lo stato se le props del server cambiano (durante la navigazione).
   useEffect(() => {
     setUser(initialUser)
     setProfile(initialProfile)
-    setIsLoading(initialUser === undefined)
   }, [initialUser, initialProfile])
 
-  // Mostra uno spinner di caricamento a schermo intero mentre si verifica lo stato di autenticazione
+  // Mostra uno spinner solo durante il caricamento iniziale sul client.
   if (isLoading) {
     return <LoadingSpinner fullScreen />
   }
@@ -102,7 +102,6 @@ export function AuthProvider({
   )
 }
 
-// Hook personalizzato per accedere facilmente al contesto
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {

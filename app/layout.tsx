@@ -4,49 +4,53 @@ import { Inter } from "next/font/google"
 import { Toaster } from "sonner"
 import { AuthProvider } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/server"
+import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/react"
+import { Suspense } from "next/navigation"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenza Mistica",
-  description: "La tua guida nel mondo della consulenza mistica e spirituale.",
+  title: "Moonthir - Consulenti del benessere",
+  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
     generator: 'v0.dev'
 }
 
-// Il Root Layout è ora un Server Component asincrono
+// Il Root Layout è ora un Server Component asincrono.
+// Il suo scopo è fornire i provider globali, come AuthProvider.
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // 1. Crea un client Supabase per il server.
   const supabase = createClient()
 
-  // 2. Recupera la sessione utente corrente dal cookie.
+  // Recupera la sessione utente e il profilo sul server.
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
   let profile = null
   if (user) {
-    // 3. Se l'utente è loggato, recupera il suo profilo dal database.
     const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
     profile = userProfile
   }
 
   return (
-    <html lang="it">
-      <body className={inter.className}>
+    <html lang="it" suppressHydrationWarning>
+      <body className={`${inter.className} bg-gray-900`}>
         {/* 
-          4. Inizializza l'AuthProvider con i dati utente e profilo recuperati sul server.
-             Questo "idrata" il contesto client con lo stato corretto fin dal primo rendering,
-             garantendo che il login sia mantenuto e non ci siano sfarfallii.
+          AuthProvider avvolge l'intera applicazione, passando i dati iniziali
+          recuperati sul server. Questo è il cuore della sessione persistente.
         */}
-        <AuthProvider user={user} profile={profile}>
-          {children}
-        </AuthProvider>
-        <Toaster richColors position="top-center" />
+        <Suspense fallback={<div>Loading...</div>}>
+          <AuthProvider user={user} profile={profile}>
+            {children}
+            <Toaster richColors position="top-center" />
+          </AuthProvider>
+        </Suspense>
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   )
