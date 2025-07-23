@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -25,7 +25,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = getSupabaseBrowserClient() // Use the singleton client
+  const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -42,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Remove structuredClone, use the session object directly
       setUser(session?.user ?? null)
 
       if (_event === "SIGNED_OUT") {
@@ -68,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else {
-            setProfile(rawProfile ? structuredClone(rawProfile) : null)
+            setProfile(rawProfile)
           }
           setIsLoading(false)
         })

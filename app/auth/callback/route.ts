@@ -8,41 +8,51 @@ export async function GET(request: NextRequest) {
   const supabase = createClient()
 
   if (code) {
-    // Se c'è un codice, è un login via link magico o conferma email
+    // This is for email confirmation link
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // A questo punto, l'utente dovrebbe avere una sessione valida
+  // After login or email confirmation, get the user
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    // Se non c'è utente, qualcosa è andato storto. Torna al login.
-    return NextResponse.redirect(new URL("/login?error=Authentication failed", request.url))
+    // If no user, redirect back to login
+    return NextResponse.redirect(`${requestUrl.origin}/login?error=Authentication failed`)
   }
 
-  // Recupera il profilo per determinare il ruolo
-  const { data: rawProfile, error: profileError } = await supabase
+  // Get user's role from the profiles table
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single()
 
-  if (profileError || !rawProfile) {
-    // Sicurezza: esegui il logout se il profilo non esiste e reindirizza con errore
+  if (profileError || !profile) {
+    // If profile doesn't exist, something is wrong. Sign out and redirect to login.
     await supabase.auth.signOut()
-    return NextResponse.redirect(new URL("/login?error=Profile not found", request.url))
+    return NextResponse.redirect(`${requestUrl.origin}/login?error=Profile not found`)
   }
 
-  // Usa structuredClone per sicurezza
-  const profile = structuredClone(rawProfile)
-
-  // Reindirizza alla dashboard corretta
+  // Redirect based on role
   let destination = "/"
-  if (profile.role === "admin") destination = "/admin"
-  else if (profile.role === "operator") destination = "/dashboard/operator"
-  else if (profile.role === "client") destination = "/dashboard/client"
+  switch (profile.role) {
+    case "admin":
+      destination = "/admin"
+      break
+    case "operator":
+      destination = "/dashboard/operator"
+      break
+    case "client":
+      destination = "/dashboard/client"
+      break
+    default:
+      // Fallback to login with an error if role is unknown
+      await supabase.auth.signOut()
+      destination = "/login?error=Unknown role"
+      break
+  }
 
-  return NextResponse.redirect(new URL(destination, request.url))
+  return NextResponse.redirect(`${requestUrl.origin}${destination}`)
 }

@@ -35,42 +35,22 @@ export async function login(prevState: any, formData: FormData) {
   const { email, password } = validatedFields.data
   const supabase = createClient()
 
-  const { data: authData, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error || !authData.user) {
-    console.error("Login Error:", error?.message)
+  if (error) {
+    console.error("Login Error:", error.message)
     if (error instanceof AuthError) {
       return { error: "Credenziali non valide. Controlla email e password." }
     }
     return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
-  // --- LOGICA DI REINDIRIZZAMENTO DIRETTO ---
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", authData.user.id)
-    .single()
-
-  if (profileError || !profile) {
-    await supabase.auth.signOut() // Sicurezza: logout se il profilo non esiste
-    console.error("Profile fetch error after login:", profileError?.message)
-    return { error: "Impossibile trovare il profilo utente. Contatta l'assistenza." }
-  }
-
-  let destination = "/"
-  if (profile.role === "admin") {
-    destination = "/admin"
-  } else if (profile.role === "operator") {
-    destination = "/dashboard/operator"
-  } else if (profile.role === "client") {
-    destination = "/dashboard/client"
-  }
-
-  redirect(destination)
+  // Su successo, reindirizza sempre alla rotta di callback.
+  // Sarà questa rotta a gestire il reindirizzamento finale.
+  redirect("/auth/callback")
 }
 
 export async function register(prevState: any, formData: FormData) {
