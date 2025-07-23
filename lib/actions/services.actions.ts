@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
 export interface ConsultationSettings {
   chatEnabled: boolean
@@ -11,7 +12,24 @@ export interface ConsultationSettings {
   minDurationCallChat: number
   emailEnabled: boolean
   emailPricePerConsultation: number
+  videoEnabled: boolean
+  videoPricePerMinute: number
 }
+
+const servicesSchema = z.object({
+  chat: z.object({
+    enabled: z.boolean(),
+    price_per_minute: z.coerce.number().min(0),
+  }),
+  call: z.object({
+    enabled: z.boolean(),
+    price_per_minute: z.coerce.number().min(0),
+  }),
+  video: z.object({
+    enabled: z.boolean(),
+    price_per_minute: z.coerce.number().min(0),
+  }),
+})
 
 export async function saveOperatorServices(settings: ConsultationSettings) {
   const supabase = createClient()
@@ -43,6 +61,10 @@ export async function saveOperatorServices(settings: ConsultationSettings) {
       email: {
         enabled: settings.emailEnabled,
         price: settings.emailPricePerConsultation,
+      },
+      video: {
+        enabled: settings.videoEnabled,
+        price_per_minute: settings.videoPricePerMinute,
       },
       min_duration: settings.minDurationCallChat,
     }
@@ -121,6 +143,8 @@ export async function getOperatorServices(): Promise<ConsultationSettings | null
         minDurationCallChat: 10,
         emailEnabled: false,
         emailPricePerConsultation: 25.0,
+        videoEnabled: false,
+        videoPricePerMinute: 2.0,
       }
     }
 
@@ -133,6 +157,8 @@ export async function getOperatorServices(): Promise<ConsultationSettings | null
       minDurationCallChat: data.min_duration || 10,
       emailEnabled: data.email?.enabled || false,
       emailPricePerConsultation: data.email?.price || 25.0,
+      videoEnabled: data.video?.enabled || false,
+      videoPricePerMinute: data.video?.price_per_minute || 2.0,
     }
   } catch (error: any) {
     console.error("Unexpected error fetching operator services:", error)
@@ -173,13 +199,23 @@ export async function validateServicePricing(settings: ConsultationSettings) {
     }
   }
 
+  // Validate video pricing
+  if (settings.videoEnabled) {
+    if (settings.videoPricePerMinute < 0.1) {
+      errors.push("Il prezzo per il video deve essere almeno €0.10 al minuto")
+    }
+    if (settings.videoPricePerMinute > 50) {
+      errors.push("Il prezzo per il video non può superare €50.00 al minuto")
+    }
+  }
+
   // Validate minimum duration
-  if ((settings.chatEnabled || settings.callEnabled) && settings.minDurationCallChat < 5) {
+  if ((settings.chatEnabled || settings.callEnabled || settings.videoEnabled) && settings.minDurationCallChat < 5) {
     errors.push("La durata minima deve essere almeno 5 minuti")
   }
 
   // Check if at least one service is enabled
-  if (!settings.chatEnabled && !settings.callEnabled && !settings.emailEnabled) {
+  if (!settings.chatEnabled && !settings.callEnabled && !settings.emailEnabled && !settings.videoEnabled) {
     errors.push("Devi abilitare almeno un tipo di consulto")
   }
 
@@ -187,4 +223,34 @@ export async function validateServicePricing(settings: ConsultationSettings) {
     isValid: errors.length === 0,
     errors,
   }
+}
+
+export async function updateOperatorServices(services: z.infer<typeof servicesSchema>) {
+  const supabase = createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Utente non autenticato." }
+  }
+
+  const validatedServices = servicesSchema.safeParse(services)
+
+  if (!validatedServices.success) {
+    return { error: "Dati dei servizi non validi." }
+  }
+
+  const { error } = await supabase.from("profiles").update({ services: validatedServices.data }).eq("id", user.id)
+
+  if (error) {
+    return { error: `Errore durante l'aggiornamento dei servizi: ${error.message}` }
+  }
+
+  // Revalidate the entire layout to ensure AuthProvider and all other components get fresh data.
+  // This is the key to ensuring the UI reflects the change correctly.
+  revalidatePath("/", "layout")
+
+  return { success: "Servizi aggiornati con successo." }
 }

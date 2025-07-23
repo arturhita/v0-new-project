@@ -25,6 +25,8 @@ type AuthContextType = {
   isAuthenticated: boolean
   isLoading: boolean
   logout: () => Promise<void>
+  // We add a function to manually trigger a profile refresh after updates
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -38,59 +40,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-    router.push("/login")
-  }, [supabase.auth, router])
+  const fetchAndSetProfile = useCallback(
+    async (user: User) => {
+      const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
-  useEffect(() => {
-    const manageSession = async (session: Session | null) => {
+      if (error) {
+        console.error("Error fetching profile:", error.message)
+        setProfile(null)
+      } else if (rawProfile) {
+        // THE DEFINITIVE FIX: Deep clone the raw profile data from Supabase.
+        // This creates a plain JavaScript object, stripping all getters and preventing the error.
+        const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
+
+        // Defensive check for services object, just in case.
+        if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
+          cleanProfile.services = {
+            chat: { enabled: false, price_per_minute: 0 },
+            call: { enabled: false, price_per_minute: 0 },
+            video: { enabled: false, price_per_minute: 0 },
+          }
+        }
+        setProfile(cleanProfile as Profile)
+      } else {
+        setProfile(null)
+      }
+    },
+    [supabase],
+  )
+
+  const manageSession = useCallback(
+    async (session: Session | null) => {
       if (session?.user) {
-        const { data: rawProfile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-
-        // Sanitize user object immediately
         const cleanUser = JSON.parse(JSON.stringify(session.user))
         setUser(cleanUser)
-
-        if (error) {
-          console.error("Error fetching profile:", error.message)
-          setProfile(null)
-        } else if (rawProfile) {
-          // THE DEFINITIVE FIX: Deep clone the raw profile data from Supabase.
-          // This creates a plain JavaScript object, stripping all getters and preventing the error.
-          const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
-
-          // Defensive check for services object, just in case.
-          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-            cleanProfile.services = {
-              chat: { enabled: false, price_per_minute: 0 },
-              call: { enabled: false, price_per_minute: 0 },
-              video: { enabled: false, price_per_minute: 0 },
-            }
-          }
-          setProfile(cleanProfile as Profile)
-        } else {
-          // Profile doesn't exist, but user does.
-          setProfile(null)
-        }
+        await fetchAndSetProfile(cleanUser)
       } else {
         setUser(null)
         setProfile(null)
       }
       setIsLoading(false)
-    }
+    },
+    [fetchAndSetProfile],
+  )
 
+  const refreshProfile = useCallback(async () => {
+    if (user) {
+      await fetchAndSetProfile(user)
+    }
+  }, [user, fetchAndSetProfile])
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    router.push("/login")
+  }, [supabase.auth, router])
+
+  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       manageSession(session)
     })
 
-    // Also check session on initial load
     supabase.auth.getSession().then(({ data: { session } }) => {
       manageSession(session)
     })
@@ -98,13 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [manageSession, supabase.auth])
 
   useEffect(() => {
-    if (isLoading) {
-      return
-    }
-
+    if (isLoading) return
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
     if (!user && isProtectedPage) {
       router.replace("/login")
@@ -112,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router])
 
   return (
-    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
