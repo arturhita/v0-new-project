@@ -40,7 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-  }, [supabase.auth])
+    router.push("/login")
+  }, [supabase.auth, router])
 
   useEffect(() => {
     const manageSession = async (session: Session | null) => {
@@ -93,7 +94,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // When auth state changes, re-run the whole session management logic
       manageSession(session)
     })
 
