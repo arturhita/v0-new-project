@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        // DEFINITIVE FIX 1: Hard clone the user object
+        // Hard clone the user object to create a clean POJO
         const cleanUser = JSON.parse(JSON.stringify(session.user))
         setUser(cleanUser)
       } else {
@@ -74,8 +74,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else if (rawProfile) {
-            // DEFINITIVE FIX 2: Hard clone the profile object
+            // DEFINITIVE FIX:
+            // 1. Hard clone the profile to get a clean POJO, stripping Supabase proxies.
             const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
+
+            // 2. Defensive check: If services is null/undefined (due to old data),
+            //    initialize it to prevent downstream errors.
+            if (!cleanProfile.services) {
+              cleanProfile.services = {
+                chat: { enabled: false, price_per_minute: 0 },
+                call: { enabled: false, price_per_minute: 0 },
+                video: { enabled: false, price_per_minute: 0 },
+              }
+            }
             setProfile(cleanProfile)
           } else {
             setProfile(null)
