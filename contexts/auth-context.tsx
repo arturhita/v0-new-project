@@ -59,29 +59,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // 1. Clona profondamente l'intero oggetto `rawProfile` per rimuovere i getter.
-          const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
+          // 1. Clonazione profonda iniziale per rimuovere la maggior parte dei getter/proxy.
+          const profileData = JSON.parse(JSON.stringify(rawProfile))
 
-          // 2. Verifica se `services` esiste e se è un oggetto, altrimenti lo inizializza.
-          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-            cleanProfile.services = {}
-          }
+          // 2. Estrae i 'services' e li tratta come un oggetto generico per massima sicurezza.
+          const rawServices = (profileData.services || {}) as Record<string, unknown>
 
           const defaultService = { enabled: false, price_per_minute: 0 }
 
-          // Funzione ausiliaria per clonare e validare ogni singolo servizio.
-          const processService = (serviceObject: any) => {
-            // Se il servizio è assente o non è un oggetto, ritorna il default.
-            if (!serviceObject || typeof serviceObject !== "object") {
+          // Funzione di "bonifica" ultra-difensiva per ogni singolo servizio.
+          const sanitizeService = (service: unknown): { enabled: boolean; price_per_minute: number } => {
+            // Se il servizio non è un oggetto valido, ritorna il default.
+            if (typeof service !== "object" || service === null) {
               return defaultService
             }
 
-            // 3. Esegue una clonazione profonda *indipendente* sul singolo servizio
-            // per garantire che sia un oggetto pulito e completamente modificabile.
-            const cleanService = JSON.parse(JSON.stringify(serviceObject))
+            // 3. Esegue una seconda clonazione profonda *sul singolo servizio*.
+            // Questo è il passaggio chiave per eliminare qualsiasi getter residuo
+            // che potrebbe essere sopravvissuto alla prima clonazione.
+            const cleanService = JSON.parse(JSON.stringify(service))
 
-            // 4. Ricostruisce l'oggetto finale, garantendo che tutte le chiavi
-            // necessarie siano presenti e abbiano il tipo corretto.
+            // 4. Ricostruisce l'oggetto da zero, validando ogni campo.
+            // Questo garantisce che l'oggetto finale sia un POJO puro con la struttura corretta.
             return {
               enabled: typeof cleanService.enabled === "boolean" ? cleanService.enabled : defaultService.enabled,
               price_per_minute:
@@ -91,13 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // Applica il processo a ciascun servizio per renderlo sicuro e completo.
-          cleanProfile.services.chat = processService(cleanProfile.services.chat)
-          cleanProfile.services.call = processService(cleanProfile.services.call)
-          cleanProfile.services.video = processService(cleanProfile.services.video)
+          // 5. Applica la sanificazione a ogni servizio e ricostruisce l'oggetto `services`.
+          profileData.services = {
+            chat: sanitizeService(rawServices.chat),
+            call: sanitizeService(rawServices.call),
+            video: sanitizeService(rawServices.video),
+          }
 
-          setProfile(cleanProfile as Profile)
+          // Ora `profileData` è un oggetto garantito per essere completamente modificabile.
+          setProfile(profileData as Profile)
         } else {
+          // Se non c'è profilo, imposta a null.
           setProfile(null)
         }
       } else {
