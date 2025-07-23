@@ -12,6 +12,8 @@ interface Profile {
   full_name: string | null
   avatar_url: string | null
   role: "client" | "operator" | "admin"
+  // Aggiungiamo altri campi che potrebbero essere presenti per completezza
+  [key: string]: any
 }
 
 type AuthContextType = {
@@ -47,10 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         const { data: userProfile } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar_url, role")
+          .select("*") // Selezioniamo tutto per essere sicuri
           .eq("id", currentUser.id)
           .single()
-        setProfile(userProfile as Profile | null)
+
+        // LA CORREZIONE CRITICA: Sanifichiamo l'oggetto profilo prima di impostarlo nello stato.
+        // Questo è il punto più importante per prevenire l'errore in tutta l'app.
+        const cleanProfile = JSON.parse(JSON.stringify(userProfile || null))
+        setProfile(cleanProfile as Profile | null)
       } else {
         setProfile(null)
       }

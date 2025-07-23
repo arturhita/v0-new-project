@@ -19,11 +19,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
+import { useAuth } from "@/contexts/auth-context"
 import { getOperatorDashboardData } from "@/lib/actions/dashboard.actions"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Terminal } from "lucide-react"
 
 type OperatorStats = {
   totalEarningsMonth: number
@@ -95,55 +92,76 @@ const StatCard = ({
   </Card>
 )
 
-export default async function OperatorDashboardPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function OperatorDashboardPage() {
+  const { user, profile } = useAuth()
+  const [stats, setStats] = useState<OperatorStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  if (!user) {
-    return redirect("/login")
-  }
-
-  try {
-    const dashboardData = await getOperatorDashboardData(user.id)
-
-    if (!dashboardData) {
-      return (
-        <div className="p-4">
-          <Alert>
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Dati non disponibili</AlertTitle>
-            <AlertDescription>
-              Non è stato possibile caricare i dati della tua dashboard. Riprova più tardi.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )
+  useEffect(() => {
+    if (user?.id) {
+      const fetchData = async () => {
+        setLoading(true)
+        setError(null)
+        try {
+          const data = await getOperatorDashboardData(user.id)
+          if (data) {
+            setStats(data)
+          } else {
+            setError("Impossibile caricare i dati della dashboard.")
+          }
+        } catch (e) {
+          console.error(e)
+          setError("Si è verificato un errore durante il caricamento dei dati.")
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchData()
+    } else if (!user) {
+      setLoading(false)
     }
+  }, [user])
 
-    return <OperatorDashboardClient initialData={dashboardData} user={user} />
-  } catch (error) {
-    console.error("Failed to load operator dashboard:", error)
+  if (loading) {
+    // Mostra uno scheletro di caricamento più completo
     return (
-      <div className="p-4">
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Errore</AlertTitle>
-          <AlertDescription>Si è verificato un errore grave durante il caricamento della dashboard.</AlertDescription>
-        </Alert>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <Skeleton className="h-10 w-96 bg-white/20" />
+            <Skeleton className="h-6 w-72 mt-2 bg-white/20" />
+          </div>
+          <Skeleton className="h-12 w-48 bg-white/20 rounded-xl" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-5 w-24 bg-white/20" />
+                <Skeleton className="h-5 w-5 bg-white/20" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-24 bg-white/20" />
+                <Skeleton className="h-4 w-32 mt-2 bg-white/20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
-}
 
-const OperatorDashboardClient = ({ initialData, user }: { initialData: OperatorStats; user: any }) => {
-  const [stats, setStats] = useState<OperatorStats>(initialData)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    setStats(initialData)
-  }, [initialData])
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-500">Errore</h2>
+          <p>{error}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -158,8 +176,7 @@ const OperatorDashboardClient = ({ initialData, user }: { initialData: OperatorS
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <SparklesIcon className="w-8 h-8 mr-3 text-yellow-400" />
-              Benvenuto nel tuo Santuario,{" "}
-              {user?.user_metadata?.stage_name || user?.user_metadata?.full_name || "Operatore"}!
+              Benvenuto nel tuo Santuario, {profile?.full_name || user?.user_metadata?.full_name || "Operatore"}!
             </h1>
             <p className="text-white/70 text-lg">Ecco una panoramica della tua attività mistica.</p>
           </div>
@@ -174,58 +191,58 @@ const OperatorDashboardClient = ({ initialData, user }: { initialData: OperatorS
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <StatCard
             title="Guadagni del Mese"
-            value={stats.totalEarningsMonth.toFixed(2)}
+            value={stats?.totalEarningsMonth?.toFixed(2) ?? "0.00"}
             unit="€"
             icon={DollarSign}
             description="Entrate lorde questo mese"
             trend="up"
             gradient="bg-gradient-to-br from-green-500/20 to-green-600/20"
-            loading={loading}
+            loading={!stats}
           />
           <StatCard
             title="Valutazione Media"
-            value={stats.averageRating.toFixed(1)}
+            value={stats?.averageRating?.toFixed(1) ?? "0.0"}
             unit="/ 5"
             icon={Star}
-            description={`${stats.totalReviews} recensioni totali`}
+            description={`${stats?.totalReviews ?? 0} recensioni totali`}
             link="/(platform)/dashboard/operator/consultations-history"
             gradient="bg-gradient-to-br from-yellow-500/20 to-yellow-600/20"
-            loading={loading}
+            loading={!stats}
           />
           <StatCard
             title="Consulti Mese Corrente"
-            value={stats.totalConsultationsMonth}
+            value={stats?.totalConsultationsMonth ?? 0}
             icon={CalendarCheck}
             description="Numero di consulti completati"
             trend="neutral"
             gradient="bg-gradient-to-br from-sky-500/20 to-sky-600/20"
-            loading={loading}
+            loading={!stats}
           />
           <StatCard
             title="Nuovi Cercatori (Mese)"
-            value={stats.newClientsMonth}
+            value={stats?.newClientsMonth ?? 0}
             icon={Users}
             description="Clienti che hanno avuto il primo consulto"
             gradient="bg-gradient-to-br from-teal-500/20 to-teal-600/20"
-            loading={loading}
+            loading={!stats}
           />
           <StatCard
             title="Consulti Pendenti"
-            value={stats.pendingConsultations}
+            value={stats?.pendingConsultations ?? 0}
             icon={AlertCircle}
             description="Richieste di consulto da gestire"
             link="/(platform)/dashboard/operator/written-consultations"
             gradient="bg-gradient-to-br from-orange-500/20 to-orange-600/20"
-            loading={loading}
+            loading={!stats}
           />
           <StatCard
             title="Messaggi Non Letti"
-            value={stats.unreadMessages}
+            value={stats?.unreadMessages ?? 0}
             icon={MessageSquare}
             description="Dalla piattaforma e utenti"
             link="/(platform)/dashboard/operator/platform-messages"
             gradient="bg-gradient-to-br from-indigo-500/20 to-indigo-600/20"
-            loading={loading}
+            loading={!stats}
           />
         </div>
 

@@ -6,7 +6,33 @@ import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  const services = profile.services || {}
+  // SOLUZIONE DI RICOSTRUZIONE MANUALE: La più sicura contro i getter.
+  // Crea un oggetto completamente nuovo invece di clonare quello problematico.
+  const rawServices = profile.services || {}
+  const services = {
+    chat:
+      rawServices.chat && typeof rawServices.chat === "object"
+        ? {
+            enabled: rawServices.chat.enabled,
+            price_per_minute: rawServices.chat.price_per_minute,
+          }
+        : {},
+    call:
+      rawServices.call && typeof rawServices.call === "object"
+        ? {
+            enabled: rawServices.call.enabled,
+            price_per_minute: rawServices.call.price_per_minute,
+          }
+        : {},
+    email:
+      rawServices.email && typeof rawServices.email === "object"
+        ? {
+            enabled: rawServices.email.enabled,
+            price: rawServices.email.price,
+          }
+        : {},
+  }
+
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -18,7 +44,7 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
   const emailPrice =
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
-  return {
+  const operator: Operator = {
     id: profile.id,
     name: profile.stage_name || "Operatore",
     avatarUrl: profile.avatar_url || "/placeholder.svg",
@@ -37,6 +63,8 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     profileLink: `/operator/${profile.stage_name}`,
     joinedDate: profile.created_at,
   }
+
+  return operator
 }
 
 export async function getHomepageData() {
@@ -78,12 +106,8 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    // SANIFICAZIONE AGGRESSIVA: Garantisce che gli oggetti siano semplici e modificabili.
-    const cleanOperatorsData = JSON.parse(JSON.stringify(operatorsData || []))
-    const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
-
-    const operators = cleanOperatorsData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
-    const reviews = cleanReviewsData.map(
+    const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+    const reviews = (reviewsData || []).map(
       (review: any) =>
         ({
           id: review.id,
@@ -117,8 +141,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  const cleanData = JSON.parse(JSON.stringify(data || []))
-  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
+  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getAllOperators() {
@@ -137,6 +160,5 @@ export async function getAllOperators() {
     return []
   }
 
-  const cleanData = JSON.parse(JSON.stringify(data || []))
-  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
+  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
 }
