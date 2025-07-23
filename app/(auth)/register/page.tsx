@@ -10,7 +10,7 @@ export default async function RegisterPage() {
   } = await supabase.auth.getUser()
 
   if (user) {
-    redirect("/") // Redirect to home if already logged in
+    redirect("/")
   }
 
   return (
