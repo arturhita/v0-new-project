@@ -2,12 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { AuthProvider } from "@/contexts/auth-provider"
-import { OperatorStatusProvider } from "@/contexts/operator-status-context"
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import { Providers } from "@/contexts/providers"
 import { Toaster } from "sonner"
 import { CookieBanner } from "@/components/cookie-banner"
-import { ClientConsultationProvider } from "@/contexts/client-consultation-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -26,17 +23,11 @@ export default function RootLayout({
   return (
     <html lang="it">
       <body className={`${inter.className} bg-[#0F172A] text-slate-100`}>
-        <AuthProvider>
-          <OperatorStatusProvider>
-            <ChatRequestProvider>
-              <ClientConsultationProvider>
-                {children}
-                <Toaster richColors position="top-right" />
-                <CookieBanner />
-              </ClientConsultationProvider>
-            </ChatRequestProvider>
-          </OperatorStatusProvider>
-        </AuthProvider>
+        <Providers>
+          {children}
+          <Toaster richColors position="top-right" />
+          <CookieBanner />
+        </Providers>
       </body>
     </html>
   )
