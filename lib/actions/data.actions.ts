@@ -1,55 +1,106 @@
 "use server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import type { Operator } from "@/components/operator-card"
+import type { Review } from "@/components/review-card"
+import type { BlogArticle } from "@/lib/blog-data"
 
-export const mapProfileToOperator = (profile: any) => ({
+export const mapProfileToOperator = (profile: any): Operator => ({
   id: profile.id,
-  name: profile.full_name || "N/A",
-  specialties: profile.specialties || [],
-  profilePictureUrl: profile.avatar_url || "/placeholder.svg",
-  isAvailable: profile.availability_status === "available",
+  name: profile.stage_name || "Operatore",
+  avatarUrl: profile.avatar_url || "/placeholder.svg",
+  specialization:
+    (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
   rating: profile.average_rating || 0,
   reviewsCount: profile.reviews_count || 0,
   description: profile.bio || "Nessuna descrizione disponibile.",
-  pricePerMinute: profile.price_per_minute || 0.99,
+  tags: profile.categories || [],
+  isOnline: profile.is_online || false,
+  services: {
+    chatPrice: profile.services?.chat?.price_per_minute,
+    callPrice: profile.services?.call?.price_per_minute,
+    emailPrice: profile.services?.email?.price,
+  },
+  profileLink: `/operator/${profile.stage_name}`,
+  joinedDate: profile.created_at,
 })
 
-export async function getHomepageData() {
+export async function getHomepageData(): Promise<{
+  operators: Operator[]
+  reviews: Review[]
+  articles: BlogArticle[]
+}> {
   const supabase = createAdminClient()
-  const { data: operators, error: operatorError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "operator")
-    .limit(8)
+  try {
+    const [operatorsResult, reviewsResult, articlesResult] = await Promise.all([
+      supabase.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo").limit(8),
+      supabase
+        .from("reviews")
+        .select(`
+            id, rating, comment, created_at,
+            client:profiles!reviews_client_id_fkey (full_name, avatar_url),
+            operator:profiles!reviews_operator_id_fkey (stage_name)
+          `)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(3),
+      // Assuming your articles table is named 'blog_posts'
+      supabase
+        .from("blog_posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(3),
+    ])
 
-  const { data: articles, error: articleError } = await supabase
-    .from("blog_posts")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(3)
+    const { data: operators, error: operatorError } = operatorsResult
+    const { data: reviewsData, error: reviewError } = reviewsResult
+    const { data: articles, error: articleError } = articlesResult
 
-  if (operatorError || articleError) {
-    console.error("Error fetching homepage data:", operatorError || articleError)
-    return { operators: [], articles: [] }
-  }
+    if (operatorError || reviewError || articleError) {
+      console.error("Error fetching homepage data:", operatorError || reviewError || articleError)
+      return { operators: [], reviews: [], articles: [] }
+    }
 
-  return {
-    operators: operators.map(mapProfileToOperator),
-    articles: articles,
+    const mappedOperators = (operators || []).map(mapProfileToOperator)
+
+    const mappedReviews = (reviewsData || []).map((review: any) => ({
+      id: review.id,
+      user_name: review.client?.full_name || "Utente Anonimo",
+      user_type: "Utente",
+      operator_name: review.operator?.stage_name || "Operatore",
+      rating: review.rating,
+      comment: review.comment,
+      created_at: review.created_at,
+    }))
+
+    return {
+      operators: mappedOperators,
+      reviews: mappedReviews,
+      articles: (articles || []) as BlogArticle[],
+    }
+  } catch (error) {
+    console.error("General error in getHomepageData:", error)
+    return { operators: [], reviews: [], articles: [] }
   }
 }
 
-export async function getLatestOperators() {
+export async function getLatestOperators(): Promise<Operator[]> {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "operator")
-    .order("created_at", { ascending: false })
-    .limit(4)
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "operator")
+      .eq("status", "Attivo")
+      .order("created_at", { ascending: false })
+      .limit(4)
 
-  if (error) {
-    console.error("Error fetching latest operators:", error)
+    if (error) {
+      console.error("Error fetching latest operators:", error)
+      return []
+    }
+    return (data || []).map(mapProfileToOperator)
+  } catch (error) {
+    console.error("General error in getLatestOperators:", error)
     return []
   }
-  return data.map(mapProfileToOperator)
 }
