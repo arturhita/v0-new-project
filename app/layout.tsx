@@ -3,9 +3,10 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-provider"
-import { SiteNavbar } from "@/components/site-navbar"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
 import { Toaster } from "@/components/ui/sonner"
-import { ConstellationBackground } from "@/components/constellation-background"
+import { CookieBanner } from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,10 +26,13 @@ export default function RootLayout({
     <html lang="it">
       <body className={`${inter.className} bg-[#0F172A] text-slate-100`}>
         <AuthProvider>
-          <ConstellationBackground />
-          <SiteNavbar />
-          <main className="pt-16">{children}</main>
-          <Toaster richColors position="top-right" />
+          <OperatorStatusProvider>
+            <ChatRequestProvider>
+              {children}
+              <Toaster richColors position="top-right" />
+              <CookieBanner />
+            </ChatRequestProvider>
+          </OperatorStatusProvider>
         </AuthProvider>
       </body>
     </html>

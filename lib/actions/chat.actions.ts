@@ -1,7 +1,9 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { start_live_consultation } from "./consultation_billing.actions"
 
 export async function sendMessage(consultationId: string, content: string) {
   const supabase = createClient()
@@ -10,25 +12,22 @@ export async function sendMessage(consultationId: string, content: string) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: "Utente non autenticato." }
+    return { error: "Devi essere loggato per inviare un messaggio." }
   }
 
-  if (!content.trim()) {
-    return { success: false, error: "Il messaggio non può essere vuoto." }
-  }
-
-  const { data, error } = await supabase.from("messages").insert({
-    live_consultation_id: consultationId,
-    sender_id: user.id,
-    content: content.trim(),
-  })
+  const { data, error } = await supabase.from("messages").insert([
+    {
+      consultation_id: consultationId,
+      sender_id: user.id,
+      content: content,
+    },
+  ])
 
   if (error) {
     console.error("Error sending message:", error)
-    return { success: false, error: "Impossibile inviare il messaggio." }
+    return { error: "Impossibile inviare il messaggio." }
   }
 
-  revalidatePath(`/chat/${consultationId}`)
   return { success: true }
 }
 
@@ -39,96 +38,98 @@ export async function getConsultationDetailsAndMessages(consultationId: string) 
   } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error("Utente non autenticato.")
+    throw new Error("Utente non autenticato")
   }
 
-  const { data: consultationData, error: consultationError } = await supabase
+  const { data: consultation, error: consultationError } = await supabase
     .from("live_consultations")
     .select(
       `
-      id,
-      client_id,
-      operator_id,
-      status,
-      service_type,
-      start_time,
-      client_profile:profiles!live_consultations_client_id_fkey(full_name, avatar_url),
-      operator_profile:profiles!live_consultations_operator_id_fkey(full_name, avatar_url)
+      *,
+      client:client_id (id, full_name, avatar_url),
+      operator:operator_id (id, full_name, avatar_url)
     `,
     )
     .eq("id", consultationId)
     .single()
 
-  if (consultationError || !consultationData) {
-    console.error("Error fetching consultation details:", consultationError)
-    return { consultation: null, messages: [], error: "Impossibile trovare la consulenza." }
+  if (consultationError || !consultation) {
+    console.error("Error fetching consultation:", consultationError)
+    throw new Error("Consulto non trovato.")
   }
 
-  if (user.id !== consultationData.client_id && user.id !== consultationData.operator_id) {
-    return { consultation: null, messages: [], error: "Accesso negato." }
+  if (user.id !== consultation.client_id && user.id !== consultation.operator_id) {
+    throw new Error("Non autorizzato a visualizzare questo consulto.")
   }
 
-  const { data: messages, error: messagesError } = await supabase.rpc("get_consultation_messages", {
-    p_consultation_id: consultationId,
-  })
+  const { data: messages, error: messagesError } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("consultation_id", consultationId)
+    .order("created_at", { ascending: true })
 
   if (messagesError) {
     console.error("Error fetching messages:", messagesError)
-    return { consultation: consultationData, messages: [], error: "Impossibile caricare i messaggi." }
+    throw new Error("Impossibile caricare i messaggi.")
   }
 
-  return {
-    consultation: consultationData,
-    messages: messages || [],
-    error: null,
-  }
+  return { consultation, messages }
 }
 
-export async function respondToChatRequest(
-  consultationId: string,
-  response: "accepted" | "declined",
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export async function respondToChatRequest(requestId: string, accepted: boolean) {
+  const supabase = createAdminClient()
 
-  if (!user) {
-    return { success: false, error: "Operatore non autenticato." }
-  }
-
-  const { data: consultation, error: fetchError } = await supabase
-    .from("live_consultations")
-    .select("operator_id, status")
-    .eq("id", consultationId)
+  // Step 1: Fetch the request to get client and operator IDs
+  const { data: request, error: requestError } = await supabase
+    .from("chat_requests")
+    .select("*")
+    .eq("id", requestId)
     .single()
 
-  if (fetchError || !consultation) {
-    return { success: false, error: "Consultazione non trovata." }
+  if (requestError || !request) {
+    console.error("Error fetching chat request:", requestError)
+    return { error: "Richiesta non trovata." }
   }
 
-  if (consultation.operator_id !== user.id) {
-    return { success: false, error: "Non autorizzato a rispondere." }
+  if (request.status !== "pending") {
+    return { error: "Questa richiesta è già stata gestita." }
   }
 
-  if (consultation.status !== "pending") {
-    return { success: false, error: "La richiesta è già stata gestita." }
-  }
-
-  const newStatus = response === "accepted" ? "active" : "declined"
-  const updateData: { status: string; start_time?: string } = { status: newStatus }
-
-  if (response === "accepted") {
-    updateData.start_time = new Date().toISOString()
-  }
-
-  const { error: updateError } = await supabase.from("live_consultations").update(updateData).eq("id", consultationId)
+  // Step 2: Update the request status
+  const { error: updateError } = await supabase
+    .from("chat_requests")
+    .update({ status: accepted ? "accepted" : "rejected" })
+    .eq("id", requestId)
 
   if (updateError) {
-    console.error("Error responding to chat request:", updateError)
-    return { success: false, error: "Impossibile aggiornare la richiesta." }
+    console.error("Error updating chat request:", updateError)
+    return { error: "Impossibile aggiornare la richiesta." }
   }
 
-  revalidatePath(`/(platform)/dashboard/operator`)
-  return { success: true }
+  if (!accepted) {
+    revalidatePath(`/dashboard/operator`)
+    return { success: true, accepted: false }
+  }
+
+  // Step 3: If accepted, start a new live consultation
+  try {
+    const consultationResult = await start_live_consultation(request.client_id, request.operator_id, "chat")
+
+    if (consultationResult.error) {
+      // Rollback status update if consultation start fails
+      await supabase.from("chat_requests").update({ status: "pending" }).eq("id", requestId)
+      return { error: `Impossibile avviare il consulto: ${consultationResult.error}` }
+    }
+
+    revalidatePath(`/dashboard/operator`)
+    return {
+      success: true,
+      accepted: true,
+      consultationId: consultationResult.consultationId,
+    }
+  } catch (e: any) {
+    // Rollback status update if any exception occurs
+    await supabase.from("chat_requests").update({ status: "pending" }).eq("id", requestId)
+    return { error: `Errore critico nell'avvio del consulto: ${e.message}` }
+  }
 }

@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useChatRequest } from "@/contexts/chat-request-context"
 import {
   Dialog,
   DialogContent,
@@ -12,43 +11,27 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { respondToChatRequest } from "@/lib/actions/chat.actions"
-import { toast } from "sonner"
+import { useEffect, useRef } from "react"
 import { Loader2 } from "lucide-react"
 
-interface ChatRequest {
-  consultation_id: string
-  client_id: string
-  client_name: string
-  client_avatar_url: string | null
-}
+export function IncomingChatRequestModal() {
+  const { incomingRequest, setIncomingRequest, respondToRequest, isResponding } = useChatRequest()
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-interface IncomingChatRequestModalProps {
-  request: ChatRequest
-  onClose: () => void
-}
-
-export default function IncomingChatRequestModal({ request, onClose }: IncomingChatRequestModalProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleResponse = async (accepted: boolean) => {
-    setIsLoading(true)
-    const { consultation_id } = request
-
-    const result = await respondToChatRequest({ consultation_id, accepted })
-
-    if (result.success && accepted) {
-      toast.success("Richiesta accettata! Verrai reindirizzato alla chat.")
-      router.push(`/chat/${consultation_id}`)
-      onClose()
-    } else if (result.success && !accepted) {
-      toast.info("Richiesta rifiutata.")
-      onClose()
-    } else {
-      toast.error(result.error || "Si è verificato un errore.")
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      audioRef.current = new Audio("/sounds/notification.mp3")
     }
-    setIsLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (incomingRequest) {
+      audioRef.current?.play().catch((e) => console.error("Error playing audio:", e))
+    }
+  }, [incomingRequest])
+
+  if (!incomingRequest) {
+    return null
   }
 
   const getInitials = (name: string) => {
@@ -60,39 +43,45 @@ export default function IncomingChatRequestModal({ request, onClose }: IncomingC
   }
 
   return (
-    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Dialog open={!!incomingRequest} onOpenChange={(isOpen) => !isOpen && setIncomingRequest(null)}>
       <DialogContent className="sm:max-w-[425px] bg-slate-800 border-slate-700 text-white">
         <DialogHeader>
-          <DialogTitle className="text-yellow-400">Nuova Richiesta di Chat</DialogTitle>
-          <DialogDescription>Hai una nuova richiesta di consulenza via chat.</DialogDescription>
+          <DialogTitle className="text-2xl text-center text-yellow-400">Nuova Richiesta di Consulto!</DialogTitle>
+          <DialogDescription className="text-center text-slate-300 pt-2">
+            Hai una nuova richiesta di chat da un cliente.
+          </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center space-x-4 py-4">
-          <Avatar className="h-16 w-16">
-            <AvatarImage src={request.client_avatar_url || ""} />
-            <AvatarFallback className="bg-blue-600 text-white text-2xl">
-              {getInitials(request.client_name)}
+        <div className="py-4 flex flex-col items-center gap-4">
+          <Avatar className="h-24 w-24 border-4 border-yellow-400">
+            <AvatarImage
+              src={incomingRequest.client_profile.avatar_url || "/placeholder.svg"}
+              alt={incomingRequest.client_profile.full_name}
+            />
+            <AvatarFallback className="text-3xl bg-slate-700">
+              {getInitials(incomingRequest.client_profile.full_name)}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="text-lg font-semibold">{request.client_name}</p>
-            <p className="text-sm text-slate-400">vuole iniziare una chat con te.</p>
-          </div>
+          <p className="text-xl font-semibold">{incomingRequest.client_profile.full_name}</p>
         </div>
-        <DialogFooter>
+        <DialogFooter className="sm:justify-around">
           <Button
-            variant="outline"
-            onClick={() => handleResponse(false)}
-            disabled={isLoading}
-            className="border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+            type="button"
+            variant="destructive"
+            onClick={() => respondToRequest(false)}
+            disabled={isResponding}
+            className="w-full sm:w-auto"
           >
+            {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Rifiuta
           </Button>
           <Button
-            onClick={() => handleResponse(true)}
-            disabled={isLoading}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            type="button"
+            variant="default"
+            onClick={() => respondToRequest(true)}
+            disabled={isResponding}
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
           >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Accetta
           </Button>
         </DialogFooter>

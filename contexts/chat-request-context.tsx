@@ -1,69 +1,96 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useAuth } from "./auth-context"
-import IncomingChatRequestModal from "@/components/incoming-chat-request-modal"
-import type { RealtimeChannel } from "@supabase/supabase-js"
+import { useRouter } from "next/navigation"
+import { respondToChatRequest } from "@/lib/actions/chat.actions"
+import { toast } from "sonner"
 
 interface ChatRequest {
-  consultation_id: string
+  id: string
   client_id: string
-  client_name: string
-  client_avatar_url: string | null
+  operator_id: string
+  status: "pending" | "accepted" | "rejected"
+  created_at: string
+  client_profile: {
+    full_name: string
+    avatar_url: string
+  }
 }
 
 interface ChatRequestContextType {
   incomingRequest: ChatRequest | null
-  clearRequest: () => void
+  setIncomingRequest: (request: ChatRequest | null) => void
+  respondToRequest: (accepted: boolean) => Promise<void>
+  isResponding: boolean
 }
 
 const ChatRequestContext = createContext<ChatRequestContextType | undefined>(undefined)
 
-export function ChatRequestProvider({ children }: { children: ReactNode }) {
+export function ChatRequestProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth()
-  const supabase = createClient()
+  const router = useRouter()
   const [incomingRequest, setIncomingRequest] = useState<ChatRequest | null>(null)
+  const [isResponding, setIsResponding] = useState(false)
 
-  const clearRequest = useCallback(() => {
-    setIncomingRequest(null)
-  }, [])
+  const respondToRequest = useCallback(
+    async (accepted: boolean) => {
+      if (!incomingRequest) return
+      setIsResponding(true)
+      const toastId = toast.loading(accepted ? "Accettando la richiesta..." : "Rifiutando la richiesta...")
+
+      const result = await respondToChatRequest(incomingRequest.id, accepted)
+
+      if (result.error) {
+        toast.error(result.error, { id: toastId })
+      } else {
+        if (accepted && result.consultationId) {
+          toast.success("Richiesta accettata! Verrai reindirizzato alla chat.", { id: toastId })
+          router.push(`/chat/${result.consultationId}`)
+        } else {
+          toast.info("Richiesta rifiutata.", { id: toastId })
+        }
+        setIncomingRequest(null) // Close the modal
+      }
+      setIsResponding(false)
+    },
+    [incomingRequest, router],
+  )
 
   useEffect(() => {
-    if (profile?.role !== "operator") {
-      return
-    }
+    if (profile?.role !== "operator") return
 
-    const channel: RealtimeChannel = supabase
-      .channel(`realtime:live_consultations:operator:${profile.id}`)
+    const supabase = createClient()
+    const channel = supabase
+      .channel("public:chat_requests")
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "live_consultations",
+          table: "chat_requests",
           filter: `operator_id=eq.${profile.id}`,
         },
         async (payload) => {
-          const newConsultation = payload.new as any
-          if (newConsultation.status === "requested") {
-            // Fetch client details
+          const newRequest = payload.new as Omit<ChatRequest, "client_profile">
+          if (newRequest.status === "pending") {
+            // Fetch client profile
             const { data: clientProfile, error } = await supabase
               .from("profiles")
               .select("full_name, avatar_url")
-              .eq("id", newConsultation.client_id)
+              .eq("id", newRequest.client_id)
               .single()
 
             if (error) {
-              console.error("Error fetching client profile for notification:", error)
+              console.error("Error fetching client profile for chat request:", error)
               return
             }
 
             setIncomingRequest({
-              consultation_id: newConsultation.id,
-              client_id: newConsultation.client_id,
-              client_name: clientProfile.full_name || "Nuovo Cliente",
-              client_avatar_url: clientProfile.avatar_url,
+              ...newRequest,
+              client_profile: clientProfile,
             })
           }
         },
@@ -73,17 +100,16 @@ export function ChatRequestProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [profile, supabase])
+  }, [profile])
 
   return (
-    <ChatRequestContext.Provider value={{ incomingRequest, clearRequest }}>
+    <ChatRequestContext.Provider value={{ incomingRequest, setIncomingRequest, respondToRequest, isResponding }}>
       {children}
-      {incomingRequest && <IncomingChatRequestModal request={incomingRequest} onClose={clearRequest} />}
     </ChatRequestContext.Provider>
   )
 }
 
-export function useChatRequest() {
+export const useChatRequest = () => {
   const context = useContext(ChatRequestContext)
   if (context === undefined) {
     throw new Error("useChatRequest must be used within a ChatRequestProvider")
