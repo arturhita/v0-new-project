@@ -1,9 +1,23 @@
 "use client"
 
 import { Stars } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-const ConstellationBackground = ({ className }: { className?: string }) => (
-  <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+// Modificato: Aggiunta prop 'goldVisible' per controllare il colore
+export const ConstellationBackground = ({
+  className,
+  goldVisible = false,
+}: {
+  className?: string
+  goldVisible?: boolean
+}) => (
+  <div
+    className={cn(
+      "absolute inset-0 overflow-hidden pointer-events-none",
+      goldVisible ? "text-yellow-400/70" : "text-sky-300/70", // Applica il colore in base alla prop
+      className,
+    )}
+  >
     {/* Orsa Maggiore LAMPEGGIANTE */}
     <div className="absolute top-20 left-20 animate-pulse">
       <svg width="120" height="80" viewBox="0 0 120 80" className="opacity-50">
@@ -94,106 +108,6 @@ const ConstellationBackground = ({ className }: { className?: string }) => (
       </svg>
     </div>
 
-    {/* Costellazione del Cigno LAMPEGGIANTE */}
-    <div className="absolute top-60 left-60 animate-pulse">
-      <svg width="80" height="100" viewBox="0 0 80 100" className="opacity-50">
-        <circle
-          cx="40"
-          cy="20"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.3s" }}
-        />
-        <circle
-          cx="40"
-          cy="40"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.8s" }}
-        />
-        <circle
-          cx="20"
-          cy="50"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.3s" }}
-        />
-        <circle
-          cx="60"
-          cy="50"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.8s" }}
-        />
-        <circle
-          cx="40"
-          cy="70"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "2.3s" }}
-        />
-        <line x1="40" y1="20" x2="40" y2="40" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-        <line x1="40" y1="40" x2="20" y2="50" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-        <line x1="40" y1="40" x2="60" y2="50" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-        <line x1="40" y1="40" x2="40" y2="70" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-      </svg>
-    </div>
-
-    {/* Costellazione della Lira LAMPEGGIANTE */}
-    <div className="absolute bottom-40 right-20 animate-pulse">
-      <svg width="90" height="70" viewBox="0 0 90 70" className="opacity-50">
-        <circle
-          cx="45"
-          cy="15"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.4s" }}
-        />
-        <circle
-          cx="25"
-          cy="35"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "0.9s" }}
-        />
-        <circle
-          cx="65"
-          cy="35"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.4s" }}
-        />
-        <circle
-          cx="35"
-          cy="55"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "1.9s" }}
-        />
-        <circle
-          cx="55"
-          cy="55"
-          r="2"
-          fill="currentColor"
-          className="animate-pulse"
-          style={{ animationDelay: "2.4s" }}
-        />
-        <line x1="45" y1="15" x2="25" y2="35" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-        <line x1="45" y1="15" x2="65" y2="35" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-        <line x1="25" y1="35" x2="35" y2="55" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-        <line x1="65" y1="35" x2="55" y2="55" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
-      </svg>
-    </div>
-
     {/* Stelle sparse animate con movimento LAMPEGGIANTI */}
     {[...Array(50)].map((_, i) => (
       <div
@@ -216,5 +130,3 @@ const ConstellationBackground = ({ className }: { className?: string }) => (
     ))}
   </div>
 )
-
-export default ConstellationBackground

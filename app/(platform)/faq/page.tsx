@@ -1,5 +1,6 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import ConstellationBackground from "@/components/constellation-background"
+// Modificato: Importazione nominativa
+import { ConstellationBackground } from "@/components/constellation-background"
 
 export default function FAQPage() {
   const clientFaqs = [
@@ -55,7 +56,8 @@ export default function FAQPage() {
 
   return (
     <div className="relative min-h-screen bg-slate-900 text-white">
-      <ConstellationBackground />
+      {/* Modificato: Aggiunta prop 'goldVisible' */}
+      <ConstellationBackground goldVisible={true} />
       <div className="relative z-10 max-w-4xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl bg-clip-text text-transparent bg-gradient-to-r from-amber-300 to-yellow-500">
@@ -76,6 +78,7 @@ export default function FAQPage() {
                 value={`item-${index}`}
                 className="bg-slate-800/50 border-blue-800 rounded-lg mb-4"
               >
+                {/* Modificato: Colore del testo in blu */}
                 <AccordionTrigger className="text-lg font-medium text-left text-sky-400 hover:no-underline px-6 py-4">
                   {faq.question}
                 </AccordionTrigger>
@@ -94,6 +97,7 @@ export default function FAQPage() {
                 value={`item-${index}`}
                 className="bg-slate-800/50 border-blue-800 rounded-lg mb-4"
               >
+                {/* Modificato: Colore del testo in blu */}
                 <AccordionTrigger className="text-lg font-medium text-left text-sky-400 hover:no-underline px-6 py-4">
                   {faq.question}
                 </AccordionTrigger>

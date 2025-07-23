@@ -59,9 +59,10 @@ export default function SiteFooter() {
                 <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Supporto</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
-                    <Link href="/support" className="text-base text-gray-400 hover:text-white">
+                    {/* Modificato: Link 'mailto' per Contattaci */}
+                    <a href="mailto:infomoonthir@gmail.com" className="text-base text-gray-400 hover:text-white">
                       Contattaci
-                    </Link>
+                    </a>
                   </li>
                   <li>
                     <Link href="/faq" className="text-base text-gray-400 hover:text-white">
