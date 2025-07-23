@@ -43,7 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      if (session?.user) {
+        // DEFINITIVE FIX 1: Hard clone the user object
+        const cleanUser = JSON.parse(JSON.stringify(session.user))
+        setUser(cleanUser)
+      } else {
+        setUser(null)
+      }
 
       if (_event === "SIGNED_OUT") {
         setProfile(null)
@@ -68,10 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else if (rawProfile) {
-            // DEFINITIVE FIX: Use JSON.parse(JSON.stringify(...)) for a "hard clone".
-            // This strips any Supabase-specific getters or proxies, creating a
-            // plain old JavaScript object (POJO) that is safe to use and modify
-            // anywhere in the application, finally resolving the "getter" error.
+            // DEFINITIVE FIX 2: Hard clone the profile object
             const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
             setProfile(cleanProfile)
           } else {
