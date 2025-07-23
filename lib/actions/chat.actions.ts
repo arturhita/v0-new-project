@@ -42,7 +42,6 @@ export async function getConsultationDetailsAndMessages(consultationId: string) 
     throw new Error("Utente non autenticato.")
   }
 
-  // Fetch consultation details
   const { data: consultationData, error: consultationError } = await supabase
     .from("live_consultations")
     .select(
@@ -52,8 +51,9 @@ export async function getConsultationDetailsAndMessages(consultationId: string) 
       operator_id,
       status,
       service_type,
-      client:profiles!live_consultations_client_id_fkey(full_name, avatar_url),
-      operator:profiles!live_consultations_operator_id_fkey(full_name, avatar_url)
+      start_time,
+      client_profile:profiles!live_consultations_client_id_fkey(full_name, avatar_url),
+      operator_profile:profiles!live_consultations_operator_id_fkey(full_name, avatar_url)
     `,
     )
     .eq("id", consultationId)
@@ -61,26 +61,74 @@ export async function getConsultationDetailsAndMessages(consultationId: string) 
 
   if (consultationError || !consultationData) {
     console.error("Error fetching consultation details:", consultationError)
-    throw new Error("Impossibile trovare la consulenza.")
+    return { consultation: null, messages: [], error: "Impossibile trovare la consulenza." }
   }
 
-  // Security check: ensure the current user is part of the consultation
   if (user.id !== consultationData.client_id && user.id !== consultationData.operator_id) {
-    throw new Error("Accesso negato.")
+    return { consultation: null, messages: [], error: "Accesso negato." }
   }
 
-  // Fetch messages using the RPC function
   const { data: messages, error: messagesError } = await supabase.rpc("get_consultation_messages", {
     p_consultation_id: consultationId,
   })
 
   if (messagesError) {
     console.error("Error fetching messages:", messagesError)
-    throw new Error("Impossibile caricare i messaggi.")
+    return { consultation: consultationData, messages: [], error: "Impossibile caricare i messaggi." }
   }
 
   return {
     consultation: consultationData,
     messages: messages || [],
+    error: null,
   }
+}
+
+export async function respondToChatRequest(
+  consultationId: string,
+  response: "accepted" | "declined",
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "Operatore non autenticato." }
+  }
+
+  const { data: consultation, error: fetchError } = await supabase
+    .from("live_consultations")
+    .select("operator_id, status")
+    .eq("id", consultationId)
+    .single()
+
+  if (fetchError || !consultation) {
+    return { success: false, error: "Consultazione non trovata." }
+  }
+
+  if (consultation.operator_id !== user.id) {
+    return { success: false, error: "Non autorizzato a rispondere." }
+  }
+
+  if (consultation.status !== "pending") {
+    return { success: false, error: "La richiesta è già stata gestita." }
+  }
+
+  const newStatus = response === "accepted" ? "active" : "declined"
+  const updateData: { status: string; start_time?: string } = { status: newStatus }
+
+  if (response === "accepted") {
+    updateData.start_time = new Date().toISOString()
+  }
+
+  const { error: updateError } = await supabase.from("live_consultations").update(updateData).eq("id", consultationId)
+
+  if (updateError) {
+    console.error("Error responding to chat request:", updateError)
+    return { success: false, error: "Impossibile aggiornare la richiesta." }
+  }
+
+  revalidatePath(`/(platform)/dashboard/operator`)
+  return { success: true }
 }

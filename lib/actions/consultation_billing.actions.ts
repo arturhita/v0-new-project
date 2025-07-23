@@ -1,43 +1,36 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidatePath } from "next/cache"
 
-export async function startConsultation(client_id: string, operator_id: string, service_type: "chat" | "call") {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.rpc("start_live_consultation", {
-    p_client_id: client_id,
-    p_operator_id: operator_id,
-    p_service_type: service_type,
+export async function requestConsultation(operatorId: string, serviceType: "chat" | "call") {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "Devi essere loggato per iniziare una consulenza." }
+  }
+
+  const { data, error } = await supabase.rpc("request_consultation", {
+    p_client_id: user.id,
+    p_operator_id: operatorId,
+    p_service_type: serviceType,
   })
 
   if (error) {
-    console.error("Error starting consultation:", error)
+    console.error("Error requesting consultation:", error)
     return { success: false, error: error.message }
   }
 
-  return { success: true, data }
+  return { success: true, consultationId: data }
 }
 
-export async function endConsultation(live_consultation_id: string) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.rpc("end_live_consultation", {
-    p_live_consultation_id: live_consultation_id,
-  })
-
-  if (error) {
-    console.error("Error ending consultation:", error)
-    return { success: false, error: error.message }
-  }
-
-  return { success: true, data }
-}
-
-export async function requestConsultation(
-  operator_id: string,
-  service_type: "chat" | "call",
-): Promise<{ success: boolean; error?: string; data?: { live_consultation_id: string } }> {
-  const supabase = createClient() // Use user-context client to get current user
+export async function endConsultation(
+  consultationId: string,
+): Promise<{ success: boolean; error?: string; message?: string }> {
+  const supabase = createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -46,37 +39,24 @@ export async function requestConsultation(
     return { success: false, error: "Utente non autenticato." }
   }
 
-  const client_id = user.id
-  const adminSupabase = createAdminClient()
-
-  // 1. Check if the user can start the consultation
-  const { data: checkData, error: checkError } = await adminSupabase.rpc("can_start_consultation", {
-    p_client_id: client_id,
-    p_operator_id: operator_id,
-    p_service_type: service_type,
+  const { error } = await supabase.rpc("end_live_consultation", {
+    p_consultation_id: consultationId,
+    p_user_id: user.id,
   })
 
-  if (checkError) {
-    console.error("Error checking consultation possibility:", checkError)
-    return { success: false, error: "Errore durante la verifica dei requisiti." }
+  if (error) {
+    console.error("Error ending consultation (RPC):", error)
+    if (error.message.includes("Consultation not found or already completed")) {
+      return { success: false, error: "Consultazione non trovata o già terminata." }
+    }
+    if (error.message.includes("User is not part of this consultation")) {
+      return { success: false, error: "Non sei autorizzato a terminare questa consultazione." }
+    }
+    return { success: false, error: "Si è verificato un errore nel terminare la consultazione." }
   }
 
-  if (checkData.can_start === false) {
-    return { success: false, error: checkData.reason }
-  }
+  revalidatePath("/(platform)/dashboard/client/wallet")
+  revalidatePath("/(platform)/dashboard/operator/earnings")
 
-  // 2. If check passes, start the consultation
-  const { data: startData, error: startError } = await adminSupabase.rpc("start_live_consultation", {
-    p_client_id: client_id,
-    p_operator_id: operator_id,
-    p_service_type: service_type,
-  })
-
-  if (startError) {
-    console.error("Error starting consultation:", startError)
-    return { success: false, error: "Impossibile avviare la consulenza." }
-  }
-
-  // Return the ID of the newly created live_consultations record
-  return { success: true, data: { live_consultation_id: startData } }
+  return { success: true, message: "Consultazione terminata e fatturata con successo." }
 }
