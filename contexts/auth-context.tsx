@@ -42,17 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Use structuredClone for the user object for consistency and safety.
       const sanitizedUser = session?.user ? structuredClone(session.user) : null
       setUser(sanitizedUser)
 
       if (_event === "SIGNED_OUT") {
         setProfile(null)
+        router.replace("/login")
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [supabase.auth, router])
 
   // Effect 2: Fetch the user's profile when the user object changes.
   useEffect(() => {
@@ -68,7 +68,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else {
-            // Use structuredClone to create a clean, mutable copy of the profile.
             setProfile(rawProfile ? structuredClone(rawProfile) : null)
           }
           setIsLoading(false)
@@ -79,15 +78,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, supabase])
 
-  // Effect 3: Handle redirects for already-logged-in users visiting auth pages.
+  // Effect 3: Protect routes
   useEffect(() => {
     if (isLoading) {
       return
     }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
+    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // If a logged-in user manually navigates to /login or /register, redirect them away.
+    // If not authenticated and on a protected page, redirect to login
+    if (!user && isProtectedPage) {
+      router.replace("/login")
+      return
+    }
+
+    // If authenticated and on an auth page, redirect to the correct dashboard
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"

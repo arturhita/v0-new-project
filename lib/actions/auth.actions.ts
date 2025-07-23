@@ -35,50 +35,23 @@ export async function login(prevState: any, formData: FormData) {
   const { email, password } = validatedFields.data
   const supabase = createClient()
 
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (signInError) {
-    console.error("Login Error:", signInError.message)
-    if (signInError instanceof AuthError) {
+  if (error) {
+    console.error("Login Error:", error.message)
+    if (error instanceof AuthError) {
       return { error: "Credenziali non valide. Controlla email e password." }
     }
     return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
-  // --- LOGICA DI REDIRECT SUL SERVER ---
-  // 1. Recupera l'utente appena loggato
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "Impossibile recuperare i dati utente dopo il login." }
-  }
-
-  // 2. Recupera il profilo per determinare il ruolo
-  const { data: rawProfile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (profileError || !rawProfile) {
-    await supabase.auth.signOut() // Sicurezza: esegui il logout se il profilo non esiste
-    return { error: "Profilo utente non trovato. Contatta l'assistenza." }
-  }
-
-  // Use structuredClone for safety before accessing properties.
-  const profile = structuredClone(rawProfile)
-
-  // 3. Reindirizza alla dashboard corretta
-  let destination = "/"
-  if (profile.role === "admin") destination = "/admin"
-  else if (profile.role === "operator") destination = "/dashboard/operator"
-  else if (profile.role === "client") destination = "/dashboard/client"
-
-  redirect(destination)
+  // --- NUOVA LOGICA ---
+  // Su successo, reindirizza sempre alla rotta di callback.
+  // Sarà questa rotta a gestire il reindirizzamento finale.
+  redirect("/auth/callback")
 }
 
 export async function register(prevState: any, formData: FormData) {
@@ -105,6 +78,8 @@ export async function register(prevState: any, formData: FormData) {
       data: {
         full_name: fullName,
       },
+      // Specifica un URL di reindirizzamento dopo la conferma dell'email
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
