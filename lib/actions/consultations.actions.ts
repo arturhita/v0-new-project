@@ -1,82 +1,83 @@
 "use server"
 
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-export async function startConsultationAction(client_id: string, operator_id: string, service_id: string) {
+// Inizia una nuova consultazione
+export async function startConsultationAction(operatorId: string, serviceId: string, type: "chat" | "call") {
   const supabase = createClient()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  // 1. Controlla il saldo del cliente e il costo del servizio
-  const { data: clientProfile, error: clientError } = await supabase
-    .from("profiles")
-    .select("wallet_balance")
-    .eq("user_id", client_id)
-    .single()
-
-  if (clientError || !clientProfile) {
-    return { success: false, message: "Impossibile trovare il profilo del cliente." }
+  if (userError || !user) {
+    return { success: false, message: "Utente non autenticato." }
   }
 
-  const { data: service, error: serviceError } = await supabase
+  // Controlla il saldo del cliente e la tariffa del servizio
+  const { data: service, error: serviceError } = await supabaseAdmin
     .from("operator_services")
-    .select("price_per_minute")
-    .eq("id", service_id)
+    .select("rate_per_minute")
+    .eq("id", serviceId)
     .single()
 
   if (serviceError || !service) {
-    return { success: false, message: "Impossibile trovare il servizio selezionato." }
+    return { success: false, message: "Servizio non trovato o non valido." }
   }
 
-  if (clientProfile.wallet_balance < service.price_per_minute) {
+  const { data: wallet, error: walletError } = await supabaseAdmin
+    .from("wallets")
+    .select("balance")
+    .eq("user_id", user.id)
+    .single()
+
+  if (walletError || !wallet) {
+    return { success: false, message: "Portafoglio non trovato." }
+  }
+
+  if (wallet.balance < service.rate_per_minute) {
     return {
       success: false,
       message: "Credito insufficiente per avviare la consultazione. Per favore, ricarica il tuo portafoglio.",
     }
   }
 
-  // 2. Crea la riga di consultazione
-  const { data: consultation, error: insertError } = await supabase
+  // Crea il record della consultazione
+  const { data: consultation, error: consultationError } = await supabaseAdmin
     .from("consultations")
     .insert({
-      client_id,
-      operator_id,
-      service_id,
+      client_id: user.id,
+      operator_id: operatorId,
+      service_id: serviceId,
       status: "active",
+      type: type,
       started_at: new Date().toISOString(),
-      last_billed_at: new Date().toISOString(), // Imposta il primo 'last_billed_at' per evitare doppi addebiti immediati
+      last_billed_at: new Date().toISOString(), // Inizializza l'ultimo addebito a ora
     })
     .select()
     .single()
 
-  if (insertError) {
-    console.error("Error starting consultation:", insertError)
-    return { success: false, message: "Errore tecnico durante l'avvio della consultazione." }
+  if (consultationError) {
+    return { success: false, message: consultationError.message }
   }
 
-  return { success: true, message: "Consultazione avviata.", consultationId: consultation.id }
+  return { success: true, consultationId: consultation.id }
 }
 
-export async function endConsultationAction(consultationId: string, termination_reason = "Terminata dall'utente") {
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("consultations")
-    .update({
-      status: "completed",
-      ended_at: new Date().toISOString(),
-      termination_reason: termination_reason,
-    })
-    .eq("id", consultationId)
-    .select()
-    .single()
+// Termina una consultazione
+export async function endConsultationAction(consultationId: string) {
+  const { error } = await supabaseAdmin.rpc("end_consultation", {
+    p_consultation_id: consultationId,
+    p_reason: "ended_by_user",
+  })
 
   if (error) {
-    console.error("Error ending consultation:", error)
-    return { success: false, message: "Errore durante la chiusura della consultazione." }
+    return { success: false, message: error.message }
   }
 
-  revalidatePath(`/dashboard/client/consultations`)
-  revalidatePath(`/dashboard/operator/consultations-history`)
-
-  return { success: true, message: "Consultazione terminata con successo." }
+  revalidatePath("/dashboard/client/consultations")
+  revalidatePath("/dashboard/operator/consultations-history")
+  return { success: true, message: "Consulto terminato con successo." }
 }

@@ -12,15 +12,16 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Gli amministratori possono gestire le impostazioni
+-- CORREZIONE: Utilizza (SELECT role FROM ...) invece di (SELECT is_admin FROM ...)
 CREATE POLICY "Admins can manage settings"
 ON public.app_settings
 FOR ALL
 TO authenticated
 USING (
-  (SELECT is_admin FROM public.profiles WHERE user_id = auth.uid()) = true
+  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
 )
 WITH CHECK (
-  (SELECT is_admin FROM public.profiles WHERE user_id = auth.uid()) = true
+  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
 );
 
 -- Policy: Gli utenti autenticati possono leggere le impostazioni
@@ -40,6 +41,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger per aggiornare 'updated_at'
+DROP TRIGGER IF EXISTS on_app_settings_update ON public.app_settings;
 CREATE TRIGGER on_app_settings_update
 BEFORE UPDATE ON public.app_settings
 FOR EACH ROW

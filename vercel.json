@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/minute-billing",
+      "path": "/api/cron/minute-billing?cron_secret=${CRON_SECRET}",
       "schedule": "* * * * *"
     }
   ]

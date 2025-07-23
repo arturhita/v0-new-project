@@ -1,100 +1,148 @@
-CREATE OR REPLACE FUNCTION public.process_minute_billing()
-RETURNS json
+-- Funzione per terminare un consulto, calcolare i costi finali e registrare i guadagni.
+-- Viene chiamata sia manualmente (da client/operatore) sia automaticamente (credito esaurito).
+CREATE OR REPLACE FUNCTION end_consultation(p_consultation_id uuid, p_reason text)
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    consultation_record RECORD;
-    client_profile RECORD;
-    operator_profile RECORD;
-    service_record RECORD;
-    wallet_balance numeric;
-    cost_per_minute numeric;
-    cost_for_this_minute numeric;
-    commission_rate numeric;
-    operator_earning numeric;
-    platform_fee numeric;
-    new_billed_duration integer;
-    termination_message text;
-    result_summary jsonb := '{"processed": 0, "terminated": 0, "errors": 0, "details": []}';
-    detail_item jsonb;
+  consultation_rec record;
+  service_rec record;
+  final_duration int;
+  final_cost numeric;
+  commission_rate_val numeric;
+  unbilled_seconds int;
+  unbilled_cost numeric;
 BEGIN
-    -- Itera su tutte le consultazioni attive che non sono state fatturate nell'ultimo minuto
-    FOR consultation_record IN
-        SELECT * FROM public.consultations
-        WHERE status = 'active' AND (last_billed_at IS NULL OR last_billed_at <= now() - interval '55 seconds')
-    LOOP
-        BEGIN
-            -- Ottieni i dettagli del servizio e il costo
-            SELECT * INTO service_record FROM public.operator_services WHERE id = consultation_record.service_id;
-            cost_per_minute := service_record.price_per_minute;
+  -- Aggiorna lo stato del consulto, assicurandosi di farlo solo una volta per evitare doppi addebiti.
+  UPDATE public.consultations
+  SET
+    status = 'completed',
+    ended_at = now(),
+    termination_reason = p_reason
+  WHERE id = p_consultation_id AND status = 'active'
+  RETURNING * INTO consultation_rec;
 
-            -- Ottieni il profilo e il saldo del portafoglio del cliente
-            SELECT * INTO client_profile FROM public.profiles WHERE user_id = consultation_record.client_id;
-            wallet_balance := client_profile.wallet_balance;
+  -- Se il consulto non è stato trovato o non era attivo, esce.
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
 
-            -- Calcola il costo per il prossimo minuto
-            cost_for_this_minute := cost_per_minute;
+  -- Recupera i dettagli del servizio per la tariffa al minuto.
+  SELECT * INTO service_rec FROM public.operator_services WHERE id = consultation_rec.service_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Servizio con ID % non trovato per il consulto %', consultation_rec.service_id, p_consultation_id;
+  END IF;
 
-            -- Controlla se il cliente ha abbastanza credito
-            IF wallet_balance >= cost_for_this_minute THEN
-                -- Addebita il costo dal portafoglio del cliente
-                UPDATE public.profiles
-                SET wallet_balance = wallet_balance - cost_for_this_minute
-                WHERE user_id = consultation_record.client_id;
+  -- Calcola il tempo non ancora fatturato dall'ultimo addebito.
+  unbilled_seconds := extract(epoch FROM (consultation_rec.ended_at - COALESCE(consultation_rec.last_billed_at, consultation_rec.started_at)))::int;
+  IF unbilled_seconds > 0 THEN
+    -- Addebita il costo per la frazione di minuto finale, arrotondando per eccesso.
+    unbilled_cost := ceil(unbilled_seconds / 60.0) * service_rec.rate_per_minute;
+    
+    PERFORM public.record_wallet_transaction(
+      consultation_rec.client_id,
+      -unbilled_cost,
+      'consultation_fee_final',
+      jsonb_build_object('consultation_id', p_consultation_id, 'unbilled_seconds', unbilled_seconds)
+    );
+  END IF;
 
-                -- Registra la transazione del cliente
-                INSERT INTO public.wallet_transactions (user_id, amount, type, description, related_consultation_id)
-                VALUES (consultation_record.client_id, -cost_for_this_minute, 'debit', 'Addebito per consulto minuto', consultation_record.id);
+  -- Calcola il costo totale e la durata per il record dei guadagni.
+  final_duration := extract(epoch FROM (consultation_rec.ended_at - consultation_rec.started_at))::int;
+  final_cost := ceil(final_duration / 60.0) * service_rec.rate_per_minute;
 
-                -- Calcola la commissione e il guadagno dell'operatore
-                SELECT value::numeric INTO commission_rate FROM public.app_settings WHERE key = 'default_commission_rate';
-                commission_rate := COALESCE(commission_rate, 30); -- Fallback a 30%
-                
-                platform_fee := cost_for_this_minute * (commission_rate / 100.0);
-                operator_earning := cost_for_this_minute - platform_fee;
+  -- Recupera la commissione della piattaforma.
+  -- CORREZIONE: Converte correttamente il valore jsonb in numerico.
+  SELECT (value::text)::numeric / 100.0 INTO commission_rate_val FROM public.app_settings WHERE key = 'default_commission_rate' LIMIT 1;
+  IF NOT FOUND THEN
+    commission_rate_val := 0.30; -- Fallback al 30%
+  END IF;
 
-                -- Aggiungi il guadagno al saldo dell'operatore
-                UPDATE public.profiles
-                SET earnings_balance = earnings_balance + operator_earning
-                WHERE user_id = consultation_record.operator_id;
+  -- Registra il guadagno per l'operatore.
+  PERFORM public.record_operator_earning(
+    consultation_rec.operator_id,
+    consultation_rec.type,
+    final_cost,
+    final_duration / 60,
+    p_consultation_id,
+    commission_rate_val
+  );
+END;
+$$;
 
-                -- Registra il guadagno
-                INSERT INTO public.earnings (operator_id, consultation_id, amount, commission_rate, platform_fee)
-                VALUES (consultation_record.operator_id, consultation_record.id, operator_earning, commission_rate, platform_fee);
+-- Funzione che processa un "tick" di fatturazione per un singolo consulto.
+-- Controlla il credito, addebita un minuto o termina la sessione.
+CREATE OR REPLACE FUNCTION process_consultation_tick(p_consultation_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  consultation_rec record;
+  client_wallet_balance numeric;
+  service_rate_per_minute numeric;
+  time_since_last_bill int;
+  minutes_to_bill int;
+  cost_to_bill numeric;
+BEGIN
+  SELECT * INTO consultation_rec FROM public.consultations WHERE id = p_consultation_id AND status = 'active';
+  IF NOT FOUND THEN
+    RETURN 'Consulto non attivo o non trovato.';
+  END IF;
 
-                -- Aggiorna la consultazione
-                new_billed_duration := consultation_record.billed_duration + 60;
-                UPDATE public.consultations
-                SET last_billed_at = now(),
-                    billed_duration = new_billed_duration
-                WHERE id = consultation_record.id;
-                
-                detail_item := jsonb_build_object('consultation_id', consultation_record.id, 'status', 'billed', 'amount', cost_for_this_minute);
-                result_summary := jsonb_set(result_summary, '{processed}', (result_summary->>'processed')::int + 1::jsonb);
+  SELECT rate_per_minute INTO service_rate_per_minute FROM public.operator_services WHERE id = consultation_rec.service_id;
+  IF NOT FOUND THEN
+    PERFORM public.end_consultation(p_consultation_id, 'service_not_found');
+    RETURN 'Terminato: Servizio non trovato.';
+  END IF;
 
-            ELSE
-                -- Credito insufficiente, termina la consultazione
-                termination_message := 'Credito insufficiente.';
-                UPDATE public.consultations
-                SET status = 'completed',
-                    ended_at = now(),
-                    termination_reason = termination_message
-                WHERE id = consultation_record.id;
+  SELECT balance INTO client_wallet_balance FROM public.wallets WHERE user_id = consultation_rec.client_id;
+  client_wallet_balance := COALESCE(client_wallet_balance, 0);
 
-                detail_item := jsonb_build_object('consultation_id', consultation_record.id, 'status', 'terminated', 'reason', termination_message);
-                result_summary := jsonb_set(result_summary, '{terminated}', (result_summary->>'terminated')::int + 1::jsonb);
-            END IF;
+  -- Se il credito non è sufficiente per il prossimo minuto, termina la chiamata.
+  IF client_wallet_balance < service_rate_per_minute THEN
+    PERFORM public.end_consultation(p_consultation_id, 'insufficient_funds');
+    RETURN 'Terminato per credito insufficiente.';
+  END IF;
 
-        EXCEPTION WHEN others THEN
-            detail_item := jsonb_build_object('consultation_id', consultation_record.id, 'status', 'error', 'message', SQLERRM);
-            result_summary := jsonb_set(result_summary, '{errors}', (result_summary->>'errors')::int + 1::jsonb);
-        END;
-        
-        result_summary := jsonb_set(result_summary, '{details}', result_summary->'details' || detail_item);
+  -- Calcola quanti minuti interi sono passati dall'ultimo addebito.
+  time_since_last_bill := extract(epoch FROM (now() - consultation_rec.last_billed_at))::int;
+  minutes_to_bill := floor(time_since_last_bill / 60);
 
-    END LOOP;
+  IF minutes_to_bill > 0 THEN
+    cost_to_bill := minutes_to_bill * service_rate_per_minute;
 
-    RETURN result_summary::json;
+    -- Addebita il costo dal portafoglio del cliente.
+    PERFORM public.record_wallet_transaction(
+      consultation_rec.client_id,
+      -cost_to_bill,
+      'consultation_fee',
+      jsonb_build_object('consultation_id', p_consultation_id, 'minutes_billed', minutes_to_bill)
+    );
+
+    -- Aggiorna il timestamp dell'ultimo addebito.
+    UPDATE public.consultations
+    SET last_billed_at = consultation_rec.last_billed_at + (minutes_to_bill * interval '1 minute')
+    WHERE id = p_consultation_id;
+
+    RETURN 'Addebitato/i ' || minutes_to_bill || ' minuto/i.';
+  END IF;
+
+  RETURN 'Nessun minuto intero trascorso.';
+END;
+$$;
+
+-- Funzione principale chiamata dal Cron Job.
+-- Scansiona tutti i consulti attivi e li processa.
+CREATE OR REPLACE FUNCTION process_all_active_consultations()
+RETURNS TABLE(consultation_id uuid, result text)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT c.id, public.process_consultation_tick(c.id)
+  FROM public.consultations c
+  WHERE c.status = 'active';
 END;
 $$;
