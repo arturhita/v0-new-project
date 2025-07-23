@@ -35,47 +35,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // The onAuthStateChange listener will handle the redirect
+    // The onAuthStateChange listener will handle state updates and redirects
   }, [supabase.auth])
 
+  // 1. Listen for auth state changes
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const currentUser = session?.user ? JSON.parse(JSON.stringify(session.user)) : null
-      setUser(currentUser)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Sanitize the user object immediately to prevent mutation errors
+      const sanitizedUser = session?.user ? JSON.parse(JSON.stringify(session.user)) : null
+      setUser(sanitizedUser)
 
-      if (currentUser) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
-
-        // Sanitize the profile object to prevent the "getter-only" error
-        const cleanProfile = userProfile ? JSON.parse(JSON.stringify(userProfile)) : null
-        setProfile(cleanProfile as Profile | null)
-      } else {
+      // If user logs out, clear profile immediately
+      if (_event === "SIGNED_OUT") {
         setProfile(null)
       }
-
-      if (event === "SIGNED_OUT") {
-        router.replace("/login")
-      }
-
-      setIsLoading(false)
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase, router])
+  }, [supabase.auth])
 
+  // 2. Fetch profile when user state changes
   useEffect(() => {
+    if (user) {
+      setIsLoading(true)
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single()
+        .then(({ data: userProfile, error }) => {
+          if (error) {
+            console.error("Error fetching profile:", error)
+            setProfile(null)
+          } else {
+            // Sanitize the profile object
+            const cleanProfile = userProfile ? JSON.parse(JSON.stringify(userProfile)) : null
+            setProfile(cleanProfile as Profile | null)
+          }
+          setIsLoading(false)
+        })
+    } else {
+      // No user, so no profile and we are done loading.
+      setProfile(null)
+      setIsLoading(false)
+    }
+  }, [user, supabase])
+
+  // 3. Handle redirects based on auth state
+  useEffect(() => {
+    // Don't redirect until loading is complete
     if (isLoading) return
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
+    // If on a protected page without a user, redirect to login
     if (!user && isProtectedPage) {
       router.replace("/login")
       return
     }
 
+    // If on an auth page with a user and profile, redirect to the appropriate dashboard
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"
@@ -84,10 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.replace(destination)
     }
   }, [user, profile, isLoading, pathname, router])
-
-  // By not returning a loading spinner here, we prevent the entire app from unmounting,
-  // which was the root cause of the "getter-only" error.
-  // Individual pages can show their own loading states if needed.
 
   return (
     <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
