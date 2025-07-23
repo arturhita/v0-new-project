@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     generator: 'v0.dev'
 }
 
-// Il Root Layout è ora un Server Component asincrono.
+// Il Root Layout è un Server Component asincrono.
 // Il suo scopo è fornire i provider globali, come AuthProvider.
 export default async function RootLayout({
   children,
