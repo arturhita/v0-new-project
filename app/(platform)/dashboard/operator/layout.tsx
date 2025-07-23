@@ -1,10 +1,7 @@
-import { ChatRequestProvider } from "@/contexts/chat-request-context"
-import type React from "react"
+import type { ReactNode } from "react"
 
-export default function OperatorDashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return <ChatRequestProvider>{children}</ChatRequestProvider>
+// This layout simply passes its children through.
+// All necessary providers are already in the root layout.
+export default function OperatorDashboardLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>
 }
