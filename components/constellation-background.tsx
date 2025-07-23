@@ -2,7 +2,7 @@
 
 import { Stars } from "lucide-react"
 
-export const ConstellationBackground = ({ className }: { className?: string }) => (
+const ConstellationBackground = ({ className }: { className?: string }) => (
   <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
     {/* Orsa Maggiore LAMPEGGIANTE */}
     <div className="absolute top-20 left-20 animate-pulse">
@@ -216,3 +216,5 @@ export const ConstellationBackground = ({ className }: { className?: string }) =
     ))}
   </div>
 )
+
+export default ConstellationBackground
