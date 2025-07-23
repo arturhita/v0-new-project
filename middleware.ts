@@ -1,19 +1,5 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-
-// Funzione helper per ottenere il percorso della dashboard in base al ruolo
-const getDashboardPath = (role: string | undefined) => {
-  switch (role) {
-    case "admin":
-      return "/admin"
-    case "operator":
-      return "/dashboard/operator"
-    case "client":
-      return "/dashboard/client"
-    default:
-      return "/" // Fallback alla homepage se il ruolo non è definito
-  }
-}
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -31,28 +17,48 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
+          // If the cookie is set, update the request's cookies.
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({ name, value, ...options })
+          // Also update the response's cookies.
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options })
+          // If the cookie is removed, update the request's cookies.
+          request.cookies.set({
+            name,
+            value: "",
+            ...options,
+          })
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
-          response.cookies.set({ name, value: "", ...options })
+          // Also update the response's cookies.
+          response.cookies.set({
+            name,
+            value: "",
+            ...options,
+          })
         },
       },
     },
   )
 
-  // Rinfresca sempre la sessione per mantenerla attiva
+  // Refresh session if expired - this will set a new cookie on the response
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -64,18 +70,32 @@ export async function middleware(request: NextRequest) {
   const isAccessingProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
   const isAccessingAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
 
-  // CASO 1: Utente NON loggato tenta di accedere a una pagina protetta
+  // Redirect to login if user is not authenticated and trying to access a protected route
   if (!user && isAccessingProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
-    url.searchParams.set("message", "Devi essere loggato per accedere.")
+    url.searchParams.set("message", "Devi essere loggato per accedere a questa pagina.")
     return NextResponse.redirect(url)
   }
 
-  // CASO 2: Utente LOGGATO si trova su una pagina di autenticazione (es. /login dopo il refresh)
+  // Redirect to the appropriate dashboard if user is authenticated and trying to access an auth route
   if (user && isAccessingAuthRoute) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    const redirectPath = getDashboardPath(profile?.role)
+
+    let redirectPath = "/"
+    if (profile?.role) {
+      switch (profile.role) {
+        case "admin":
+          redirectPath = "/admin"
+          break
+        case "operator":
+          redirectPath = "/dashboard/operator"
+          break
+        case "client":
+          redirectPath = "/dashboard/client"
+          break
+      }
+    }
     return NextResponse.redirect(new URL(redirectPath, request.url))
   }
 
@@ -85,11 +105,11 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Abbina tutti i percorsi di richiesta eccetto quelli che iniziano con:
-     * - _next/static (file statici)
-     * - _next/image (file di ottimizzazione delle immagini)
-     * - favicon.ico (file favicon)
-     * - api/ (rotte API, inclusi i webhook)
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - api/ (API routes)
      */
     "/((?!_next/static|_next/image|favicon.ico|api).*)",
   ],

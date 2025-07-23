@@ -5,7 +5,6 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import type { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/schemas"
 
-// FUNZIONE LOGIN SEMPLIFICATA
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
   const { error } = await supabase.auth.signInWithPassword(values)
@@ -14,7 +13,6 @@ export async function login(values: z.infer<typeof loginSchema>) {
     return { error: "Credenziali non valide. Riprova." }
   }
 
-  // Restituisce solo successo. Il middleware gestirà il resto.
   return { success: true }
 }
 
