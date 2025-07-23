@@ -1,106 +1,55 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
-import { usePathname, useRouter } from "next/navigation"
-import LoadingSpinner from "@/components/loading-spinner"
 
-interface Profile {
-  id: string
-  full_name: string | null
-  avatar_url: string | null
-  role: "client" | "operator" | "admin"
-  [key: string]: any
-}
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import type { User } from "@supabase/supabase-js"
+
+import { createClient } from "@/utils/supabase/client"
 
 type AuthContextType = {
   user: User | null
-  profile: Profile | null
-  isAuthenticated: boolean
   isLoading: boolean
-  logout: () => Promise<void>
+  checkAuth: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+  checkAuth: async () => {},
+})
+
+export const useAuth = () => {
+  return useContext(AuthContext)
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const router = useRouter()
-  const pathname = usePathname()
-
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClient()
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-  }, [supabase.auth])
+  const checkAuth = useCallback(async () => {
+    const { data, error } = await supabase.auth.getUser()
+    if (error) {
+      console.error("Error fetching user:", error)
+      setUser(null)
+    } else {
+      setUser(data.user)
+    }
+    setIsLoading(false)
+  }, [supabase])
 
   useEffect(() => {
+    checkAuth()
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const currentUser = session?.user ? JSON.parse(JSON.stringify(session.user)) : null
-      setUser(currentUser)
-
-      if (currentUser) {
-        const { data: userProfile } = await supabase.from("profiles").select("*").eq("id", currentUser.id).single()
-
-        // CORREZIONE CRITICA: Sanifica l'oggetto profilo prima di salvarlo nello stato.
-        // Questo previene l'errore "getter-only" in tutta l'applicazione.
-        const cleanProfile = userProfile ? JSON.parse(JSON.stringify(userProfile)) : null
-        setProfile(cleanProfile as Profile | null)
-      } else {
-        setProfile(null)
-      }
-
-      if (event === "SIGNED_OUT") {
-        router.replace("/login")
-      }
-
-      setIsLoading(false)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase, router])
+  }, [checkAuth, supabase])
 
-  useEffect(() => {
-    if (isLoading) return
-
-    const isAuthPage = pathname === "/login" || pathname === "/register"
-    const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
-
-    if (!user && isProtectedPage) {
-      router.replace("/login")
-      return
-    }
-
-    if (user && profile && isAuthPage) {
-      let destination = "/"
-      if (profile.role === "admin") destination = "/admin"
-      else if (profile.role === "operator") destination = "/dashboard/operator"
-      else if (profile.role === "client") destination = "/dashboard/client"
-      router.replace(destination)
-    }
-  }, [user, profile, isLoading, pathname, router])
-
-  if (isLoading) {
-    return <LoadingSpinner fullScreen />
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
+  return <AuthContext.Provider value={{ user, isLoading, checkAuth }}>{children}</AuthContext.Provider>
 }
