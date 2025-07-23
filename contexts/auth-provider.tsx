@@ -31,12 +31,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const defaultServices = {
-  chat: { enabled: false, price_per_minute: 0 },
-  call: { enabled: false, price_per_minute: 0 },
-  video: { enabled: false, price_per_minute: 0 },
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
@@ -48,8 +42,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // No need to push, onAuthStateChange will handle the redirect logic
-  }, [supabase.auth])
+    router.push("/")
+  }, [supabase.auth, router])
 
   useEffect(() => {
     const manageSession = async (session: Session | null) => {
@@ -68,17 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Auth Provider: Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // Safer data handling: create a new object with defaults merged in,
-          // rather than mutating a potentially read-only object.
-          const sanitizedProfile = JSON.parse(JSON.stringify(rawProfile))
-          const finalProfile = {
-            ...sanitizedProfile,
-            services:
-              sanitizedProfile.services && typeof sanitizedProfile.services === "object"
-                ? sanitizedProfile.services
-                : defaultServices,
+          // THE DEFINITIVE FIX:
+          // 1. Deep clone the profile to create a mutable copy.
+          const mutableProfile = JSON.parse(JSON.stringify(rawProfile))
+
+          // 2. As a robust safety measure, ensure the services object and its
+          //    nested properties are well-formed, preventing errors downstream.
+          if (!mutableProfile.services || typeof mutableProfile.services !== "object") {
+            mutableProfile.services = {}
           }
-          setProfile(finalProfile as Profile)
+          const defaultService = { enabled: false, price_per_minute: 0 }
+          mutableProfile.services.chat = { ...defaultService, ...mutableProfile.services.chat }
+          mutableProfile.services.call = { ...defaultService, ...mutableProfile.services.call }
+          mutableProfile.services.video = { ...defaultService, ...mutableProfile.services.video }
+
+          setProfile(mutableProfile as Profile)
         } else {
           setProfile(null)
         }
