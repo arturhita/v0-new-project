@@ -20,20 +20,22 @@ export default function UnveillyHomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Ensure loading is true at the start of the fetch
         setIsLoading(true)
         const result = await getHomepageData()
         setData(result)
-        setError(null)
+        setError(null) // Clear any previous errors on success
       } catch (e: any) {
-        console.error("Error caught in component's fetchData:", e)
+        console.error("Failed to load homepage data:", e)
         setError("Impossibile caricare i dati della homepage. Riprova più tardi.")
       } finally {
+        // This will run regardless of success or failure
         setIsLoading(false)
       }
     }
 
     fetchData()
-  }, [])
+  }, []) // Empty dependency array ensures this runs only once on mount
 
   if (isLoading) {
     return (
@@ -54,6 +56,7 @@ export default function UnveillyHomePage() {
     )
   }
 
+  // This check is for the case where loading is false, there's no error, but data is still null.
   if (!data) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-center text-white">
