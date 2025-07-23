@@ -1,83 +1,98 @@
 "use server"
-
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 
-// Inizia una nuova consultazione
-export async function startConsultationAction(operatorId: string, serviceId: string, type: "chat" | "call") {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount)
+}
 
-  if (userError || !user) {
-    return { success: false, message: "Utente non autenticato." }
-  }
+export async function startConsultationAction(
+  clientId: string,
+  operatorId: string,
+  serviceId: string,
+  type: "chat" | "call",
+): Promise<{ success: boolean; consultationId?: string; error?: string }> {
+  // Usa l'admin client per operazioni sensibili
+  const supabase = supabaseAdmin
 
-  // Controlla il saldo del cliente e la tariffa del servizio
-  const { data: service, error: serviceError } = await supabaseAdmin
+  // 1. Controlla la validità del servizio e ottiene la tariffa
+  const { data: service, error: serviceError } = await supabase
     .from("operator_services")
     .select("rate_per_minute")
     .eq("id", serviceId)
+    .eq("operator_id", operatorId)
     .single()
 
   if (serviceError || !service) {
-    return { success: false, message: "Servizio non trovato o non valido." }
+    console.error("Errore controllo servizio:", serviceError)
+    return { success: false, error: "Il servizio selezionato non è valido o non è disponibile." }
   }
 
-  const { data: wallet, error: walletError } = await supabaseAdmin
+  // 2. Controlla il saldo del portafoglio del cliente
+  const { data: wallet, error: walletError } = await supabase
     .from("wallets")
     .select("balance")
-    .eq("user_id", user.id)
+    .eq("user_id", clientId)
     .single()
 
   if (walletError || !wallet) {
-    return { success: false, message: "Portafoglio non trovato." }
+    console.error("Errore controllo portafoglio:", walletError)
+    return { success: false, error: "Impossibile trovare il portafoglio del cliente." }
   }
 
+  // Richiede almeno 1 minuto di credito per iniziare
   if (wallet.balance < service.rate_per_minute) {
     return {
       success: false,
-      message: "Credito insufficiente per avviare la consultazione. Per favore, ricarica il tuo portafoglio.",
+      error: `Credito insufficiente. Per avviare questo consulto è necessario un credito di almeno ${formatCurrency(
+        service.rate_per_minute,
+      )}.`,
     }
   }
 
-  // Crea il record della consultazione
-  const { data: consultation, error: consultationError } = await supabaseAdmin
+  // 3. Crea il record del consulto nel database
+  const now = new Date().toISOString()
+  const { data: consultation, error: consultationError } = await supabase
     .from("consultations")
     .insert({
-      client_id: user.id,
+      client_id: clientId,
       operator_id: operatorId,
       service_id: serviceId,
-      status: "active",
       type: type,
-      started_at: new Date().toISOString(),
-      last_billed_at: new Date().toISOString(), // Inizializza l'ultimo addebito a ora
+      status: "active",
+      started_at: now,
+      last_billed_at: now, // Inizializza il timestamp di fatturazione
     })
-    .select()
+    .select("id")
     .single()
 
   if (consultationError) {
-    return { success: false, message: consultationError.message }
+    console.error("Errore avvio consulto:", consultationError)
+    return { success: false, error: "Errore del server: impossibile avviare il consulto." }
   }
 
   return { success: true, consultationId: consultation.id }
 }
 
-// Termina una consultazione
-export async function endConsultationAction(consultationId: string) {
-  const { error } = await supabaseAdmin.rpc("end_consultation", {
+export async function endConsultationAction(
+  consultationId: string,
+  reason: "client_ended" | "operator_ended" | "insufficient_balance" | "webrtc_failed",
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = supabaseAdmin
+
+  const { error } = await supabase.rpc("end_consultation", {
     p_consultation_id: consultationId,
-    p_reason: "ended_by_user",
+    p_reason: reason,
   })
 
   if (error) {
-    return { success: false, message: error.message }
+    console.error("Errore terminazione consulto:", error)
+    return { success: false, error: "Impossibile terminare il consulto." }
   }
 
-  revalidatePath("/dashboard/client/consultations")
-  revalidatePath("/dashboard/operator/consultations-history")
-  return { success: true, message: "Consulto terminato con successo." }
+  // Invalida le cache per aggiornare le UI
+  revalidatePath(`/dashboard/client/consultations`)
+  revalidatePath(`/dashboard/operator/earnings`)
+
+  return { success: true }
 }
