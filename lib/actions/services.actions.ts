@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
@@ -232,14 +233,22 @@ export async function validateServicePricing(settings: ConsultationSettings) {
   }
 }
 
-export async function updateOperatorServices(operatorId: string, services: any) {
+export async function updateOperatorServices(services: any) {
   const supabase = createClient()
-  // This is a simplified example. You'd likely have a more complex logic
-  // to update, insert, and delete services.
-  const { data, error } = await supabase
-    .from("operator_services")
-    .upsert(services.map((s: any) => ({ ...s, operator_id: operatorId })))
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Not authenticated" }
 
-  if (error) throw error
-  return data
+  const adminSupabase = createAdminClient()
+  // This is a placeholder for a more complex upsert logic
+  const { error } = await adminSupabase.from("operator_services").delete().eq("user_id", user.id)
+  if (error) return { success: false, error }
+
+  const servicesToInsert = services.map((s: any) => ({ ...s, user_id: user.id }))
+  const { error: insertError } = await adminSupabase.from("operator_services").insert(servicesToInsert)
+  if (insertError) return { success: false, error: insertError }
+
+  revalidatePath("/dashboard/operator/services")
+  return { success: true }
 }

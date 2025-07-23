@@ -18,6 +18,8 @@ export interface Reward {
   createdBy: "admin"
   createdAt: Date
   image?: string
+  points?: number
+  badge?: string
 }
 
 export const CLIENT_REWARDS: Reward[] = []
@@ -68,6 +70,51 @@ export const OPERATOR_REWARDS: Reward[] = [
     createdBy: "admin",
     createdAt: new Date(),
     points: 20,
+  },
+  {
+    id: "LEVEL_2",
+    name: "Level 2",
+    description: "Commissione ridotta del 2% per 1 mese",
+    type: "experience",
+    cost: 0,
+    category: "Level",
+    userType: "operator",
+    availability: 1,
+    isActive: true,
+    isFeatured: false,
+    createdBy: "admin",
+    createdAt: new Date(),
+    points: 200,
+  },
+  {
+    id: "LEVEL_5",
+    name: "Level 5",
+    description: "Bonus di 50€",
+    type: "premium",
+    cost: 0,
+    category: "Bonus",
+    userType: "operator",
+    availability: 1,
+    isActive: true,
+    isFeatured: false,
+    createdBy: "admin",
+    createdAt: new Date(),
+    points: 500,
+  },
+  {
+    id: "LEVEL_10",
+    name: "Level 10",
+    description: "Profilo in evidenza per 1 settimana",
+    type: "experience",
+    cost: 0,
+    category: "Profile",
+    userType: "operator",
+    availability: 1,
+    isActive: true,
+    isFeatured: false,
+    createdBy: "admin",
+    createdAt: new Date(),
+    points: 1000,
   },
 ]
 

@@ -1,24 +1,36 @@
 "use server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidatePath } from "next/cache"
 
 export async function updateConsultationRating(consultationId: string, rating: number) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from("consultations").update({ rating }).eq("id", consultationId)
-  if (error) throw error
+  if (error) return { success: false, error }
+  revalidatePath("/dashboard/client/consultations")
+  return { success: true }
 }
 
 export async function cancelConsultation(consultationId: string) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from("consultations").update({ status: "cancelled" }).eq("id", consultationId)
-  if (error) throw error
+  if (error) return { success: false, error }
+  revalidatePath("/dashboard/client/consultations")
+  return { success: true }
 }
 
-export async function getClientConsultations(clientId: string) {
+export async function getClientConsultations() {
   const supabase = createClient()
-  const { data, error } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
     .from("consultations")
-    .select("*, operator:operator_id(username, avatar_url)")
-    .eq("client_id", clientId)
-  if (error) throw error
+    .select("*, operator:operator_id(full_name)")
+    .eq("user_id", user.id)
+  if (error) return []
   return data
 }

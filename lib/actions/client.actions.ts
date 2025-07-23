@@ -1,42 +1,38 @@
 "use server"
-
 import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
-export async function getClientDashboardStats(clientId: string) {
+export async function getClientDashboardStats() {
   const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_client_dashboard_stats", { p_client_id: clientId })
-  if (error) throw error
-  return data
-}
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
 
-export async function getFavoriteExperts(clientId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase.from("favorites").select("operator:operator_id(*)").eq("client_id", clientId)
-  if (error) throw error
-  return data
-}
-
-export async function toggleFavoriteOperator(clientId: string, operatorId: string, isFavorite: boolean) {
-  const supabase = createClient()
-
-  if (isFavorite) {
-    const { error } = await supabase
-      .from("favorite_operators")
-      .delete()
-      .match({ client_id: clientId, operator_id: operatorId })
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
-  } else {
-    const { error } = await supabase.from("favorite_operators").insert({ client_id: clientId, operator_id: operatorId })
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase.rpc("get_client_dashboard_stats", { p_client_id: user.id }).single()
+  if (error) {
+    console.error("Error fetching client dashboard stats:", error)
+    return null
   }
+  return data
+}
 
-  revalidatePath("/dashboard/client")
-  return { success: true }
+export async function getFavoriteExperts() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
+    .from("favorites")
+    .select("operator:operator_id(id, full_name, avatar_url, availability_status)")
+    .eq("user_id", user.id)
+  if (error) {
+    console.error("Error fetching favorite experts:", error)
+    return []
+  }
+  return data.map((fav: any) => fav.operator)
 }

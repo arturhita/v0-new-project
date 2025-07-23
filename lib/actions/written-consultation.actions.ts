@@ -1,145 +1,74 @@
 "use server"
-
-import { revalidatePath } from "next/cache"
-import { getOperatorById } from "./operator.actions"
 import { createClient } from "@/lib/supabase/server"
-
-export interface WrittenConsultation {
-  id: string
-  clientId: string
-  clientName: string
-  operatorId: string
-  operatorName: string
-  question: string
-  answer: string | null
-  status: "pending_operator_response" | "answered" | "cancelled"
-  cost: number
-  createdAt: Date
-  answeredAt: Date | null
-}
-
-const supabase = createClient()
+import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidatePath } from "next/cache"
 
 export async function submitWrittenConsultation(formData: FormData) {
-  const clientId = formData.get("clientId") as string
-  const operatorId = formData.get("operatorId") as string
-  const question = formData.get("question") as string
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Not authenticated" }
 
-  if (!clientId || !operatorId || !question) {
-    return { success: false, error: "Dati mancanti." }
-  }
-
-  const operator = await getOperatorById(operatorId)
-  const operatorServices = operator?.services as any
-  if (!operator || !operatorServices?.email?.enabled || !operatorServices?.email?.price) {
-    return { success: false, error: "Operatore non disponibile per consulenze scritte." }
-  }
-
-  const cost = operatorServices.email.price
-  const { data: clientWalletData, error: walletError } = await supabase
-    .from("user_wallets")
-    .select("balance")
-    .eq("user_id", clientId)
-    .single()
-
-  if (walletError || !clientWalletData || clientWalletData.balance < cost) {
-    return { success: false, error: "Credito insufficiente." }
-  }
-
-  const { error: updateWalletError } = await supabase
-    .from("user_wallets")
-    .update({ balance: clientWalletData.balance - cost })
-    .eq("user_id", clientId)
-
-  if (updateWalletError) {
-    return { success: false, error: "Errore nell'aggiornamento del credito." }
-  }
-
-  const { data: consultationData, error: consultationError } = await supabase
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
     .from("written_consultations")
-    .insert([
-      {
-        id: `wc_${Date.now()}`,
-        clientId,
-        clientName: "Mario Rossi", // Mock
-        operatorId,
-        operatorName: operator.stage_name,
-        question,
-        answer: null,
-        status: "pending_operator_response",
-        cost,
-        createdAt: new Date(),
-        answeredAt: null,
-      },
-    ])
+    .insert({
+      user_id: user.id,
+      operator_id: formData.get("operator_id"),
+      question: formData.get("question"),
+      status: "pending",
+    })
     .select()
 
-  if (consultationError) {
-    return { success: false, error: "Errore nell'inserimento della consultazione." }
-  }
-
+  if (error) return { error }
   revalidatePath("/dashboard/client/written-consultations")
-  revalidatePath("/dashboard/operator/written-consultations")
-
-  return { success: true, message: "Domanda inviata!" }
+  return { data }
 }
 
-export async function getWrittenConsultationsForClient(clientId: string) {
-  const { data: consultationsData, error: consultationsError } = await supabase
+export async function getWrittenConsultationsForClient() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Not authenticated" }
+
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
     .from("written_consultations")
-    .select("*")
-    .eq("clientId", clientId)
-
-  if (consultationsError || !consultationsData) {
-    return []
-  }
-
-  return consultationsData
+    .select("*, operator:operator_id(full_name)")
+    .eq("user_id", user.id)
+  return { data, error }
 }
 
-export async function getWrittenConsultationsForOperator(operatorId: string) {
-  const { data: consultationsData, error: consultationsError } = await supabase
+export async function getWrittenConsultationsForOperator() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Not authenticated" }
+
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
     .from("written_consultations")
-    .select("*")
-    .eq("operatorId", operatorId)
-
-  if (consultationsError || !consultationsData) {
-    return []
-  }
-
-  return consultationsData
+    .select("*, client:user_id(full_name)")
+    .eq("operator_id", user.id)
+  return { data, error }
 }
 
 export async function answerWrittenConsultation(consultationId: string, answer: string) {
-  if (!consultationId || !answer) {
-    return { success: false, error: "Dati mancanti." }
-  }
-
-  const { data: consultationData, error: consultationError } = await supabase
-    .from("written_consultations")
-    .select("*")
-    .eq("id", consultationId)
-    .single()
-
-  if (consultationError || !consultationData) {
-    return { success: false, error: "Consultazione non trovata." }
-  }
-
-  const { error: updateConsultationError } = await supabase
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
     .from("written_consultations")
     .update({
       answer,
       status: "answered",
-      answeredAt: new Date(),
+      answered_at: new Date().toISOString(),
     })
     .eq("id", consultationId)
+    .select()
 
-  if (updateConsultationError) {
-    return { success: false, error: "Errore nell'aggiornamento della consultazione." }
-  }
-
-  revalidatePath("/dashboard/client/written-consultations")
+  if (error) return { error }
   revalidatePath("/dashboard/operator/written-consultations")
-
-  return { success: true, message: "Risposta inviata!" }
+  return { data }
 }

@@ -1,14 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star } from "lucide-react"
 
-interface Review {
+export interface Review {
   rating: number
   comment: string
   created_at: string
   client_name: string
 }
 
-const ReviewCard = ({ review }: { review: Review }) => {
+export const ReviewCard = ({ review }: { review: Review }) => {
   return (
     <Card>
       <CardHeader>
@@ -31,5 +31,3 @@ const ReviewCard = ({ review }: { review: Review }) => {
     </Card>
   )
 }
-
-export default ReviewCard

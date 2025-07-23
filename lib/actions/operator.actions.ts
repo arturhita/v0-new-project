@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
+import type { FormData } from "formdata-node"
 
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
@@ -153,7 +154,7 @@ export async function createOperator(formData: FormData) {
 }
 
 export async function getOperatorById(id: string) {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
   if (error) {
     console.error("Error fetching operator by ID:", error)
@@ -164,7 +165,12 @@ export async function getOperatorById(id: string) {
 
 export async function getOperatorByName(name: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("username", name).single()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("full_name", name)
+    .eq("role", "operator")
+    .single()
   if (error) {
     console.error("Error fetching operator by name:", error.message)
     return null

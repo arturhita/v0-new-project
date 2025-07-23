@@ -1,56 +1,55 @@
 "use server"
-import { createClient } from "@/lib/supabase/server"
-import type { Operator } from "@/types/operator.types"
+import { createAdminClient } from "@/lib/supabase/admin"
+
+export const mapProfileToOperator = (profile: any) => ({
+  id: profile.id,
+  name: profile.full_name || "N/A",
+  specialties: profile.specialties || [],
+  profilePictureUrl: profile.avatar_url || "/placeholder.svg",
+  isAvailable: profile.availability_status === "available",
+  rating: profile.average_rating || 0,
+  reviewsCount: profile.reviews_count || 0,
+  description: profile.bio || "Nessuna descrizione disponibile.",
+  pricePerMinute: profile.price_per_minute || 0.99,
+})
 
 export async function getHomepageData() {
-  const supabase = createClient()
-  const { data: operators, error: operatorsError } = await supabase
+  const supabase = createAdminClient()
+  const { data: operators, error: operatorError } = await supabase
     .from("profiles")
-    .select("id, username, bio, avatar_url, price_per_minute, categories, availability_status, average_rating")
+    .select("*")
     .eq("role", "operator")
-    .eq("status", "approved")
-    .limit(6)
+    .limit(8)
 
-  const { data: articles, error: articlesError } = await supabase
-    .from("articles")
+  const { data: articles, error: articleError } = await supabase
+    .from("blog_posts")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(3)
 
-  if (operatorsError || articlesError) {
-    console.error("Error fetching homepage data:", operatorsError || articlesError)
+  if (operatorError || articleError) {
+    console.error("Error fetching homepage data:", operatorError || articleError)
     return { operators: [], articles: [] }
   }
 
-  return { operators: (operators || []).map(mapProfileToOperator), articles: articles || [] }
+  return {
+    operators: operators.map(mapProfileToOperator),
+    articles: articles,
+  }
 }
 
 export async function getLatestOperators() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, bio, avatar_url, price_per_minute, categories, availability_status, average_rating")
+    .select("*")
     .eq("role", "operator")
-    .eq("status", "approved")
     .order("created_at", { ascending: false })
-    .limit(10)
+    .limit(4)
 
   if (error) {
     console.error("Error fetching latest operators:", error)
     return []
   }
-  return (data || []).map(mapProfileToOperator)
-}
-
-export function mapProfileToOperator(profile: any): Operator {
-  return {
-    id: profile.id,
-    name: profile.username,
-    description: profile.bio,
-    pricePerMinute: profile.price_per_minute,
-    categories: profile.categories || [],
-    imageUrl: profile.avatar_url,
-    isAvailable: profile.availability_status === "available",
-    averageRating: profile.average_rating || 0,
-  }
+  return data.map(mapProfileToOperator)
 }
