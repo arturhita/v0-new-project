@@ -46,11 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const manageSession = async (session: Session | null) => {
       if (session?.user) {
-        // Hard clone the user object immediately to get a clean POJO
-        const cleanUser = JSON.parse(JSON.stringify(session.user)) as User
-        setUser(cleanUser)
-
-        // Fetch profile based on the user ID
         const { data: rawProfile, error } = await supabase
           .from("profiles")
           .select("*")
@@ -60,40 +55,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
+          setUser(JSON.parse(JSON.stringify(session.user)))
         } else if (rawProfile) {
-          // Hard clone the profile object immediately. This is the definitive fix.
-          // It strips all Supabase-specific getters and metadata, leaving a plain object.
-          const cleanProfile = JSON.parse(JSON.stringify(rawProfile)) as Profile
-
-          // Defensive check for services object. This is critical for data integrity.
-          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-            cleanProfile.services = {
-              chat: { enabled: false, price_per_minute: 0 },
-              call: { enabled: false, price_per_minute: 0 },
-              video: { enabled: false, price_per_minute: 0 },
-            }
+          // Definitive Fix: Manually construct a new, clean object.
+          // This avoids any issues with Supabase's read-only objects and getters.
+          const cleanProfile: Profile = {
+            id: rawProfile.id,
+            full_name: rawProfile.full_name,
+            avatar_url: rawProfile.avatar_url,
+            role: rawProfile.role,
+            services: rawProfile.services
+              ? {
+                  chat: { ...rawProfile.services.chat },
+                  call: { ...rawProfile.services.call },
+                  video: { ...rawProfile.services.video },
+                }
+              : {
+                  chat: { enabled: false, price_per_minute: 0 },
+                  call: { enabled: false, price_per_minute: 0 },
+                  video: { enabled: false, price_per_minute: 0 },
+                },
+            // Manually copy any other properties you need from rawProfile here
           }
+
+          setUser(JSON.parse(JSON.stringify(session.user)))
           setProfile(cleanProfile)
         } else {
+          // Profile doesn't exist, but user does.
+          setUser(JSON.parse(JSON.stringify(session.user)))
           setProfile(null)
         }
       } else {
         setUser(null)
         setProfile(null)
       }
-      // Mark loading as false only after all async operations are complete
       setIsLoading(false)
     }
 
-    // 1. Check for an initial session on component mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      manageSession(session)
-    })
-
-    // 2. Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      manageSession(session)
+    })
+
+    // Also check session on initial load
+    supabase.auth.getSession().then(({ data: { session } }) => {
       manageSession(session)
     })
 
@@ -102,15 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase])
 
-  // Separate effect for handling redirection logic for protected routes
   useEffect(() => {
     if (isLoading) {
-      return // Don't do anything while session is being checked
+      return
     }
 
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
-
-    // If not authenticated and on a protected page, redirect to login
     if (!user && isProtectedPage) {
       router.replace("/login")
     }

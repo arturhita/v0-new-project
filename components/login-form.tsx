@@ -11,11 +11,7 @@ import Link from "next/link"
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button
-      type="submit"
-      className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold transition-colors"
-      disabled={pending}
-    >
+    <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
       {pending ? "Accesso in corso..." : "Accedi"}
     </Button>
   )
@@ -27,20 +23,20 @@ export function LoginForm() {
   return (
     <form action={formAction} className="w-full space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-gray-300">
+        <Label htmlFor="email" className="text-gray-200/80">
           Email
         </Label>
         <Input
           id="email"
           name="email"
           type="email"
-          placeholder="tu@esempio.com"
+          placeholder="tua@email.com"
           required
-          className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-500 focus:ring-yellow-500"
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-gray-300">
+        <Label htmlFor="password" className="text-gray-200/80">
           Password
         </Label>
         <Input
@@ -48,14 +44,14 @@ export function LoginForm() {
           name="password"
           type="password"
           required
-          className="bg-gray-800 border-gray-700 text-white focus:border-yellow-500 focus:ring-yellow-500"
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
         />
       </div>
       {state?.error && <p className="text-sm text-red-400 text-center">{state.error}</p>}
       <SubmitButton />
       <p className="text-center text-sm text-gray-400">
         Non hai un account?{" "}
-        <Link href="/register" className="font-semibold text-yellow-400 hover:underline">
+        <Link href="/register" className="font-semibold text-amber-400 hover:underline">
           Registrati
         </Link>
       </p>
