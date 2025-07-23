@@ -1,68 +1,67 @@
-import { Star } from "lucide-react"
-import Image from "next/image"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Star, MessageCircle, Phone, Mail } from "lucide-react"
+import { formatDistanceToNow } from "date-fns"
+import { it } from "date-fns/locale"
 
-export interface Review {
+export type Review = {
   id: string
+  user_name: string
+  user_avatar_url?: string | null
+  operator_name: string
   rating: number
   comment: string
   created_at: string
-  user_name: string
-  user_avatar_url: string | null
-  service_type: "chat" | "call" | "written" | "email"
+  service_type?: "chat" | "call" | "written" | string
+}
+
+const ServiceIcon = ({ type }: { type?: string }) => {
+  switch (type) {
+    case "chat":
+      return <MessageCircle className="h-4 w-4 text-gray-400" />
+    case "call":
+      return <Phone className="h-4 w-4 text-gray-400" />
+    case "written":
+      return <Mail className="h-4 w-4 text-gray-400" />
+    default:
+      return null
+  }
 }
 
 export const ReviewCard = ({ review }: { review: Review }) => {
-  const serviceMap = {
-    chat: { label: "Chat", color: "bg-green-500/20 text-green-300 border-green-400/30" },
-    call: { label: "Chiamata", color: "bg-blue-500/20 text-blue-300 border-blue-400/30" },
-    written: { label: "Consulto Scritto", color: "bg-purple-500/20 text-purple-300 border-purple-400/30" },
-    email: { label: "Consulto Email", color: "bg-purple-500/20 text-purple-300 border-purple-400/30" },
-  }
-
-  const serviceInfo = serviceMap[review.service_type] || {
-    label: review.service_type,
-    color: "bg-gray-500/20 text-gray-300 border-gray-400/30",
-  }
+  const timeAgo = formatDistanceToNow(new Date(review.created_at), {
+    addSuffix: true,
+    locale: it,
+  })
 
   return (
-    <div className="border-t border-white/10 pt-6 first:border-t-0 first:pt-0">
-      <div className="flex items-start space-x-4">
-        <div className="relative w-10 h-10 flex-shrink-0">
-          <Image
-            src={review.user_avatar_url || "/placeholder.svg?width=40&height=40&query=user+avatar"}
-            alt={`Avatar di ${review.user_name}`}
-            fill
-            className="rounded-full object-cover"
-          />
-        </div>
+    <Card className="w-full max-w-md bg-slate-900/50 border-indigo-400/20 text-white flex flex-col h-full">
+      <CardHeader className="flex flex-row items-center gap-4 p-4">
+        <Avatar>
+          <AvatarImage src={review.user_avatar_url ?? undefined} alt={review.user_name} />
+          <AvatarFallback>{review.user_name.charAt(0)}</AvatarFallback>
+        </Avatar>
         <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-white">{review.user_name}</p>
-              <p className="text-xs text-blue-300">
-                {new Date(review.created_at).toLocaleDateString("it-IT", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
-            <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`w-4 h-4 transition-colors duration-300 ${
-                    i < review.rating ? "text-sky-400 fill-sky-400" : "text-slate-600"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-          <p className="mt-3 text-blue-200 italic">"{review.comment}"</p>
-          <Badge className={`mt-3 text-xs border ${serviceInfo.color}`}>{serviceInfo.label}</Badge>
+          <p className="font-semibold text-indigo-300">{review.user_name}</p>
+          <p className="text-xs text-gray-400">
+            ha recensito <span className="font-medium text-amber-300">{review.operator_name}</span>
+          </p>
         </div>
-      </div>
-    </div>
+        <div className="flex items-center gap-1 text-amber-400">
+          <Star className="h-5 w-5 fill-current" />
+          <span className="font-bold text-lg">{review.rating}</span>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 flex-grow">
+        <p className="text-gray-300 italic">"{review.comment}"</p>
+      </CardContent>
+      <CardFooter className="p-4 pt-0 flex justify-between items-center text-xs text-gray-400">
+        <span>{timeAgo}</span>
+        <div className="flex items-center gap-1">
+          <ServiceIcon type={review.service_type} />
+          <span className="capitalize">{review.service_type || "Consulto"}</span>
+        </div>
+      </CardFooter>
+    </Card>
   )
 }

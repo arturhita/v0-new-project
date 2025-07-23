@@ -1,5 +1,5 @@
 "use server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import type { BlogArticle } from "@/lib/blog-data"
@@ -29,30 +29,41 @@ export async function getHomepageData(): Promise<{
   reviews: Review[]
   articles: BlogArticle[]
 }> {
+  const supabase = createAdminClient()
   try {
     const [operatorsResult, reviewsResult, articlesResult] = await Promise.all([
-      supabaseAdmin.from("profiles").select("*").eq("role", "operator").eq("status", "Attivo").limit(8),
-      supabaseAdmin
+      supabase
+        .from("profiles")
+        .select("*, services:operator_services(*)")
+        .eq("role", "operator")
+        .eq("status", "Attivo")
+        .limit(8),
+      supabase
         .from("reviews")
         .select(
           `
             id, rating, comment, created_at, service_type,
-            user_name, user_avatar,
-            operator:profiles!operator_id (stage_name)
+            client:profiles!reviews_client_id_fkey (name, avatar_url),
+            operator:profiles!reviews_operator_id_fkey (stage_name)
           `,
         )
-        .eq("status", "Approved")
+        .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(3),
-      supabaseAdmin.from("blog_posts").select("*").order("created_at", { ascending: false }).limit(3),
+      supabase.from("blog_posts").select("*").order("created_at", { ascending: false }).limit(3),
     ])
 
     const { data: operators, error: operatorError } = operatorsResult
     const { data: reviewsData, error: reviewError } = reviewsResult
     const { data: articles, error: articleError } = articlesResult
 
+    if (operatorError) console.error("Error fetching operators:", operatorError)
+    if (reviewError) console.error("Error fetching reviews:", reviewError)
+    if (articleError) console.error("Error fetching articles:", articleError)
+
     if (operatorError || reviewError || articleError) {
       console.error("Error fetching homepage data:", operatorError || reviewError || articleError)
+      // Return empty arrays on error
       return { operators: [], reviews: [], articles: [] }
     }
 
@@ -62,11 +73,12 @@ export async function getHomepageData(): Promise<{
       (review: any) =>
         ({
           id: review.id,
+          user_name: review.client?.name || "Utente Anonimo",
+          user_avatar_url: review.client?.avatar_url,
+          operator_name: review.operator?.stage_name || "Operatore",
           rating: review.rating,
           comment: review.comment,
           created_at: review.created_at,
-          user_name: review.user_name || "Utente Anonimo",
-          user_avatar_url: review.user_avatar || null,
           service_type: review.service_type,
         }) as Review,
     )
@@ -83,10 +95,11 @@ export async function getHomepageData(): Promise<{
 }
 
 export async function getLatestOperators(): Promise<Operator[]> {
+  const supabase = createAdminClient()
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("*, services:operator_services(*)")
       .eq("role", "operator")
       .eq("status", "Attivo")
       .order("created_at", { ascending: false })
