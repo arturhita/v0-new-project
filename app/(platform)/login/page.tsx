@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { useAuth } from "@/contexts/auth-context"
-import LoadingSpinner from "@/components/loading-spinner"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -27,7 +26,7 @@ function SubmitButton() {
 export default function LoginPage() {
   const [state, formAction] = useActionState(login, undefined)
   const [showPassword, setShowPassword] = useState(false)
-  const { isLoading, isAuthenticated } = useAuth()
+  const { isLoading } = useAuth()
 
   useEffect(() => {
     if (state?.error) {
@@ -36,21 +35,18 @@ export default function LoginPage() {
     if (state?.success) {
       toast.success(state.success)
       // DO NOT call router.refresh() or router.push() here.
-      // The AuthProvider is responsible for redirection.
+      // The AuthProvider is now responsible for all redirection.
       // This prevents the race condition that caused the crash.
     }
   }, [state])
 
-  // Show a loading spinner only during the initial auth check.
-  // Once the check is done, the AuthProvider will redirect if necessary.
+  // The page no longer shows a full-screen spinner. It renders its content,
+  // and the AuthProvider will redirect if the user is already logged in.
+  // This prevents the component from unmounting, which was a source of the error.
   if (isLoading) {
-    return <LoadingSpinner fullScreen />
-  }
-
-  // If user is authenticated, AuthProvider will redirect, but we can show a message
-  // while the redirect is happening.
-  if (isAuthenticated) {
-    return <LoadingSpinner fullScreen message="Accesso effettuato. Reindirizzamento in corso..." />
+    // We can return a minimal loading state or null to avoid rendering the form
+    // while the initial session check is in progress. This is safer.
+    return null
   }
 
   return (

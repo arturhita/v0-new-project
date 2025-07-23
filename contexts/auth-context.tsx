@@ -3,7 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User, Session } from "@supabase/supabase-js"
+import type { User } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 
 interface Profile {
@@ -29,43 +29,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  // Use the full session as the source of truth
-  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true) // Always start loading
-
-  const user = session?.user ?? null
+  const [isLoading, setIsLoading] = useState(true)
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    setSession(null)
-    setProfile(null)
-    router.push("/login") // Force redirect on logout
-  }, [supabase.auth, router])
+  }, [supabase.auth])
 
-  // Effect 1: Get initial session and subscribe to auth changes
+  // Effect 1: Listen for auth state changes from Supabase
   useEffect(() => {
-    // This function runs once to get the initial state
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const sanitizedSession = session ? JSON.parse(JSON.stringify(session)) : null
-      setSession(sanitizedSession)
-      // The profile fetching effect will handle setting isLoading to false
-    })
-
-    // This subscription handles all subsequent auth events
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const sanitizedSession = session ? JSON.parse(JSON.stringify(session)) : null
-      setSession(sanitizedSession)
+      // Sanitize the user object immediately to prevent "getter-only" errors
+      const sanitizedUser = session?.user ? JSON.parse(JSON.stringify(session.user)) : null
+      setUser(sanitizedUser)
+
+      // If user logs out, ensure the profile is also cleared
+      if (_event === "SIGNED_OUT") {
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [supabase.auth])
 
-  // Effect 2: Fetch user profile whenever the user object changes
+  // Effect 2: Fetch the user's profile when the user object changes
   useEffect(() => {
     if (user) {
+      setIsLoading(true) // We are now loading the profile data
       supabase
         .from("profiles")
         .select("*")
@@ -76,34 +69,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else {
-            const cleanProfile = data ? JSON.parse(JSON.stringify(data)) : null
-            setProfile(cleanProfile)
+            // Sanitize the profile object as well
+            setProfile(data ? JSON.parse(JSON.stringify(data)) : null)
           }
-          // Loading is complete after profile is fetched (or failed)
-          setIsLoading(false)
+          setIsLoading(false) // Finished loading profile
         })
     } else {
-      // No user, so no profile. Loading is complete.
+      // No user, so no profile is needed, and we are not loading
       setProfile(null)
       setIsLoading(false)
     }
   }, [user, supabase])
 
-  // Effect 3: Handle route protection and redirection
+  // Effect 3: Handle all application redirects based on auth state
   useEffect(() => {
-    // Don't do anything until the initial loading is finished
-    if (isLoading) return
+    // Wait until the initial user and profile load is complete
+    if (isLoading) {
+      return
+    }
 
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // If not logged in and on a protected page, redirect to login
+    // If a non-authenticated user tries to access a protected page, redirect them to login
     if (!user && isProtectedPage) {
       router.replace("/login")
       return
     }
 
-    // If logged in (with profile) and on an auth page, redirect to dashboard
+    // If an authenticated user is on an auth page, redirect them to their dashboard
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"
