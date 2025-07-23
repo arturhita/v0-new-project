@@ -5,14 +5,9 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
+// This mapper now assumes it receives a plain, sanitized JS object.
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // THE DEFINITIVE, ISOLATED FIX:
-  // Sanitize the individual profile object at the very beginning of the mapping process.
-  // This is the most robust approach as it ensures that any logic within this function
-  // operates on a plain, safe JavaScript object, free from any Supabase proxies or getters.
-  const cleanProfile = JSON.parse(JSON.stringify(profile))
-
-  const services = cleanProfile.services || {}
+  const services = profile.services || {}
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -25,25 +20,23 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
   return {
-    id: cleanProfile.id,
-    name: cleanProfile.stage_name || "Operatore",
-    avatarUrl: cleanProfile.avatar_url || "/placeholder.svg",
+    id: profile.id,
+    name: profile.stage_name || "Operatore",
+    avatarUrl: profile.avatar_url || "/placeholder.svg",
     specialization:
-      (cleanProfile.specialties && cleanProfile.specialties[0]) ||
-      (cleanProfile.categories && cleanProfile.categories[0]) ||
-      "Esperto",
-    rating: cleanProfile.average_rating || 0,
-    reviewsCount: cleanProfile.reviews_count || 0,
-    description: cleanProfile.bio || "Nessuna descrizione disponibile.",
-    tags: cleanProfile.categories || [],
-    isOnline: cleanProfile.is_online || false,
+      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
+    rating: profile.average_rating || 0,
+    reviewsCount: profile.reviews_count || 0,
+    description: profile.bio || "Nessuna descrizione disponibile.",
+    tags: profile.categories || [],
+    isOnline: profile.is_online || false,
     services: {
       chatPrice,
       callPrice,
       emailPrice,
     },
-    profileLink: `/operator/${cleanProfile.stage_name}`,
-    joinedDate: cleanProfile.created_at,
+    profileLink: `/operator/${profile.stage_name}`,
+    joinedDate: profile.created_at,
   }
 }
 
@@ -86,11 +79,12 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    // Pass the raw data to the mapper. The mapper is now responsible for sanitization.
-    const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-
-    // Sanitize reviews data here as it doesn't have a complex dedicated mapper.
+    // BRUTE-FORCE SANITIZATION: Use JSON stringify/parse to ensure a plain object.
+    // This is the most aggressive and reliable way to strip proxies/getters.
+    const cleanOperatorsData = JSON.parse(JSON.stringify(operatorsData || []))
     const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
+
+    const operators = cleanOperatorsData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
     const reviews = cleanReviewsData.map(
       (review: any) =>
         ({
@@ -125,8 +119,9 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  // Pass raw data to the mapper.
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  // APPLY THE FIX HERE AS WELL
+  const cleanData = JSON.parse(JSON.stringify(data || []))
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getAllOperators() {
@@ -145,6 +140,7 @@ export async function getAllOperators() {
     return []
   }
 
-  // Pass raw data to the mapper.
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  // APPLY THE FIX HERE AS WELL
+  const cleanData = JSON.parse(JSON.stringify(data || []))
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }

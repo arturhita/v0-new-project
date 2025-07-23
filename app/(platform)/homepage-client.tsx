@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Search, ArrowRight, Sparkles } from "lucide-react"
+import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OperatorCard } from "@/components/operator-card"
 import type { Operator } from "@/components/operator-card"
@@ -108,36 +108,32 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative h-screen w-full flex items-center justify-center text-center text-white overflow-hidden">
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: "url('/images/hero-background.png')" }}
-          >
-            <div className="absolute inset-0 bg-black/40"></div>
-          </div>
-
-          <div className="relative z-10 flex flex-col items-center space-y-8 pt-20 md:pt-32 animate-fadeInUp">
-            <h1
-              className="font-playfair font-bold text-white text-6xl md:text-8xl"
-              style={{ textShadow: "0 3px 12px rgba(0,0,0,0.8)" }}
-            >
-              Il Viaggio
+        <section
+          className="relative flex h-[60vh] min-h-[500px] w-full flex-col items-center justify-center bg-cover bg-center bg-no-repeat px-4 text-center"
+          style={{ backgroundImage: "url('/images/hero-background.png')" }}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative z-10">
+            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
+              Trova il tuo Esperto, svela il tuo futuro
             </h1>
-            <h2
-              className="font-playfair text-white text-4xl md:text-5xl"
-              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.7)" }}
-            >
-              Inizia da Qui
-            </h2>
-            <Link href="/esperti/cartomanzia" passHref>
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-amber-500 to-[#1E3C98] text-white font-bold text-lg px-8 py-4 rounded-full hover:saturate-150 transition-all duration-500 shadow-lg hover:shadow-xl hover:scale-105 group"
-              >
-                <Search className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
-                Cerca Esperti
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-300 md:text-xl">
+              Connettiti con i migliori consulenti di cartomanzia, astrologia e medianità. Ottieni risposte chiare e
+              guida per il tuo percorso.
+            </p>
+            <div className="mt-8 flex justify-center gap-4">
+              <Button asChild size="lg" className="bg-indigo-500 hover:bg-indigo-600 text-white">
+                <Link href="/esperti">Scopri gli Esperti</Link>
               </Button>
-            </Link>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-slate-400 text-white hover:bg-slate-800 bg-transparent"
+              >
+                <Link href="/diventa-esperto">Diventa un Esperto</Link>
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -176,6 +172,33 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Operatori in Evidenza Section */}
+        <section className="py-16 sm:py-24">
+          <div className="container mx-auto px-4">
+            <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Operatori in Evidenza
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-400">
+              I nostri esperti più apprezzati, pronti ad aiutarti.
+            </p>
+            <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              {operators.map((operator) => (
+                <OperatorCard key={operator.id} operator={operator} />
+              ))}
+            </div>
+            <div className="mt-12 text-center">
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-indigo-500 text-indigo-400 hover:bg-indigo-900/50 hover:text-indigo-300 bg-transparent"
+              >
+                <Link href="/esperti">Vedi tutti gli esperti</Link>
+              </Button>
             </div>
           </div>
         </section>
@@ -245,26 +268,17 @@ export function HomepageClient({ operators, reviews }: HomepageClientProps) {
         </section>
 
         {/* Reviews Section */}
-        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950">
-          <ConstellationBackground goldVisible={true} />
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="text-center mb-12 md:mb-16">
-              <h2 className="text-3xl font-bold md:text-4xl text-white">Testimonianze di Anime Illuminate</h2>
-              <p className="mt-4 text-lg text-slate-300 max-w-2xl mx-auto">
-                Le esperienze spirituali autentiche dei nostri viaggiatori dell'anima.
-              </p>
+        <section className="bg-slate-950 py-16 sm:py-24">
+          <div className="container mx-auto px-4">
+            <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">Cosa dicono di noi</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-slate-400">
+              Le esperienze reali dei nostri utenti.
+            </p>
+            <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-3">
+              {reviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
             </div>
-            {reviews.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                {reviews.map((review, index) => (
-                  <div key={review.id} className="animate-scaleIn" style={{ animationDelay: `${index * 100}ms` }}>
-                    <ReviewCard review={review} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-slate-400">Nessuna testimonianza recente.</div>
-            )}
           </div>
         </section>
 
