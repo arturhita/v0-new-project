@@ -15,10 +15,11 @@ export const ConstellationBackground = () => {
     let animationFrameId: number
     let time = 0
 
-    window.addEventListener("resize", () => {
+    const handleResize = () => {
       w = canvas.width = window.innerWidth
       h = canvas.height = window.innerHeight
-    })
+    }
+    window.addEventListener("resize", handleResize)
 
     const stars: {
       x: number
@@ -35,8 +36,8 @@ export const ConstellationBackground = () => {
         x: Math.random() * w,
         y: Math.random() * h,
         radius: Math.random() * 1.5 + 0.5,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
         pulseOffset: Math.random() * Math.PI * 2,
       })
     }
@@ -49,7 +50,7 @@ export const ConstellationBackground = () => {
 
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i]
-        const pulse = Math.sin(time + s.pulseOffset) * 0.4 + 0.8 // Pulsing factor between 0.4 and 1.2
+        const pulse = Math.sin(time + s.pulseOffset) * 0.4 + 0.8 // Pulsing factor
 
         ctx.beginPath()
         const gradient = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.radius * pulse)
@@ -72,7 +73,7 @@ export const ConstellationBackground = () => {
             ctx.moveTo(starI.x, starI.y)
             ctx.lineTo(starJ.x, starJ.y)
             ctx.strokeStyle = `rgba(255, 215, 0, ${1 - dist / 150})` // Fading gold lines
-            ctx.lineWidth = 0.5
+            ctx.lineWidth = 0.3
             ctx.stroke()
           }
         }
@@ -105,7 +106,7 @@ export const ConstellationBackground = () => {
     tick()
 
     return () => {
-      window.removeEventListener("resize", () => {})
+      window.removeEventListener("resize", handleResize)
       cancelAnimationFrame(animationFrameId)
     }
   }, [])
@@ -117,7 +118,7 @@ export const ConstellationBackground = () => {
         position: "fixed",
         top: 0,
         left: 0,
-        zIndex: -1,
+        zIndex: 0,
         background: "linear-gradient(to bottom, #0f172a, #1e293b)",
       }}
     />
