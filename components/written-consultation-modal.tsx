@@ -24,7 +24,7 @@ interface WrittenConsultationModalProps {
     name: string
     emailPrice: number
   }
-  user: User
+  user: User | null
 }
 
 export function WrittenConsultationModal({ isOpen, onClose, operator, user }: WrittenConsultationModalProps) {
@@ -33,12 +33,12 @@ export function WrittenConsultationModal({ isOpen, onClose, operator, user }: Wr
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async () => {
-    if (!question.trim()) {
-      setError("La domanda non può essere vuota.")
-      return
-    }
     if (!user) {
       setError("Devi essere loggato per inviare una domanda.")
+      return
+    }
+    if (question.trim().length < 20) {
+      setError("La domanda deve contenere almeno 20 caratteri.")
       return
     }
 
@@ -71,7 +71,7 @@ export function WrittenConsultationModal({ isOpen, onClose, operator, user }: Wr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white border-yellow-600/50">
+      <DialogContent className="sm:max-w-[425px] bg-slate-900 text-white border-blue-700">
         <DialogHeader>
           <DialogTitle>Invia una domanda a {operator.name}</DialogTitle>
           <DialogDescription>
@@ -87,17 +87,17 @@ export function WrittenConsultationModal({ isOpen, onClose, operator, user }: Wr
               id="question"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              className="bg-gray-800 border-gray-700 focus:ring-yellow-500"
+              className="bg-slate-800 border-slate-700 focus:ring-cyan-500"
               rows={6}
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
             Annulla
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !user || question.trim().length < 20}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Invia Domanda ({operator.emailPrice.toFixed(2)}€)
           </Button>
