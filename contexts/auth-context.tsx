@@ -57,29 +57,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null)
           setUser(JSON.parse(JSON.stringify(session.user)))
         } else if (rawProfile) {
-          // Definitive Fix: Manually construct a new, clean object.
-          // This avoids any issues with Supabase's read-only objects and getters.
-          const cleanProfile: Profile = {
-            id: rawProfile.id,
-            full_name: rawProfile.full_name,
-            avatar_url: rawProfile.avatar_url,
-            role: rawProfile.role,
-            services: rawProfile.services
-              ? {
-                  chat: { ...rawProfile.services.chat },
-                  call: { ...rawProfile.services.call },
-                  video: { ...rawProfile.services.video },
-                }
-              : {
-                  chat: { enabled: false, price_per_minute: 0 },
-                  call: { enabled: false, price_per_minute: 0 },
-                  video: { enabled: false, price_per_minute: 0 },
-                },
-            // Manually copy any other properties you need from rawProfile here
-          }
+          // THE DEFINITIVE FIX: Deep clone the raw profile data from Supabase.
+          // This creates a plain JavaScript object, stripping all getters and preventing the error.
+          const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
 
+          // Defensive check for services object, just in case.
+          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
+            cleanProfile.services = {
+              chat: { enabled: false, price_per_minute: 0 },
+              call: { enabled: false, price_per_minute: 0 },
+              video: { enabled: false, price_per_minute: 0 },
+            }
+          }
           setUser(JSON.parse(JSON.stringify(session.user)))
-          setProfile(cleanProfile)
+          setProfile(cleanProfile as Profile)
         } else {
           // Profile doesn't exist, but user does.
           setUser(JSON.parse(JSON.stringify(session.user)))

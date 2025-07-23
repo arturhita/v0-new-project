@@ -1,316 +1,246 @@
 "use client"
-import { useState, useEffect } from "react"
-import type React from "react"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { DollarSign, MessageSquare, Phone, Mail, Save, Clock, Loader2 } from "lucide-react"
+import { MessageSquare, Phone, Video, Save, Loader2, AlertCircle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
-import {
-  saveOperatorServices,
-  getOperatorServices,
-  validateServicePricing,
-  type ConsultationSettings,
-} from "@/lib/actions/services.actions"
+import { getOperatorServices, saveOperatorServices } from "@/lib/actions/services.actions"
 
-const initialSettings: ConsultationSettings = {
-  chatEnabled: false,
-  chatPricePerMinute: 1.0,
-  callEnabled: false,
-  callPricePerMinute: 1.5,
-  minDurationCallChat: 10,
-  emailEnabled: false,
-  emailPricePerConsultation: 25.0,
+// Define the type for a single service
+interface Service {
+  enabled: boolean
+  price_per_minute: number
 }
 
-export default function OperatorConsultationSettingsPage() {
-  const [settings, setSettings] = useState<ConsultationSettings>(initialSettings)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+// Define the type for all services
+interface ServicesState {
+  chat: Service
+  call: Service
+  video: Service
+}
 
-  // Load existing settings on component mount
+const initialServicesState: ServicesState = {
+  chat: { enabled: false, price_per_minute: 0 },
+  call: { enabled: false, price_per_minute: 0 },
+  video: { enabled: false, price_per_minute: 0 },
+}
+
+export default function OperatorServicesPage() {
+  const [services, setServices] = useState<ServicesState>(initialServicesState)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
-    async function loadSettings() {
+    const loadServices = async () => {
+      setLoading(true)
+      setError(null)
       try {
-        const existingSettings = await getOperatorServices()
-        if (existingSettings) {
-          setSettings(existingSettings)
+        const result = await getOperatorServices()
+        if (result.success && result.data) {
+          // THE FIX: Deep clone the object from Supabase before setting it in state.
+          // This creates a plain JavaScript object, removing any read-only getters.
+          const cleanData = JSON.parse(JSON.stringify(result.data))
+          setServices(cleanData)
+        } else {
+          throw new Error(result.message || "Impossibile caricare i servizi.")
         }
-      } catch (error) {
-        console.error("Error loading settings:", error)
+      } catch (e: any) {
+        console.error("Failed to load services:", e)
+        setError("Non è stato possibile caricare le impostazioni dei servizi. Riprova più tardi.")
         toast({
-          title: "Errore",
-          description: "Impossibile caricare le impostazioni esistenti.",
+          title: "Errore di Caricamento",
+          description: e.message,
           variant: "destructive",
         })
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
-
-    loadSettings()
+    loadServices()
   }, [])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target
-    setSettings((prev) => ({
+  const handleToggle = (service: keyof ServicesState) => {
+    setServices((prev) => ({
       ...prev,
-      [name]: type === "number" ? Number.parseFloat(value) || 0 : value,
+      [service]: {
+        ...prev[service],
+        enabled: !prev[service].enabled,
+      },
     }))
   }
 
-  const handleSwitchChange = (
-    name: keyof Pick<ConsultationSettings, "chatEnabled" | "callEnabled" | "emailEnabled">,
-  ) => {
-    setSettings((prev) => ({
-      ...prev,
-      [name]: !prev[name],
-    }))
+  const handlePriceChange = (service: keyof ServicesState, value: string) => {
+    const price = Number.parseFloat(value)
+    if (!isNaN(price)) {
+      setServices((prev) => ({
+        ...prev,
+        [service]: {
+          ...prev[service],
+          price_per_minute: price,
+        },
+      }))
+    }
   }
 
-  const handleSaveSettings = async () => {
-    setIsSaving(true)
-
+  const handleSave = async () => {
+    setSaving(true)
     try {
-      // Validate settings before saving
-      const validation = await validateServicePricing(settings)
-
-      if (!validation.isValid) {
-        toast({
-          title: "Errori di Validazione",
-          description: validation.errors.join(", "),
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Save settings
-      const result = await saveOperatorServices(settings)
-
+      const result = await saveOperatorServices(services)
       if (result.success) {
         toast({
-          title: "Impostazioni Salvate",
-          description: result.message,
+          title: "Servizi Aggiornati",
+          description: "Le tue impostazioni sono state salvate con successo.",
           className: "bg-green-100 border-green-300 text-green-700",
         })
       } else {
-        toast({
-          title: "Errore",
-          description: result.message,
-          variant: "destructive",
-        })
+        throw new Error(result.message || "Errore durante il salvataggio.")
       }
-    } catch (error) {
-      console.error("Error saving settings:", error)
+    } catch (e: any) {
+      console.error("Failed to save services:", e)
       toast({
-        title: "Errore",
-        description: "Errore imprevisto durante il salvataggio.",
+        title: "Errore nel Salvataggio",
+        description: e.message,
         variant: "destructive",
       })
     } finally {
-      setIsSaving(false)
+      setSaving(false)
     }
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Modalità di Consulto e Tariffe</h1>
-          <CardDescription className="text-slate-500 mt-1">Caricamento delle impostazioni...</CardDescription>
-        </div>
-        <Card className="shadow-lg rounded-xl">
-          <CardContent className="p-8 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] bg-red-50 border border-red-200 rounded-lg p-6">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold text-red-700">Oops! Qualcosa è andato storto.</h2>
+        <p className="text-red-600 mt-2 text-center">{error}</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Modalità di Consulto e Tariffe</h1>
-        <CardDescription className="text-slate-500 mt-1">
-          Definisci come i cercatori possono consultarti e le relative tariffe. Le tue specializzazioni (es. Tarocchi,
-          Astrologia) sono gestite nella pagina "Il Mio Altare".
-        </CardDescription>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">Gestione Servizi</h1>
+          <p className="text-slate-500 mt-1">Attiva o disattiva i servizi che offri e imposta le tariffe al minuto.</p>
+        </div>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Salvataggio...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Salva Modifiche
+            </>
+          )}
+        </Button>
       </div>
 
-      <Card className="shadow-lg rounded-xl">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-xl text-slate-700">Configurazione Consulti</CardTitle>
+          <CardTitle>Configurazione Servizi di Consulenza</CardTitle>
+          <CardDescription>Le modifiche saranno visibili immediatamente sul tuo profilo pubblico.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Consulti via Chat */}
-          <div className="p-4 border rounded-lg bg-slate-50/70">
-            <div className="flex items-center justify-between mb-3">
-              <Label htmlFor="chatEnabled" className="text-lg font-medium text-slate-700 flex items-center">
-                <MessageSquare className="h-5 w-5 mr-2 text-sky-600" />
-                Consulti via Chat
-              </Label>
-              <Switch
-                id="chatEnabled"
-                checked={settings.chatEnabled}
-                onCheckedChange={() => handleSwitchChange("chatEnabled")}
-              />
-            </div>
-            {settings.chatEnabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
-                <div>
-                  <Label htmlFor="chatPricePerMinute">Tariffa al Minuto (€)</Label>
-                  <div className="relative mt-1">
-                    <DollarSign className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      id="chatPricePerMinute"
-                      name="chatPricePerMinute"
-                      type="number"
-                      value={settings.chatPricePerMinute}
-                      onChange={handleInputChange}
-                      className="pl-8"
-                      placeholder="1.0"
-                      step="0.01"
-                      min="0.1"
-                      max="50"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Minimo €0.10, massimo €50.00</p>
-                </div>
+          {/* Chat Service */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-4">
+              <MessageSquare className="h-6 w-6 text-sky-600" />
+              <div>
+                <Label htmlFor="chat-switch" className="text-base font-medium">
+                  Consulenza via Chat
+                </Label>
+                <p className="text-sm text-slate-500">Servizio di messaggistica testuale in tempo reale.</p>
               </div>
-            )}
-          </div>
-
-          {/* Consulti via Chiamata */}
-          <div className="p-4 border rounded-lg bg-slate-50/70">
-            <div className="flex items-center justify-between mb-3">
-              <Label htmlFor="callEnabled" className="text-lg font-medium text-slate-700 flex items-center">
-                <Phone className="h-5 w-5 mr-2 text-emerald-600" />
-                Consulti via Chiamata
-              </Label>
-              <Switch
-                id="callEnabled"
-                checked={settings.callEnabled}
-                onCheckedChange={() => handleSwitchChange("callEnabled")}
-              />
             </div>
-            {settings.callEnabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
-                <div>
-                  <Label htmlFor="callPricePerMinute">Tariffa al Minuto (€)</Label>
-                  <div className="relative mt-1">
-                    <DollarSign className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      id="callPricePerMinute"
-                      name="callPricePerMinute"
-                      type="number"
-                      value={settings.callPricePerMinute}
-                      onChange={handleInputChange}
-                      className="pl-8"
-                      placeholder="1.5"
-                      step="0.01"
-                      min="0.1"
-                      max="50"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Minimo €0.10, massimo €50.00</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Durata Minima per Chat e Chiamate (se almeno uno è attivo) */}
-          {(settings.chatEnabled || settings.callEnabled) && (
-            <div className="p-4 border rounded-lg bg-slate-50/70">
-              <Label
-                htmlFor="minDurationCallChat"
-                className="text-lg font-medium text-slate-700 flex items-center mb-3"
-              >
-                <Clock className="h-5 w-5 mr-2 text-slate-600" />
-                Durata Minima (Chat & Chiamate)
-              </Label>
-              <div className="pl-7">
-                <Label htmlFor="minDurationCallChat">Minuti</Label>
+            <div className="flex items-center gap-4">
+              <div className="relative">
                 <Input
-                  id="minDurationCallChat"
-                  name="minDurationCallChat"
                   type="number"
-                  value={settings.minDurationCallChat}
-                  onChange={handleInputChange}
-                  className="mt-1"
-                  placeholder="10"
-                  step="1"
-                  min="5"
-                  max="120"
+                  step="0.10"
+                  min="0"
+                  value={services.chat.price_per_minute}
+                  onChange={(e) => handlePriceChange("chat", e.target.value)}
+                  className="w-28 pr-8"
+                  disabled={!services.chat.enabled}
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Durata minima per sessioni di chat o chiamata (5-120 minuti).
-                </p>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">€/min</span>
               </div>
+              <Switch id="chat-switch" checked={services.chat.enabled} onCheckedChange={() => handleToggle("chat")} />
             </div>
-          )}
-
-          {/* Consulti via Email */}
-          <div className="p-4 border rounded-lg bg-slate-50/70">
-            <div className="flex items-center justify-between mb-3">
-              <Label htmlFor="emailEnabled" className="text-lg font-medium text-slate-700 flex items-center">
-                <Mail className="h-5 w-5 mr-2 text-amber-600" />
-                Consulti via Email (Scritto)
-              </Label>
-              <Switch
-                id="emailEnabled"
-                checked={settings.emailEnabled}
-                onCheckedChange={() => handleSwitchChange("emailEnabled")}
-              />
-            </div>
-            {settings.emailEnabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
-                <div>
-                  <Label htmlFor="emailPricePerConsultation">Prezzo per Consulto (€)</Label>
-                  <div className="relative mt-1">
-                    <DollarSign className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      id="emailPricePerConsultation"
-                      name="emailPricePerConsultation"
-                      type="number"
-                      value={settings.emailPricePerConsultation}
-                      onChange={handleInputChange}
-                      className="pl-8"
-                      placeholder="25.0"
-                      step="0.01"
-                      min="1"
-                      max="500"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Tariffa fissa per un consulto scritto via email (€1-€500).
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
-          <Button
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-            size="lg"
-            className="w-full sm:w-auto bg-gradient-to-r from-[hsl(var(--primary-light))] to-[hsl(var(--primary-medium))] text-white shadow-md hover:opacity-90"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Salvataggio...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-5 w-5" />
-                Salva Impostazioni
-              </>
-            )}
-          </Button>
+          {/* Call Service */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-4">
+              <Phone className="h-6 w-6 text-green-600" />
+              <div>
+                <Label htmlFor="call-switch" className="text-base font-medium">
+                  Consulenza Telefonica
+                </Label>
+                <p className="text-sm text-slate-500">Chiamate vocali dirette con i clienti.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.10"
+                  min="0"
+                  value={services.call.price_per_minute}
+                  onChange={(e) => handlePriceChange("call", e.target.value)}
+                  className="w-28 pr-8"
+                  disabled={!services.call.enabled}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">€/min</span>
+              </div>
+              <Switch id="call-switch" checked={services.call.enabled} onCheckedChange={() => handleToggle("call")} />
+            </div>
+          </div>
+
+          {/* Video Service */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-4">
+              <Video className="h-6 w-6 text-purple-600" />
+              <div>
+                <Label htmlFor="video-switch" className="text-base font-medium">
+                  Consulenza Video (Prossimamente)
+                </Label>
+                <p className="text-sm text-slate-500">Videochiamate per un'esperienza più immersiva.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.10"
+                  min="0"
+                  value={services.video.price_per_minute}
+                  onChange={(e) => handlePriceChange("video", e.target.value)}
+                  className="w-28 pr-8"
+                  disabled={true} // Always disabled for now
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">€/min</span>
+              </div>
+              <Switch id="video-switch" checked={services.video.enabled} disabled={true} />
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

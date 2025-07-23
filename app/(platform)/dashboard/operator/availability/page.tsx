@@ -42,8 +42,10 @@ export default function AvailabilityPage() {
       try {
         const result = await getOperatorAvailability()
 
-        if (result.success) {
-          setAvailability(result.data)
+        if (result.success && result.data) {
+          // FIX: Deep clone the data to create a mutable object for the state
+          const cleanData = JSON.parse(JSON.stringify(result.data))
+          setAvailability(cleanData)
         } else {
           console.error("Error loading availability:", result.message)
           setAvailability(initializeDefaultAvailability())

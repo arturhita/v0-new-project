@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Save, ArrowLeft, User, DollarSign, Settings } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { getOperatorById, updateOperator, updateOperatorCommission, type Operator } from "@/lib/mock-data"
+import { getOperatorById, updateOperatorCommission, type Operator } from "@/lib/actions"
+import { updateOperatorProfile } from "@/lib/actions"
 
 export default function EditOperatorPage() {
   const params = useParams()
@@ -24,18 +25,18 @@ export default function EditOperatorPage() {
   const [commissionValue, setCommissionValue] = useState<number>(0)
 
   useEffect(() => {
-    // Carica dati operatore
-    setIsLoading(true)
-    setTimeout(() => {
-      const foundOperator = getOperatorById(operatorId)
+    const fetchOperatorData = async () => {
+      setIsLoading(true)
+      const foundOperator = await getOperatorById(operatorId)
       if (foundOperator) {
-        setOperator(foundOperator)
-        // Estrai il valore numerico dalla commissione (es: "15%" -> 15)
-        const commissionNum = Number.parseInt(foundOperator.commission.replace("%", "")) || 0
-        setCommissionValue(commissionNum)
+        // FIX: Deep clone the Supabase object before setting state
+        const cleanOperatorData = JSON.parse(JSON.stringify(foundOperator))
+        setOperator(cleanOperatorData)
+        setCommissionValue(cleanOperatorData.commission_rate || 0)
       }
       setIsLoading(false)
-    }, 500)
+    }
+    fetchOperatorData()
   }, [operatorId])
 
   const handleSaveOperator = async () => {
@@ -43,35 +44,29 @@ export default function EditOperatorPage() {
 
     setIsSaving(true)
     try {
-      // Simula salvataggio
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Aggiorna l'operatore nel storage condiviso
-      const success = updateOperator(operatorId, {
-        name: operator.name,
+      // Using the real server action
+      const result = await updateOperatorProfile(operatorId, {
+        full_name: operator.full_name,
         email: operator.email,
         phone: operator.phone,
-        discipline: operator.discipline,
-        description: operator.description,
-        isActive: operator.isActive,
+        specialties: operator.specialties,
+        bio: operator.bio,
         status: operator.status,
       })
 
-      if (success) {
-        toast({
-          title: "Operatore aggiornato",
-          description: "I dati dell'operatore sono stati salvati con successo.",
-        })
-
-        // Torna alla lista operatori
-        router.push("/admin/operators")
-      } else {
-        throw new Error("Errore nel salvataggio")
+      if (result.error) {
+        throw new Error(result.error)
       }
-    } catch (error) {
+
+      toast({
+        title: "Operatore aggiornato",
+        description: "I dati dell'operatore sono stati salvati con successo.",
+      })
+      router.push("/admin/operators")
+    } catch (error: any) {
       toast({
         title: "Errore",
-        description: "Errore nel salvataggio dei dati.",
+        description: error.message || "Errore nel salvataggio dei dati.",
         variant: "destructive",
       })
     }
@@ -83,27 +78,23 @@ export default function EditOperatorPage() {
 
     setIsSaving(true)
     try {
-      // Simula aggiornamento commissione
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      // Using the real server action
+      const result = await updateOperatorCommission(operatorId, String(commissionValue))
 
-      // Aggiorna la commissione nel storage condiviso
-      const success = updateOperatorCommission(operatorId, commissionValue)
-
-      if (success) {
-        // Aggiorna lo stato locale
-        setOperator((prev) => (prev ? { ...prev, commission: `${commissionValue}%` } : null))
-
-        toast({
-          title: "Commissione aggiornata",
-          description: `Commissione aggiornata a ${commissionValue}%`,
-        })
-      } else {
-        throw new Error("Errore nell'aggiornamento")
+      if (!result.success) {
+        throw new Error(result.message)
       }
-    } catch (error) {
+
+      setOperator((prev) => (prev ? { ...prev, commission_rate: commissionValue } : null))
+
+      toast({
+        title: "Commissione aggiornata",
+        description: `Commissione aggiornata a ${commissionValue}%`,
+      })
+    } catch (error: any) {
       toast({
         title: "Errore",
-        description: "Errore nell'aggiornamento della commissione.",
+        description: error.message || "Errore nell'aggiornamento della commissione.",
         variant: "destructive",
       })
     }
@@ -157,7 +148,11 @@ export default function EditOperatorPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nome Completo</Label>
-              <Input id="name" value={operator.name} onChange={(e) => handleInputChange("name", e.target.value)} />
+              <Input
+                id="name"
+                value={operator.full_name}
+                onChange={(e) => handleInputChange("full_name", e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
@@ -181,10 +176,10 @@ export default function EditOperatorPage() {
 
             <div className="space-y-2">
               <Label htmlFor="discipline">Specializzazione</Label>
-              <Input
+              <Textarea
                 id="discipline"
-                value={operator.discipline}
-                onChange={(e) => handleInputChange("discipline", e.target.value)}
+                value={operator.specialties?.join(", ") || ""}
+                onChange={(e) => handleInputChange("specialties", e.target.value)}
               />
             </div>
           </div>
@@ -193,8 +188,8 @@ export default function EditOperatorPage() {
             <Label htmlFor="description">Descrizione</Label>
             <Textarea
               id="description"
-              value={operator.description || ""}
-              onChange={(e) => handleInputChange("description", e.target.value)}
+              value={operator.bio || ""}
+              onChange={(e) => handleInputChange("bio", e.target.value)}
               rows={4}
             />
           </div>
@@ -206,8 +201,8 @@ export default function EditOperatorPage() {
             </div>
             <Switch
               id="isActive"
-              checked={operator.isActive || false}
-              onCheckedChange={(checked) => handleInputChange("isActive", checked)}
+              checked={operator.status === "approved"}
+              onCheckedChange={(checked) => handleInputChange("status", checked ? "approved" : "pending")}
             />
           </div>
         </CardContent>
@@ -243,7 +238,7 @@ export default function EditOperatorPage() {
                 <Badge variant="default" className="bg-green-100 text-green-800">
                   Attiva
                 </Badge>
-                <span className="text-sm text-slate-600">Commissione attuale: {operator.commission}</span>
+                <span className="text-sm text-slate-600">Commissione attuale: {operator.commission_rate}%</span>
               </div>
             </div>
           </div>
@@ -280,11 +275,11 @@ export default function EditOperatorPage() {
             <div className="space-y-2">
               <Label>Stato Account</Label>
               <Badge
-                variant={operator.status === "Attivo" ? "default" : "secondary"}
+                variant={operator.status === "approved" ? "default" : "secondary"}
                 className={
-                  operator.status === "Attivo"
+                  operator.status === "approved"
                     ? "bg-green-100 text-green-800"
-                    : operator.status === "In Attesa"
+                    : operator.status === "pending"
                       ? "bg-yellow-100 text-yellow-800"
                       : "bg-red-100 text-red-800"
                 }
@@ -300,7 +295,7 @@ export default function EditOperatorPage() {
 
             <div className="space-y-2">
               <Label>Data Registrazione</Label>
-              <p className="text-sm text-slate-600">{operator.joined}</p>
+              <p className="text-sm text-slate-600">{new Date(operator.created_at).toLocaleDateString("it-IT")}</p>
             </div>
           </div>
         </CardContent>

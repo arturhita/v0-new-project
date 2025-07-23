@@ -276,10 +276,21 @@ export async function getAllOperators() {
 
 export async function getOperatorById(id: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      "id, full_name, stage_name, email, phone, bio, specialties, categories, status, commission_rate, created_at, avatar_url, services",
+    )
+    .eq("id", id)
+    .single()
   if (error) {
     console.error(`Error fetching operator ${id}:`, error)
     return null
+  }
+  // Also fetch email from auth table for consistency
+  const { data: authData } = await supabaseAdmin.auth.admin.getUserById(id)
+  if (data && authData.user) {
+    data.email = authData.user.email
   }
   return data
 }
