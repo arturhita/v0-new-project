@@ -10,7 +10,10 @@ export default async function HomePage() {
   const homepageDataPromise = getHomepageData()
   const latestOperatorsPromise = getLatestOperators()
 
-  const [homepageData, latestOperators] = await Promise.all([homepageDataPromise, latestOperatorsPromise])
+  const [homepageData, latestOperators] = await Promise.all([
+    homepageDataPromise,
+    latestOperatorsPromise,
+  ])
 
   const { operators, reviews } = homepageData
 
