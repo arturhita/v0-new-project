@@ -6,6 +6,7 @@ import type { z } from "zod"
 import { useTransition } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
@@ -15,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function LoginForm() {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -28,26 +30,13 @@ export function LoginForm() {
       if (result?.error) {
         toast.error(result.error)
         form.reset()
-      } else if (result?.success && result.role) {
-        toast.success("Accesso effettuato con successo! Reindirizzamento...")
-
-        // SOLUZIONE DEFINITIVA: Usa un reindirizzamento a pagina intera per garantire
-        // che il cookie di sessione venga elaborato dal browser prima della nuova richiesta.
-        let redirectPath = "/"
-        switch (result.role) {
-          case "admin":
-            redirectPath = "/admin"
-            break
-          case "operator":
-            redirectPath = "/dashboard/operator"
-            break
-          case "client":
-            redirectPath = "/dashboard/client"
-            break
-        }
-        // Questo forza un nuovo caricamento della pagina dal server,
-        // risolvendo la race condition.
-        window.location.assign(redirectPath)
+      } else if (result?.success) {
+        toast.success("Accesso effettuato con successo!")
+        // SOLUZIONE: Invece di un redirect client-side, facciamo un refresh.
+        // Questo ricarica i dati del server per la pagina corrente.
+        // Il middleware intercetterà questa richiesta, vedrà l'utente
+        // loggato sulla pagina /login, e lo reindirizzerà correttamente.
+        router.refresh()
       }
     })
   }
