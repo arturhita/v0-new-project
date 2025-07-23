@@ -1,91 +1,60 @@
 "use client"
 
-import { useChatRequest } from "@/contexts/chat-request-context"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useEffect, useRef } from "react"
-import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Check, X, PhoneIncoming } from "lucide-react"
+import { useChatRequest } from "@/contexts/chat-request-context"
 
 export function IncomingChatRequestModal() {
-  const { incomingRequest, setIncomingRequest, respondToRequest, isResponding } = useChatRequest()
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const { request, isVisible, accept, decline } = useChatRequest()
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      audioRef.current = new Audio("/sounds/notification.mp3")
+    if (isVisible && audioRef.current) {
+      audioRef.current
+        .play()
+        .catch((error) => console.log("La riproduzione audio è stata bloccata dal browser:", error))
     }
-  }, [])
+  }, [isVisible])
 
-  useEffect(() => {
-    if (incomingRequest) {
-      audioRef.current?.play().catch((e) => console.error("Error playing audio:", e))
-    }
-  }, [incomingRequest])
-
-  if (!incomingRequest) {
+  if (!isVisible || !request) {
     return null
   }
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-  }
-
   return (
-    <Dialog open={!!incomingRequest} onOpenChange={(isOpen) => !isOpen && setIncomingRequest(null)}>
-      <DialogContent className="sm:max-w-[425px] bg-slate-800 border-slate-700 text-white">
-        <DialogHeader>
-          <DialogTitle className="text-2xl text-center text-yellow-400">Nuova Richiesta di Consulto!</DialogTitle>
-          <DialogDescription className="text-center text-slate-300 pt-2">
-            Hai una nuova richiesta di chat da un cliente.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 flex flex-col items-center gap-4">
-          <Avatar className="h-24 w-24 border-4 border-yellow-400">
-            <AvatarImage
-              src={incomingRequest.client_profile.avatar_url || "/placeholder.svg"}
-              alt={incomingRequest.client_profile.full_name}
-            />
-            <AvatarFallback className="text-3xl bg-slate-700">
-              {getInitials(incomingRequest.client_profile.full_name)}
-            </AvatarFallback>
-          </Avatar>
-          <p className="text-xl font-semibold">{incomingRequest.client_profile.full_name}</p>
-        </div>
-        <DialogFooter className="sm:justify-around">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+      <Card className="w-full max-w-md shadow-2xl border-indigo-500/50 bg-slate-900/80 text-white animate-in fade-in-0 zoom-in-95">
+        <CardHeader className="text-center">
+          <div className="mx-auto bg-indigo-500/20 rounded-full p-4 w-fit mb-4 border border-indigo-500/30">
+            <PhoneIncoming className="h-10 w-10 text-indigo-300 animate-pulse" />
+          </div>
+          <CardTitle className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
+            Richiesta di Chat in Arrivo
+          </CardTitle>
+          <CardDescription className="text-slate-400 mt-2 text-base">
+            L'utente <span className="font-bold text-white">{request.fromUserName}</span> vuole avviare una chat con te.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="flex justify-center gap-4 mt-4">
           <Button
-            type="button"
+            onClick={decline}
             variant="destructive"
-            onClick={() => respondToRequest(false)}
-            disabled={isResponding}
-            className="w-full sm:w-auto"
+            size="lg"
+            className="flex-1 bg-red-600/80 hover:bg-red-600 text-white text-lg font-bold gap-2"
           >
-            {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Rifiuta
+            <X className="h-6 w-6" /> Rifiuta
           </Button>
           <Button
-            type="button"
-            variant="default"
-            onClick={() => respondToRequest(true)}
-            disabled={isResponding}
-            className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+            onClick={accept}
+            size="lg"
+            className="flex-1 bg-green-600/80 hover:bg-green-600 text-white text-lg font-bold gap-2"
           >
-            {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Accetta
+            <Check className="h-6 w-6" /> Accetta
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </CardFooter>
+      </Card>
+      <audio ref={audioRef} src="/sounds/notification.mp3" preload="auto" />
+    </div>
   )
 }

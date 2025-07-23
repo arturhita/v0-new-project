@@ -31,6 +31,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const defaultServices = {
+  chat: { enabled: false, price_per_minute: 0 },
+  call: { enabled: false, price_per_minute: 0 },
+  video: { enabled: false, price_per_minute: 0 },
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
@@ -62,16 +68,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Auth Provider: Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
-
-          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-            cleanProfile.services = {
-              chat: { enabled: false, price_per_minute: 0 },
-              call: { enabled: false, price_per_minute: 0 },
-              video: { enabled: false, price_per_minute: 0 },
-            }
+          // Safer data handling: create a new object with defaults merged in,
+          // rather than mutating a potentially read-only object.
+          const sanitizedProfile = JSON.parse(JSON.stringify(rawProfile))
+          const finalProfile = {
+            ...sanitizedProfile,
+            services:
+              sanitizedProfile.services && typeof sanitizedProfile.services === "object"
+                ? sanitizedProfile.services
+                : defaultServices,
           }
-          setProfile(cleanProfile as Profile)
+          setProfile(finalProfile as Profile)
         } else {
           setProfile(null)
         }

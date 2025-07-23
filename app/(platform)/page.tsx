@@ -1,34 +1,35 @@
-import { getHomepageData } from "@/lib/actions/data.actions"
+import { getHomepageData, getLatestOperators } from "@/lib/actions/data.actions"
 import HomepageClient from "./homepage-client"
 import { Suspense } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
+import LoadingSpinner from "@/components/loading-spinner"
 
-export const revalidate = 60 // Revalidate data every 60 seconds
+export const revalidate = 300 // Revalidate every 5 minutes
 
 export default async function HomePage() {
-  const initialData = await getHomepageData()
+  try {
+    // Fetch data in parallel
+    const homepageDataPromise = getHomepageData()
+    const latestOperatorsPromise = getLatestOperators()
 
-  if (initialData.error) {
-    return <div className="text-center text-red-500 py-10">Errore nel caricamento dei dati della homepage.</div>
-  }
+    const [homepageData, latestOperators] = await Promise.all([homepageDataPromise, latestOperatorsPromise])
 
-  return (
-    <Suspense
-      fallback={
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-64 w-full mb-12" />
-          <div className="mb-8">
-            <Skeleton className="h-8 w-1/3 mb-4" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-80 w-full" />
-              ))}
-            </div>
-          </div>
+    // Destructure all properties from homepageData
+    const { operators, reviews, articles } = homepageData
+
+    return (
+      <Suspense fallback={<LoadingSpinner fullScreen />}>
+        <HomepageClient operators={operators} reviews={reviews} articles={articles} latestOperators={latestOperators} />
+      </Suspense>
+    )
+  } catch (error) {
+    console.error("Failed to load homepage data:", error)
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-center text-white">
+        <div>
+          <h1 className="text-2xl font-bold">Oops! Qualcosa è andato storto.</h1>
+          <p className="text-slate-400">Non è stato possibile caricare i dati per la homepage. Riprova più tardi.</p>
         </div>
-      }
-    >
-      <HomepageClient initialData={initialData.data} />
-    </Suspense>
-  )
+      </div>
+    )
+  }
 }

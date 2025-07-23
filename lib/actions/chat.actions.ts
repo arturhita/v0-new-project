@@ -1,130 +1,122 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
-import { revalidatePath } from "next/cache"
-import { createLiveConsultation } from "./consultation_billing.actions"
+import type { Message, ChatSessionDetails } from "@/types/chat.types"
 
-export async function sendMessage(consultationId: string, content: string) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "Devi essere loggato per inviare un messaggio." }
-  }
-
-  const { data, error } = await supabase.from("messages").insert([
+const mockUsers = new Map<string, any>([
+  [
+    "user_client_123",
     {
-      consultation_id: consultationId,
-      sender_id: user.id,
-      content: content,
+      id: "user_client_123",
+      name: "Mario Rossi",
+      avatar: "/placeholder.svg?width=40&height=40",
+      role: "client",
+      balance: 50.0,
     },
-  ])
+  ],
+  [
+    "op_luna_stellare",
+    {
+      id: "op_luna_stellare",
+      name: "Luna Stellare",
+      avatar: "/placeholder.svg?width=40&height=40",
+      role: "operator",
+      ratePerMinute: 2.5,
+    },
+  ],
+])
+const mockChatSessions = new Map<string, ChatSessionDetails>()
 
-  if (error) {
-    console.error("Error sending message:", error)
-    return { error: "Impossibile inviare il messaggio." }
+export interface SendMessageResult {
+  success: boolean
+  message?: Message
+  error?: string
+}
+
+export async function sendMessageAction(
+  conversationId: string,
+  text: string,
+  senderId: string,
+  senderName: string,
+  senderAvatar?: string,
+): Promise<SendMessageResult> {
+  if (!text.trim()) {
+    return { success: false, error: "Il messaggio non può essere vuoto." }
+  }
+  const newMessage: Message = {
+    id: `msg_client_${Date.now()}`,
+    senderId,
+    senderName,
+    text,
+    timestamp: new Date(),
+    avatar: senderAvatar,
+  }
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  return { success: true, message: newMessage }
+}
+
+export async function sendOperatorMessageAction(
+  conversationId: string,
+  text: string,
+  senderId: string,
+  senderName: string,
+  senderAvatar?: string,
+): Promise<SendMessageResult> {
+  if (!text.trim()) {
+    return { success: false, error: "Il messaggio non può essere vuoto." }
+  }
+  const newMessage: Message = {
+    id: `msg_op_${Date.now()}`,
+    senderId,
+    senderName,
+    text,
+    timestamp: new Date(),
+    avatar: senderAvatar,
+  }
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  return { success: true, message: newMessage }
+}
+
+interface ChatRequestResult {
+  success: boolean
+  sessionId?: string
+  error?: string
+}
+
+export async function initiateChatRequest(userId: string, operatorId: string): Promise<ChatRequestResult> {
+  const client = mockUsers.get(userId)
+  const operator = mockUsers.get(operatorId)
+
+  if (!client || !operator) {
+    return { success: false, error: "Utente o operatore non trovato." }
   }
 
+  if (client.balance < operator.ratePerMinute) {
+    return { success: false, error: "Credito insufficiente per avviare la chat." }
+  }
+
+  const sessionId = `session_${Date.now()}`
+  const newSession: ChatSessionDetails = {
+    id: sessionId,
+    status: "active",
+    client: { id: client.id, name: client.name, avatar: client.avatar, initialBalance: client.balance },
+    operator: { id: operator.id, name: operator.name, avatar: operator.avatar, ratePerMinute: operator.ratePerMinute },
+    messages: [],
+    createdAt: new Date(),
+  }
+  mockChatSessions.set(sessionId, newSession)
+  return { success: true, sessionId: sessionId }
+}
+
+export async function respondToChatRequest(
+  sessionId: string,
+  response: "accepted" | "declined",
+): Promise<{ success: boolean }> {
+  console.log(`Server Action: L'operatore ha risposto alla sessione ${sessionId} con: ${response}`)
+  await new Promise((resolve) => setTimeout(resolve, 300))
   return { success: true }
 }
 
-export async function getConsultationDetailsAndMessages(consultationId: string) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error("Utente non autenticato")
-  }
-
-  const { data: consultation, error: consultationError } = await supabase
-    .from("live_consultations")
-    .select(
-      `
-      *,
-      client:client_id (id, full_name, avatar_url),
-      operator:operator_id (id, full_name, avatar_url, rate_per_minute)
-    `,
-    )
-    .eq("id", consultationId)
-    .single()
-
-  if (consultationError || !consultation) {
-    console.error("Error fetching consultation:", consultationError)
-    throw new Error("Consulto non trovato.")
-  }
-
-  if (user.id !== consultation.client_id && user.id !== consultation.operator_id) {
-    throw new Error("Non autorizzato a visualizzare questo consulto.")
-  }
-
-  const { data: messages, error: messagesError } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("consultation_id", consultationId)
-    .order("created_at", { ascending: true })
-
-  if (messagesError) {
-    console.error("Error fetching messages:", messagesError)
-    throw new Error("Impossibile caricare i messaggi.")
-  }
-
-  return { consultation, messages }
-}
-
-export async function respondToChatRequest(requestId: string, accepted: boolean) {
-  const supabase = createAdminClient()
-
-  const { data: request, error: requestError } = await supabase
-    .from("chat_requests")
-    .select("*")
-    .eq("id", requestId)
-    .single()
-
-  if (requestError || !request) {
-    console.error("Error fetching chat request:", requestError)
-    return { error: "Richiesta non trovata." }
-  }
-
-  if (request.status !== "pending") {
-    return { error: "Questa richiesta è già stata gestita." }
-  }
-
-  const { error: updateError } = await supabase
-    .from("chat_requests")
-    .update({ status: accepted ? "accepted" : "rejected" })
-    .eq("id", requestId)
-
-  if (updateError) {
-    console.error("Error updating chat request:", updateError)
-    return { error: "Impossibile aggiornare la richiesta." }
-  }
-
-  if (!accepted) {
-    revalidatePath(`/dashboard/operator`)
-    return { success: true, accepted: false }
-  }
-
-  try {
-    const consultationResult = await createLiveConsultation(request.client_id, request.operator_id, "chat")
-
-    if (consultationResult.error || !consultationResult.consultationId) {
-      await supabase.from("chat_requests").update({ status: "pending" }).eq("id", requestId)
-      return { error: `Impossibile avviare il consulto: ${consultationResult.error}` }
-    }
-
-    revalidatePath(`/dashboard/operator`)
-    return {
-      success: true,
-      accepted: true,
-      consultationId: consultationResult.consultationId,
-    }
-  } catch (e: any) {
-    await supabase.from("chat_requests").update({ status: "pending" }).eq("id", requestId)
-    return { error: `Errore critico nell'avvio del consulto: ${e.message}` }
-  }
+export async function getChatSessionDetails(sessionId: string): Promise<ChatSessionDetails | null> {
+  await new Promise((res) => setTimeout(res, 500))
+  return mockChatSessions.get(sessionId) || null
 }

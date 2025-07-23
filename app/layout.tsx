@@ -2,16 +2,17 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { Providers } from "@/contexts/providers"
-import { Toaster } from "sonner"
+import { AuthProvider } from "@/contexts/auth-context"
+import { Toaster } from "@/components/ui/toaster"
 import { CookieBanner } from "@/components/cookie-banner"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Moonthir - Consulenti Esperti al Tuo Servizio",
-  description:
-    "Trova i migliori consulenti e cartomanti per una consulenza immediata e personalizzata. Chatta o parla con i nostri esperti.",
+  title: "Moonthir - Consulenti del benessere",
+  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
     generator: 'v0.dev'
 }
 
@@ -21,13 +22,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="it">
-      <body className={`${inter.className} bg-[#0F172A] text-slate-100`}>
-        <Providers>
-          {children}
-          <Toaster richColors position="top-right" />
-          <CookieBanner />
-        </Providers>
+    <html lang="it" suppressHydrationWarning>
+      <body className={`${inter.className} bg-gray-900`}>
+        <AuthProvider>
+          <OperatorStatusProvider>
+            <ChatRequestProvider>
+              {children}
+              <Toaster />
+              <CookieBanner />
+            </ChatRequestProvider>
+          </OperatorStatusProvider>
+        </AuthProvider>
       </body>
     </html>
   )
