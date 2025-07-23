@@ -5,37 +5,9 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
+// This mapper now assumes it receives a plain, sanitized JS object.
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  // ULTIMATE FIX: Manually reconstruct the entire object, property by property.
-  // This is the most robust way to prevent "getter" errors by ensuring we work with a plain,
-  // mutable JavaScript object, completely detached from the database driver's special objects.
-
-  // Manually reconstruct the services object
-  const rawServices = profile.services || {}
-  const services = {
-    chat:
-      rawServices.chat && typeof rawServices.chat === "object"
-        ? {
-            enabled: rawServices.chat.enabled,
-            price_per_minute: rawServices.chat.price_per_minute,
-          }
-        : {},
-    call:
-      rawServices.call && typeof rawServices.call === "object"
-        ? {
-            enabled: rawServices.call.enabled,
-            price_per_minute: rawServices.call.price_per_minute,
-          }
-        : {},
-    email:
-      rawServices.email && typeof rawServices.email === "object"
-        ? {
-            enabled: rawServices.email.enabled,
-            price: rawServices.email.price,
-          }
-        : {},
-  }
-
+  const services = profile.services || {}
   const chatService = services.chat || {}
   const callService = services.call || {}
   const emailService = services.email || {}
@@ -47,8 +19,7 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
   const emailPrice =
     promotionPrice !== null ? promotionPrice * 6 : emailService.enabled ? emailService.price : undefined
 
-  // Manually reconstruct the final Operator object
-  const operator: Operator = {
+  return {
     id: profile.id,
     name: profile.stage_name || "Operatore",
     avatarUrl: profile.avatar_url || "/placeholder.svg",
@@ -67,8 +38,6 @@ export const mapProfileToOperator = (profile: any, promotionPrice: number | null
     profileLink: `/operator/${profile.stage_name}`,
     joinedDate: profile.created_at,
   }
-
-  return operator
 }
 
 export async function getHomepageData() {
@@ -110,8 +79,13 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    const operators = (operatorsData || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-    const reviews = (reviewsData || []).map(
+    // BRUTE-FORCE SANITIZATION: Use JSON stringify/parse to ensure a plain object.
+    // This is the most aggressive and reliable way to strip proxies/getters.
+    const cleanOperatorsData = JSON.parse(JSON.stringify(operatorsData || []))
+    const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
+
+    const operators = cleanOperatorsData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
+    const reviews = cleanReviewsData.map(
       (review: any) =>
         ({
           id: review.id,
@@ -145,7 +119,9 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  // APPLY THE FIX HERE AS WELL
+  const cleanData = JSON.parse(JSON.stringify(data || []))
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
 
 export async function getAllOperators() {
@@ -164,5 +140,7 @@ export async function getAllOperators() {
     return []
   }
 
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
+  // APPLY THE FIX HERE AS WELL
+  const cleanData = JSON.parse(JSON.stringify(data || []))
+  return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
