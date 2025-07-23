@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (rawProfile) {
           // THE DEFINITIVE FIX:
           // 1. Deep clone the profile to create a mutable copy. This prevents
-          //    the "read-only" error.
+          //    the "read-only" getter error.
           const mutableProfile = JSON.parse(JSON.stringify(rawProfile))
 
           // 2. As a robust safety measure, ensure the services object and its

@@ -7,7 +7,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   return (
     <div className="flex flex-col min-h-screen bg-slate-900">
       <ConstellationBackground />
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col min-h-screen">
         <SiteNavbar />
         <main className="flex-grow pt-16">{children}</main>
         <SiteFooter />
