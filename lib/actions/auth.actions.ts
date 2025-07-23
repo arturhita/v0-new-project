@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
-import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 
 const LoginSchema = z.object({
   email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
@@ -51,15 +51,20 @@ export async function login(prevState: any, formData: FormData) {
 }
 
 export async function register(prevState: any, formData: FormData) {
-  const validatedFields = RegisterSchema.safeParse(Object.fromEntries(formData.entries()))
+  const rawData = Object.fromEntries(formData.entries())
+  const dataToValidate = {
+    ...rawData,
+    terms: rawData.terms === "on",
+  }
+
+  const validatedFields = RegisterSchema.safeParse(dataToValidate)
 
   if (!validatedFields.success) {
     const firstError = validatedFields.error.errors[0].message
-    return { error: firstError }
+    return { error: firstError || "Dati non validi." }
   }
 
-  const { fullName, email, password } = validatedFields.data
-  const origin = headers().get("origin")
+  const { email, password, fullName } = validatedFields.data
   const supabase = createClient()
 
   const { error } = await supabase.auth.signUp({
@@ -69,17 +74,22 @@ export async function register(prevState: any, formData: FormData) {
       data: {
         full_name: fullName,
       },
-      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 
   if (error) {
-    console.error("Registration Error:", error.message)
     if (error.message.includes("User already registered")) {
       return { error: "Un utente con questa email è già registrato." }
     }
-    return { error: "Si è verificato un errore durante la registrazione. Riprova." }
+    console.error("Supabase SignUp Error:", error)
+    return { error: "Si è verificato un errore durante la registrazione." }
   }
 
-  return { success: "Registrazione avvenuta! Controlla la tua email per confermare il tuo account." }
+  return { success: "Registrazione completata! Controlla la tua email per confermare il tuo account." }
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }

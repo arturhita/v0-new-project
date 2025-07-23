@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ConstellationBackground } from "@/components/constellation-background"
-import { useAuth } from "@/contexts/auth-context"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -24,10 +23,9 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  // Initialize state with a null error
+  // Initialize state with a null error. This component is now completely decoupled from the AuthContext.
   const [state, formAction] = useActionState(login, { error: null })
   const [showPassword, setShowPassword] = useState(false)
-  const { isLoading } = useAuth()
 
   useEffect(() => {
     // This useEffect now ONLY handles displaying errors from the server action.
@@ -36,12 +34,6 @@ export default function LoginPage() {
       toast.error(state.error)
     }
   }, [state])
-
-  // If the AuthProvider is still performing the initial check, render nothing.
-  // This prevents the form from flashing if the user is already logged in and about to be redirected.
-  if (isLoading) {
-    return null
-  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4 bg-slate-900 text-white">
