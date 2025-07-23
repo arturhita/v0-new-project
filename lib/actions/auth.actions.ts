@@ -48,8 +48,6 @@ export async function login(prevState: any, formData: FormData) {
     return { error: "Si è verificato un errore sconosciuto. Riprova." }
   }
 
-  // --- LOGICA DI REDIRECT SUL SERVER ---
-  // 1. Recupera l'utente appena loggato
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -57,19 +55,21 @@ export async function login(prevState: any, formData: FormData) {
     return { error: "Impossibile recuperare i dati utente dopo il login." }
   }
 
-  // 2. Recupera il profilo per determinare il ruolo
-  const { data: profile, error: profileError } = await supabase
+  const { data: rawProfile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single()
 
-  if (profileError || !profile) {
-    await supabase.auth.signOut() // Sicurezza: esegui il logout se il profilo non esiste
+  if (profileError || !rawProfile) {
+    await supabase.auth.signOut()
     return { error: "Profilo utente non trovato. Contatta l'assistenza." }
   }
 
-  // 3. Reindirizza alla dashboard corretta
+  // --- IMPLEMENTAZIONE DELLA TUA SOLUZIONE SUL SERVER ---
+  // Use structuredClone for safety before accessing properties.
+  const profile = structuredClone(rawProfile)
+
   let destination = "/"
   if (profile.role === "admin") destination = "/admin"
   else if (profile.role === "operator") destination = "/dashboard/operator"

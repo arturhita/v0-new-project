@@ -37,16 +37,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
   }, [supabase.auth])
 
-  // Effect 1: Listen for auth state changes from Supabase. This is the single source of truth for the user session.
+  // Effect 1: Listen for auth state changes from Supabase.
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Sanitize the user object immediately to prevent "getter-only" errors
-      const sanitizedUser = session?.user ? JSON.parse(JSON.stringify(session.user)) : null
+      // Use structuredClone for the user object for consistency and safety.
+      const sanitizedUser = session?.user ? structuredClone(session.user) : null
       setUser(sanitizedUser)
 
-      // If user logs out, ensure the profile is also cleared
       if (_event === "SIGNED_OUT") {
         setProfile(null)
       }
@@ -55,27 +54,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [supabase.auth])
 
-  // Effect 2: Fetch the user's profile ONLY when the user object changes.
+  // Effect 2: Fetch the user's profile when the user object changes.
   useEffect(() => {
     if (user) {
-      setIsLoading(true) // We are now loading the profile data
+      setIsLoading(true)
       supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single()
-        .then(({ data, error }) => {
+        .then(({ data: rawProfile, error }) => {
           if (error) {
             console.error("Error fetching profile:", error.message)
             setProfile(null)
           } else {
-            // Sanitize the profile object as well
-            setProfile(data ? JSON.parse(JSON.stringify(data)) : null)
+            // --- IMPLEMENTAZIONE DELLA TUA SOLUZIONE ---
+            // Use structuredClone to create a clean, mutable copy of the profile.
+            // This definitively solves the "getter-only" error.
+            setProfile(rawProfile ? structuredClone(rawProfile) : null)
           }
-          setIsLoading(false) // Finished loading profile
+          setIsLoading(false)
         })
     } else {
-      // No user, so no profile is needed, and we are not loading.
       setProfile(null)
       setIsLoading(false)
     }
@@ -83,7 +83,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Effect 3: Handle all application redirects based on the definitive auth state.
   useEffect(() => {
-    // Wait until the initial user and profile load is complete before redirecting.
     if (isLoading) {
       return
     }
@@ -91,14 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthPage = pathname === "/login" || pathname === "/register"
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
 
-    // If a non-authenticated user tries to access a protected page, redirect them to login.
     if (!user && isProtectedPage) {
       router.replace("/login")
       return
     }
 
-    // If an authenticated user is on an auth page, redirect them to their dashboard.
-    // This handles cases where a logged-in user manually visits /login.
     if (user && profile && isAuthPage) {
       let destination = "/"
       if (profile.role === "admin") destination = "/admin"
