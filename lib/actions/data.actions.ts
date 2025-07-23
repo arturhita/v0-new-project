@@ -5,13 +5,15 @@ import type { Operator } from "@/components/operator-card"
 import type { Review } from "@/components/review-card"
 import { getCurrentPromotionPrice } from "./promotions.actions"
 
-// This function now assumes it receives a plain, clean profile object.
-// The responsibility of cleaning the data is moved to the fetching functions.
 export const mapProfileToOperator = (profile: any, promotionPrice: number | null): Operator => {
-  const services = profile.services || {}
-  const chatService = services.chat || {}
-  const callService = services.call || {}
-  const emailService = services.email || {}
+  // FIX DEFINITIVO: Clona in modo aggressivo l'oggetto `services` annidato.
+  // Questo è il punto cruciale: il campo JSONB di Supabase deve essere clonato
+  // separatamente per garantire che le sue proprietà (es. `enabled`) diventino
+  // scrivibili e non più dei `getter` di sola lettura.
+  const rawServices = structuredClone(profile.services || {})
+  const chatService = rawServices.chat || {}
+  const callService = rawServices.call || {}
+  const emailService = rawServices.email || {}
 
   const chatPrice =
     promotionPrice !== null ? promotionPrice : chatService.enabled ? chatService.price_per_minute : undefined
@@ -80,10 +82,7 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    // THE DEFINITIVE FIX: Use structuredClone for the most robust deep cloning.
-    // This is the modern, standard way to create a deep copy of an object,
-    // stripping any special properties (like getters) from the database driver's
-    // response objects and preventing the "getter only" error.
+    // Manteniamo la clonazione a livello superiore come buona pratica di sicurezza.
     const cleanOperatorsData = structuredClone(operatorsData || [])
     const cleanReviewsData = structuredClone(reviewsData || [])
 
@@ -104,7 +103,6 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    // Re-throwing the original error will provide more context on the client if it propagates.
     throw error
   }
 }
@@ -123,7 +121,6 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  // APPLY THE FIX HERE AS WELL: Use structuredClone for robust deep cloning.
   const cleanData = structuredClone(data || [])
   return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
@@ -144,7 +141,6 @@ export async function getAllOperators() {
     return []
   }
 
-  // APPLY THE FIX HERE AS WELL: Use structuredClone for robust deep cloning.
   const cleanData = structuredClone(data || [])
   return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
