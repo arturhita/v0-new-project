@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import LoginForm from "./login-form"
+import { LoginForm } from "./login-form"
 import { ConstellationBackground } from "@/components/constellation-background"
 
 export default async function LoginPage() {
@@ -16,8 +16,10 @@ export default async function LoginPage() {
       redirect("/admin")
     } else if (profile?.role === "operator") {
       redirect("/dashboard/operator")
-    } else {
+    } else if (profile?.role === "client") {
       redirect("/dashboard/client")
+    } else {
+      redirect("/") // Fallback for users with no role or other issues
     }
   }
 
