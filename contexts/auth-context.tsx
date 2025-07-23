@@ -61,10 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // Hard clone the profile object immediately
+          // Hard clone the profile object immediately. This is the definitive fix.
+          // It strips all Supabase-specific getters and metadata, leaving a plain object.
           const cleanProfile = JSON.parse(JSON.stringify(rawProfile)) as Profile
 
-          // Defensive check for services object. This is critical.
+          // Defensive check for services object. This is critical for data integrity.
           if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
             cleanProfile.services = {
               chat: { enabled: false, price_per_minute: 0 },
