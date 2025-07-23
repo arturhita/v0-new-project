@@ -1,46 +1,43 @@
 "use client"
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { PayoutsClientPage } from "./payouts-client-page"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Send, DollarSign, History, Landmark, CreditCard } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Send, DollarSign, History, Landmark, CreditCard } from 'lucide-react'
 import { PayoutPolicyInfo } from "@/components/payout-policy-info"
+import { Label, Input, RadioGroup, Button } from "@/components/ui"
 
 interface PayoutRequest {
   id: string
   date: string
   amount: number
-  status: "In Attesa" | "Approvata" | "Rifiutata"
+  status: "pending" | "completed" | "failed"
   method: string
   details?: string
+  requested_at: string
+  completed_at?: string
 }
 
-const initialPayoutHistory: PayoutRequest[] = [
-  {
-    id: "p1",
-    date: "2025-05-28",
-    amount: 250.0,
-    status: "Approvata",
-    method: "PayPal",
-    details: "operatore@paypal.com",
-  },
-  { id: "p2", date: "2025-04-15", amount: 180.5, status: "Approvata", method: "Bonifico", details: "IT...XYZ" },
-  {
-    id: "p3",
-    date: "2025-06-10",
-    amount: 120.0,
-    status: "Rifiutata",
-    method: "PayPal",
-    details: "operatore@paypal.com - Dati non corretti",
-  },
-  { id: "p4", date: "2025-06-15", amount: 300.0, status: "In Attesa", method: "Bonifico", details: "IT...ABC" },
-]
+export default async function OperatorPayoutsPage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/login")
 
-export default function PayoutsPage() {
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("earnings_balance, stripe_account_id, stripe_account_status")
+    .eq("user_id", user.id)
+    .single()
+
+  const { data: payouts, error: payoutsError } = await supabase
+    .from("payouts")
+    .select("*")
+    .eq("operator_id", user.id)
+    .order("requested_at", { ascending: false })
+
   const [payoutAmount, setPayoutAmount] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<"paypal" | "iban">("paypal")
   const [paypalEmail, setPaypalEmail] = useState("tuo.paypal@email.com")
@@ -48,17 +45,33 @@ export default function PayoutsPage() {
   const [accountHolder, setAccountHolder] = useState("")
   const [bicSwift, setBicSwift] = useState("")
 
-  const availableBalance = 320.75 // Esempio
+  const availableBalance = profile ? profile.earnings_balance : 0 // Esempio
 
-  const lastPayoutRequest = initialPayoutHistory.find((req) => req.status === "In Attesa" || req.status === "Approvata")
-  const lastRequestDate = lastPayoutRequest ? new Date(lastPayoutRequest.date) : null
+  const lastPayoutRequest = payouts ? payouts.find((req) => req.status === "pending" || req.status === "completed") : null
+  const lastRequestDate = lastPayoutRequest ? new Date(lastPayoutRequest.requested_at) : null
   const daysSinceLastRequest = lastRequestDate
     ? Math.floor((new Date().getTime() - lastRequestDate.getTime()) / (1000 * 60 * 60 * 24))
     : 15
   const canRequestPayout = daysSinceLastRequest >= 15
   const daysUntilNextRequest = canRequestPayout ? 0 : 15 - daysSinceLastRequest
 
-  const [payoutHistory, setPayoutHistory] = useState<PayoutRequest[]>(initialPayoutHistory)
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return "N/A"
+    return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount)
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="secondary">In attesa</Badge>
+      case "completed":
+        return <Badge variant="default">Completato</Badge>
+      case "failed":
+        return <Badge variant="destructive">Fallito</Badge>
+      default:
+        return <Badge>{status}</Badge>
+    }
+  }
 
   const handleRequestPayout = () => {
     if (!canRequestPayout) {
@@ -103,26 +116,21 @@ export default function PayoutsPage() {
     }
 
     const newRequest: PayoutRequest = {
-      id: `p${payoutHistory.length + 1}-${Date.now()}`,
+      id: `p${payouts ? payouts.length + 1 : 1}-${Date.now()}`,
       date: new Date().toLocaleDateString("it-IT"),
       amount: amountToPay,
-      status: "In Attesa",
+      status: "pending",
       method: methodDisplay,
       details,
+      requested_at: new Date().toISOString(),
     }
-    setPayoutHistory((prev) => [newRequest, ...prev])
+
+    // Simulazione di invio della richiesta di pagamento
     alert(
       `Richiesta di pagamento di €${amountToPay.toFixed(2)} tramite ${methodDisplay} inviata con successo! Riceverai una notifica quando verrà processata. (Simulazione)`,
     )
     setPayoutAmount("")
     // Non resetto i campi IBAN/PayPal per comodità
-  }
-
-  const getStatusBadgeVariant = (status: PayoutRequest["status"]) => {
-    if (status === "Approvata") return "default" // Verde (shadcn default)
-    if (status === "In Attesa") return "outline" // Giallo/Arancio (shadcn outline)
-    if (status === "Rifiutata") return "destructive" // Rosso (shadcn destructive)
-    return "secondary"
   }
 
   const isRequestDisabled =
@@ -140,12 +148,14 @@ export default function PayoutsPage() {
         Richiedi il pagamento dei tuoi guadagni accumulati.
       </CardDescription>
 
+      <PayoutsClientPage profile={profile} />
+
       <Card className="shadow-xl rounded-2xl">
         <CardHeader>
           <CardTitle className="text-xl text-slate-700">Richiedi un Nuovo Compenso</CardTitle>
           <CardDescription className="text-slate-500">
             Saldo disponibile per il prelievo:{" "}
-            <span className="font-semibold text-[hsl(var(--primary-dark))]">€{availableBalance.toFixed(2)}</span>
+            <span className="font-semibold text-[hsl(var(--primary-dark))]">{formatCurrency(availableBalance)}</span>
             <br />
             <span className="text-sm">
               {canRequestPayout ? (
@@ -175,7 +185,7 @@ export default function PayoutsPage() {
                 type="number"
                 value={payoutAmount}
                 onChange={(e) => setPayoutAmount(e.target.value)}
-                placeholder={`Max. ${availableBalance.toFixed(2)}`}
+                placeholder={`Max. ${formatCurrency(availableBalance)}`}
                 className="pl-8"
                 min="1.00" // Minimo prelevabile
                 step="0.01"
@@ -196,14 +206,12 @@ export default function PayoutsPage() {
                 htmlFor="paypal-method"
                 className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === "paypal" ? "border-[hsl(var(--primary-medium))] ring-2 ring-[hsl(var(--primary-medium))]" : "border-slate-200 hover:border-slate-300"}`}
               >
-                <RadioGroupItem value="paypal" id="paypal-method" />
                 <CreditCard className="h-5 w-5 text-sky-600" /> PayPal
               </Label>
               <Label
                 htmlFor="iban-method"
                 className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === "iban" ? "border-[hsl(var(--primary-medium))] ring-2 ring-[hsl(var(--primary-medium))]" : "border-slate-200 hover:border-slate-300"}`}
               >
-                <RadioGroupItem value="iban" id="iban-method" />
                 <Landmark className="h-5 w-5 text-emerald-600" /> Bonifico Bancario
               </Label>
             </RadioGroup>
@@ -285,35 +293,37 @@ export default function PayoutsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {payoutHistory.length > 0 ? (
+          {payouts && payouts.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
+                  <TableHead>Data Richiesta</TableHead>
                   <TableHead className="text-right">Importo</TableHead>
                   <TableHead>Metodo</TableHead>
                   <TableHead>Dettagli</TableHead>
                   <TableHead className="text-center">Stato</TableHead>
+                  <TableHead>Data Completamento</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payoutHistory.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell>{req.date}</TableCell>
-                    <TableCell className="text-right">€{req.amount.toFixed(2)}</TableCell>
-                    <TableCell>{req.method}</TableCell>
-                    <TableCell className="text-xs text-slate-500 max-w-[200px] truncate" title={req.details}>
-                      {req.details}
+                {payouts.map((payout) => (
+                  <TableRow key={payout.id}>
+                    <TableCell>{new Date(payout.requested_at).toLocaleDateString("it-IT")}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(payout.amount)}</TableCell>
+                    <TableCell>{payout.method}</TableCell>
+                    <TableCell className="text-xs text-slate-500 max-w-[200px] truncate" title={payout.details}>
+                      {payout.details}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={getStatusBadgeVariant(req.status)}>{req.status}</Badge>
+                      {getStatusBadge(payout.status)}
                     </TableCell>
+                    <TableCell>{payout.completed_at ? new Date(payout.completed_at).toLocaleDateString("it-IT") : "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
-            <p className="text-center text-slate-500 py-4">Nessuna richiesta di pagamento precedente.</p>
+            <p className="text-center text-slate-500 py-4">Nessuna richiesta di pagamento trovata.</p>
           )}
         </CardContent>
       </Card>
