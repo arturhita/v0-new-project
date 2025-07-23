@@ -80,11 +80,12 @@ export async function getHomepageData() {
       throw new Error("Database error fetching reviews.")
     }
 
-    // THE DEFINITIVE FIX: Sanitize the data immediately after fetching and before any processing.
-    // This creates a "clean" deep copy, removing any special properties (like getters)
-    // from the database driver's response objects.
-    const cleanOperatorsData = JSON.parse(JSON.stringify(operatorsData || []))
-    const cleanReviewsData = JSON.parse(JSON.stringify(reviewsData || []))
+    // THE DEFINITIVE FIX: Use structuredClone for the most robust deep cloning.
+    // This is the modern, standard way to create a deep copy of an object,
+    // stripping any special properties (like getters) from the database driver's
+    // response objects and preventing the "getter only" error.
+    const cleanOperatorsData = structuredClone(operatorsData || [])
+    const cleanReviewsData = structuredClone(reviewsData || [])
 
     const operators = cleanOperatorsData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
     const reviews = cleanReviewsData.map(
@@ -103,7 +104,8 @@ export async function getHomepageData() {
     return { operators, reviews }
   } catch (error) {
     console.error("A general error occurred while fetching homepage data:", error)
-    throw new Error("Failed to fetch homepage data.")
+    // Re-throwing the original error will provide more context on the client if it propagates.
+    throw error
   }
 }
 
@@ -121,8 +123,8 @@ export async function getOperatorsByCategory(categorySlug: string) {
     return []
   }
 
-  // APPLY THE FIX HERE AS WELL
-  const cleanData = JSON.parse(JSON.stringify(data || []))
+  // APPLY THE FIX HERE AS WELL: Use structuredClone for robust deep cloning.
+  const cleanData = structuredClone(data || [])
   return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
 
@@ -142,7 +144,7 @@ export async function getAllOperators() {
     return []
   }
 
-  // APPLY THE FIX HERE AS WELL
-  const cleanData = JSON.parse(JSON.stringify(data || []))
+  // APPLY THE FIX HERE AS WELL: Use structuredClone for robust deep cloning.
+  const cleanData = structuredClone(data || [])
   return cleanData.map((profile: any) => mapProfileToOperator(profile, promotionPrice))
 }
