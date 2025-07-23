@@ -1,30 +1,31 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { LoginForm } from "./login-form"
-import { GoldenConstellationBackground } from "@/components/golden-constellation-background"
+import LoginForm from "./login-form"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 export default async function LoginPage() {
   const supabase = createClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    const role = profile?.role
-    if (role === "admin") redirect("/admin")
-    if (role === "operator") redirect("/dashboard/operator")
-    if (role === "client") redirect("/dashboard/client")
-    redirect("/") // Fallback
+    if (profile?.role === "admin") {
+      redirect("/admin")
+    } else if (profile?.role === "operator") {
+      redirect("/dashboard/operator")
+    } else {
+      redirect("/dashboard/client")
+    }
   }
 
   return (
-    <div className="w-full flex-grow flex items-center justify-center p-4">
-      <div className="relative w-full max-w-md">
-        <GoldenConstellationBackground />
-        <div className="relative z-10">
-          <LoginForm />
-        </div>
+    <div className="relative flex-grow flex items-center justify-center p-4 overflow-hidden">
+      <ConstellationBackground />
+      <div className="w-full max-w-md z-10">
+        <LoginForm />
       </div>
     </div>
   )

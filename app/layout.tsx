@@ -1,7 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { createClient } from "@/lib/supabase/server"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SiteNavbar } from "@/components/site-navbar"
 import SiteFooter from "@/components/site-footer"
@@ -23,25 +22,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  let profile = null
-  if (user) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, role")
-      .eq("id", user.id)
-      .single()
-    profile = profileData
-  }
-
   return (
     <html lang="it">
       <body className={`${inter.className} bg-gray-900 text-gray-200`}>
-        <AuthProvider user={user} profile={profile}>
+        <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <SiteNavbar />
             <main className="flex-grow flex flex-col pt-16">{children}</main>

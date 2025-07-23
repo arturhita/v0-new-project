@@ -4,6 +4,7 @@ import type { z } from "zod"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import type { loginSchema, registerSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/schemas"
+import { revalidatePath } from "next/cache"
 
 export async function login(values: z.infer<typeof loginSchema>) {
   const supabase = createClient()
@@ -24,6 +25,7 @@ export async function login(values: z.infer<typeof loginSchema>) {
     else if (role === "client") redirectTo = "/dashboard/client"
 
     redirect(redirectTo)
+    revalidatePath("/", "layout")
   }
 
   return { error: "Errore imprevisto durante il login." }
