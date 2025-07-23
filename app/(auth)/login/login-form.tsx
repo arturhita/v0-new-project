@@ -6,6 +6,7 @@ import type { z } from "zod"
 import { useTransition } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
+import { useRouter } from "next/navigation" // Importa useRouter
 
 import { loginSchema } from "@/lib/schemas"
 import { login } from "@/lib/actions/auth.actions"
@@ -16,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition()
+  const router = useRouter() // Inizializza il router
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -28,6 +30,23 @@ export function LoginForm() {
       if (result?.error) {
         toast.error(result.error)
         form.reset()
+      } else if (result?.success) {
+        toast.success("Accesso effettuato con successo!")
+
+        // Gestisci il reindirizzamento qui, sul client
+        let redirectPath = "/"
+        switch (result.role) {
+          case "admin":
+            redirectPath = "/admin"
+            break
+          case "operator":
+            redirectPath = "/dashboard/operator"
+            break
+          case "client":
+            redirectPath = "/dashboard/client"
+            break
+        }
+        router.push(redirectPath)
       }
     })
   }
