@@ -1,44 +1,35 @@
--- Drop existing table and related types/policies if they exist to ensure a clean slate
-DROP TABLE IF EXISTS public.reviews;
+-- Questo script è distruttivo. Elimina la tabella esistente per garantirne una ricreazione pulita.
+DROP TABLE IF EXISTS public.reviews CASCADE;
 
--- Recreate the reviews table with the correct structure
+-- Ricrea la tabella delle recensioni con tutte le colonne e i vincoli necessari
 CREATE TABLE public.reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    client_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    operator_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    consultation_id UUID REFERENCES public.consultations(id) ON DELETE SET NULL,
+    client_id UUID NOT NULL REFERENCES public.profiles(id),
+    operator_id UUID NOT NULL REFERENCES public.profiles(id),
+    consultation_id UUID, -- Può provenire da consulti, consulti scritti, ecc.
+    service_type TEXT NOT NULL, -- es. 'chat', 'call', 'written'
     rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
-    service_type TEXT, -- e.g., 'chat', 'call', 'written'
     status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
-    helpful_votes INT DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Add indexes for performance
-CREATE INDEX ON public.reviews (client_id);
-CREATE INDEX ON public.reviews (operator_id);
-CREATE INDEX ON public.reviews (status);
-
--- Enable Row Level Security
+-- Abilita la Row Level Security
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
 -- Policies
-CREATE POLICY "Public can view approved reviews"
-ON public.reviews FOR SELECT
-USING (status = 'approved');
+-- Chiunque può leggere le recensioni approvate
+CREATE POLICY "Public can view approved reviews" ON public.reviews
+FOR SELECT USING (status = 'approved');
 
-CREATE POLICY "Users can insert their own reviews"
-ON public.reviews FOR INSERT
-WITH CHECK (auth.uid() = client_id);
+-- Gli utenti possono vedere le proprie recensioni indipendentemente dallo stato
+CREATE POLICY "Users can view their own reviews" ON public.reviews
+FOR SELECT USING (auth.uid() = client_id);
 
-CREATE POLICY "Admins can manage all reviews"
-ON public.reviews FOR ALL
-USING (public.is_admin(auth.uid()))
-WITH CHECK (public.is_admin(auth.uid()));
+-- Gli utenti possono inserire recensioni per se stessi
+CREATE POLICY "Users can create reviews" ON public.reviews
+FOR INSERT WITH CHECK (auth.uid() = client_id);
 
--- Trigger to handle updated_at timestamp
-CREATE TRIGGER on_review_update
-BEFORE UPDATE ON public.reviews
-FOR EACH ROW EXECUTE PROCEDURE public.handle_updated_at();
+-- Gli amministratori possono fare qualsiasi cosa
+CREATE POLICY "Admins can manage all reviews" ON public.reviews
+FOR ALL USING (public.is_admin(auth.uid()));

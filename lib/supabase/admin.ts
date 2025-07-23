@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -8,7 +8,7 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
  * Da usare ESCLUSIVAMENTE lato server.
  * @returns {SupabaseClient}
  */
-export const createAdminClient = () => {
+export const createAdminClient = (): SupabaseClient => {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error("URL Supabase o Service Role Key mancanti nelle variabili d'ambiente.")
   }
@@ -19,3 +19,9 @@ export const createAdminClient = () => {
     },
   })
 }
+
+/**
+ * Istanza singleton del client Supabase con privilegi di amministratore.
+ * Da usare ESCLUSIVAMENTE lato server.
+ */
+export const supabaseAdmin = createAdminClient()
