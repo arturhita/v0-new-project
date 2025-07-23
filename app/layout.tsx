@@ -2,13 +2,16 @@ import type React from "react"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-provider"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "sonner"
+import { OperatorStatusProvider } from "@/contexts/operator-status-context"
+import { ChatRequestProvider } from "@/contexts/chat-request-context"
+import { CookieBanner } from "@/components/cookie-banner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Moonthir",
-  description: "La tua guida nel mondo dell'astrologia e della cartomanzia.",
+  title: "Moonthir - Consulenti del benessere",
+  description: "Trova i migliori esperti di cartomanzia, astrologia e benessere per una consulenza personalizzata.",
     generator: 'v0.dev'
 }
 
@@ -19,10 +22,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-slate-950`}>
+      <body className={`${inter.className} bg-gray-900`}>
         <AuthProvider>
-          {children}
-          <Toaster richColors position="top-center" />
+          <OperatorStatusProvider>
+            <ChatRequestProvider>
+              {children}
+              <Toaster richColors position="top-center" />
+              <CookieBanner />
+            </ChatRequestProvider>
+          </OperatorStatusProvider>
         </AuthProvider>
       </body>
     </html>

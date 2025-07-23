@@ -1,122 +1,86 @@
 "use server"
 
-import type { Message, ChatSessionDetails } from "@/types/chat.types"
+import { createClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
 
-const mockUsers = new Map<string, any>([
-  [
-    "user_client_123",
-    {
-      id: "user_client_123",
-      name: "Mario Rossi",
-      avatar: "/placeholder.svg?width=40&height=40",
-      role: "client",
-      balance: 50.0,
-    },
-  ],
-  [
-    "op_luna_stellare",
-    {
-      id: "op_luna_stellare",
-      name: "Luna Stellare",
-      avatar: "/placeholder.svg?width=40&height=40",
-      role: "operator",
-      ratePerMinute: 2.5,
-    },
-  ],
-])
-const mockChatSessions = new Map<string, ChatSessionDetails>()
+export async function sendMessage(consultationId: string, content: string) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-export interface SendMessageResult {
-  success: boolean
-  message?: Message
-  error?: string
-}
+  if (!user) {
+    return { success: false, error: "Utente non autenticato." }
+  }
 
-export async function sendMessageAction(
-  conversationId: string,
-  text: string,
-  senderId: string,
-  senderName: string,
-  senderAvatar?: string,
-): Promise<SendMessageResult> {
-  if (!text.trim()) {
+  if (!content.trim()) {
     return { success: false, error: "Il messaggio non può essere vuoto." }
   }
-  const newMessage: Message = {
-    id: `msg_client_${Date.now()}`,
-    senderId,
-    senderName,
-    text,
-    timestamp: new Date(),
-    avatar: senderAvatar,
-  }
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return { success: true, message: newMessage }
-}
 
-export async function sendOperatorMessageAction(
-  conversationId: string,
-  text: string,
-  senderId: string,
-  senderName: string,
-  senderAvatar?: string,
-): Promise<SendMessageResult> {
-  if (!text.trim()) {
-    return { success: false, error: "Il messaggio non può essere vuoto." }
-  }
-  const newMessage: Message = {
-    id: `msg_op_${Date.now()}`,
-    senderId,
-    senderName,
-    text,
-    timestamp: new Date(),
-    avatar: senderAvatar,
-  }
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return { success: true, message: newMessage }
-}
+  const { data, error } = await supabase.from("messages").insert({
+    live_consultation_id: consultationId,
+    sender_id: user.id,
+    content: content.trim(),
+  })
 
-interface ChatRequestResult {
-  success: boolean
-  sessionId?: string
-  error?: string
-}
-
-export async function initiateChatRequest(userId: string, operatorId: string): Promise<ChatRequestResult> {
-  const client = mockUsers.get(userId)
-  const operator = mockUsers.get(operatorId)
-
-  if (!client || !operator) {
-    return { success: false, error: "Utente o operatore non trovato." }
+  if (error) {
+    console.error("Error sending message:", error)
+    return { success: false, error: "Impossibile inviare il messaggio." }
   }
 
-  if (client.balance < operator.ratePerMinute) {
-    return { success: false, error: "Credito insufficiente per avviare la chat." }
-  }
-
-  const sessionId = `session_${Date.now()}`
-  const newSession: ChatSessionDetails = {
-    id: sessionId,
-    status: "active",
-    client: { id: client.id, name: client.name, avatar: client.avatar, initialBalance: client.balance },
-    operator: { id: operator.id, name: operator.name, avatar: operator.avatar, ratePerMinute: operator.ratePerMinute },
-    messages: [],
-    createdAt: new Date(),
-  }
-  mockChatSessions.set(sessionId, newSession)
-  return { success: true, sessionId: sessionId }
-}
-
-export async function respondToChatRequest(
-  sessionId: string,
-  response: "accepted" | "declined",
-): Promise<{ success: boolean }> {
-  console.log(`Server Action: L'operatore ha risposto alla sessione ${sessionId} con: ${response}`)
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  revalidatePath(`/chat/${consultationId}`)
   return { success: true }
 }
 
-export async function getChatSessionDetails(sessionId: string): Promise<ChatSessionDetails | null> {
-  await new Promise((res) => setTimeout(res, 500))
-  return mockChatSessions.get(sessionId) || null
+export async function getConsultationDetailsAndMessages(consultationId: string) {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Utente non autenticato.")
+  }
+
+  // Fetch consultation details
+  const { data: consultationData, error: consultationError } = await supabase
+    .from("live_consultations")
+    .select(
+      `
+      id,
+      client_id,
+      operator_id,
+      status,
+      service_type,
+      client:profiles!live_consultations_client_id_fkey(full_name, avatar_url),
+      operator:profiles!live_consultations_operator_id_fkey(full_name, avatar_url)
+    `,
+    )
+    .eq("id", consultationId)
+    .single()
+
+  if (consultationError || !consultationData) {
+    console.error("Error fetching consultation details:", consultationError)
+    throw new Error("Impossibile trovare la consulenza.")
+  }
+
+  // Security check: ensure the current user is part of the consultation
+  if (user.id !== consultationData.client_id && user.id !== consultationData.operator_id) {
+    throw new Error("Accesso negato.")
+  }
+
+  // Fetch messages using the RPC function
+  const { data: messages, error: messagesError } = await supabase.rpc("get_consultation_messages", {
+    p_consultation_id: consultationId,
+  })
+
+  if (messagesError) {
+    console.error("Error fetching messages:", messagesError)
+    throw new Error("Impossibile caricare i messaggi.")
+  }
+
+  return {
+    consultation: consultationData,
+    messages: messages || [],
+  }
 }
