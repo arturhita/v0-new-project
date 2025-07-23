@@ -20,15 +20,7 @@ const ConstellationBackground = () => {
       height = canvas.height = window.innerHeight
     })
 
-    const stars: {
-      x: number
-      y: number
-      radius: number
-      vx: number
-      vy: number
-      alpha: number
-      dying: boolean
-    }[] = []
+    const stars: { x: number; y: number; radius: number; vx: number; vy: number; alpha: number; dying: boolean }[] = []
     const numStars = 200
 
     for (let i = 0; i < numStars; i++) {
@@ -93,7 +85,7 @@ const ConstellationBackground = () => {
     draw()
   }, [])
 
-  return <canvas ref={canvasRef} className="absolute left-0 top-0 -z-10 h-full w-full" />
+  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full -z-10" />
 }
 
 export default ConstellationBackground
