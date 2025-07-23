@@ -132,16 +132,18 @@ export async function createOperator(formData: FormData) {
 
 export async function getOperatorByName(username: string) {
   const supabase = createClient()
-  const { data, error } = await supabase.rpc("get_public_profile_by_stage_name", {
-    stage_name_to_find: username,
-  })
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .ilike("stage_name", username)
+    .eq("role", "operator")
+    .single()
 
   if (error) {
-    console.error(`Errore RPC durante la ricerca del profilo per "${username}":`, error.message)
+    console.error(`Error fetching operator by name "${username}":`, error.message)
     return null
   }
-
-  return data && data.length > 0 ? data[0] : null
+  return data
 }
 
 export async function getAllOperators() {
@@ -152,4 +154,33 @@ export async function getAllOperators() {
     return []
   }
   return data
+}
+
+export async function getOperatorById(id: string) {
+  const { data, error } = await supabaseAdmin.from("profiles").select("*").eq("id", id).single()
+  if (error) {
+    console.error("Error fetching operator by ID:", error)
+    return null
+  }
+  return data
+}
+
+export async function updateOperatorCommission(operatorId: string, newCommission: number) {
+  const { error } = await supabaseAdmin.from("profiles").update({ commission_rate: newCommission }).eq("id", operatorId)
+  if (error) return { success: false, error }
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  return { success: true }
+}
+
+export async function updateOperatorProfile(operatorId: string, profileData: any) {
+  const { error } = await supabaseAdmin.from("profiles").update(profileData).eq("id", operatorId)
+  if (error) {
+    console.error("Error updating operator profile:", error)
+    return { success: false, error }
+  }
+  revalidatePath(`/admin/operators/${operatorId}/edit`)
+  if (profileData.stage_name) {
+    revalidatePath(`/operator/${profileData.stage_name}`)
+  }
+  return { success: true }
 }

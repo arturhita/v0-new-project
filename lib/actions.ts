@@ -1,30 +1,8 @@
 "use server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { revalidatePath } from "next/cache"
 
-export async function getOperatorById(id: string) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).single()
-  if (error) {
-    console.error("Error fetching operator by ID:", error)
-    return null
-  }
-  return data
-}
+// Questo file è stato svuotato.
+// Le azioni relative agli operatori sono state spostate in /lib/actions/operator.actions.ts per una migliore organizzazione.
+// Altre azioni sono state spostate nei rispettivi file di actions.
 
-export async function updateOperatorCommission(operatorId: string, newCommission: number) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("profiles").update({ commission_rate: newCommission }).eq("id", operatorId)
-  if (error) return { success: false, error }
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  return { success: true }
-}
-
-export async function updateOperatorProfile(operatorId: string, profileData: any) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.from("profiles").update(profileData).eq("id", operatorId)
-  if (error) return { success: false, error }
-  revalidatePath(`/admin/operators/${operatorId}/edit`)
-  revalidatePath(`/operator/${profileData.full_name}`)
-  return { success: true }
-}
+// Operator actions have been moved to /lib/actions/operator.actions.ts for better organization.
+// Other actions have been moved to their respective action files.
