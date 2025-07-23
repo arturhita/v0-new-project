@@ -8,8 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import OperatorCard from "@/components/operator-card"
-import ReviewCard from "@/components/review-card"
+import { OperatorCard } from "@/components/operator-card"
+import { ReviewCard } from "@/components/review-card"
 import { Send } from "lucide-react"
 
 interface HomepageData {
@@ -43,7 +43,7 @@ export default function Homepage() {
   const renderOperatorSkeletons = () =>
     Array.from({ length: 8 }).map((_, i) => (
       <div key={i} className="w-full">
-        <Skeleton className="h-[450px] w-full rounded-lg" />
+        <Skeleton className="h-[450px] w-full rounded-3xl" />
       </div>
     ))
 
@@ -97,7 +97,7 @@ export default function Homepage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
                 {data?.operators.map((operator) => (
-                  <OperatorCard key={operator.id} {...operator} />
+                  <OperatorCard key={operator.id} operator={operator} />
                 ))}
               </div>
             )}
@@ -116,7 +116,7 @@ export default function Homepage() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {data?.reviews.map((review) => (
-                  <ReviewCard key={review.id} {...review} />
+                  <ReviewCard key={review.id} review={review} />
                 ))}
               </div>
             )}
