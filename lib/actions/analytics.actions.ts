@@ -1,31 +1,33 @@
 "use server"
 
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { subMonths, startOfMonth, format, endOfMonth } from "date-fns"
 
 export async function getComprehensiveAnalytics() {
+  const supabase = createClient()
   const now = new Date()
 
+  // --- 1. Time Series Data (Last 12 Months) ---
   const timeSeriesPromises = Array.from({ length: 12 }).map((_, i) => {
     const date = subMonths(now, 11 - i)
     const monthStart = startOfMonth(date).toISOString()
     const monthEnd = endOfMonth(date).toISOString()
     const monthLabel = format(date, "MMM yy")
 
-    const revenuePromise = supabaseAdmin
+    const revenuePromise = supabase
       .from("transactions")
       .select("amount")
       .eq("type", "deposit")
       .gte("created_at", monthStart)
       .lt("created_at", monthEnd)
 
-    const usersPromise = supabaseAdmin
+    const usersPromise = supabase
       .from("profiles")
       .select("id", { count: "exact" })
       .gte("created_at", monthStart)
       .lt("created_at", monthEnd)
 
-    const consultationsPromise = supabaseAdmin
+    const consultationsPromise = supabase
       .from("consultations")
       .select("id", { count: "exact" })
       .gte("created_at", monthStart)
@@ -41,15 +43,18 @@ export async function getComprehensiveAnalytics() {
     )
   })
 
+  // --- 2. Top Operators (by consultations this month) ---
   const thisMonthStart = startOfMonth(now).toISOString()
-  const topOperatorsPromise = supabaseAdmin.rpc("get_top_operators_by_consultations", {
+  const topOperatorsPromise = supabase.rpc("get_top_operators_by_consultations", {
     from_date: thisMonthStart,
     to_date: now.toISOString(),
     limit_count: 5,
   })
 
-  const popularCategoriesPromise = supabaseAdmin.rpc("get_consultation_counts_by_category")
+  // --- 3. Popular Categories ---
+  const popularCategoriesPromise = supabase.rpc("get_consultation_counts_by_category")
 
+  // --- Execute all promises ---
   const [
     timeSeriesData,
     { data: topOperatorsData, error: topOperatorsError },

@@ -25,8 +25,6 @@ type AuthContextType = {
   isAuthenticated: boolean
   isLoading: boolean
   logout: () => Promise<void>
-  // We add a function to manually trigger a profile refresh after updates
-  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -40,69 +38,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchAndSetProfile = useCallback(
-    async (user: User) => {
-      const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
+    router.push("/login")
+  }, [supabase.auth, router])
 
-      if (error) {
-        console.error("Error fetching profile:", error.message)
-        setProfile(null)
-      } else if (rawProfile) {
-        // THE DEFINITIVE FIX: Deep clone the raw profile data from Supabase.
-        // This creates a plain JavaScript object, stripping all getters and preventing the error.
-        const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
-
-        // Defensive check for services object, just in case.
-        if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
-          cleanProfile.services = {
-            chat: { enabled: false, price_per_minute: 0 },
-            call: { enabled: false, price_per_minute: 0 },
-            video: { enabled: false, price_per_minute: 0 },
-          }
-        }
-        setProfile(cleanProfile as Profile)
-      } else {
-        setProfile(null)
-      }
-    },
-    [supabase],
-  )
-
-  const manageSession = useCallback(
-    async (session: Session | null) => {
+  useEffect(() => {
+    const manageSession = async (session: Session | null) => {
       if (session?.user) {
+        const { data: rawProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+
         const cleanUser = JSON.parse(JSON.stringify(session.user))
         setUser(cleanUser)
-        await fetchAndSetProfile(cleanUser)
+
+        if (error) {
+          console.error("Error fetching profile:", error.message)
+          setProfile(null)
+        } else if (rawProfile) {
+          // 1. Clona profondamente il profilo per rimuovere i getter e renderlo modificabile.
+          const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
+
+          // 2. Assicura che l'oggetto 'services' esista.
+          if (!cleanProfile.services || typeof cleanProfile.services !== "object") {
+            cleanProfile.services = {}
+          }
+
+          const services = cleanProfile.services
+          const defaultService = { enabled: false, price_per_minute: 0 }
+
+          // 3. Per ogni servizio, applica i valori di default se mancanti,
+          // garantendo che chat, call, e video siano sempre oggetti validi e completi.
+          services.chat = { ...defaultService, ...(services.chat || {}) }
+          services.call = { ...defaultService, ...(services.call || {}) }
+          services.video = { ...defaultService, ...(services.video || {}) }
+
+          setProfile(cleanProfile as Profile)
+        } else {
+          setProfile(null)
+        }
       } else {
         setUser(null)
         setProfile(null)
       }
       setIsLoading(false)
-    },
-    [fetchAndSetProfile],
-  )
-
-  const refreshProfile = useCallback(async () => {
-    if (user) {
-      await fetchAndSetProfile(user)
     }
-  }, [user, fetchAndSetProfile])
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push("/login")
-  }, [supabase.auth, router])
-
-  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       manageSession(session)
     })
 
+    // Also check session on initial load
     supabase.auth.getSession().then(({ data: { session } }) => {
       manageSession(session)
     })
@@ -110,10 +101,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [manageSession, supabase.auth])
+  }, [supabase])
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading) {
+      return
+    }
+
     const isProtectedPage = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
     if (!user && isProtectedPage) {
       router.replace("/login")
@@ -121,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router])
 
   return (
-    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, isAuthenticated: !!user, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   )

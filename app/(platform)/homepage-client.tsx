@@ -19,85 +19,80 @@ interface HomepageClientProps {
   articles: BlogArticle[]
 }
 
-export default function HomepageClient({
-  operators = [],
-  reviews = [],
-  latestOperators = [],
-  articles = [],
-}: HomepageClientProps) {
+export default function HomepageClient({ operators, reviews, latestOperators, articles }: HomepageClientProps) {
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
-      @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
-      .font-playfair {
-        font-family: "Playfair Display", serif;
-      }
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(30px);
+        .font-playfair {
+          font-family: "Playfair Display", serif;
         }
-        to {
-          opacity: 1;
-          transform: translateY(0);
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-      }
-      @keyframes fadeInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-30px);
+        @keyframes fadeInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
-        to {
-          opacity: 1;
-          transform: translateX(0);
+        @keyframes fadeInRight {
+          from {
+            opacity: 0;
+            transform: translateX(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
-      }
-      @keyframes fadeInRight {
-        from {
-          opacity: 0;
-          transform: translateX(30px);
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
-        to {
-          opacity: 1;
-          transform: translateX(0);
+        @keyframes float {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
         }
-      }
-      @keyframes scaleIn {
-        from {
-          opacity: 0;
-          transform: scale(0.9);
+        .animate-fadeInUp {
+          animation: fadeInUp 1s ease-out forwards;
         }
-        to {
-          opacity: 1;
-          transform: scale(1);
+        .animate-fadeInLeft {
+          animation: fadeInLeft 0.8s ease-out forwards;
         }
-      }
-      @keyframes float {
-        0%,
-        100% {
-          transform: translateY(0px);
+        .animate-fadeInRight {
+          animation: fadeInRight 0.8s ease-out forwards;
         }
-        50% {
-          transform: translateY(-10px);
+        .animate-scaleIn {
+          animation: scaleIn 0.6s ease-out forwards;
         }
-      }
-      .animate-fadeInUp {
-        animation: fadeInUp 1s ease-out forwards;
-      }
-      .animate-fadeInLeft {
-        animation: fadeInLeft 0.8s ease-out forwards;
-      }
-      .animate-fadeInRight {
-        animation: fadeInRight 0.8s ease-out forwards;
-      }
-      .animate-scaleIn {
-        animation: scaleIn 0.6s ease-out forwards;
-      }
-      .animate-float {
-        animation: float 3s ease-in-out infinite;
-      }
-    `}</style>
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+      `}</style>
 
       <main className="flex-1">
         {/* Hero Section */}

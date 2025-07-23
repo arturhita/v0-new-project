@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { z } from "zod"
 
 export interface ConsultationSettings {
   chatEnabled: boolean
@@ -12,28 +11,7 @@ export interface ConsultationSettings {
   minDurationCallChat: number
   emailEnabled: boolean
   emailPricePerConsultation: number
-  videoEnabled: boolean
-  videoPricePerMinute: number
 }
-
-const servicesSchema = z.object({
-  chat: z.object({
-    enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
-  }),
-  call: z.object({
-    enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
-  }),
-  email: z.object({
-    enabled: z.boolean(),
-    price: z.number().min(0),
-  }),
-  video: z.object({
-    enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
-  }),
-})
 
 export async function saveOperatorServices(settings: ConsultationSettings) {
   const supabase = createClient()
@@ -53,28 +31,21 @@ export async function saveOperatorServices(settings: ConsultationSettings) {
     }
 
     // Transform settings to database format
-    const servicesData = [
-      {
-        type: "chat",
+    const servicesData = {
+      chat: {
         enabled: settings.chatEnabled,
         price_per_minute: settings.chatPricePerMinute,
       },
-      {
-        type: "call",
+      call: {
         enabled: settings.callEnabled,
         price_per_minute: settings.callPricePerMinute,
       },
-      {
-        type: "email",
+      email: {
         enabled: settings.emailEnabled,
         price: settings.emailPricePerConsultation,
       },
-      {
-        type: "video",
-        enabled: settings.videoEnabled,
-        price_per_minute: settings.videoPricePerMinute,
-      },
-    ]
+      min_duration: settings.minDurationCallChat,
+    }
 
     // Use RPC function to update services
     const { data, error } = await supabase.rpc("update_operator_services", {
@@ -150,8 +121,6 @@ export async function getOperatorServices(): Promise<ConsultationSettings | null
         minDurationCallChat: 10,
         emailEnabled: false,
         emailPricePerConsultation: 25.0,
-        videoEnabled: false,
-        videoPricePerMinute: 2.0,
       }
     }
 
@@ -164,8 +133,6 @@ export async function getOperatorServices(): Promise<ConsultationSettings | null
       minDurationCallChat: data.min_duration || 10,
       emailEnabled: data.email?.enabled || false,
       emailPricePerConsultation: data.email?.price || 25.0,
-      videoEnabled: data.video?.enabled || false,
-      videoPricePerMinute: data.video?.price_per_minute || 2.0,
     }
   } catch (error: any) {
     console.error("Unexpected error fetching operator services:", error)
@@ -206,62 +173,18 @@ export async function validateServicePricing(settings: ConsultationSettings) {
     }
   }
 
-  // Validate video pricing
-  if (settings.videoEnabled) {
-    if (settings.videoPricePerMinute < 0.1) {
-      errors.push("Il prezzo per il video deve essere almeno €0.10 al minuto")
-    }
-    if (settings.videoPricePerMinute > 50) {
-      errors.push("Il prezzo per il video non può superare €50.00 al minuto")
-    }
-  }
-
   // Validate minimum duration
-  if ((settings.chatEnabled || settings.callEnabled || settings.videoEnabled) && settings.minDurationCallChat < 5) {
+  if ((settings.chatEnabled || settings.callEnabled) && settings.minDurationCallChat < 5) {
     errors.push("La durata minima deve essere almeno 5 minuti")
   }
 
   // Check if at least one service is enabled
-  if (!settings.chatEnabled && !settings.callEnabled && !settings.emailEnabled && !settings.videoEnabled) {
+  if (!settings.chatEnabled && !settings.callEnabled && !settings.emailEnabled) {
     errors.push("Devi abilitare almeno un tipo di consulto")
   }
 
   return {
     isValid: errors.length === 0,
     errors,
-  }
-}
-
-export async function updateOperatorServices(prevState: any, formData: FormData) {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "Utente non autenticato." }
-  }
-
-  const servicesData = formData.get("services")
-  if (typeof servicesData !== "string") {
-    return { error: "Dati dei servizi non validi." }
-  }
-
-  try {
-    const parsedServices = servicesSchema.parse(JSON.parse(servicesData))
-
-    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
-
-    if (error) {
-      console.error("Supabase error updating services:", error)
-      return { error: "Impossibile aggiornare i servizi. Riprova." }
-    }
-
-    revalidatePath("/")
-    return { success: true }
-  } catch (e) {
-    console.error("Validation or parsing error:", e)
-    return { error: "I dati inviati non sono validi." }
   }
 }

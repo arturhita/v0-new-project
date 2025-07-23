@@ -11,8 +11,22 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // Redirect to the homepage. The AuthProvider will see the new session,
-  // fetch the user's role, and redirect them to the correct dashboard.
-  // This centralizes the redirection logic.
-  return NextResponse.redirect(new URL("/", request.url))
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.redirect(new URL("/login?error=Authentication-failed", request.url))
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+  let destination = "/dashboard/client" // Default destination
+  if (profile?.role === "admin") {
+    destination = "/admin"
+  } else if (profile?.role === "operator") {
+    destination = "/dashboard/operator"
+  }
+
+  return NextResponse.redirect(new URL(destination, request.url))
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
+// Schema per la validazione dei dati della fattura
 const InvoiceItemSchema = z.object({
   description: z.string().min(1, "La descrizione è richiesta."),
   type: z.enum(["consultation", "commission", "deduction", "fee", "bonus", "other"]),
@@ -18,6 +19,9 @@ const CreateInvoiceSchema = z.object({
   items: z.array(InvoiceItemSchema).min(1, "La fattura deve avere almeno un elemento."),
 })
 
+export type InvoiceItem = z.infer<typeof InvoiceItemSchema>
+
+// Funzione per ottenere gli operatori da mostrare nel modale
 export async function getOperatorsForInvoiceCreation() {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -33,6 +37,7 @@ export async function getOperatorsForInvoiceCreation() {
   return data
 }
 
+// Funzione per creare una fattura e i suoi elementi
 export async function createInvoice(formData: FormData) {
   const supabase = createClient()
 
@@ -52,9 +57,11 @@ export async function createInvoice(formData: FormData) {
   const { operatorId, dueDate, notes, items } = validation.data
 
   try {
+    // Calcola il totale
     const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`
 
+    // 1. Inserisci la fattura principale
     const { data: invoiceData, error: invoiceError } = await supabase
       .from("invoices")
       .insert({
@@ -72,6 +79,7 @@ export async function createInvoice(formData: FormData) {
 
     const invoiceId = invoiceData.id
 
+    // 2. Inserisci gli elementi della fattura
     const itemsToInsert = items.map((item) => ({
       invoice_id: invoiceId,
       description: item.description,
@@ -93,17 +101,30 @@ export async function createInvoice(formData: FormData) {
   }
 }
 
+// Funzione per ottenere tutte le fatture per l'admin
 export async function getInvoicesForAdmin() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("invoices")
-    .select(
-      `
-      id, invoice_number, issue_date, due_date, status, total_amount,
-      profile:profiles!user_id ( stage_name ),
-      invoice_items:invoice_items!invoice_id ( id, description, item_type, quantity, unit_price, total )
-    `,
-    )
+    .select(`
+      id,
+      invoice_number,
+      issue_date,
+      due_date,
+      status,
+      total_amount,
+      profile:profiles!user_id (
+        stage_name
+      ),
+      invoice_items:invoice_items!invoice_id (
+        id,
+        description,
+        item_type,
+        quantity,
+        unit_price,
+        total
+      )
+    `)
     .order("issue_date", { ascending: false })
 
   if (error) {
@@ -113,6 +134,7 @@ export async function getInvoicesForAdmin() {
   return data
 }
 
+// Funzione per ottenere le fatture di un singolo operatore
 export async function getInvoicesForOperator() {
   const supabase = createClient()
   const {
@@ -123,7 +145,10 @@ export async function getInvoicesForOperator() {
 
   const { data, error } = await supabase
     .from("invoices")
-    .select(`*, invoice_items:invoice_items!invoice_id(*)`)
+    .select(`
+      *,
+      invoice_items:invoice_items!invoice_id(*)
+    `)
     .eq("user_id", user.id)
     .order("issue_date", { ascending: false })
 

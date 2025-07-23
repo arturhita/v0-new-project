@@ -45,7 +45,7 @@ export async function login(prevState: any, formData: FormData) {
   }
 
   revalidatePath("/", "layout")
-  redirect("/")
+  redirect("/auth/callback")
 }
 
 export async function register(prevState: any, formData: FormData) {
@@ -77,5 +77,5 @@ export async function register(prevState: any, formData: FormData) {
     return { error: `Si è verificato un errore: ${error.message}` }
   }
 
-  return { success: "Registrazione quasi completata! Controlla la tua email per confermare l'account." }
+  return { success: "Registrazione avvenuta con successo! Controlla la tua email per confermare l'account." }
 }
