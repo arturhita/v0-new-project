@@ -76,7 +76,7 @@ export default function FAQPage() {
                 value={`item-${index}`}
                 className="bg-slate-800/50 border-blue-800 rounded-lg mb-4"
               >
-                <AccordionTrigger className="text-lg font-medium text-left text-amber-300 hover:no-underline px-6 py-4">
+                <AccordionTrigger className="text-lg font-medium text-left text-sky-400 hover:no-underline px-6 py-4">
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pb-4 text-gray-300">{faq.answer}</AccordionContent>
@@ -94,7 +94,7 @@ export default function FAQPage() {
                 value={`item-${index}`}
                 className="bg-slate-800/50 border-blue-800 rounded-lg mb-4"
               >
-                <AccordionTrigger className="text-lg font-medium text-left text-amber-300 hover:no-underline px-6 py-4">
+                <AccordionTrigger className="text-lg font-medium text-left text-sky-400 hover:no-underline px-6 py-4">
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="px-6 pb-4 text-gray-300">{faq.answer}</AccordionContent>
