@@ -1,10 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/admin"
+import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
-// Assicura che la route non venga messa in cache
 export const dynamic = "force-dynamic"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization")
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response("Unauthorized", {
@@ -12,14 +11,25 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("process_all_active_consultations")
+  // Utilizza le variabili d'ambiente per creare un client Supabase con i privilegi di service_role
+  // Questo è necessario perché il cron job non ha una sessione utente
+  const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-  if (error) {
-    console.error("Errore Cron Job: Impossibile processare i consulti", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  try {
+    const { data, error } = await supabaseAdmin.rpc("process_minute_billing")
+
+    if (error) {
+      console.error("Errore durante l'esecuzione del cron job di fatturazione:", error)
+      return NextResponse.json(
+        { success: false, message: "Errore del server durante la fatturazione.", error: error.message },
+        { status: 500 },
+      )
+    }
+
+    console.log("Cron job di fatturazione eseguito con successo:", data)
+    return NextResponse.json({ success: true, data })
+  } catch (e: any) {
+    console.error("Errore imprevisto nel cron job:", e)
+    return NextResponse.json({ success: false, message: "Errore imprevisto.", error: e.message }, { status: 500 })
   }
-
-  console.log("Esecuzione Cron Job: Processati i consulti attivi.", data)
-  return NextResponse.json({ success: true, results: data })
 }
