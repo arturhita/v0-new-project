@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Auth Context: Errore nel recupero del profilo:", error.message)
         setProfile(null)
       } else if (data) {
-        // **PUNTO CHIAVE**: Sanifica i dati prima di impostarli nello stato del contesto.
         setProfile(sanitizeData(data as Profile))
       }
     },

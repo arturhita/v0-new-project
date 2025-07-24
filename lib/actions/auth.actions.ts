@@ -5,23 +5,25 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { z } from "zod"
 
-const emailSchema = z.string().email({ message: "Inserisci un'email valida." })
-const passwordSchema = z.string().min(6, { message: "La password deve contenere almeno 6 caratteri." })
+const LoginSchema = z.object({
+  email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
+  password: z.string().min(1, { message: "La password è richiesta." }),
+})
+
+const RegisterSchema = z.object({
+  fullName: z.string().min(2, { message: "Il nome deve essere di almeno 2 caratteri." }),
+  email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
+  password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
+})
 
 export async function login(prevState: any, formData: FormData) {
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+  const validatedFields = LoginSchema.safeParse(Object.fromEntries(formData.entries()))
 
-  const emailValidation = emailSchema.safeParse(email)
-  if (!emailValidation.success) {
-    return { message: emailValidation.error.errors[0].message }
+  if (!validatedFields.success) {
+    return { message: "Dati inseriti non validi." }
   }
 
-  const passwordValidation = passwordSchema.safeParse(password)
-  if (!passwordValidation.success) {
-    return { message: passwordValidation.error.errors[0].message }
-  }
-
+  const { email, password } = validatedFields.data
   const supabase = createClient()
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -29,7 +31,6 @@ export async function login(prevState: any, formData: FormData) {
   })
 
   if (error) {
-    console.error("Login Error:", error.message)
     return { message: "Credenziali non valide. Riprova." }
   }
 
@@ -38,24 +39,13 @@ export async function login(prevState: any, formData: FormData) {
 
 export async function register(prevState: any, formData: FormData) {
   const origin = headers().get("origin")
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
-  const fullName = formData.get("full_name") as string
+  const validatedFields = RegisterSchema.safeParse(Object.fromEntries(formData.entries()))
 
-  if (!fullName) {
-    return { message: "Il nome completo è obbligatorio." }
+  if (!validatedFields.success) {
+    return { message: validatedFields.error.errors[0].message }
   }
 
-  const emailValidation = emailSchema.safeParse(email)
-  if (!emailValidation.success) {
-    return { message: emailValidation.error.errors[0].message }
-  }
-
-  const passwordValidation = passwordSchema.safeParse(password)
-  if (!passwordValidation.success) {
-    return { message: passwordValidation.error.errors[0].message }
-  }
-
+  const { email, password, fullName } = validatedFields.data
   const supabase = createClient()
   const { error } = await supabase.auth.signUp({
     email,
@@ -69,7 +59,6 @@ export async function register(prevState: any, formData: FormData) {
   })
 
   if (error) {
-    console.error("Registration Error:", error.message)
     if (error.message.includes("User already registered")) {
       return { message: "Un utente con questa email è già registrato." }
     }

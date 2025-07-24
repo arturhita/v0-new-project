@@ -7,44 +7,79 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Terminal, CheckCircle } from "lucide-react"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
       {pending ? "Creazione account..." : "Registrati"}
     </Button>
   )
 }
 
-export default function RegisterForm() {
+export function RegisterForm() {
   const [state, formAction] = useActionState(register, null)
 
   return (
-    <form action={formAction} className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
-      {state?.success ? (
-        <p className="text-center text-green-600">{state.message}</p>
-      ) : (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="full_name">Nome Completo</Label>
-            <Input id="full_name" name="full_name" type="text" placeholder="Mario Rossi" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="mario.rossi@esempio.com" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" placeholder="••••••••" required />
-          </div>
-          {state?.message && <p className="text-sm text-red-500">{state.message}</p>}
-          <SubmitButton />
-        </>
+    <form action={formAction} className="w-full space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="fullName" className="text-gray-200/80">
+          Nome Completo
+        </Label>
+        <Input
+          id="fullName"
+          name="fullName"
+          type="text"
+          placeholder="Mario Rossi"
+          required
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-gray-200/80">
+          Email
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="tua@email.com"
+          required
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-gray-200/80">
+          Password
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+        />
+      </div>
+      {state?.message && !state.success && (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Errore</AlertTitle>
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
       )}
-      <p className="text-center text-sm text-gray-600">
+      {state?.success && (
+        <Alert variant="default" className="bg-green-900/50 border-green-500/30 text-green-200">
+          <CheckCircle className="h-4 w-4 text-green-400" />
+          <AlertTitle>Successo!</AlertTitle>
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+      )}
+      <SubmitButton />
+      <p className="text-center text-sm text-gray-400">
         Hai già un account?{" "}
-        <Link href="/login" className="font-medium text-indigo-600 hover:underline">
+        <Link href="/login" className="font-semibold text-amber-400 hover:underline">
           Accedi
         </Link>
       </p>

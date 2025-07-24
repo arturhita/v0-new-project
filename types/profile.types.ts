@@ -8,6 +8,6 @@ export interface Profile {
     call: { enabled: boolean; price_per_minute: number }
     video: { enabled: boolean; price_per_minute: number }
   }
-  // Aggiungi qui qualsiasi altra proprietà del profilo
+  // Aggiungere qui qualsiasi altra proprietà del profilo necessaria
   [key: string]: any
 }

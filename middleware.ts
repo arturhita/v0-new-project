@@ -39,7 +39,6 @@ export async function middleware(request: NextRequest) {
   )
 
   // Rinfresca la sessione se è scaduta.
-  // Questo è cruciale per mantenere l'utente loggato.
   await supabase.auth.getUser()
 
   return response
@@ -54,7 +53,8 @@ export const config = {
      * - favicon.ico (file favicon)
      * - /images/ (le tue immagini)
      * - /auth/ (le tue route di autenticazione)
+     * - /api/ (le tue route API)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images|auth).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|auth|api).*)",
   ],
 }
