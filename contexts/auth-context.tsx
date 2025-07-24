@@ -22,57 +22,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchProfile = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-      if (error) {
-        console.error("Auth Context: Errore nel recupero del profilo:", error.message)
-        setProfile(null)
-      } else if (data) {
-        setProfile(sanitizeData(data as Profile))
-      }
-    },
-    [supabase],
-  )
-
   useEffect(() => {
-    const initializeAuth = async () => {
-      setLoading(true)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) {
-        await fetchProfile(currentUser.id)
-      }
-      setLoading(false)
-    }
+    setLoading(true)
 
-    initializeAuth()
-
+    // onAuthStateChange viene chiamato subito con la sessione corrente,
+    // gestendo sia il caricamento iniziale che le modifiche successive.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
-      setUser(currentUser)
+      // Sanifica l'oggetto utente e il profilo prima di impostare lo stato
+      setUser(sanitizeData(currentUser))
+
       if (currentUser) {
-        await fetchProfile(currentUser.id)
+        const { data: rawProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
+
+        if (error) {
+          console.error("Auth Context Error:", error.message)
+          setProfile(null)
+        } else {
+          setProfile(sanitizeData(rawProfile as Profile))
+        }
       } else {
         setProfile(null)
       }
+      setLoading(false)
     })
 
     return () => {
       subscription?.unsubscribe()
     }
-  }, [fetchProfile, supabase.auth])
+  }, [supabase])
 
   const refreshProfile = useCallback(async () => {
     if (user) {
-      await fetchProfile(user.id)
+      setLoading(true)
+      const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+      if (error) {
+        console.error("Auth Context Refresh Error:", error.message)
+        setProfile(null)
+      } else {
+        setProfile(sanitizeData(rawProfile as Profile))
+      }
+      setLoading(false)
     }
-  }, [user, fetchProfile])
+  }, [user, supabase])
 
   const value = { user, profile, loading, refreshProfile }
 

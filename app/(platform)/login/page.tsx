@@ -8,6 +8,8 @@ export default async function LoginPage() {
   const supabase = createClient()
   const { data } = await supabase.auth.getSession()
 
+  // Se esiste una sessione, reindirizza al callback che gestirà il routing.
+  // Questo previene il flash della pagina di login per gli utenti già autenticati.
   if (data.session) {
     return redirect("/auth/callback")
   }

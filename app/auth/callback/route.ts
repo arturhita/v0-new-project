@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { sanitizeData } from "@/lib/data.utils"
-import type { Profile } from "@/types/profile.types"
+import { getSanitizedProfile } from "@/lib/actions/user.actions"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -13,26 +12,22 @@ export async function GET(request: Request) {
   }
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  const { data: rawProfile, error } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+  // Usa la nuova funzione sicura per ottenere il profilo
+  const profile = await getSanitizedProfile(user.id)
 
-  if (error || !rawProfile) {
-    return NextResponse.redirect(`${origin}/dashboard/client`)
+  let destination = "/dashboard/client" // Default
+  if (profile?.role === "admin") {
+    destination = "/admin"
+  } else if (profile?.role === "operator") {
+    destination = "/dashboard/operator"
   }
 
-  const profile = sanitizeData(rawProfile as Pick<Profile, "role">)
-
-  if (profile.role === "operator") {
-    return NextResponse.redirect(`${origin}/dashboard/operator`)
-  }
-  if (profile.role === "admin") {
-    return NextResponse.redirect(`${origin}/admin`)
-  }
-  return NextResponse.redirect(`${origin}/dashboard/client`)
+  return NextResponse.redirect(new URL(destination, request.url))
 }
