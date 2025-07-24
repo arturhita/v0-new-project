@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import type { User, AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
@@ -13,6 +12,7 @@ type AuthContextType = {
   user: User | null
   profile: Profile | null
   loading: boolean
+  logout: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
@@ -31,7 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Non impostare loading qui per evitare sfarfallii su refresh veloci
       try {
         const { data: rawProfile, error } = await supabase
           .from("profiles")
@@ -40,15 +39,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single()
 
         if (error) {
-          console.error("Error fetching profile:", error.message)
+          console.error("Auth Context: Error fetching profile:", error.message)
           setProfile(null)
         } else if (rawProfile) {
-          // Sanitize the profile data immediately upon receipt
-          const sanitizedProfile = sanitizeData(rawProfile)
+          // FASE 2: Sanifica il profilo immediatamente dopo averlo ricevuto.
+          const sanitizedProfile = sanitizeData(rawProfile as Profile)
           setProfile(sanitizedProfile)
         }
       } catch (e) {
-        console.error("An unexpected error occurred while refreshing profile:", e)
+        console.error("Auth Context: An unexpected error occurred while refreshing profile:", e)
         setProfile(null)
       }
     },
@@ -56,44 +55,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
-    const getInitialSession = async () => {
+    // Funzione per la gestione del cambio di stato di autenticazione
+    const handleAuthStateChange = async (event: AuthChangeEvent, session: Session | null) => {
+      console.log(`Auth state changed: ${event}`)
       setLoading(true)
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+
       const currentUser = session?.user ?? null
+
+      // FASE 1: Sanifica l'oggetto utente immediatamente.
       const sanitizedUser = sanitizeData(currentUser)
       setUser(sanitizedUser)
+
+      // FASE 2: Passa l'utente sanificato per recuperare e sanificare il profilo.
       await refreshProfile(sanitizedUser)
+
       setLoading(false)
     }
 
-    getInitialSession()
+    // Imposta lo stato iniziale al caricamento del provider
+    const setInitialSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      await handleAuthStateChange("INITIAL_SESSION", session)
+    }
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        const currentUser = session?.user ?? null
-        const sanitizedUser = sanitizeData(currentUser)
-        setUser(sanitizedUser)
-        // Non reimpostare il loading qui per evitare sfarfallii durante il logout/login
-        await refreshProfile(sanitizedUser)
-      },
-    )
+    setInitialSession()
+
+    // Ascolta i futuri cambiamenti di stato
+    const { data: authListener } = supabase.auth.onAuthStateChange(handleAuthStateChange)
 
     return () => {
       authListener.subscription.unsubscribe()
     }
   }, [supabase, refreshProfile])
 
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
+    // onAuthStateChange si occuperà di pulire lo stato (user e profile a null).
+  }, [supabase])
+
   const value = {
     user,
     profile,
     loading,
-    refreshProfile: () => refreshProfile(user),
+    logout,
+    refreshProfile: () => refreshProfile(user), // La funzione pubblica chiama quella interna
   }
 
-  if (loading) {
-    return <LoadingSpinner fullPage />
+  // Mostra un caricatore a schermo intero solo durante il primissimo caricamento
+  if (loading && !user && !profile) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

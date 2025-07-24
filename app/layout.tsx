@@ -24,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={`${inter.className} bg-gray-900`}>
+        {/* L'UNICO AuthProvider deve essere qui, al livello più alto */}
         <AuthProvider>
           <OperatorStatusProvider>
             <ChatRequestProvider>

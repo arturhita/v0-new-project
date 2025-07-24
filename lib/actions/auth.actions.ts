@@ -34,6 +34,7 @@ export async function login(prevState: any, formData: FormData) {
     return { message: "Credenziali non valide. Riprova." }
   }
 
+  // Il redirect scatenerà onAuthStateChange sul client
   return redirect("/auth/callback")
 }
 
@@ -42,7 +43,7 @@ export async function register(prevState: any, formData: FormData) {
   const validatedFields = RegisterSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { message: validatedFields.error.errors[0].message }
+    return { message: validatedFields.error.errors[0].message, success: false }
   }
 
   const { email, password, fullName } = validatedFields.data
@@ -60,9 +61,9 @@ export async function register(prevState: any, formData: FormData) {
 
   if (error) {
     if (error.message.includes("User already registered")) {
-      return { message: "Un utente con questa email è già registrato." }
+      return { message: "Un utente con questa email è già registrato.", success: false }
     }
-    return { message: "Errore durante la registrazione. Riprova." }
+    return { message: "Errore durante la registrazione. Riprova.", success: false }
   }
 
   return {
