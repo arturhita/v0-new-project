@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/profile.types"
 import LoadingSpinner from "@/components/loading-spinner"
+import { deepCloneSafe } from "@/lib/data.utils" // Import della nuova utility
 
 type AuthContextType = {
   user: User | null
@@ -15,36 +16,6 @@ type AuthContextType = {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// PUNTO CHIAVE: Funzione di sanificazione robusta come da sue istruzioni.
-// Ricostruisce l'oggetto pezzo per pezzo, garantendo che sia un POJO (Plain Old JavaScript Object)
-// e gestendo eventuali valori nulli o indefiniti.
-const sanitizeProfile = (profile: any): Profile | null => {
-  if (!profile) return null
-
-  const sanitized = {
-    ...profile, // Mantiene tutti gli altri campi del profilo
-    id: profile.id,
-    full_name: profile.full_name ?? null,
-    avatar_url: profile.avatar_url ?? null,
-    role: profile.role,
-    services: {
-      chat: {
-        enabled: !!profile.services?.chat?.enabled,
-        price_per_minute: profile.services?.chat?.price_per_minute ?? 0,
-      },
-      call: {
-        enabled: !!profile.services?.call?.enabled,
-        price_per_minute: profile.services?.call?.price_per_minute ?? 0,
-      },
-      video: {
-        enabled: !!profile.services?.video?.enabled,
-        price_per_minute: profile.services?.video?.price_per_minute ?? 0,
-      },
-    },
-  }
-  return sanitized
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -60,8 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Auth Context Error:", error.message)
         setProfile(null)
       } else {
-        // Applica la nuova funzione di sanificazione qui.
-        setProfile(sanitizeProfile(rawProfile))
+        // PUNTO CHIAVE: Usa la utility di clonazione profonda per sanificare i dati
+        // prima di salvarli nello stato. Questo è il cuore della correzione.
+        setProfile(deepCloneSafe(rawProfile as Profile))
       }
     },
     [supabase],
@@ -73,8 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
-      // Sanifichiamo anche l'oggetto utente per sicurezza
-      setUser(currentUser ? JSON.parse(JSON.stringify(currentUser)) : null)
+      // Sanifica anche l'oggetto utente per coerenza
+      setUser(deepCloneSafe(currentUser))
 
       if (currentUser) {
         await fetchAndSetProfile(currentUser.id)
@@ -93,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }, [supabase])
 
+  // Questa funzione ora si affida a fetchAndSetProfile, che contiene la logica di sanificazione corretta.
   const refreshProfile = useCallback(async () => {
     if (user) {
       setLoading(true)

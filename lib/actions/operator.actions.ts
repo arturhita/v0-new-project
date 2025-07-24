@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 import { z } from "zod"
 import type { OperatorProfile } from "@/types/database"
+import { deepCloneSafe } from "./data.utils"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -352,9 +353,12 @@ const servicesSchema = z.object({
 // Server Action per aggiornare i servizi dell'operatore.
 export async function updateOperatorServices(
   profileId: string,
-  services: z.infer<typeof servicesSchema>,
+  rawServices: z.infer<typeof servicesSchema>,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient()
+
+  // Applica la clonazione profonda come misura di sicurezza
+  const services = deepCloneSafe(rawServices)
 
   const validatedServices = servicesSchema.safeParse(services)
   if (!validatedServices.success) {
@@ -376,5 +380,8 @@ export async function updateOperatorServices(
   }
 
   revalidatePath("/(platform)/dashboard/operator/services")
+  if (user.user_metadata.stage_name) {
+    revalidatePath(`/operator/${user.user_metadata.stage_name}`)
+  }
   return { success: true }
 }

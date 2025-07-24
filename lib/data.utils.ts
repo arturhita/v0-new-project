@@ -1,11 +1,15 @@
 /**
- * Trasforma i dati (es. da Supabase) in un Plain Old JavaScript Object (POJO).
- * Questo rimuove qualsiasi getter/setter e previene l'errore "Cannot set property...".
- * È il passaggio più critico per garantire la stabilità dell'applicazione.
- * @param data I dati da "sanificare".
- * @returns Un oggetto JavaScript pulito e sicuro da modificare.
+ * Esegue una clonazione profonda e sicura di un oggetto utilizzando JSON.
+ * Questo metodo garantisce che l'oggetto restituito sia un Plain Old JavaScript Object (POJO),
+ * privo di getter, proxy o altre proprietà speciali introdotte da librerie esterne.
+ * @param obj L'oggetto da clonare.
+ * @returns Un clone profondo e "pulito" dell'oggetto.
  */
-export function sanitizeData<T>(data: T): T {
-  if (!data) return data
-  return JSON.parse(JSON.stringify(data))
+export const deepCloneSafe = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return obj
+  }
+  // L'approccio JSON.parse(JSON.stringify()) è il modo più robusto
+  // per garantire una vera e propria de-referenziazione e pulizia dell'oggetto.
+  return JSON.parse(JSON.stringify(obj))
 }
