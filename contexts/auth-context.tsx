@@ -81,7 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true)
       if (session?.user) {
         const sanitizedProfile = await getSanitizedProfile(session.user)
-        setUser(session.user)
+        // Anche l'oggetto user viene clonato per sicurezza
+        setUser(JSON.parse(JSON.stringify(session.user)))
         setProfile(sanitizedProfile)
       } else {
         setUser(null)
@@ -117,7 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Mentre il contesto sta caricando i dati iniziali, mostriamo uno spinner
   // per evitare flash di contenuti o reindirizzamenti errati.
   if (isLoading) {
-    return <LoadingSpinner />
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   return (

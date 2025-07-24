@@ -337,56 +337,54 @@ export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
 const servicesSchema = z.object({
   chat: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.number().min(0, "Il prezzo non può essere negativo."),
+    price_per_minute: z.number().min(0),
   }),
   call: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.number().min(0, "Il prezzo non può essere negativo."),
+    price_per_minute: z.number().min(0),
   }),
   video: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.number().min(0, "Il prezzo non può essere negativo."),
+    price_per_minute: z.number().min(0),
   }),
 })
 
 // Server Action per aggiornare i servizi dell'operatore.
-export async function updateOperatorServices(prevState: any, formData: FormData) {
+export async function updateOperatorServices(
+  profileId: string,
+  services: z.infer<typeof servicesSchema>,
+): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "Utente non autenticato. Impossibile salvare." }
+  // 1. Validazione dei dati in ingresso
+  const validatedServices = servicesSchema.safeParse(services)
+  if (!validatedServices.success) {
+    console.error("Validation error:", validatedServices.error.flatten())
+    return { success: false, error: "Dati non validi." }
   }
 
-  const servicesData = formData.get("services")
-  if (typeof servicesData !== "string") {
-    return { error: "Dati dei servizi mancanti o non validi." }
+  // 2. Verifica dell'autenticazione e autorizzazione
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user || user.id !== profileId) {
+    return { success: false, error: "Non autorizzato." }
   }
 
-  let parsedServices
-  try {
-    // 1. Parsing e validazione dei dati JSON inviati dal form.
-    const rawServices = JSON.parse(servicesData)
-    parsedServices = servicesSchema.parse(rawServices)
-  } catch (e) {
-    console.error("Errore di validazione o parsing dei servizi:", e)
-    return { error: "I dati inviati non sono validi. Controlla i valori inseriti." }
-  }
-
-  // 2. Aggiornamento del profilo nel database con i dati validati.
+  // 3. Aggiornamento del database
   const { error } = await supabase
     .from("profiles")
-    .update({ services: parsedServices })
-    .eq("id", user.id)
+    .update({ services: validatedServices.data, updated_at: new Date().toISOString() })
+    .eq("id", profileId)
 
   if (error) {
-    console.error("Errore Supabase durante l'aggiornamento dei servizi:", error)
-    return { error: "Errore del database. Impossibile aggiornare i servizi." }
+    console.error("Error updating services:", error)
+    return { success: false, error: "Errore durante l'aggiornamento dei servizi nel database." }
   }
 
-  // 3. Revalida il path per assicurare che il contesto di autenticazione (e altre parti dell'UI)
-  // si aggiornino con i nuovi dati.
-  revalidatePath("/(platform)/dashboard/operator/services")
+  // 4. Revalida il path per aggiornare la cache del client
+  revalidatePath("/dashboard/operator/services")
 
   return { success: true }
 }
