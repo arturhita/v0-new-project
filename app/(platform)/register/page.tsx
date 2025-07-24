@@ -1,34 +1,15 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { ConstellationBackground } from "@/components/constellation-background"
-import { RegisterForm } from "@/components/register-form"
-import Image from "next/image"
-
-// Funzione di utilità per sanificare i dati
-function sanitizeData<T>(data: T): T {
-  if (!data) return data
-  return JSON.parse(JSON.stringify(data))
-}
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { ConstellationBackground } from "@/components/constellation-background";
+import { RegisterForm } from "@/components/register-form";
+import Image from "next/image";
 
 export default async function RegisterPage() {
-  const supabase = createClient()
+  const supabase = createClient();
+  const { data } = await supabase.auth.getSession();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    const { data: rawProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-    // Sanificazione obbligatoria prima di qualsiasi utilizzo
-    const profile = sanitizeData(rawProfile)
-
-    if (profile?.role === "admin") {
-      redirect("/admin")
-    } else if (profile?.role === "operator") {
-      redirect("/dashboard/operator")
-    } else {
-      redirect("/dashboard/client")
-    }
+  if (data.session) {
+    return redirect("/auth/callback");
   }
 
   return (
@@ -45,5 +26,5 @@ export default async function RegisterPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

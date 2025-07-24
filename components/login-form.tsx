@@ -1,26 +1,26 @@
-"use client"
+"use client";
 
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom" // Corretto: importato da 'react-dom'
-import { login } from "@/lib/actions/auth.actions"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import Link from "next/link"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Terminal } from 'lucide-react'
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { login } from "@/lib/actions/auth.actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from 'lucide-react';
 
 function SubmitButton() {
-  const { pending } = useFormStatus()
+  const { pending } = useFormStatus();
   return (
     <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
       {pending ? "Accesso in corso..." : "Accedi"}
     </Button>
-  )
+  );
 }
 
 export function LoginForm() {
-  const [state, formAction] = useActionState(login, null)
+  const [state, formAction] = useActionState(login, null);
 
   return (
     <form action={formAction} className="w-full space-y-6">
@@ -64,5 +64,5 @@ export function LoginForm() {
         </Link>
       </p>
     </form>
-  )
+  );
 }

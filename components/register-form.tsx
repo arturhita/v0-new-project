@@ -1,30 +1,30 @@
-"use client"
+"use client";
 
-import { useFormState, useFormStatus } from "react-dom"
-import { register } from "@/lib/actions/auth.actions"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Terminal, CheckCircle2 } from 'lucide-react'
-import Link from "next/link"
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { register } from "@/lib/actions/auth.actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal, CheckCircle2 } from 'lucide-react';
 
 function SubmitButton() {
-  const { pending } = useFormStatus()
+  const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold" disabled={pending}>
-      {pending ? "Creazione in corso..." : "Crea Account"}
+    <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
+      {pending ? "Creazione account..." : "Registrati"}
     </Button>
-  )
+  );
 }
 
 export function RegisterForm() {
-  const initialState = { error: "", success: "" }
-  const [state, dispatch] = useFormState(register, initialState)
+  const [state, formAction] = useActionState(register, null);
 
   return (
-    <form action={dispatch} className="space-y-4">
+    <form action={formAction} className="w-full space-y-6">
       {state?.error && (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
@@ -33,35 +33,73 @@ export function RegisterForm() {
         </Alert>
       )}
       {state?.success && (
-        <Alert variant="default" className="bg-green-900/50 border-green-500/50 text-green-200">
-          <CheckCircle2 className="h-4 w-4 text-green-400" />
-          <AlertTitle>Successo!</AlertTitle>
-          <AlertDescription>{state.success}</AlertDescription>
-        </Alert>
+         <Alert variant="default" className="bg-green-900/50 border-green-500/50 text-green-200">
+           <CheckCircle2 className="h-4 w-4 text-green-400" />
+           <AlertTitle>Successo!</AlertTitle>
+           <AlertDescription>{state.success}</AlertDescription>
+         </Alert>
       )}
-      {!state.success && (
+      {!state?.success && (
         <>
           <div className="space-y-2">
-            <Label htmlFor="fullName">Nome Completo</Label>
-            <Input id="fullName" name="fullName" placeholder="Mario Rossi" required className="bg-gray-900/50 border-yellow-500/30 focus:border-yellow-500" />
+            <Label htmlFor="fullName" className="text-gray-200/80">
+              Nome Completo
+            </Label>
+            <Input
+              id="fullName"
+              name="fullName"
+              type="text"
+              placeholder="Mario Rossi"
+              required
+              className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="tu@esempio.com" required className="bg-gray-900/50 border-yellow-500/30 focus:border-yellow-500" />
+            <Label htmlFor="email" className="text-gray-200/80">
+              Email
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="tu@esempio.com"
+              required
+              className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required className="bg-gray-900/50 border-yellow-500/30 focus:border-yellow-500" />
+            <Label htmlFor="password" className="text-gray-200/80">
+              Password
+            </Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Conferma Password</Label>
-            <Input id="confirmPassword" name="confirmPassword" type="password" required className="bg-gray-900/50 border-yellow-500/30 focus:border-yellow-500" />
+            <Label htmlFor="confirmPassword" className="text-gray-200/80">
+              Conferma Password
+            </Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+            />
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="terms" name="terms" required />
-            <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            <Checkbox
+              id="terms"
+              name="terms"
+              className="border-amber-600 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+            />
+            <label htmlFor="terms" className="text-sm text-gray-300/80">
               Accetto i{" "}
-              <Link href="/legal/terms-and-conditions" className="text-yellow-400 hover:underline">
+              <Link href="/legal/terms-and-conditions" className="underline hover:text-amber-300">
                 Termini di Servizio
               </Link>
             </label>
@@ -69,14 +107,12 @@ export function RegisterForm() {
           <SubmitButton />
         </>
       )}
-       <div className="text-center text-sm">
-        <p className="text-gray-400">
-          Hai già un account?{" "}
-          <Link href="/login" className="font-medium text-yellow-400 hover:text-yellow-300">
-            Accedi
-          </Link>
-        </p>
-      </div>
+      <p className="text-center text-sm text-gray-400">
+        Hai già un account?{" "}
+        <Link href="/login" className="font-semibold text-amber-400 hover:underline">
+          Accedi
+        </Link>
+      </p>
     </form>
-  )
+  );
 }
