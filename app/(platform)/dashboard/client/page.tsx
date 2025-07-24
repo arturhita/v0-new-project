@@ -15,13 +15,13 @@ export default async function ClientDashboardPage() {
     return redirect("/login")
   }
 
-  // Fetch data in parallel
+  // Recupera i dati in parallelo
   const [stats, favoriteExperts] = await Promise.all([getClientDashboardStats(user.id), getFavoriteExperts(user.id)])
 
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex h-screen w-full items-center justify-center bg-slate-900">
           <LoadingSpinner />
         </div>
       }

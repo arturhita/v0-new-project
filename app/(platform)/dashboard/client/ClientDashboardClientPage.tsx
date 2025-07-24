@@ -9,7 +9,7 @@ import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
 import { useAuth } from "@/contexts/auth-context"
 import type { User } from "@supabase/supabase-js"
-import type { Operator } from "@/components/operator-card"
+import type { Operator } from "@/types/operator.types"
 
 const InfoCard = ({
   title,
