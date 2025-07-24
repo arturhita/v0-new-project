@@ -1,30 +1,23 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/profile.types"
-import { LoadingSpinner } from "@/components/loading-spinner"
+import { LoadingSpinner } from "@/components/loading-spinner" // Importazione nominata corretta
 
 type AuthContextType = {
   user: User | null
   profile: Profile | null
   loading: boolean
   refreshProfile: () => Promise<void>
-  setProfile: (profile: Profile | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Funzione di utilità per sanificare i dati
 function sanitizeData<T>(data: T): T {
   if (!data) return data
-  try {
-    return JSON.parse(JSON.stringify(data))
-  } catch (error) {
-    console.error("Failed to sanitize data:", error)
-    return data
-  }
+  return JSON.parse(JSON.stringify(data))
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,77 +26,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchSession = async () => {
-    setLoading(true)
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Error fetching session:", sessionError.message)
-      setLoading(false)
-      return
-    }
-
-    const currentUser = session?.user ?? null
-    setUser(currentUser)
-
-    if (currentUser) {
-      await fetchProfile(currentUser.id)
-    } else {
-      setProfile(null)
-    }
-    setLoading(false)
-  }
-
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-
-    if (error) {
-      console.error("Error fetching profile:", error.message)
-      setProfile(null)
-    } else if (data) {
-      // Sanificazione del profilo prima di impostarlo nello stato
-      setProfile(sanitizeData(data as Profile))
-    }
-  }
+  const fetchProfile = useCallback(
+    async (userId: string) => {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
+      if (error) {
+        console.error("Error fetching profile:", error.message)
+        setProfile(null)
+      } else if (data) {
+        setProfile(sanitizeData(data as Profile))
+      }
+    },
+    [supabase],
+  )
 
   useEffect(() => {
-    fetchSession()
-
+    setLoading(true)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
       if (currentUser) {
-        fetchProfile(currentUser.id)
+        await fetchProfile(currentUser.id)
       } else {
         setProfile(null)
       }
+      setLoading(false)
     })
 
     return () => {
       subscription?.unsubscribe()
     }
-  }, [])
+  }, [fetchProfile, supabase.auth])
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id)
     }
-  }
+  }, [user, fetchProfile])
 
-  const value = {
-    user,
-    profile,
-    loading,
-    refreshProfile,
-    setProfile: (newProfile: Profile | null) => setProfile(sanitizeData(newProfile)),
-  }
+  const value = { user, profile, loading, refreshProfile }
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <LoadingSpinner />
