@@ -1,15 +1,16 @@
-/**
- * Esegue una clonazione profonda e sicura di un oggetto, garantendo che sia un
- * Plain Old JavaScript Object (POJO), privo di getter, proxy o altre
- * proprietà speciali introdotte da librerie esterne come Supabase.
- * @param obj L'oggetto da "purificare".
- * @returns Un clone profondo e "pulito" dell'oggetto, sicuro da usare nello stato React.
- */
-export const sanitizeData = (obj: any): any => {
-  if (obj === null || obj === undefined) {
-    return obj
+// This utility provides a robust way to deep-clone data,
+// ensuring that objects returned from Supabase are plain JavaScript objects
+// and safe to use in React state.
+export function sanitizeData<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data
   }
-  // L'approccio JSON.parse(JSON.stringify()) è il modo più robusto e universale
-  // per garantire una vera de-referenziazione e pulizia dell'oggetto.
-  return JSON.parse(JSON.stringify(obj))
+  try {
+    // The simplest and most effective way to deep-clone and remove any getters/setters
+    return JSON.parse(JSON.stringify(data))
+  } catch (error) {
+    console.error("Failed to sanitize data:", error)
+    // Fallback to returning the original data if cloning fails
+    return data
+  }
 }

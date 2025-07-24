@@ -1,6 +1,6 @@
 import type React from "react"
 import { SiteNavbar } from "@/components/site-navbar"
-import { SiteFooter } from "@/components/site-footer"
+import SiteFooter from "@/components/site-footer" // Corretto: import di default
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   return (

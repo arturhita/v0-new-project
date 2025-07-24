@@ -1,8 +1,10 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
+import type React from "react"
+
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import type { User, AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/profile.types"
 import { sanitizeData } from "@/lib/data.utils"
 import LoadingSpinner from "@/components/loading-spinner"
@@ -11,93 +13,87 @@ type AuthContextType = {
   user: User | null
   profile: Profile | null
   loading: boolean
-  logout: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchAndSetProfile = useCallback(
-    async (userId: string) => {
-      const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
-
-      if (error) {
-        console.error("Auth Context Error fetching profile:", error.message)
+  const refreshProfile = useCallback(
+    async (currentUser: User | null) => {
+      if (!currentUser) {
         setProfile(null)
-      } else {
-        // ✅ FONDAMENTALE: Sanifica i dati grezzi PRIMA di salvarli nello stato.
-        setProfile(sanitizeData(rawProfile as Profile))
+        return
+      }
+
+      // Non impostare loading qui per evitare sfarfallii su refresh veloci
+      try {
+        const { data: rawProfile, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
+
+        if (error) {
+          console.error("Error fetching profile:", error.message)
+          setProfile(null)
+        } else if (rawProfile) {
+          // Sanitize the profile data immediately upon receipt
+          const sanitizedProfile = sanitizeData(rawProfile)
+          setProfile(sanitizedProfile)
+        }
+      } catch (e) {
+        console.error("An unexpected error occurred while refreshing profile:", e)
+        setProfile(null)
       }
     },
     [supabase],
   )
 
   useEffect(() => {
-    const initializeSession = async () => {
+    const getInitialSession = async () => {
+      setLoading(true)
       const {
         data: { session },
       } = await supabase.auth.getSession()
       const currentUser = session?.user ?? null
-      // ✅ FONDAMENTALE: Sanifica anche l'oggetto utente.
-      setUser(sanitizeData(currentUser))
-
-      if (currentUser) {
-        await fetchAndSetProfile(currentUser.id)
-      }
+      const sanitizedUser = sanitizeData(currentUser)
+      setUser(sanitizedUser)
+      await refreshProfile(sanitizedUser)
       setLoading(false)
     }
 
-    initializeSession()
+    getInitialSession()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setLoading(true) // Aggiunto per gestire lo stato di caricamento durante il cambio auth
-      const currentUser = session?.user ?? null
-      // ✅ FONDAMENTALE: Sanifica l'oggetto utente a ogni cambiamento.
-      setUser(sanitizeData(currentUser))
-
-      if (currentUser) {
-        await fetchAndSetProfile(currentUser.id)
-      } else {
-        setProfile(null)
-      }
-      setLoading(false)
-    })
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        const currentUser = session?.user ?? null
+        const sanitizedUser = sanitizeData(currentUser)
+        setUser(sanitizedUser)
+        // Non reimpostare il loading qui per evitare sfarfallii durante il logout/login
+        await refreshProfile(sanitizedUser)
+      },
+    )
 
     return () => {
-      subscription?.unsubscribe()
+      authListener.subscription.unsubscribe()
     }
-  }, [supabase, fetchAndSetProfile])
+  }, [supabase, refreshProfile])
 
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut()
-    // onAuthStateChange gestirà la pulizia dello stato (user e profile a null).
-  }, [supabase])
+  const value = {
+    user,
+    profile,
+    loading,
+    refreshProfile: () => refreshProfile(user),
+  }
 
-  const refreshProfile = useCallback(async () => {
-    if (user) {
-      setLoading(true)
-      await fetchAndSetProfile(user.id)
-      setLoading(false)
-    }
-  }, [user, fetchAndSetProfile])
-
-  const value = { user, profile, loading, logout, refreshProfile }
-
-  // Mostra un caricamento globale solo durante l'inizializzazione
-  if (loading && !user && !profile) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
-        <LoadingSpinner />
-      </div>
-    )
+  if (loading) {
+    return <LoadingSpinner fullPage />
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -106,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth deve essere utilizzato all'interno di un AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
 }
