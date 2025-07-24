@@ -3,48 +3,62 @@
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 
+/**
+ * Sanifica un oggetto recuperato da Supabase per rimuovere i getter/setter
+ * e restituire un Plain Old JavaScript Object (POJO).
+ * Questa è una misura di sicurezza FONDAMENTALE per prevenire l'errore
+ * "Cannot set property of #<Object> which has only a getter" quando si passano
+ * dati da Server Components a Client Components.
+ * @param data L'oggetto da sanificare.
+ * @returns Un clone profondo e pulito dell'oggetto.
+ */
+function sanitizeObject<T>(data: T): T {
+  if (!data) return data
+  return JSON.parse(JSON.stringify(data))
+}
+
+/**
+ * Recupera i dati per la dashboard dell'operatore.
+ * IMPORTANTE: Tutti i dati restituiti da questa funzione sono già "sanificati"
+ * e sicuri da passare come props a un Client Component.
+ */
 export async function getOperatorDashboardData(operatorId: string) {
   noStore()
   const supabase = createClient()
 
-  const profilePromise = supabase
-    .from("profiles")
-    .select(
-      "stage_name, avatar_url, is_online, availability, services, average_rating, reviews_count, total_earnings, monthly_earnings",
-    )
-    .eq("id", operatorId)
-    .single()
+  const { data, error } = await supabase.rpc("get_operator_dashboard_data", {
+    operator_id_param: operatorId,
+  })
 
-  // Esegui altre chiamate in parallelo se necessario
-  const [
-    { data: profile, error: profileError },
-    // altre promise qui...
-  ] = await Promise.all([
-    profilePromise,
-    // ...
-  ])
-
-  if (profileError) {
-    console.error("Errore nel caricamento dati dashboard operatore:", profileError)
-    return null
+  if (error) {
+    console.error("Errore RPC [get_operator_dashboard_data]:", error)
+    return {
+      profile: null,
+      stats: {
+        unread_messages: 0,
+        pending_consultations: 0,
+        monthly_earnings: 0,
+      },
+    }
   }
 
-  // **LA CORREZIONE**: Sanifichiamo l'oggetto `profile` non appena viene letto dal DB.
-  // Questo garantisce che qualsiasi componente client riceva un oggetto pulito e modificabile.
-  const sanitizedProfile = JSON.parse(JSON.stringify(profile))
+  const dashboardData = data && data.length > 0 ? data[0] : {}
 
-  // Simula il recupero di altri dati
-  const recentActivity = [
-    { id: 1, description: "Nuova recensione da Mario Rossi", time: "2 ore fa" },
-    { id: 2, description: "Consulenza completata con Laura Bianchi", time: "5 ore fa" },
-  ]
-  const upcomingConsultations = [
-    { id: 1, clientName: "Paolo Verdi", time: "Domani alle 10:00", type: "Video" },
-  ]
-
-  return {
-    profile: sanitizedProfile,
-    recentActivity,
-    upcomingConsultations,
-  }
+  // **LA CORREZIONE DEFINITIVA**: Sanifichiamo l'intero oggetto di dati
+  // prima di restituirlo. Questo garantisce che ogni pezzo di dato,
+  // incluso l'oggetto `profile` e i suoi `services` nidificati,
+  // sia un oggetto JavaScript puro e modificabile.
+  return sanitizeObject({
+    profile: {
+      stage_name: dashboardData.stage_name,
+      avatar_url: dashboardData.avatar_url,
+      is_online: dashboardData.is_online,
+      services: dashboardData.services,
+    },
+    stats: {
+      unread_messages: dashboardData.unread_messages_count || 0,
+      pending_consultations: dashboardData.pending_consultations_count || 0,
+      monthly_earnings: dashboardData.current_month_earnings || 0,
+    },
+  })
 }

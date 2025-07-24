@@ -6,7 +6,14 @@ import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import LoadingSpinner from "@/components/loading-spinner"
 
-// Interfaccia del profilo, garantendo che 'services' sia sempre presente e ben tipizzato.
+// Funzione di utilità per sanificare QUALSIASI oggetto da Supabase.
+// Rimuove i getter e crea un Plain Old JavaScript Object (POJO).
+// Questa è la difesa centrale contro l'errore "Cannot set property...".
+function sanitizeObject<T>(data: T): T {
+  if (!data) return data
+  return JSON.parse(JSON.stringify(data))
+}
+
 export interface Profile {
   id: string
   full_name: string | null
@@ -37,74 +44,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Funzione chiave per recuperare e "sanificare" il profilo.
-  const getSanitizedProfile = useCallback(
-    async (userToFetch: User): Promise<Profile | null> => {
-      const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", userToFetch.id).single()
+  const getAndSetSession = useCallback(async () => {
+    const { data: { session }, error } = await supabase.auth.getSession()
 
-      if (error || !rawProfile) {
-        console.error("AuthContext: Profilo non trovato o errore.", error?.message)
-        // Se il profilo non esiste, potrebbe essere un errore di sincronizzazione.
-        // Tentare un logout forzato per resettare lo stato.
-        await supabase.auth.signOut()
-        return null
+    if (error) {
+      console.error("Errore nel recuperare la sessione:", error)
+      setIsLoading(false)
+      return
+    }
+
+    if (session?.user) {
+      const { data: rawProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single()
+
+      if (profileError || !rawProfile) {
+        console.error("AuthContext: Errore nel recupero del profilo o profilo non trovato.", profileError?.message)
+        setUser(sanitizeObject(session.user))
+        setProfile(null)
+      } else {
+        const cleanProfile = sanitizeObject(rawProfile)
+
+        const services = cleanProfile.services || {}
+        const defaultService = { enabled: false, price_per_minute: 0 }
+        cleanProfile.services = {
+          chat: { ...defaultService, ...(services.chat || {}) },
+          call: { ...defaultService, ...(services.call || {}) },
+          video: { ...defaultService, ...(services.video || {}) },
+        }
+
+        setUser(sanitizeObject(session.user))
+        setProfile(cleanProfile as Profile)
       }
-
-      // **LA SOLUZIONE DEFINITIVA**: Clonazione profonda per creare un Plain Old JavaScript Object (POJO).
-      // Questo rimuove qualsiasi proxy o getter/setter di Supabase, rendendo l'oggetto sicuro da modificare.
-      const cleanProfile = JSON.parse(JSON.stringify(rawProfile))
-
-      // Normalizzazione difensiva: assicura che l'oggetto 'services' e le sue sotto-proprietà
-      // esistano sempre, anche se fossero null nel DB (grazie al trigger SQL, non dovrebbe più accadere).
-      const services = cleanProfile.services || {}
-      const defaultService = { enabled: false, price_per_minute: 0 }
-
-      cleanProfile.services = {
-        chat: { ...defaultService, ...(services.chat || {}) },
-        call: { ...defaultService, ...(services.call || {}) },
-        video: { ...defaultService, ...(services.video || {}) },
-      }
-
-      return cleanProfile as Profile
-    },
-    [supabase],
-  )
+    } else {
+      setUser(null)
+      setProfile(null)
+    }
+    setIsLoading(false)
+  }, [supabase])
 
   useEffect(() => {
+    getAndSetSession()
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setIsLoading(true)
-      if (session?.user) {
-        const sanitizedProfile = await getSanitizedProfile(session.user)
-        setUser(session.user)
-        setProfile(sanitizedProfile)
-      } else {
-        setUser(null)
-        setProfile(null)
-      }
-      setIsLoading(false)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      getAndSetSession()
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase, getSanitizedProfile])
+  }, [getAndSetSession, supabase.auth])
 
   const refreshProfile = useCallback(async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    if (currentUser) {
-      setIsLoading(true)
-      const sanitizedProfile = await getSanitizedProfile(currentUser)
-      setProfile(sanitizedProfile)
-      setIsLoading(false)
-    }
-  }, [supabase, getSanitizedProfile])
+    await getAndSetSession()
+  }, [getAndSetSession])
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // Non è necessario reindirizzare qui, onAuthStateChange gestirà lo stato
-    // e i layout/pagine gestiranno il reindirizzamento.
+    setUser(null)
+    setProfile(null)
   }, [supabase.auth])
 
   if (isLoading) {
