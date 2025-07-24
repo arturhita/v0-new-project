@@ -1,38 +1,50 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
-import { sanitizeData } from "@/lib/data.utils";
+import { createClient } from "@/lib/supabase/server"
+import { NextResponse } from "next/server"
+import { sanitizeData } from "@/lib/data.utils"
+import type { Profile } from "@/types/profile.types"
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const supabase = createClient();
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get("code")
+  const supabase = createClient()
 
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+    // Se c'è un codice, è un login via email link
+    await supabase.auth.exchangeCodeForSession(code)
   }
 
+  // A questo punto, l'utente dovrebbe avere una sessione valida,
+  // sia da un login con password che da un link di conferma.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  if (!user) {
-    // Se non c'è utente, torna al login con un errore.
-    return NextResponse.redirect(new URL("/login?error=auth_failed", request.url));
+  if (!session) {
+    // Se non c'è sessione, qualcosa è andato storto.
+    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  // Recupera il profilo completo
-  const { data: rawProfile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  const { data: rawProfile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", session.user.id)
+    .single()
 
-  // **PUNTO CHIAVE**: Sanifica il profilo subito dopo averlo recuperato.
-  const profile = sanitizeData(rawProfile);
-
-  // Determina la destinazione in base al ruolo del profilo sanificato.
-  let destination = "/dashboard/client"; // Default
-  if (profile?.role === "admin") {
-    destination = "/admin";
-  } else if (profile?.role === "operator") {
-    destination = "/dashboard/operator";
+  if (profileError || !rawProfile) {
+    console.error("Profile fetch error on callback:", profileError?.message)
+    // Potrebbe essere un nuovo utente il cui profilo non è ancora stato creato dal trigger.
+    // In questo caso, lo mandiamo alla dashboard del cliente di default.
+    return NextResponse.redirect(`${origin}/dashboard/client`)
   }
 
-  return NextResponse.redirect(new URL(destination, request.url));
+  // **PUNTO CHIAVE**: Sanifichiamo il profilo prima di decidere dove reindirizzare.
+  const profile = sanitizeData(rawProfile as Pick<Profile, "role">)
+
+  if (profile.role === "operator") {
+    return NextResponse.redirect(`${origin}/dashboard/operator`)
+  }
+  if (profile.role === "admin") {
+    return NextResponse.redirect(`${origin}/admin`)
+  }
+  return NextResponse.redirect(`${origin}/dashboard/client`)
 }

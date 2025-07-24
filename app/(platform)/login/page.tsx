@@ -1,32 +1,23 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import { ConstellationBackground } from "@/components/constellation-background";
-import { LoginForm } from "@/components/login-form";
-import Image from "next/image";
+import LoginForm from "@/components/login-form"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
 export default async function LoginPage() {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
+  const supabase = createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  // Se c'è una sessione, il middleware avrà già reindirizzato.
-  // Questo è un ulteriore livello di sicurezza.
-  if (data.session) {
-    return redirect("/auth/callback");
+  if (session) {
+    redirect("/auth/callback")
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-900 p-4">
-      <ConstellationBackground goldVisible={true} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-yellow-500/20 bg-gray-950/50 p-8 shadow-2xl shadow-yellow-500/10 backdrop-blur-sm">
-        <div className="flex flex-col items-center text-center">
-          <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={150} height={50} className="mb-6" />
-          <h1 className="text-3xl font-bold text-white">Bentornato</h1>
-          <p className="mt-2 text-gray-300/70">Accedi per continuare il tuo viaggio mistico.</p>
-        </div>
-        <div className="mt-8">
-          <LoginForm />
-        </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md">
+        <h1 className="mb-6 text-center text-3xl font-bold text-gray-800">Accedi</h1>
+        <LoginForm />
       </div>
     </div>
-  );
+  )
 }
