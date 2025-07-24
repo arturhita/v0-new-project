@@ -2,7 +2,7 @@
 
 import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
-import { registerAction } from "@/lib/actions/auth.actions"
+import { register } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,7 +19,7 @@ function SubmitButton() {
 }
 
 export function RegisterForm() {
-  const [state, formAction] = useActionState(registerAction, { message: "", success: "" })
+  const [state, formAction] = useActionState(register, null)
 
   return (
     <form action={formAction} className="w-full space-y-6">
@@ -86,7 +86,7 @@ export function RegisterForm() {
           </Link>
         </label>
       </div>
-      {state?.message && <p className="text-sm text-red-400 text-center">{state.message}</p>}
+      {state?.error && <p className="text-sm text-red-400 text-center">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-400 text-center">{state.success}</p>}
       <SubmitButton />
       <p className="text-center text-sm text-gray-400">

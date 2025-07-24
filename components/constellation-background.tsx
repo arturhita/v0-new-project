@@ -1,90 +1,132 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { Stars } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-// Corretto per usare position:fixed e z-index negativo per agire come sfondo
-const ConstellationBackground = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+// Modificato: Aggiunta prop 'goldVisible' per controllare il colore
+export const ConstellationBackground = ({
+  className,
+  goldVisible = false,
+}: {
+  className?: string
+  goldVisible?: boolean
+}) => (
+  <div
+    className={cn(
+      "absolute inset-0 overflow-hidden pointer-events-none",
+      goldVisible ? "text-yellow-400/70" : "text-sky-300/70", // Applica il colore in base alla prop
+      className,
+    )}
+  >
+    {/* Orsa Maggiore LAMPEGGIANTE */}
+    <div className="absolute top-20 left-20 animate-pulse">
+      <svg width="120" height="80" viewBox="0 0 120 80" className="opacity-50">
+        <circle cx="10" cy="20" r="2" fill="currentColor" className="animate-pulse" />
+        <circle
+          cx="30"
+          cy="15"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "0.5s" }}
+        />
+        <circle cx="50" cy="10" r="2" fill="currentColor" className="animate-pulse" style={{ animationDelay: "1s" }} />
+        <circle
+          cx="70"
+          cy="15"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "1.5s" }}
+        />
+        <circle cx="85" cy="25" r="2" fill="currentColor" className="animate-pulse" style={{ animationDelay: "2s" }} />
+        <circle
+          cx="75"
+          cy="45"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "2.5s" }}
+        />
+        <circle cx="55" cy="50" r="2" fill="currentColor" className="animate-pulse" style={{ animationDelay: "3s" }} />
+        <line x1="10" y1="20" x2="30" y2="15" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="30" y1="15" x2="50" y2="10" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="50" y1="10" x2="70" y2="15" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="70" y1="15" x2="85" y2="25" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="85" y1="25" x2="75" y2="45" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="75" y1="45" x2="55" y2="50" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+      </svg>
+    </div>
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    {/* Cassiopea LAMPEGGIANTE */}
+    <div className="absolute top-40 right-32 animate-pulse">
+      <svg width="100" height="60" viewBox="0 0 100 60" className="opacity-50">
+        <circle
+          cx="10"
+          cy="30"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "0.2s" }}
+        />
+        <circle
+          cx="30"
+          cy="10"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "0.7s" }}
+        />
+        <circle
+          cx="50"
+          cy="40"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "1.2s" }}
+        />
+        <circle
+          cx="70"
+          cy="15"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "1.7s" }}
+        />
+        <circle
+          cx="90"
+          cy="35"
+          r="2"
+          fill="currentColor"
+          className="animate-pulse"
+          style={{ animationDelay: "2.2s" }}
+        />
+        <line x1="10" y1="30" x2="30" y2="10" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="30" y1="10" x2="50" y2="40" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="50" y1="40" x2="70" y2="15" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+        <line x1="70" y1="15" x2="90" y2="35" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+      </svg>
+    </div>
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    let width = (canvas.width = window.innerWidth)
-    let height = (canvas.height = window.innerHeight)
-
-    window.addEventListener("resize", () => {
-      width = canvas.width = window.innerWidth
-      height = canvas.height = window.innerHeight
-    })
-
-    const stars: { x: number; y: number; radius: number; vx: number; vy: number; alpha: number; dying: boolean }[] = []
-    const numStars = 200
-
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 1.5 + 0.5,
-        vx: (Math.random() - 0.5) * 0.1,
-        vy: (Math.random() - 0.5) * 0.1,
-        alpha: Math.random() * 0.5 + 0.5,
-        dying: false,
-      })
-    }
-
-    function draw() {
-      if (!ctx) return
-      ctx.clearRect(0, 0, width, height)
-
-      ctx.fillStyle = "rgba(255, 215, 0, 0.8)" // Gold color
-      ctx.shadowBlur = 10
-      ctx.shadowColor = "rgba(255, 215, 0, 0.5)"
-
-      stars.forEach((star) => {
-        ctx.beginPath()
-        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
-        ctx.closePath()
-        ctx.globalAlpha = star.alpha
-        ctx.fill()
-
-        star.x += star.vx
-        star.y += star.vy
-
-        if (star.x < 0 || star.x > width) star.vx *= -1
-        if (star.y < 0 || star.y > height) star.vy *= -1
-
-        if (!star.dying) {
-          star.alpha += 0.02 * (Math.random() - 0.5)
-          if (star.alpha < 0.1) star.alpha = 0.1
-          if (star.alpha > 1) star.alpha = 1
-        }
-      })
-
-      ctx.strokeStyle = "rgba(255, 215, 0, 0.1)"
-      ctx.lineWidth = 0.5
-      for (let i = 0; i < numStars; i++) {
-        for (let j = i + 1; j < numStars; j++) {
-          const dist = Math.hypot(stars[i].x - stars[j].x, stars[i].y - stars[j].y)
-          if (dist < 100) {
-            ctx.beginPath()
-            ctx.moveTo(stars[i].x, stars[i].y)
-            ctx.lineTo(stars[j].x, stars[j].y)
-            ctx.stroke()
-          }
-        }
-      }
-
-      requestAnimationFrame(draw)
-    }
-
-    draw()
-  }, [])
-
-  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full -z-10" />
-}
-
-export default ConstellationBackground
+    {/* Stelle sparse animate con movimento LAMPEGGIANTI */}
+    {[...Array(50)].map((_, i) => (
+      <div
+        key={i}
+        className="absolute animate-pulse"
+        style={{
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 5}s`,
+          animationDuration: `${2 + Math.random() * 4}s`,
+        }}
+      >
+        <Stars
+          className="w-2 h-2 opacity-60"
+          style={{
+            animationDuration: `${1.5 + Math.random() * 2}s`,
+          }}
+        />
+      </div>
+    ))}
+  </div>
+)

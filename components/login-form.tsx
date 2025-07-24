@@ -1,60 +1,60 @@
 "use client"
 
-import { useFormState, useFormStatus } from "react-dom"
-import { signInAction } from "@/lib/actions/auth.actions"
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
+import { login } from "@/lib/actions/auth.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-
-const initialState = {
-  message: "",
-}
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button className="w-full" type="submit" disabled={pending}>
+    <Button type="submit" variant="gradient" className="w-full" disabled={pending}>
       {pending ? "Accesso in corso..." : "Accedi"}
     </Button>
   )
 }
 
 export function LoginForm() {
-  const [state, formAction] = useFormState(signInAction, initialState)
+  const [state, formAction] = useActionState(login, null)
 
   return (
-    <Card className="mx-auto max-w-sm w-[380px]">
-      <CardHeader>
-        <CardTitle className="text-2xl">Login</CardTitle>
-        <CardDescription>Inserisci la tua email qui sotto per accedere al tuo account</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={formAction} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" name="email" placeholder="mario@rossi.it" required />
-          </div>
-          <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
-              <Link href="#" className="ml-auto inline-block text-sm underline">
-                Password dimenticata?
-              </Link>
-            </div>
-            <Input id="password" type="password" name="password" required />
-          </div>
-          {state?.message && <p className="text-sm text-red-500 text-center">{state.message}</p>}
-          <SubmitButton />
-        </form>
-        <div className="mt-4 text-center text-sm">
-          Non hai un account?{" "}
-          <Link href="/register" className="underline">
-            Registrati
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+    <form action={formAction} className="w-full space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-gray-200/80">
+          Email
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="tua@email.com"
+          required
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password" className="text-gray-200/80">
+          Password
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          className="mt-1 bg-gray-900/60 border-yellow-500/30 text-white placeholder:text-gray-400/50 focus:ring-amber-500"
+        />
+      </div>
+      {state?.error && <p className="text-sm text-red-400 text-center">{state.error}</p>}
+      <SubmitButton />
+      <p className="text-center text-sm text-gray-400">
+        Non hai un account?{" "}
+        <Link href="/register" className="font-semibold text-amber-400 hover:underline">
+          Registrati
+        </Link>
+      </p>
+    </form>
   )
 }

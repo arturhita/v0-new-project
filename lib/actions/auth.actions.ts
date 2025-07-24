@@ -1,108 +1,81 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
-import { headers } from "next/headers"
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
 
-const loginSchema = z.object({
-  email: z.string().email({ message: "Inserisci un'email valida." }),
-  password: z.string().min(1, { message: "La password non può essere vuota." }),
+const LoginSchema = z.object({
+  email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
+  password: z.string().min(1, { message: "La password è richiesta." }),
 })
 
-const registerSchema = z
+const RegisterSchema = z
   .object({
-    fullName: z.string().min(2, { message: "Il nome completo è richiesto." }),
-    email: z.string().email({ message: "Inserisci un'email valida." }),
+    fullName: z.string().min(2, { message: "Il nome deve essere di almeno 2 caratteri." }),
+    email: z.string().email({ message: "Per favore, inserisci un'email valida." }),
     password: z.string().min(8, { message: "La password deve essere di almeno 8 caratteri." }),
     confirmPassword: z.string(),
+    terms: z.literal("on", {
+      errorMap: () => ({ message: "Devi accettare i Termini di Servizio." }),
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Le password non corrispondono.",
+    message: "Le password non coincidono.",
     path: ["confirmPassword"],
   })
 
 export async function login(prevState: any, formData: FormData) {
-  const supabase = createClient()
-  const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()))
+  const validatedFields = LoginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return {
-      type: "error",
-      errors: validatedFields.error.flatten().fieldErrors,
-    }
+    return { error: "Dati inseriti non validi." }
   }
 
   const { email, password } = validatedFields.data
+  const supabase = createClient()
 
-  const { error, data } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error || !data.user) {
-    return {
-      type: "error",
-      message: "Credenziali non valide. Riprova.",
-    }
+  if (error) {
+    return { error: "Credenziali non valide. Riprova." }
   }
 
-  // **LOGICA DI REINDIRIZZAMENTO POST-LOGIN**
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
-
-  let destination = "/dashboard/client" // Default
-  if (profile?.role === "admin") {
-    destination = "/admin"
-  } else if (profile?.role === "operator") {
-    destination = "/dashboard/operator"
-  }
-
-  redirect(destination)
+  revalidatePath("/", "layout")
+  redirect("/auth/callback")
 }
 
 export async function register(prevState: any, formData: FormData) {
-  const origin = headers().get("origin")
-  const supabase = createClient()
-  const validatedFields = registerSchema.safeParse(Object.fromEntries(formData.entries()))
+  const validatedFields = RegisterSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return {
-      type: "error",
-      errors: validatedFields.error.flatten().fieldErrors,
-    }
+    const firstError = validatedFields.error.errors[0].message
+    return { error: firstError || "Dati non validi." }
   }
 
-  const { fullName, email, password } = validatedFields.data
+  const { email, password, fullName } = validatedFields.data
+  const supabase = createClient()
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-      // Passiamo i dati del profilo che verranno usati dal trigger
       data: {
         full_name: fullName,
-        // Il ruolo di default 'client' viene impostato dal trigger nel DB
       },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
     },
   })
 
   if (error) {
     if (error.message.includes("User already registered")) {
-      return {
-        type: "error",
-        message: "Un utente con questa email è già registrato.",
-      }
+      return { error: "Un utente con questa email è già registrato." }
     }
-    console.error("Registration Error:", error)
-    return {
-      type: "error",
-      message: "Si è verificato un errore durante la registrazione. Riprova.",
-    }
+    return { error: `Si è verificato un errore: ${error.message}` }
   }
 
-  return {
-    type: "success",
-    message: "Registrazione completata! Controlla la tua email per confermare il tuo account.",
-  }
+  return { success: "Registrazione avvenuta con successo! Controlla la tua email per confermare l'account." }
 }

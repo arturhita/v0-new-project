@@ -2,10 +2,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { Facebook, Twitter, Instagram } from "lucide-react"
 
-// Ripristinato il footer originale con lo sfondo blu
 export default function SiteFooter() {
   return (
-    <footer className="bg-[#102A75] text-gray-300 z-10">
+    <footer className="bg-[#102A75] text-gray-300">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-8 xl:col-span-1">
@@ -60,6 +59,7 @@ export default function SiteFooter() {
                 <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Supporto</h3>
                 <ul className="mt-4 space-y-4">
                   <li>
+                    {/* Modificato: Link 'mailto' per Contattaci */}
                     <a href="mailto:infomoonthir@gmail.com" className="text-base text-gray-400 hover:text-white">
                       Contattaci
                     </a>

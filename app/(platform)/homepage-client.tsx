@@ -9,8 +9,9 @@ import { ReviewCard } from "@/components/review-card"
 import type { Review } from "@/components/review-card"
 import { ArticleCard } from "@/components/article-card"
 import type { BlogArticle } from "@/lib/blog-data"
+// Modificato: Importazione nominativa
+import { ConstellationBackground } from "@/components/constellation-background"
 
-// Rimosso ConstellationBackground da qui perché ora è nel layout
 interface HomepageClientProps {
   operators: Operator[]
   reviews: Review[]
@@ -20,7 +21,7 @@ interface HomepageClientProps {
 
 export default function HomepageClient({ operators, reviews, latestOperators, articles }: HomepageClientProps) {
   return (
-    <div className="flex flex-col min-h-screen text-white overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
       <style jsx>{`
         @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
@@ -120,7 +121,8 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Featured Operators Section */}
-        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950/50 via-slate-900/50 to-blue-950/50 overflow-hidden">
+        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
+          <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl font-bold md:text-4xl text-white">Esperti pronti ad illuminarti</h2>
@@ -146,7 +148,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
 
         {/* Latest Operators Section (Nuovi Talenti) */}
         {latestOperators && latestOperators.length > 0 && (
-          <section className="py-16 md:py-24 bg-slate-950/80">
+          <section className="py-16 md:py-24 bg-slate-950">
             <div className="container mx-auto px-4">
               <div className="text-center mb-12 md:mb-16">
                 <h2 className="text-3xl font-bold sm:text-4xl text-white">Ultimi Esperti Arrivati</h2>
@@ -179,7 +181,8 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Services Section */}
-        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900/50 via-blue-950/50 to-slate-900/50">
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+          <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl font-bold md:text-4xl text-white">Servizi Spirituali Disponibili</h2>
@@ -213,7 +216,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Reviews Section */}
-        <section className="py-16 md:py-24 bg-gradient-to-b from-slate-900/50 to-blue-950/80">
+        <section className="py-16 md:py-24 bg-gradient-to-b from-slate-900 to-blue-950/30">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -235,7 +238,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
 
         {/* AstroMag Section */}
         {articles && articles.length > 0 && (
-          <section className="py-16 bg-slate-900/80">
+          <section className="py-16 bg-slate-900/50">
             <div className="container mx-auto px-4">
               <h2 className="text-3xl font-bold text-center mb-10 text-amber-400">Dal Nostro AstroMag</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -259,7 +262,8 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         )}
 
         {/* Why Trust Us Section */}
-        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900/50 via-blue-950/50 to-slate-900/50">
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+          <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center mb-16 md:mb-20">
               <h2 className="text-3xl font-bold md:text-4xl lg:text-5xl text-white mb-6">La Magia di Moonthir</h2>
@@ -332,7 +336,8 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Ready to Reveal Section */}
-        <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900/50 via-blue-950/50 to-slate-900/50">
+        <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+          <ConstellationBackground goldVisible={true} />
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center max-w-3xl mx-auto">
               <div className="mb-8 animate-float">

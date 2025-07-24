@@ -213,8 +213,6 @@ export async function getOperatorPublicProfile(username: string) {
   noStore()
   const supabase = createClient()
 
-  // Utilizziamo la funzione RPC 'get_public_profile_by_stage_name' per una ricerca più robusta
-  // che ignora maiuscole/minuscole, spazi extra e accenti.
   const { data: profiles, error: rpcError } = await supabase.rpc("get_public_profile_by_stage_name", {
     stage_name_to_find: username,
   })
@@ -229,8 +227,6 @@ export async function getOperatorPublicProfile(username: string) {
     return null
   }
 
-  // Se vengono trovati più profili, registra un avviso e usa il primo.
-  // Questo può indicare un problema di integrità dei dati (nomi d'arte duplicati).
   if (profiles.length > 1) {
     console.warn(`Trovati profili multipli per il nome d'arte "${username}". Viene usato il primo risultato.`)
   }
@@ -238,7 +234,6 @@ export async function getOperatorPublicProfile(username: string) {
   const profile = profiles[0]
 
   const services = profile.services as any
-  // Accediamo in modo sicuro alle proprietà annidate
   const chatService = services?.chat
   const callService = services?.call
   const emailService = services?.email
@@ -260,7 +255,7 @@ export async function getOperatorPublicProfile(username: string) {
       callService?.enabled && { service_type: "call", price: callService.price_per_minute },
       emailService?.enabled && { service_type: "written", price: emailService.price },
     ].filter((service): service is { service_type: string; price: number } => service !== null && service !== false),
-    reviews: [], // Placeholder per le recensioni effettive
+    reviews: [],
   }
 }
 
@@ -287,7 +282,6 @@ export async function getOperatorById(id: string) {
     console.error(`Error fetching operator ${id}:`, error)
     return null
   }
-  // Also fetch email from auth table for consistency
   const { data: authData } = await supabaseAdmin.auth.admin.getUserById(id)
   if (data && authData.user) {
     data.email = authData.user.email
@@ -339,52 +333,60 @@ export async function getOperatorProfiles(): Promise<OperatorProfile[]> {
   return data as OperatorProfile[]
 }
 
+// Schema Zod per validare la struttura dei servizi inviata dal client.
 const servicesSchema = z.object({
   chat: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
+    price_per_minute: z.number().min(0, "Il prezzo non può essere negativo."),
   }),
   call: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
+    price_per_minute: z.number().min(0, "Il prezzo non può essere negativo."),
   }),
   video: z.object({
     enabled: z.boolean(),
-    price_per_minute: z.number().min(0),
+    price_per_minute: z.number().min(0, "Il prezzo non può essere negativo."),
   }),
 })
 
+// Server Action per aggiornare i servizi dell'operatore.
 export async function updateOperatorServices(prevState: any, formData: FormData) {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "Utente non autenticato." }
+    return { error: "Utente non autenticato. Impossibile salvare." }
   }
 
   const servicesData = formData.get("services")
   if (typeof servicesData !== "string") {
-    return { error: "Dati dei servizi non validi." }
+    return { error: "Dati dei servizi mancanti o non validi." }
   }
 
+  let parsedServices
   try {
-    const parsedServices = servicesSchema.parse(JSON.parse(servicesData))
-
-    const { error } = await supabase.from("profiles").update({ services: parsedServices }).eq("id", user.id)
-
-    if (error) {
-      console.error("Supabase error updating services:", error)
-      return { error: "Impossibile aggiornare i servizi. Riprova." }
-    }
-
-    // Revalidate the entire layout to ensure AuthContext is updated everywhere
-    revalidatePath("/")
-    return { success: true }
+    // 1. Parsing e validazione dei dati JSON inviati dal form.
+    const rawServices = JSON.parse(servicesData)
+    parsedServices = servicesSchema.parse(rawServices)
   } catch (e) {
-    console.error("Validation or parsing error:", e)
-    return { error: "I dati inviati non sono validi." }
+    console.error("Errore di validazione o parsing dei servizi:", e)
+    return { error: "I dati inviati non sono validi. Controlla i valori inseriti." }
   }
+
+  // 2. Aggiornamento del profilo nel database con i dati validati.
+  const { error } = await supabase
+    .from("profiles")
+    .update({ services: parsedServices })
+    .eq("id", user.id)
+
+  if (error) {
+    console.error("Errore Supabase durante l'aggiornamento dei servizi:", error)
+    return { error: "Errore del database. Impossibile aggiornare i servizi." }
+  }
+
+  // 3. Revalida il path per assicurare che il contesto di autenticazione (e altre parti dell'UI)
+  // si aggiornino con i nuovi dati.
+  revalidatePath("/(platform)/dashboard/operator/services")
+
+  return { success: true }
 }
