@@ -9,6 +9,13 @@ import { z } from "zod"
 import type { OperatorProfile } from "@/types/database"
 import { sanitizeData } from "@/lib/data.utils"
 
+// Define ServiceState type to be shared
+export type ServiceState = {
+  chat: { enabled: boolean; price_per_minute: number }
+  call: { enabled: boolean; price_per_minute: number }
+  video: { enabled: boolean; price_per_minute: number }
+}
+
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
   if (value === null || value === undefined || String(value).trim() === "") return 0
@@ -353,11 +360,11 @@ const servicesSchema = z.object({
 // Server Action per aggiornare i servizi dell'operatore.
 export async function updateOperatorServices(
   profileId: string,
-  rawServices: z.infer<typeof servicesSchema>,
+  rawServices: ServiceState,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient()
 
-  // ✅ FONDAMENTALE: Clona i dati ricevuti dal client prima di qualsiasi operazione.
+  // Applica la clonazione profonda come misura di sicurezza
   const services = sanitizeData(rawServices)
 
   const validatedServices = servicesSchema.safeParse(services)
@@ -384,4 +391,20 @@ export async function updateOperatorServices(
     revalidatePath(`/operator/${user.user_metadata.stage_name}`)
   }
   return { success: true }
+}
+
+// NUOVA FUNZIONE: Chiama la RPC per ottenere i servizi in modo sicuro.
+export async function getOperatorServices(profileId: string): Promise<ServiceState | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_operator_services", {
+    p_profile_id: profileId,
+  })
+
+  if (error) {
+    console.error("Error fetching operator services via RPC:", error)
+    return null
+  }
+
+  // I dati dalla RPC dovrebbero essere già puliti, ma sanifichiamo come ulteriore precauzione.
+  return sanitizeData(data)
 }

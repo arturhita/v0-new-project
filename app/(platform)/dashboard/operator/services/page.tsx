@@ -1,42 +1,49 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { updateOperatorServices } from "@/lib/actions/operator.actions"
+import { getOperatorServices, updateOperatorServices, type ServiceState } from "@/lib/actions/operator.actions"
 import { useToast } from "@/components/ui/use-toast"
 import LoadingSpinner from "@/components/loading-spinner"
-import { sanitizeData } from "@/lib/data.utils"
-
-type ServiceState = {
-  chat: { enabled: boolean; price_per_minute: number }
-  call: { enabled: boolean; price_per_minute: number }
-  video: { enabled: boolean; price_per_minute: number }
-}
 
 export default function OperatorServicesPage() {
-  const { profile, loading: isAuthLoading, refreshProfile } = useAuth()
+  const { user, loading: isAuthLoading } = useAuth()
   const { toast } = useToast()
 
   const [services, setServices] = useState<ServiceState | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
-  useEffect(() => {
-    // Il profilo dal contesto è ora garantito come sanificato.
-    if (profile?.services) {
-      // Inizializziamo lo stato locale con una copia sicura.
-      setServices(sanitizeData(profile.services))
+  const fetchServices = useCallback(async () => {
+    if (!user) return
+    setIsLoading(true)
+    const fetchedServices = await getOperatorServices(user.id)
+    if (fetchedServices) {
+      setServices(fetchedServices)
+    } else {
+      toast({
+        title: "Errore",
+        description: "Impossibile caricare le impostazioni dei servizi.",
+        variant: "destructive",
+      })
     }
-  }, [profile])
+    setIsLoading(false)
+  }, [user, toast])
+
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      fetchServices()
+    }
+  }, [isAuthLoading, user, fetchServices])
 
   const handleToggle = (service: keyof ServiceState) => {
     setServices((prev) => {
       if (!prev) return null
-      // ✅ CORRETTO: Pattern di aggiornamento immutabile.
       return {
         ...prev,
         [service]: { ...prev[service], enabled: !prev[service].enabled },
@@ -48,7 +55,6 @@ export default function OperatorServicesPage() {
     const price = Number.parseFloat(value) || 0
     setServices((prev) => {
       if (!prev) return null
-      // ✅ CORRETTO: Pattern di aggiornamento immutabile.
       return {
         ...prev,
         [service]: { ...prev[service], price_per_minute: price },
@@ -57,9 +63,9 @@ export default function OperatorServicesPage() {
   }
 
   const handleSave = async () => {
-    if (!services || !profile) return
+    if (!services || !user) return
     setIsSaving(true)
-    const result = await updateOperatorServices(profile.id, services)
+    const result = await updateOperatorServices(user.id, services)
     setIsSaving(false)
 
     if (result.success) {
@@ -67,7 +73,7 @@ export default function OperatorServicesPage() {
         title: "Successo!",
         description: "I tuoi servizi sono stati aggiornati.",
       })
-      await refreshProfile()
+      await fetchServices()
     } else {
       toast({
         title: "Errore",
@@ -77,10 +83,19 @@ export default function OperatorServicesPage() {
     }
   }
 
-  if (isAuthLoading || !services) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!services) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        <p className="mb-4">Non è stato possibile caricare i dati dei servizi.</p>
+        <Button onClick={fetchServices}>Riprova</Button>
       </div>
     )
   }
