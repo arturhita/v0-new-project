@@ -384,7 +384,7 @@ export async function updateOperatorServices(
   }
 
   // 4. Revalida il path per aggiornare la cache del client
-  revalidatePath("/dashboard/operator/services")
+  revalidatePath("/(platform)/dashboard/operator/services")
 
   return { success: true }
 }

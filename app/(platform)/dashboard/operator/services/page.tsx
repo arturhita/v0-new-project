@@ -22,7 +22,6 @@ export default function OperatorServicesPage() {
   const { toast } = useToast()
 
   // Stato locale per gestire le modifiche del form.
-  // Viene inizializzato solo una volta quando il profilo è disponibile.
   const [services, setServices] = useState<ServiceState | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -159,7 +158,7 @@ export default function OperatorServicesPage() {
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Salvataggio in corso..." : "Salva Modifiche"}
+          {isSaving ? <LoadingSpinner size={20} /> : "Salva Modifiche"}
         </Button>
       </CardFooter>
     </Card>
