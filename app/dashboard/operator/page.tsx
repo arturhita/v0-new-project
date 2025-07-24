@@ -1,32 +1,49 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  MessageSquare,
-  Star,
-  Euro,
-  SnowflakeIcon as Crystal,
-  Sparkles,
-  TrendingUp,
-  Users,
-  CheckCircle,
-} from "lucide-react"
+import { DollarSign, Users, Star, Clock, MessageSquare, Sparkles } from "lucide-react"
+import { Overview } from "@/components/overview"
+import { RecentActivity } from "@/components/recent-activity"
 
-export default function OperatorDashboard() {
+export default async function OperatorDashboardPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, operator_profiles(*)")
+    .eq("id", user.id)
+    .single()
+
+  // In a real app, you would fetch these stats from your database
+  const stats = {
+    monthlyEarnings: profile?.operator_profiles?.earnings || 0,
+    totalClients: 0, // Replace with actual query
+    averageRating: profile?.operator_profiles?.average_rating || 0,
+    hoursThisWeek: 0, // Replace with actual query
+  }
+
+  const welcomeName = profile?.full_name?.split(" ")[0] || "Consulente"
   const [isOnline] = useState(true)
 
   return (
     <div className="space-y-6 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
-            Dashboard Consulente Esoterico
-          </h2>
-          <p className="text-muted-foreground">Gestisci il tuo profilo e le tue consulenze spirituali</p>
+          <h1 className="text-3xl font-bold text-gray-800">Bentornato, {welcomeName}!</h1>
+          <p className="text-gray-600">Questa è la tua centrale di comando per le consulenze.</p>
         </div>
         <Badge variant={isOnline ? "default" : "secondary"} className={isOnline ? "bg-green-500" : ""}>
           {isOnline ? "Online" : "Offline"}
@@ -38,7 +55,7 @@ export default function OperatorDashboard() {
         <Card className="border-0 bg-gradient-to-r from-pink-500 to-pink-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Guadagni Oggi</CardTitle>
-            <Euro className="h-4 w-4" />
+            <DollarSign className="h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">€127.50</div>
@@ -81,6 +98,47 @@ export default function OperatorDashboard() {
             <p className="text-xs text-indigo-100">256 recensioni</p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Guadagni (Mese)</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">€{stats.monthlyEarnings.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">+20.1% dal mese scorso</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clienti Totali</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+{stats.totalClients}</div>
+            <p className="text-xs text-muted-foreground">Nessun nuovo cliente questa settimana</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valutazione Media</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.averageRating.toFixed(1)}</div>
+            <p className="text-xs text-muted-foreground">Basato su 0 recensioni</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ore Online (Settimana)</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.hoursThisWeek}h</div>
+            <p className="text-xs text-muted-foreground">Dati di disponibilità</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content */}
@@ -93,58 +151,22 @@ export default function OperatorDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <Card className="col-span-4">
               <CardHeader>
-                <CardTitle className="flex items-center bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
-                  <TrendingUp className="mr-2 h-5 w-5 text-pink-500" />
-                  Performance Oggi
-                </CardTitle>
+                <CardTitle>Performance Guadagni</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-sm">Tempo online</span>
-                  <span className="font-medium">6h 23m</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Consulenze completate</span>
-                  <span className="font-medium">12</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Tempo medio consulenza</span>
-                  <span className="font-medium">18.5 min</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Tasso di soddisfazione</span>
-                  <span className="font-medium text-green-600">98%</span>
-                </div>
+              <CardContent className="pl-2">
+                <Overview />
               </CardContent>
             </Card>
-
-            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+            <Card className="col-span-3">
               <CardHeader>
-                <CardTitle className="flex items-center bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
-                  <Users className="mr-2 h-5 w-5 text-blue-500" />
-                  Clienti Attivi
-                </CardTitle>
+                <CardTitle>Attività Recenti</CardTitle>
+                <CardDescription>Hai ricevuto 2 nuove richieste di chat.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-sm">Nuovi clienti oggi</span>
-                  <span className="font-medium">3</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Clienti ricorrenti</span>
-                  <span className="font-medium">9</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Messaggi in attesa</span>
-                  <span className="font-medium text-orange-600">5</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Prenotazioni domani</span>
-                  <span className="font-medium text-blue-600">7</span>
-                </div>
+              <CardContent>
+                <RecentActivity />
               </CardContent>
             </Card>
           </div>
@@ -154,7 +176,7 @@ export default function OperatorDashboard() {
           <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
-                <Crystal className="mr-2 h-5 w-5 text-blue-500" />
+                <Clock className="mr-2 h-5 w-5 text-blue-500" />
                 Consulenze di Oggi
               </CardTitle>
               <CardDescription>Le tue consulenze esoteriche completate oggi</CardDescription>
@@ -195,7 +217,7 @@ export default function OperatorDashboard() {
                 >
                   <div className="flex items-center space-x-3">
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-pink-100 to-blue-100">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <Star className="h-4 w-4 text-green-600" />
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">{consultation.client}</p>

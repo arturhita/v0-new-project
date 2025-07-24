@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +12,21 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { User, Camera, Save, Eye, Star, MessageSquare, Phone, Upload, Globe, Mail } from "lucide-react"
+import {
+  User,
+  Camera,
+  Save,
+  Eye,
+  Star,
+  MessageSquare,
+  Phone,
+  Upload,
+  Globe,
+  Mail,
+  FileText,
+  Plus,
+  X,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export default function ProfilePage() {
@@ -46,10 +62,115 @@ export default function ProfilePage() {
       call: true,
       email: false,
     },
+
+    // Note private (solo per l'operatore)
+    privateNotes: [
+      {
+        id: 1,
+        title: "Clienti Importanti",
+        content: "Maria R. - Cliente fedele, preferisce letture d'amore\nGiuseppe M. - Interessato all'astrologia",
+        category: "Clienti",
+        createdAt: new Date("2024-01-15"),
+        updatedAt: new Date("2024-01-20"),
+      },
+      {
+        id: 2,
+        title: "Tecniche Speciali",
+        content: "Per letture d'amore: usare spread a 3 carte\nPer lavoro: focus sui pentacoli",
+        category: "Tecniche",
+        createdAt: new Date("2024-01-10"),
+        updatedAt: new Date("2024-01-18"),
+      },
+    ],
   })
 
   const [newSpecialty, setNewSpecialty] = useState("")
+  const [newNote, setNewNote] = useState({ title: "", content: "", category: "Generale" })
+  const [showNewNoteForm, setShowNewNoteForm] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // Funzione per gestire il caricamento dell'immagine
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validazione del file
+      const validTypes = ["image/jpeg", "image/png", "image/svg+xml"]
+      const maxSize = 5 * 1024 * 1024 // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Formato non supportato",
+          description: "Sono supportati solo file JPG, PNG e SVG.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (file.size > maxSize) {
+        toast({
+          title: "File troppo grande",
+          description: "La dimensione massima è 5MB.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setSelectedImage(file)
+
+      // Crea anteprima
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      toast({
+        title: "Immagine selezionata",
+        description: "Clicca 'Salva Modifiche' per confermare il caricamento.",
+      })
+    }
+  }
+
+  // Funzione per salvare l'immagine
+  const saveProfileImage = async () => {
+    if (selectedImage) {
+      try {
+        // Simula upload dell'immagine
+        const formData = new FormData()
+        formData.append("profileImage", selectedImage)
+
+        // Qui dovresti fare la chiamata API reale
+        // const response = await fetch('/api/upload-profile-image', {
+        //   method: 'POST',
+        //   body: formData
+        // })
+
+        // Simula successo
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        setProfileData({
+          ...profileData,
+          profileImage: imagePreview || profileData.profileImage,
+        })
+
+        setSelectedImage(null)
+        setImagePreview(null)
+
+        toast({
+          title: "Foto Caricata",
+          description: "La tua foto profilo è stata aggiornata con successo.",
+        })
+      } catch (error) {
+        toast({
+          title: "Errore",
+          description: "Errore durante il caricamento dell'immagine.",
+          variant: "destructive",
+        })
+      }
+    }
+  }
 
   // Aggiungi questa funzione per sincronizzare i servizi
   const syncServicesWithPublicProfile = (services: any) => {
@@ -77,7 +198,7 @@ export default function ProfilePage() {
     })
   }
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     // Validazione: almeno un servizio deve essere attivo
     const hasActiveService = Object.values(profileData.services).some(Boolean)
 
@@ -90,19 +211,17 @@ export default function ProfilePage() {
       return
     }
 
+    // Salva immagine se presente
+    if (selectedImage) {
+      await saveProfileImage()
+    }
+
     // Sincronizza tutti i dati del profilo
     syncServicesWithPublicProfile(profileData.services)
 
     toast({
       title: "Profilo Aggiornato",
       description: "Le modifiche al tuo profilo sono state salvate con successo.",
-    })
-  }
-
-  const handleImageUpload = () => {
-    toast({
-      title: "Foto Caricata",
-      description: "La tua foto profilo è stata aggiornata con successo.",
     })
   }
 
@@ -131,25 +250,61 @@ export default function ProfilePage() {
     })
   }
 
+  const handleAddNote = () => {
+    if (newNote.title.trim() && newNote.content.trim()) {
+      const note = {
+        id: Date.now(),
+        ...newNote,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      setProfileData({
+        ...profileData,
+        privateNotes: [...profileData.privateNotes, note],
+      })
+
+      setNewNote({ title: "", content: "", category: "Generale" })
+      setShowNewNoteForm(false)
+
+      toast({
+        title: "Nota Aggiunta",
+        description: "La tua nota privata è stata salvata.",
+      })
+    }
+  }
+
+  const handleDeleteNote = (noteId: number) => {
+    setProfileData({
+      ...profileData,
+      privateNotes: profileData.privateNotes.filter((note) => note.id !== noteId),
+    })
+
+    toast({
+      title: "Nota Eliminata",
+      description: "La nota è stata rimossa.",
+    })
+  }
+
   const handlePreviewProfile = () => {
     window.open(`/operator/${1}`, "_blank")
   }
 
   return (
-    <div className="space-y-6 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 min-h-screen">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 min-h-screen p-4 md:p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
             Il Mio Profilo
           </h2>
           <p className="text-muted-foreground">Gestisci il tuo profilo pubblico e le impostazioni</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handlePreviewProfile}>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center space-y-2 md:space-y-0 md:space-x-2 w-full md:w-auto">
+          <Button variant="outline" onClick={handlePreviewProfile} className="w-full md:w-auto">
             <Eye className="mr-2 h-4 w-4" />
             Anteprima Profilo
           </Button>
-          <Button onClick={handleSaveProfile} className="bg-gradient-to-r from-pink-500 to-blue-500">
+          <Button onClick={handleSaveProfile} className="bg-gradient-to-r from-pink-500 to-blue-500 w-full md:w-auto">
             <Save className="mr-2 h-4 w-4" />
             Salva Modifiche
           </Button>
@@ -157,10 +312,11 @@ export default function ProfilePage() {
       </div>
 
       <Tabs defaultValue="basic" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="basic">Informazioni Base</TabsTrigger>
-          <TabsTrigger value="services">Servizi & Tariffe</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
+          <TabsTrigger value="basic">Info Base</TabsTrigger>
+          <TabsTrigger value="services">Servizi</TabsTrigger>
           <TabsTrigger value="settings">Impostazioni</TabsTrigger>
+          <TabsTrigger value="notes">Note Private</TabsTrigger>
           <TabsTrigger value="preview">Anteprima</TabsTrigger>
         </TabsList>
 
@@ -176,14 +332,45 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-col items-center space-y-4">
-                  <Avatar className="w-32 h-32 ring-4 ring-pink-200">
-                    <AvatarImage src={profileData.profileImage || "/placeholder.svg"} alt="Foto Profilo" />
-                    <AvatarFallback className="bg-gradient-to-r from-pink-200 to-blue-200 text-2xl">LS</AvatarFallback>
+                  <Avatar className="w-24 h-24 md:w-32 md:h-32 ring-4 ring-pink-200">
+                    <AvatarImage
+                      src={imagePreview || profileData.profileImage || "/placeholder.svg"}
+                      alt="Foto Profilo"
+                    />
+                    <AvatarFallback className="bg-gradient-to-r from-pink-200 to-blue-200 text-xl md:text-2xl">
+                      LS
+                    </AvatarFallback>
                   </Avatar>
-                  <Button onClick={handleImageUpload} className="bg-gradient-to-r from-pink-500 to-blue-500">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Carica Nuova Foto
-                  </Button>
+
+                  <div className="w-full">
+                    <input
+                      type="file"
+                      id="profile-image"
+                      accept="image/jpeg,image/png,image/svg+xml"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <label htmlFor="profile-image">
+                      <Button
+                        type="button"
+                        className="bg-gradient-to-r from-pink-500 to-blue-500 w-full cursor-pointer"
+                        onClick={() => document.getElementById("profile-image")?.click()}
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        {selectedImage ? "Cambia Foto" : "Carica Nuova Foto"}
+                      </Button>
+                    </label>
+                  </div>
+
+                  {selectedImage && (
+                    <div className="w-full p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 font-medium">
+                        ✓ Nuova immagine selezionata: {selectedImage.name}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">Clicca "Salva Modifiche" per confermare</p>
+                    </div>
+                  )}
+
                   <p className="text-xs text-muted-foreground text-center">
                     Formati supportati: JPG, PNG, SVG
                     <br />
@@ -246,6 +433,7 @@ export default function ProfilePage() {
                   onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                   rows={6}
                   placeholder="Racconta ai clienti chi sei, la tua esperienza e come puoi aiutarli..."
+                  className="resize-none"
                 />
                 <p className="text-xs text-muted-foreground">{profileData.bio.length}/1000 caratteri</p>
               </div>
@@ -272,14 +460,15 @@ export default function ProfilePage() {
                   </Badge>
                 ))}
               </div>
-              <div className="flex space-x-2">
+              <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                 <Input
                   value={newSpecialty}
                   onChange={(e) => setNewSpecialty(e.target.value)}
                   placeholder="Aggiungi specializzazione..."
                   onKeyPress={(e) => e.key === "Enter" && handleAddSpecialty()}
+                  className="flex-1"
                 />
-                <Button onClick={handleAddSpecialty} variant="outline">
+                <Button onClick={handleAddSpecialty} variant="outline" className="w-full md:w-auto">
                   Aggiungi
                 </Button>
               </div>
@@ -294,7 +483,7 @@ export default function ProfilePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {profileData.languages.map((language, index) => (
                   <div
                     key={index}
@@ -385,9 +574,9 @@ export default function ProfilePage() {
             <CardContent className="space-y-6">
               <div className="grid gap-6">
                 {profileData.services?.chat && (
-                  <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <div className="p-4 md:p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                     <div className="flex items-center space-x-3 mb-4">
-                      <MessageSquare className="h-8 w-8 text-green-600" />
+                      <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
                       <div>
                         <h3 className="font-semibold text-green-800">Chat</h3>
                         <p className="text-sm text-green-600">Messaggi di testo</p>
@@ -409,9 +598,9 @@ export default function ProfilePage() {
                 )}
 
                 {profileData.services?.call && (
-                  <div className="p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                  <div className="p-4 md:p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
                     <div className="flex items-center space-x-3 mb-4">
-                      <Phone className="h-8 w-8 text-blue-600" />
+                      <Phone className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
                       <div>
                         <h3 className="font-semibold text-blue-800">Chiamata</h3>
                         <p className="text-sm text-blue-600">Chiamata vocale</p>
@@ -433,9 +622,9 @@ export default function ProfilePage() {
                 )}
 
                 {profileData.services?.email && (
-                  <div className="p-6 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
+                  <div className="p-4 md:p-6 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
                     <div className="flex items-center space-x-3 mb-4">
-                      <Mail className="h-8 w-8 text-purple-600" />
+                      <Mail className="h-6 w-6 md:h-8 md:w-8 text-purple-600" />
                       <div>
                         <h3 className="font-semibold text-purple-800">Email</h3>
                         <p className="text-sm text-purple-600">Consulenza via email</p>
@@ -458,7 +647,7 @@ export default function ProfilePage() {
                 )}
 
                 {!profileData.services?.chat && !profileData.services?.call && !profileData.services?.email && (
-                  <div className="text-center p-8 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200">
+                  <div className="text-center p-6 md:p-8 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200">
                     <h3 className="font-semibold text-orange-800 mb-2">Nessun Servizio Selezionato</h3>
                     <p className="text-sm text-orange-700">Seleziona almeno un servizio per configurare le tariffe.</p>
                   </div>
@@ -522,6 +711,129 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="notes" className="space-y-4">
+          <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
+                <div className="flex items-center">
+                  <FileText className="mr-2 h-5 w-5 text-purple-500" />
+                  Note Private
+                </div>
+                <Button
+                  onClick={() => setShowNewNoteForm(true)}
+                  size="sm"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Nuova Nota
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Le tue note private sono visibili solo a te e non appaiono nel profilo pubblico.
+              </p>
+
+              {/* Form per nuova nota */}
+              {showNewNoteForm && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-purple-800">Nuova Nota</h4>
+                    <Button variant="ghost" size="sm" onClick={() => setShowNewNoteForm(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="noteTitle">Titolo</Label>
+                      <Input
+                        id="noteTitle"
+                        value={newNote.title}
+                        onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                        placeholder="Titolo della nota..."
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="noteCategory">Categoria</Label>
+                      <Input
+                        id="noteCategory"
+                        value={newNote.category}
+                        onChange={(e) => setNewNote({ ...newNote, category: e.target.value })}
+                        placeholder="Categoria..."
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="noteContent">Contenuto</Label>
+                      <Textarea
+                        id="noteContent"
+                        value={newNote.content}
+                        onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                        placeholder="Scrivi qui la tua nota..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <Button onClick={handleAddNote} size="sm">
+                        Salva Nota
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setShowNewNoteForm(false)}>
+                        Annulla
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Lista note esistenti */}
+              <div className="space-y-3">
+                {profileData.privateNotes.map((note) => (
+                  <div key={note.id} className="p-4 bg-white border rounded-lg shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-gray-800">{note.title}</h4>
+                        <div className="flex items-center space-x-2 text-xs text-gray-500">
+                          <Badge variant="outline" className="text-xs">
+                            {note.category}
+                          </Badge>
+                          <span>•</span>
+                          <span>Creata: {note.createdAt.toLocaleDateString()}</span>
+                          {note.updatedAt > note.createdAt && (
+                            <>
+                              <span>•</span>
+                              <span>Modificata: {note.updatedAt.toLocaleDateString()}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{note.content}</p>
+                  </div>
+                ))}
+
+                {profileData.privateNotes.length === 0 && (
+                  <div className="text-center p-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nessuna nota privata ancora creata.</p>
+                    <p className="text-sm">Clicca "Nuova Nota" per iniziare.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="preview" className="space-y-4">
           <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
             <CardHeader>
@@ -530,18 +842,18 @@ export default function ProfilePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="p-6 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 rounded-lg text-white">
-                <div className="flex items-center space-x-6 mb-6">
-                  <Avatar className="w-24 h-24 ring-4 ring-white/30">
-                    <AvatarImage src={profileData.profileImage || "/placeholder.svg"} />
-                    <AvatarFallback className="bg-gradient-to-r from-pink-200 to-blue-200 text-2xl text-gray-800">
+              <div className="p-4 md:p-6 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 rounded-lg text-white">
+                <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-6 mb-6">
+                  <Avatar className="w-20 h-20 md:w-24 md:h-24 ring-4 ring-white/30">
+                    <AvatarImage src={imagePreview || profileData.profileImage || "/placeholder.svg"} />
+                    <AvatarFallback className="bg-gradient-to-r from-pink-200 to-blue-200 text-xl md:text-2xl text-gray-800">
                       LS
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold">{profileData.displayName}</h2>
+                  <div className="flex-1 text-center md:text-left">
+                    <h2 className="text-xl md:text-2xl font-bold">{profileData.displayName}</h2>
                     <p className="text-pink-300 font-medium">{profileData.artisticName}</p>
-                    <div className="flex items-center space-x-4 mt-2">
+                    <div className="flex flex-col md:flex-row items-center md:space-x-4 mt-2 space-y-2 md:space-y-0">
                       <div className="flex items-center">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
                         <span>4.9 (256 recensioni)</span>
@@ -549,8 +861,8 @@ export default function ProfilePage() {
                       <span>{profileData.experience} di esperienza</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-400">
+                  <div className="text-center">
+                    <div className="text-xl md:text-2xl font-bold text-green-400">
                       €{Math.min(profileData.chatRate || 999, profileData.callRate || 999)}/min
                     </div>
                     <Badge className={`mt-2 ${profileData.isOnline ? "bg-green-500" : "bg-gray-500"}`}>

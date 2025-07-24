@@ -1,7 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { DollarSign, Users, Activity, CreditCard } from "lucide-react"
+import { Overview } from "@/components/overview"
+import { RecentConsultations } from "@/components/recent-consultations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,94 +14,93 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import {
-  Users,
-  CreditCard,
-  Star,
-  SnowflakeIcon as Crystal,
-  Sparkles,
-  Settings,
-  Percent,
-  UserCheck,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  Edit,
-} from "lucide-react"
+import { Star, Settings, Percent, Edit, Trash2, CheckCircle, XCircle } from "lucide-react"
 
-export default function AdminDashboard() {
+export default async function AdminDashboardPage() {
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  // Fetch platform-wide stats
+  const { count: userCount } = await supabase.from("profiles").select("*", { count: "exact" }).eq("role", "user")
+  const { count: operatorCount } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact" })
+    .eq("role", "operator")
+  const { data: totalRevenue } = await supabase.rpc("get_total_revenue") // Assuming an RPC function
+  const { count: activeConsultations } = await supabase
+    .from("consultations")
+    .select("*", { count: "exact" })
+    .in("status", ["active", "scheduled"])
+
   const [operatorCommission, setOperatorCommission] = useState(70)
   const [platformCommission, setPlatformCommission] = useState(30)
 
   return (
-    <div className="space-y-6 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 min-h-screen p-6">
-      <div className="flex items-center justify-between space-y-2">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
-            Dashboard Amministratore Esoterico
-          </h2>
-          <p className="text-muted-foreground">Gestisci la piattaforma di consulenze esoteriche</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-muted-foreground">
-            Ultimo aggiornamento: {new Date().toLocaleTimeString("it-IT")}
-          </span>
-        </div>
-      </div>
-
-      {/* Main Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-0 bg-gradient-to-r from-pink-500 to-pink-600 text-white">
+    <div className="space-y-4">
+      <h1 className="text-3xl font-bold">Dashboard Amministratore</h1>
+      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Utenti Totali</CardTitle>
-            <Users className="h-4 w-4" />
+            <CardTitle className="text-sm font-medium">Entrate Totali</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12,847</div>
-            <p className="text-xs text-pink-100">
-              <span className="text-pink-200">+12.5%</span> dal mese scorso
-            </p>
+            <div className="text-2xl font-bold">€{totalRevenue || "0.00"}</div>
+            <p className="text-xs text-muted-foreground">+20.1% dal mese scorso</p>
           </CardContent>
         </Card>
-
-        <Card className="border-0 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Utenti Attivi</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+{userCount || 0}</div>
+            <p className="text-xs text-muted-foreground">+180.1% dal mese scorso</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Consulenti</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+{operatorCount || 0}</div>
+            <p className="text-xs text-muted-foreground">+19% dal mese scorso</p>
+          </CardContent>
+        </Card>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Consulenze Attive</CardTitle>
-            <Sparkles className="h-4 w-4" />
+            <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">89</div>
-            <p className="text-xs text-blue-100">
-              <span className="text-blue-200">23 tarocchi</span> • <span className="text-blue-200">34 astrologia</span>{" "}
-              • <span className="text-blue-200">32 cartomanzia</span>
-            </p>
+            <div className="text-2xl font-bold">+{activeConsultations || 0}</div>
+            <p className="text-xs text-muted-foreground">+201 dall'ultima ora</p>
           </CardContent>
         </Card>
-
-        <Card className="border-0 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ricavi Mensili</CardTitle>
-            <CreditCard className="h-4 w-4" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Panoramica</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">€145,231</div>
-            <p className="text-xs text-purple-100">
-              <span className="text-purple-200">+18.2%</span> dal mese scorso
-            </p>
+          <CardContent className="pl-2">
+            <Overview />
           </CardContent>
         </Card>
-
-        <Card className="border-0 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Consulenti Online</CardTitle>
-            <Crystal className="h-4 w-4" />
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Consulenze Recenti</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">234</div>
-            <p className="text-xs text-indigo-100">
-              <span className="text-indigo-200">189 disponibili</span> •{" "}
-              <span className="text-indigo-200">45 occupati</span>
-            </p>
+            <RecentConsultations consultations={[]} />
           </CardContent>
         </Card>
       </div>
@@ -251,7 +255,7 @@ export default function AdminDashboard() {
                       <Button size="sm" variant="outline">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600">
+                      <Button size="sm" variant="outline" className="text-red-600 bg-transparent">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -266,7 +270,7 @@ export default function AdminDashboard() {
           <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center bg-gradient-to-r from-pink-600 to-blue-600 bg-clip-text text-transparent">
-                <UserCheck className="mr-2 h-5 w-5 text-blue-500" />
+                <Users className="mr-2 h-5 w-5 text-blue-500" />
                 Gestione Consulenti
               </CardTitle>
             </CardHeader>

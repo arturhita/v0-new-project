@@ -8,14 +8,19 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SnowflakeIcon as Crystal, Eye, EyeOff, Mail, Lock, User } from "lucide-react"
+import { SnowflakeIcon as Crystal, Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("login")
   const router = useRouter()
+  const supabase = createClient()
 
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -27,72 +32,76 @@ export default function LoginPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    userType: "user",
+    userType: "user" as "user" | "operator",
   })
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!loginForm.email || !loginForm.password) {
-      alert("Inserisci email e password!")
-      return
-    }
-
     setIsLoading(true)
+    setError(null)
 
-    // Simulazione login con controllo tipo utente
-    setTimeout(() => {
-      setIsLoading(false)
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginForm.email,
+      password: loginForm.password,
+    })
 
-      // Logica di reindirizzamento basata sull'email
-      if (loginForm.email.includes("admin")) {
-        window.location.href = "/dashboard/admin"
-      } else if (
-        loginForm.email.includes("operator") ||
-        loginForm.email.includes("consulente") ||
-        loginForm.email.includes("cartomante")
-      ) {
-        window.location.href = "/dashboard/operator"
-      } else {
-        window.location.href = "/dashboard/user"
-      }
-    }, 1500)
+    setIsLoading(false)
+
+    if (error) {
+      setError(error.message)
+    } else {
+      router.push("/dashboard")
+      router.refresh() // Assicura che il layout server venga ricaricato
+    }
   }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!registerForm.name || !registerForm.email || !registerForm.password) {
-      alert("Compila tutti i campi obbligatori!")
-      return
-    }
+    setError(null)
+    setSuccessMessage(null)
 
     if (registerForm.password !== registerForm.confirmPassword) {
-      alert("Le password non coincidono!")
+      setError("Le password non coincidono!")
       return
     }
-
     if (registerForm.password.length < 6) {
-      alert("La password deve essere di almeno 6 caratteri!")
+      setError("La password deve essere di almeno 6 caratteri!")
       return
     }
 
     setIsLoading(true)
 
-    // Simulazione registrazione
-    setTimeout(() => {
-      setIsLoading(false)
-      if (registerForm.userType === "operator") {
-        window.location.href = "/dashboard/operator"
-      } else {
-        window.location.href = "/dashboard/user"
-      }
-    }, 1500)
+    const { error } = await supabase.auth.signUp({
+      email: registerForm.email,
+      password: registerForm.password,
+      options: {
+        data: {
+          full_name: registerForm.name,
+          role: registerForm.userType,
+        },
+      },
+    })
+
+    setIsLoading(false)
+
+    if (error) {
+      setError(error.message)
+    } else {
+      setSuccessMessage("Registrazione avvenuta con successo! Controlla la tua email per confermare il tuo account.")
+      // Svuota il form e passa alla tab di login
+      setRegisterForm({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        userType: "user",
+      })
+      setActiveTab("login")
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-50 to-blue-100 flex items-center justify-center p-4">
-      {/* Background Pattern */}
       <div
         className="absolute inset-0 opacity-30"
         style={{
@@ -102,7 +111,6 @@ export default function LoginPage() {
       ></div>
 
       <div className="w-full max-w-md relative">
-        {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center space-x-2 mb-6">
             <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-blue-500 rounded-xl flex items-center justify-center">
@@ -121,7 +129,7 @@ export default function LoginPage() {
             <div className="w-full h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 rounded-full"></div>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger
                   value="login"
@@ -136,6 +144,13 @@ export default function LoginPage() {
                   Registrati
                 </TabsTrigger>
               </TabsList>
+
+              {error && <div className="mb-4 text-center text-sm text-red-600 bg-red-100 p-2 rounded-md">{error}</div>}
+              {successMessage && (
+                <div className="mb-4 text-center text-sm text-green-700 bg-green-100 p-2 rounded-md">
+                  {successMessage}
+                </div>
+              )}
 
               <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
@@ -190,21 +205,13 @@ export default function LoginPage() {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600 shadow-lg shadow-pink-500/25"
+                    className="w-full bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600 shadow-lg shadow-pink-500/25 flex items-center justify-center"
                     disabled={isLoading}
                   >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isLoading ? "Accesso in corso..." : "Accedi"}
                   </Button>
                 </form>
-
-                <div className="text-center text-sm text-gray-600">
-                  <p>Account demo:</p>
-                  <p className="text-xs mt-1">
-                    <strong>Cliente:</strong> cliente@demo.com | <strong>Cartomante:</strong> cartomante@demo.com |{" "}
-                    <strong>Admin:</strong> admin@demo.com
-                  </p>
-                  <p className="text-xs">Password: demo123</p>
-                </div>
               </TabsContent>
 
               <TabsContent value="register" className="space-y-4">
@@ -310,13 +317,14 @@ export default function LoginPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 text-sm">
+                  <div className="flex items-start space-x-2 text-sm">
                     <input
+                      id="terms"
                       type="checkbox"
-                      className="rounded border-pink-300 text-pink-600 focus:ring-pink-500"
+                      className="rounded border-pink-300 text-pink-600 focus:ring-pink-500 mt-1"
                       required
                     />
-                    <span className="text-gray-600">
+                    <label htmlFor="terms" className="text-gray-600">
                       Accetto i{" "}
                       <Link href="/terms" className="text-pink-600 hover:text-pink-700">
                         Termini di Servizio
@@ -325,14 +333,15 @@ export default function LoginPage() {
                       <Link href="/privacy" className="text-pink-600 hover:text-pink-700">
                         Privacy Policy
                       </Link>
-                    </span>
+                    </label>
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600 shadow-lg shadow-pink-500/25"
+                    className="w-full bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600 shadow-lg shadow-pink-500/25 flex items-center justify-center"
                     disabled={isLoading}
                   >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isLoading ? "Registrazione in corso..." : "Crea Account"}
                   </Button>
                 </form>
