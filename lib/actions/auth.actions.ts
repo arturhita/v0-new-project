@@ -29,7 +29,7 @@ export async function login(prevState: any, formData: FormData) {
   const validatedFields = LoginSchema.safeParse(Object.fromEntries(formData.entries()))
 
   if (!validatedFields.success) {
-    return { error: "Dati inseriti non validi." }
+    return { error: "Dati inseriti non validi. Controlla i campi e riprova." }
   }
 
   const { email, password } = validatedFields.data
@@ -59,6 +59,9 @@ export async function register(prevState: any, formData: FormData) {
   const { email, password, fullName } = validatedFields.data
   const supabase = createClient()
 
+  // Recupera l'URL di base dalle variabili d'ambiente
+  const redirectTo = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`
+
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -66,7 +69,7 @@ export async function register(prevState: any, formData: FormData) {
       data: {
         full_name: fullName,
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      emailRedirectTo: redirectTo,
     },
   })
 
@@ -74,8 +77,9 @@ export async function register(prevState: any, formData: FormData) {
     if (error.message.includes("User already registered")) {
       return { error: "Un utente con questa email è già registrato." }
     }
-    return { error: `Si è verificato un errore: ${error.message}` }
+    console.error("Errore di registrazione Supabase:", error.message)
+    return { error: "Si è verificato un errore durante la registrazione. Riprova più tardi." }
   }
 
-  return { success: "Registrazione avvenuta con successo! Controlla la tua email per confermare l'account." }
+  return { success: "Registrazione quasi completata! Controlla la tua email per confermare l'account e poter accedere." }
 }

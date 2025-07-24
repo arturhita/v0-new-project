@@ -12,6 +12,7 @@ export default async function LoginPage() {
   } = await supabase.auth.getUser()
 
   if (user) {
+    // Se l'utente è già loggato, lo reindirizziamo alla sua dashboard
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
     if (profile?.role === "admin") {
       redirect("/admin")
@@ -23,7 +24,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-900">
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-900 p-4">
       <ConstellationBackground goldVisible={true} />
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-yellow-500/20 bg-gray-950/50 p-8 shadow-2xl shadow-yellow-500/10 backdrop-blur-sm">
         <div className="flex flex-col items-center text-center">

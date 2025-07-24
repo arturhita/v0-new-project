@@ -1,30 +1,50 @@
 "use server"
 
-import { supabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { unstable_noStore as noStore } from "next/cache"
 
-export async function getOperatorDashboardData() {
+export async function getOperatorDashboardData(operatorId: string) {
+  noStore()
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
-  if (!user) {
-    throw new Error("User not authenticated.")
+  const profilePromise = supabase
+    .from("profiles")
+    .select(
+      "stage_name, avatar_url, is_online, availability, services, average_rating, reviews_count, total_earnings, monthly_earnings",
+    )
+    .eq("id", operatorId)
+    .single()
+
+  // Esegui altre chiamate in parallelo se necessario
+  const [
+    { data: profile, error: profileError },
+    // altre promise qui...
+  ] = await Promise.all([
+    profilePromise,
+    // ...
+  ])
+
+  if (profileError) {
+    console.error("Errore nel caricamento dati dashboard operatore:", profileError)
+    return null
   }
 
-  const { data, error } = await supabaseAdmin.rpc("get_operator_dashboard_data", {
-    operator_id_param: user.id,
-  })
+  // **LA CORREZIONE**: Sanifichiamo l'oggetto `profile` non appena viene letto dal DB.
+  // Questo garantisce che qualsiasi componente client riceva un oggetto pulito e modificabile.
+  const sanitizedProfile = JSON.parse(JSON.stringify(profile))
 
-  if (error) {
-    console.error("Error fetching operator dashboard data:", error)
-    throw new Error("Could not fetch dashboard data.")
+  // Simula il recupero di altri dati
+  const recentActivity = [
+    { id: 1, description: "Nuova recensione da Mario Rossi", time: "2 ore fa" },
+    { id: 2, description: "Consulenza completata con Laura Bianchi", time: "5 ore fa" },
+  ]
+  const upcomingConsultations = [
+    { id: 1, clientName: "Paolo Verdi", time: "Domani alle 10:00", type: "Video" },
+  ]
+
+  return {
+    profile: sanitizedProfile,
+    recentActivity,
+    upcomingConsultations,
   }
-
-  // AGGRESSIVE SANITIZATION: This is the most likely place for the error to originate
-  // after login, as this data is fetched immediately for the dashboard.
-  const cleanData = JSON.parse(JSON.stringify(data || {}))
-
-  return cleanData
 }

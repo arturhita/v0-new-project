@@ -2,75 +2,33 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
-import { mapProfileToOperator } from "./data.actions"
-import { getCurrentPromotionPrice } from "./promotions.actions"
-import { revalidatePath } from "next/cache"
 
-export async function getClientDashboardStats(clientId: string) {
+export async function getClientDashboardData(clientId: string) {
   noStore()
   const supabase = createClient()
 
-  const { data, error } = await supabase.rpc("get_client_dashboard_stats", {
-    p_client_id: clientId,
-  })
+  const profilePromise = supabase.from("profiles").select("full_name, avatar_url, wallet_balance").eq("id", clientId).single()
+  const consultationsPromise = supabase.from("consultations").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(5)
+  const favoritesPromise = supabase.from("favorites").select("operator_id, profiles(stage_name, avatar_url, is_online)").eq("client_id", clientId)
 
-  if (error) {
-    console.error("Error fetching client dashboard stats:", error)
-    return {
-      recentConsultationsCount: 0,
-      unreadMessagesCount: 0,
-      walletBalance: 0,
-    }
+  const [
+      { data: profile, error: profileError }, 
+      { data: recentConsultations, error: consultationsError },
+      { data: favoriteOperators, error: favoritesError }
+    ] = await Promise.all([profilePromise, consultationsPromise, favoritesPromise])
+
+
+  if (profileError || consultationsError || favoritesError) {
+    console.error("Errore caricamento dati dashboard cliente:", profileError || consultationsError || favoritesError)
+    return null
   }
 
-  const stats = data[0]
+  // **LA CORREZIONE**: Anche qui, sanifichiamo il profilo del cliente.
+  const sanitizedProfile = JSON.parse(JSON.stringify(profile))
 
   return {
-    recentConsultationsCount: stats.recent_consultations_count || 0,
-    unreadMessagesCount: stats.unread_messages_count || 0,
-    walletBalance: stats.wallet_balance || 0,
+    profile: sanitizedProfile,
+    recentConsultations: recentConsultations || [],
+    favoriteOperators: favoriteOperators || [],
   }
-}
-
-export async function getFavoriteExperts(clientId: string) {
-  noStore()
-  const supabase = createClient()
-  const promotionPrice = await getCurrentPromotionPrice()
-
-  const { data, error } = await supabase.rpc("get_favorite_operators", {
-    p_client_id: clientId,
-  })
-
-  if (error) {
-    console.error("Error fetching favorite experts:", error)
-    return []
-  }
-
-  return (data || []).map((profile) => mapProfileToOperator(profile, promotionPrice))
-}
-
-export async function toggleFavoriteOperator(clientId: string, operatorId: string, isFavorite: boolean) {
-  const supabase = createClient()
-
-  if (isFavorite) {
-    const { error } = await supabase
-      .from("favorite_operators")
-      .delete()
-      .match({ client_id: clientId, operator_id: operatorId })
-
-    if (error) {
-      console.error("Error removing favorite:", error)
-      return { success: false, error: error.message }
-    }
-  } else {
-    const { error } = await supabase.from("favorite_operators").insert({ client_id: clientId, operator_id: operatorId })
-
-    if (error) {
-      console.error("Error adding favorite:", error)
-      return { success: false, error: error.message }
-    }
-  }
-
-  revalidatePath("/dashboard/client")
-  return { success: true }
 }
