@@ -1,3 +1,6 @@
+-- Prima elimina la funzione esistente, se presente, per consentire la modifica del nome del parametro.
+DROP FUNCTION IF EXISTS public.get_operator_services(uuid);
+
 -- Funzione per ottenere i servizi di un operatore come oggetto JSONB pulito.
 -- Fornisce un valore di default se i servizi non sono mai stati impostati.
 CREATE OR REPLACE FUNCTION get_operator_services(p_profile_id uuid)
