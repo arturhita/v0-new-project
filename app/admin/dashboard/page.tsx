@@ -13,7 +13,7 @@ export default async function AdminDashboardPage() {
     return new Intl.NumberFormat("it-IT", {
       style: "currency",
       currency: "EUR",
-    }).format(amount)
+    }).format(amount || 0)
   }
 
   return (
