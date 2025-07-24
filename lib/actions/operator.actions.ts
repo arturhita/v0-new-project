@@ -357,7 +357,7 @@ export async function updateOperatorServices(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient()
 
-  // Applica la clonazione profonda come misura di sicurezza
+  // ✅ FONDAMENTALE: Clona i dati ricevuti dal client prima di qualsiasi operazione.
   const services = sanitizeData(rawServices)
 
   const validatedServices = servicesSchema.safeParse(services)
