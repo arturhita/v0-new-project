@@ -361,15 +361,14 @@ export async function updateOperatorServices(
     return { success: false, error: "Dati dei servizi non validi." }
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user || user.id !== profileId) {
     return { success: false, error: "Non autorizzato." }
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ services: validatedServices.data })
-    .eq("id", profileId)
+  const { error } = await supabase.from("profiles").update({ services: validatedServices.data }).eq("id", profileId)
 
   if (error) {
     console.error("Errore durante l'aggiornamento dei servizi:", error)

@@ -18,24 +18,26 @@ type ServiceState = {
 }
 
 export default function OperatorServicesPage() {
-  const { profile, isLoading: isAuthLoading, refreshProfile } = useAuth()
+  const { profile, loading: isAuthLoading, refreshProfile } = useAuth()
   const { toast } = useToast()
 
-  // Stato locale per gestire le modifiche del form.
   const [services, setServices] = useState<ServiceState | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    // Inizializza lo stato locale quando il profilo (già sanificato) viene caricato dal contesto.
     if (profile?.services) {
-      setServices(profile.services)
+      // PUNTO CHIAVE: Inizializziamo lo stato locale con una copia profonda e sicura
+      // dei servizi, anche se il profilo dal contesto è già sanificato.
+      // Questa è una doppia sicurezza che elimina ogni dubbio.
+      setServices(JSON.parse(JSON.stringify(profile.services)))
     }
   }, [profile])
 
   const handleToggle = (service: keyof ServiceState) => {
     setServices((prev) => {
       if (!prev) return null
-      // Crea una copia dello stato precedente e aggiorna solo il campo necessario.
+      // Questo è il pattern di aggiornamento immutabile corretto.
+      // Crea una copia dell'oggetto precedente e aggiorna solo il necessario.
       return {
         ...prev,
         [service]: { ...prev[service], enabled: !prev[service].enabled },
@@ -44,9 +46,10 @@ export default function OperatorServicesPage() {
   }
 
   const handlePriceChange = (service: keyof ServiceState, value: string) => {
-    const price = parseFloat(value) || 0
+    const price = Number.parseFloat(value) || 0
     setServices((prev) => {
       if (!prev) return null
+      // Anche questo è un aggiornamento immutabile corretto.
       return {
         ...prev,
         [service]: { ...prev[service], price_per_minute: price },
@@ -76,8 +79,13 @@ export default function OperatorServicesPage() {
     }
   }
 
+  // Il loading state previene il rendering con dati non pronti.
   if (isAuthLoading || !services) {
-    return <LoadingSpinner />
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   return (
@@ -96,11 +104,15 @@ export default function OperatorServicesPage() {
               <p className="text-sm text-muted-foreground">Offri consulenze tramite {serviceKey}.</p>
             </div>
             <div className="flex items-center gap-4">
+              <Label htmlFor={`${serviceKey}-price`} className="sr-only">
+                Prezzo per {serviceKey}
+              </Label>
               <Input
+                id={`${serviceKey}-price`}
                 type="number"
                 value={services[serviceKey].price_per_minute}
                 onChange={(e) => handlePriceChange(serviceKey, e.target.value)}
-                className="w-24"
+                className="w-28"
                 disabled={!services[serviceKey].enabled}
                 min="0"
                 step="0.10"
