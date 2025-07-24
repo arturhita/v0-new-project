@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-export const LoadingSpinner = ({ className }: { className?: string }) => {
+export default function LoadingSpinner({ className }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -18,5 +18,3 @@ export const LoadingSpinner = ({ className }: { className?: string }) => {
     </svg>
   )
 }
-
-export default LoadingSpinner

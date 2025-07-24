@@ -26,17 +26,16 @@ export default function OperatorServicesPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    // Inizializza lo stato locale quando il profilo viene caricato dal contesto.
-    // La clonazione qui è una doppia sicurezza, ma la vera soluzione è nel contesto.
+    // Inizializza lo stato locale quando il profilo (già sanificato) viene caricato dal contesto.
     if (profile?.services) {
-      setServices(JSON.parse(JSON.stringify(profile.services)))
+      setServices(profile.services)
     }
   }, [profile])
 
-  const handleToggle = (service: "chat" | "call" | "video") => {
-    if (!services) return
+  const handleToggle = (service: keyof ServiceState) => {
     setServices((prev) => {
       if (!prev) return null
+      // Crea una copia dello stato precedente e aggiorna solo il campo necessario.
       return {
         ...prev,
         [service]: { ...prev[service], enabled: !prev[service].enabled },
@@ -44,8 +43,7 @@ export default function OperatorServicesPage() {
     })
   }
 
-  const handlePriceChange = (service: "chat" | "call" | "video", value: string) => {
-    if (!services) return
+  const handlePriceChange = (service: keyof ServiceState, value: string) => {
     const price = parseFloat(value) || 0
     setServices((prev) => {
       if (!prev) return null
@@ -64,7 +62,7 @@ export default function OperatorServicesPage() {
 
     if (result.success) {
       toast({
-        title: "Successo",
+        title: "Successo!",
         description: "I tuoi servizi sono stati aggiornati.",
       })
       // Forza l'aggiornamento del profilo nel contesto per riflettere le modifiche
@@ -78,7 +76,6 @@ export default function OperatorServicesPage() {
     }
   }
 
-  // Mostra uno spinner se il contesto sta ancora caricando o lo stato locale non è pronto.
   if (isAuthLoading || !services) {
     return <LoadingSpinner />
   }
@@ -90,71 +87,32 @@ export default function OperatorServicesPage() {
         <CardDescription>Abilita o disabilita i servizi che offri e imposta le tue tariffe al minuto.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Servizio Chat */}
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="space-y-1">
-            <Label htmlFor="chat-switch" className="text-lg font-medium">
-              Consulenza via Chat
-            </Label>
-            <p className="text-sm text-muted-foreground">Offri consulenze testuali in tempo reale.</p>
+        {(Object.keys(services) as Array<keyof ServiceState>).map((serviceKey) => (
+          <div key={serviceKey} className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-1">
+              <Label htmlFor={`${serviceKey}-switch`} className="text-lg font-medium capitalize">
+                Consulenza {serviceKey}
+              </Label>
+              <p className="text-sm text-muted-foreground">Offri consulenze tramite {serviceKey}.</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Input
+                type="number"
+                value={services[serviceKey].price_per_minute}
+                onChange={(e) => handlePriceChange(serviceKey, e.target.value)}
+                className="w-24"
+                disabled={!services[serviceKey].enabled}
+                min="0"
+                step="0.10"
+              />
+              <Switch
+                id={`${serviceKey}-switch`}
+                checked={services[serviceKey].enabled}
+                onCheckedChange={() => handleToggle(serviceKey)}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Input
-              type="number"
-              value={services.chat.price_per_minute}
-              onChange={(e) => handlePriceChange("chat", e.target.value)}
-              className="w-24"
-              disabled={!services.chat.enabled}
-              min="0"
-              step="0.10"
-            />
-            <Switch id="chat-switch" checked={services.chat.enabled} onCheckedChange={() => handleToggle("chat")} />
-          </div>
-        </div>
-
-        {/* Servizio Chiamata Vocale */}
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="space-y-1">
-            <Label htmlFor="call-switch" className="text-lg font-medium">
-              Consulenza Vocale
-            </Label>
-            <p className="text-sm text-muted-foreground">Offri consulenze tramite chiamata vocale.</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Input
-              type="number"
-              value={services.call.price_per_minute}
-              onChange={(e) => handlePriceChange("call", e.target.value)}
-              className="w-24"
-              disabled={!services.call.enabled}
-              min="0"
-              step="0.10"
-            />
-            <Switch id="call-switch" checked={services.call.enabled} onCheckedChange={() => handleToggle("call")} />
-          </div>
-        </div>
-
-        {/* Servizio Videochiamata */}
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="space-y-1">
-            <Label htmlFor="video-switch" className="text-lg font-medium">
-              Consulenza Video
-            </Label>
-            <p className="text-sm text-muted-foreground">Offri consulenze faccia a faccia tramite video.</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Input
-              type="number"
-              value={services.video.price_per_minute}
-              onChange={(e) => handlePriceChange("video", e.target.value)}
-              className="w-24"
-              disabled={!services.video.enabled}
-              min="0"
-              step="0.10"
-            />
-            <Switch id="video-switch" checked={services.video.enabled} onCheckedChange={() => handleToggle("video")} />
-          </div>
-        </div>
+        ))}
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>

@@ -356,35 +356,26 @@ export async function updateOperatorServices(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient()
 
-  // 1. Validazione dei dati in ingresso
   const validatedServices = servicesSchema.safeParse(services)
   if (!validatedServices.success) {
-    console.error("Validation error:", validatedServices.error.flatten())
-    return { success: false, error: "Dati non validi." }
+    return { success: false, error: "Dati dei servizi non validi." }
   }
 
-  // 2. Verifica dell'autenticazione e autorizzazione
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.id !== profileId) {
     return { success: false, error: "Non autorizzato." }
   }
 
-  // 3. Aggiornamento del database
   const { error } = await supabase
     .from("profiles")
-    .update({ services: validatedServices.data, updated_at: new Date().toISOString() })
+    .update({ services: validatedServices.data })
     .eq("id", profileId)
 
   if (error) {
-    console.error("Error updating services:", error)
-    return { success: false, error: "Errore durante l'aggiornamento dei servizi nel database." }
+    console.error("Errore durante l'aggiornamento dei servizi:", error)
+    return { success: false, error: "Impossibile aggiornare i servizi nel database." }
   }
 
-  // 4. Revalida il path per aggiornare la cache del client
   revalidatePath("/(platform)/dashboard/operator/services")
-
   return { success: true }
 }
