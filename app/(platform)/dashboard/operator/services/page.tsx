@@ -25,10 +25,9 @@ export default function OperatorServicesPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
+    // Il profilo dal contesto è già sanificato, ma per una sicurezza assoluta,
+    // cloniamo di nuovo quando inizializziamo lo stato locale del componente.
     if (profile?.services) {
-      // PUNTO CHIAVE: Inizializziamo lo stato locale con una copia profonda e sicura
-      // dei servizi, anche se il profilo dal contesto è già sanificato.
-      // Questa è una doppia sicurezza che elimina ogni dubbio.
       setServices(JSON.parse(JSON.stringify(profile.services)))
     }
   }, [profile])
@@ -36,8 +35,7 @@ export default function OperatorServicesPage() {
   const handleToggle = (service: keyof ServiceState) => {
     setServices((prev) => {
       if (!prev) return null
-      // Questo è il pattern di aggiornamento immutabile corretto.
-      // Crea una copia dell'oggetto precedente e aggiorna solo il necessario.
+      // Pattern di aggiornamento immutabile corretto: crea un nuovo oggetto.
       return {
         ...prev,
         [service]: { ...prev[service], enabled: !prev[service].enabled },
@@ -49,7 +47,7 @@ export default function OperatorServicesPage() {
     const price = Number.parseFloat(value) || 0
     setServices((prev) => {
       if (!prev) return null
-      // Anche questo è un aggiornamento immutabile corretto.
+      // Pattern di aggiornamento immutabile corretto: crea un nuovo oggetto.
       return {
         ...prev,
         [service]: { ...prev[service], price_per_minute: price },
@@ -68,7 +66,6 @@ export default function OperatorServicesPage() {
         title: "Successo!",
         description: "I tuoi servizi sono stati aggiornati.",
       })
-      // Forza l'aggiornamento del profilo nel contesto per riflettere le modifiche
       await refreshProfile()
     } else {
       toast({
@@ -79,7 +76,6 @@ export default function OperatorServicesPage() {
     }
   }
 
-  // Il loading state previene il rendering con dati non pronti.
   if (isAuthLoading || !services) {
     return (
       <div className="flex h-full w-full items-center justify-center">

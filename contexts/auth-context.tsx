@@ -4,7 +4,6 @@ import { createContext, useContext, useState, useEffect, type ReactNode, useCall
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/profile.types"
-import { sanitizeData } from "@/lib/data.utils"
 import LoadingSpinner from "@/components/loading-spinner"
 
 type AuthContextType = {
@@ -16,6 +15,14 @@ type AuthContextType = {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+// Funzione di supporto per la clonazione profonda e sicura
+const sanitizeProfile = (profile: any): Profile | null => {
+  if (!profile) return null
+  // PUNTO CHIAVE: Crea una copia profonda dell'oggetto, rimuovendo qualsiasi getter o proxy.
+  // Questo è il modo più robusto per garantire che l'oggetto sia un semplice POJO (Plain Old JavaScript Object).
+  return JSON.parse(JSON.stringify(profile))
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
@@ -31,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Auth Context Error:", error.message)
         setProfile(null)
       } else {
-        // PUNTO CHIAVE: Sanificazione immediata dei dati ricevuti da Supabase.
-        setProfile(sanitizeData(rawProfile as Profile))
+        // Applica la sanificazione qui, prima di salvare nello stato.
+        setProfile(sanitizeProfile(rawProfile))
       }
     },
     [supabase],
@@ -44,8 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
-      // Sanifichiamo anche l'oggetto utente per coerenza.
-      setUser(sanitizeData(currentUser))
+      setUser(currentUser ? JSON.parse(JSON.stringify(currentUser)) : null)
 
       if (currentUser) {
         await fetchAndSetProfile(currentUser.id)
@@ -62,7 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // onAuthStateChange gestirà la pulizia dello stato.
   }, [supabase])
 
   const refreshProfile = useCallback(async () => {
