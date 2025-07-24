@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { getSanitizedProfile } from "@/lib/actions/user.actions"
+import { sanitizeData } from "@/lib/data.utils"
+import type { Profile } from "@/types/profile.types"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -19,8 +20,10 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  // Usa la nuova funzione sicura per ottenere il profilo
-  const profile = await getSanitizedProfile(user.id)
+  const { data: rawProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+  // Sanifica anche se usiamo solo il ruolo, per coerenza e sicurezza.
+  const profile = sanitizeData(rawProfile as Pick<Profile, "role"> | null)
 
   let destination = "/dashboard/client" // Default
   if (profile?.role === "admin") {

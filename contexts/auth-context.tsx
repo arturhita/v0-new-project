@@ -11,6 +11,7 @@ type AuthContextType = {
   user: User | null
   profile: Profile | null
   loading: boolean
+  logout: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
@@ -24,14 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setLoading(true)
-
-    // onAuthStateChange viene chiamato subito con la sessione corrente,
-    // gestendo sia il caricamento iniziale che le modifiche successive.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
-      // Sanifica l'oggetto utente e il profilo prima di impostare lo stato
       setUser(sanitizeData(currentUser))
 
       if (currentUser) {
@@ -58,6 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supabase])
 
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
+    // onAuthStateChange gestirà la pulizia dello stato.
+  }, [supabase])
+
   const refreshProfile = useCallback(async () => {
     if (user) {
       setLoading(true)
@@ -73,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, supabase])
 
-  const value = { user, profile, loading, refreshProfile }
+  const value = { user, profile, loading, logout, refreshProfile }
 
   if (loading) {
     return (

@@ -5,16 +5,24 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { BarChart, Users, MessageSquare, Star, TrendingUp, AlertCircle, CalendarCheck, SparklesIcon, Settings, DollarSign } from 'lucide-react'
+import {
+  BarChart,
+  Users,
+  MessageSquare,
+  Star,
+  TrendingUp,
+  AlertCircle,
+  CalendarCheck,
+  SparklesIcon,
+  Settings,
+  DollarSign,
+} from "lucide-react"
 import Link from "next/link"
-import GamificationWidget from "@/components/gamification-widget"
 import { getOperatorDashboardData } from "@/lib/actions/dashboard.actions"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import LoadingSpinner from "@/components/loading-spinner"
-import { Suspense } from "react"
-import OperatorDashboardClient from "./operator-dashboard-client"
-import { ConstellationBackground } from "@/components/constellation-background"
+import { sanitizeData } from "@/lib/data.utils"
+import type { Profile } from "@/types/profile.types"
 
 type OperatorStats = {
   totalEarningsMonth: number
@@ -87,28 +95,31 @@ const StatCard = ({
 )
 
 export default async function OperatorDashboardPage() {
-  // I dati vengono recuperati sul server. `getOperatorDashboardData`
-  // si occupa già di sanificarli.
-  const initialProfileData = await getOperatorDashboardData()
+  const supabase = createClient()
 
-  if (!initialProfileData) {
-    // Se non ci sono dati (es. errore o utente non operatore), reindirizza.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
     return redirect("/login")
   }
 
-  return (
-    <div className="relative min-h-screen bg-slate-900 text-white">
-      <ConstellationBackground />
-      <div className="relative z-10 p-4 sm:p-6 lg:p-8">
-        {/* Passiamo i dati già sanificati al componente client */}
-        <OperatorDashboardClient initialProfile={initialProfileData} />
-      </div>
-    </div>
-  )
+  const { data: rawProfile, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+  if (error || !rawProfile || rawProfile.role !== "operator") {
+    // Se non è un operatore, reindirizza alla dashboard del cliente
+    return redirect("/dashboard/client")
+  }
+
+  // **PUNTO CHIAVE**: Sanifichiamo il profilo PRIMA di passarlo come prop.
+  const profile = sanitizeData(rawProfile as Profile)
+
+  return <OperatorDashboardClient profile={profile} />
 }
 
-function OperatorDashboardClient({ initialProfile }: { initialProfile: OperatorStats }) {
-  const [stats, setStats] = useState<OperatorStats | null>(initialProfile)
+function OperatorDashboardClient({ profile }: { profile: OperatorStats }) {
+  const [stats, setStats] = useState<OperatorStats | null>(profile)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -257,9 +268,7 @@ function OperatorDashboardClient({ initialProfile }: { initialProfile: OperatorS
         </div>
 
         {/* Gamification Widget Placeholder */}
-        <div className="mt-6">
-          {/* Gamification Widget will be rendered here */}
-        </div>
+        <div className="mt-6">{/* Gamification Widget will be rendered here */}</div>
 
         <Card className="backdrop-blur-xl bg-gradient-to-r from-sky-500/20 via-teal-500/20 to-indigo-500/20 border border-white/20 shadow-2xl rounded-2xl">
           <CardHeader>
