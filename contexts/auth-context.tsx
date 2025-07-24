@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/profile.types"
-import { LoadingSpinner } from "@/components/loading-spinner" // Importazione nominata corretta
+import LoadingSpinner from "@/components/loading-spinner" // Importazione default corretta
 
 type AuthContextType = {
   user: User | null
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = { user, profile, loading, refreshProfile }
 
-  if (loading && !user) {
+  if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <LoadingSpinner />
