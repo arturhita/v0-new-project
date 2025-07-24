@@ -1,13 +1,10 @@
 import { LoginForm } from "@/components/login-form"
-import ConstellationBackground from "@/components/constellation-background"
 
+// Pagina di login semplificata, si integra nel layout principale
 export default function LoginPage() {
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-gray-950 overflow-hidden">
-      <ConstellationBackground />
-      <div className="z-10">
-        <LoginForm />
-      </div>
+    <div className="flex flex-grow items-center justify-center p-4">
+      <LoginForm />
     </div>
   )
 }

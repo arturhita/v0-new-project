@@ -2,9 +2,8 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -12,75 +11,76 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { LogOut, LayoutDashboard } from "lucide-react"
+import { useRouter } from "next/navigation"
+import LoadingSpinner from "./loading-spinner"
 
+// Ripristinata la versione originale della Navbar
 export default function SiteNavbar() {
-  const pathname = usePathname()
-  const { user, profile, logout } = useAuth()
+  const { profile, logout, isLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
 
-  const navLinks = [
-    { href: "/esperti/cartomanzia", label: "Esperti" },
-    { href: "/tarocchi-online", label: "Tarocchi Online" },
-    { href: "/oroscopo", label: "Oroscopo" },
-    { href: "/affinita-di-coppia", label: "Affinità di Coppia" },
-    { href: "/astromag", label: "Astromag" },
-    { href: "/diventa-esperto", label: "Lavora con noi" },
-  ]
+  const handleLogout = async () => {
+    await logout()
+    router.push("/") // Reindirizza alla home dopo il logout
+  }
 
-  const getDashboardUrl = () => {
+  const getDashboardLink = () => {
     if (!profile) return "/login"
     switch (profile.role) {
       case "admin":
         return "/admin"
       case "operator":
-        return "/operator/dashboard"
+        return "/dashboard/operator"
       case "client":
       default:
-        return "/client/dashboard"
+        return "/dashboard/client"
     }
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm">
-      <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center space-x-2">
-          <Image src="/images/moonthir-logo-white.png" alt="Moonthir Logo" width={120} height={40} />
+    <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/images/moonthir-logo.png"
+            alt="Moonthir Logo"
+            width={120}
+            height={30}
+            className="object-contain"
+          />
         </Link>
-        <div className="hidden lg:flex">
-          <NavigationMenu>
-            <NavigationMenuList>
-              {navLinks.map((link) => (
-                <NavigationMenuItem key={link.href}>
-                  <Link href={link.href} legacyBehavior passHref>
-                    <NavigationMenuLink
-                      className={navigationMenuTriggerStyle()}
-                      active={pathname.startsWith(link.href)}
-                    >
-                      {link.label}
-                    </NavigationMenuLink>
-                  </Link>
-                </NavigationMenuItem>
-              ))}
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
-        <div className="flex items-center space-x-2">
-          {user ? (
+        <NavigationMenu className="hidden md:flex">
+          <NavigationMenuList>
+            <NavigationMenuItem>
+              <Link href="/esperti/cartomanzia" legacyBehavior passHref>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>Esperti</NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <Link href="/astromag" legacyBehavior passHref>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>AstroMag</NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <Link href="/diventa-esperto" legacyBehavior passHref>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>Lavora con noi</NavigationMenuLink>
+              </Link>
+            </NavigationMenuItem>
+          </NavigationMenuList>
+        </NavigationMenu>
+        <div className="flex items-center gap-2">
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : isAuthenticated ? (
             <>
-              <Button variant="ghost" size="icon" asChild>
-                <Link href={getDashboardUrl()}>
-                  <LayoutDashboard className="h-5 w-5" />
-                  <span className="sr-only">Dashboard</span>
-                </Link>
+              <Button variant="ghost" onClick={() => router.push(getDashboardLink())}>
+                Dashboard
               </Button>
-              <Button variant="ghost" size="icon" onClick={logout}>
-                <LogOut className="h-5 w-5" />
-                <span className="sr-only">Logout</span>
-              </Button>
+              <Button onClick={handleLogout}>Logout</Button>
             </>
           ) : (
             <>
-              <Button variant="outline" asChild>
+              <Button variant="ghost" asChild>
                 <Link href="/login">Accedi</Link>
               </Button>
               <Button asChild>

@@ -9,91 +9,89 @@ import { ReviewCard } from "@/components/review-card"
 import type { Review } from "@/components/review-card"
 import { ArticleCard } from "@/components/article-card"
 import type { BlogArticle } from "@/lib/blog-data"
-// Corretto: Importazione di default senza parentesi graffe
-import ConstellationBackground from "@/components/constellation-background"
 
+// Rimosso ConstellationBackground da qui perché ora è nel layout
 interface HomepageClientProps {
   operators: Operator[]
   reviews: Review[]
   latestOperators: Operator[]
-  // Corretto: Il tipo di dato per gli articoli ora è BlogArticle per coerenza
   articles: BlogArticle[]
 }
 
 export default function HomepageClient({ operators, reviews, latestOperators, articles }: HomepageClientProps) {
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">
+    <div className="flex flex-col min-h-screen text-white overflow-x-hidden">
       <style jsx>{`
-      @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 
-      .font-playfair {
-        font-family: "Playfair Display", serif;
-      }
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(30px);
+        .font-playfair {
+          font-family: "Playfair Display", serif;
         }
-        to {
-          opacity: 1;
-          transform: translateY(0);
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-      }
-      @keyframes fadeInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-30px);
+        @keyframes fadeInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
-        to {
-          opacity: 1;
-          transform: translateX(0);
+        @keyframes fadeInRight {
+          from {
+            opacity: 0;
+            transform: translateX(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
-      }
-      @keyframes fadeInRight {
-        from {
-          opacity: 0;
-          transform: translateX(30px);
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
-        to {
-          opacity: 1;
-          transform: translateX(0);
+        @keyframes float {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
         }
-      }
-      @keyframes scaleIn {
-        from {
-          opacity: 0;
-          transform: scale(0.9);
+        .animate-fadeInUp {
+          animation: fadeInUp 1s ease-out forwards;
         }
-        to {
-          opacity: 1;
-          transform: scale(1);
+        .animate-fadeInLeft {
+          animation: fadeInLeft 0.8s ease-out forwards;
         }
-      }
-      @keyframes float {
-        0%,
-        100% {
-          transform: translateY(0px);
+        .animate-fadeInRight {
+          animation: fadeInRight 0.8s ease-out forwards;
         }
-        50% {
-          transform: translateY(-10px);
+        .animate-scaleIn {
+          animation: scaleIn 0.6s ease-out forwards;
         }
-      }
-      .animate-fadeInUp {
-        animation: fadeInUp 1s ease-out forwards;
-      }
-      .animate-fadeInLeft {
-        animation: fadeInLeft 0.8s ease-out forwards;
-      }
-      .animate-fadeInRight {
-        animation: fadeInRight 0.8s ease-out forwards;
-      }
-      .animate-scaleIn {
-        animation: scaleIn 0.6s ease-out forwards;
-      }
-      .animate-float {
-        animation: float 3s ease-in-out infinite;
-      }
-    `}</style>
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+      `}</style>
 
       <main className="flex-1">
         {/* Hero Section */}
@@ -122,8 +120,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Featured Operators Section */}
-        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950 overflow-hidden">
-          <ConstellationBackground />
+        <section className="py-16 md:py-24 relative bg-gradient-to-br from-blue-950/50 via-slate-900/50 to-blue-950/50 overflow-hidden">
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl font-bold md:text-4xl text-white">Esperti pronti ad illuminarti</h2>
@@ -149,7 +146,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
 
         {/* Latest Operators Section (Nuovi Talenti) */}
         {latestOperators && latestOperators.length > 0 && (
-          <section className="py-16 md:py-24 bg-slate-950">
+          <section className="py-16 md:py-24 bg-slate-950/80">
             <div className="container mx-auto px-4">
               <div className="text-center mb-12 md:mb-16">
                 <h2 className="text-3xl font-bold sm:text-4xl text-white">Ultimi Esperti Arrivati</h2>
@@ -182,8 +179,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Services Section */}
-        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-          <ConstellationBackground />
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900/50 via-blue-950/50 to-slate-900/50">
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl font-bold md:text-4xl text-white">Servizi Spirituali Disponibili</h2>
@@ -217,7 +213,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Reviews Section */}
-        <section className="py-16 md:py-24 bg-gradient-to-b from-slate-900 to-blue-950/30">
+        <section className="py-16 md:py-24 bg-gradient-to-b from-slate-900/50 to-blue-950/80">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -239,7 +235,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
 
         {/* AstroMag Section */}
         {articles && articles.length > 0 && (
-          <section className="py-16 bg-slate-900/50">
+          <section className="py-16 bg-slate-900/80">
             <div className="container mx-auto px-4">
               <h2 className="text-3xl font-bold text-center mb-10 text-amber-400">Dal Nostro AstroMag</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -263,8 +259,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         )}
 
         {/* Why Trust Us Section */}
-        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-          <ConstellationBackground />
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-900/50 via-blue-950/50 to-slate-900/50">
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center mb-16 md:mb-20">
               <h2 className="text-3xl font-bold md:text-4xl lg:text-5xl text-white mb-6">La Magia di Moonthir</h2>
@@ -337,8 +332,7 @@ export default function HomepageClient({ operators, reviews, latestOperators, ar
         </section>
 
         {/* Ready to Reveal Section */}
-        <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-          <ConstellationBackground />
+        <section className="py-20 md:py-32 relative overflow-hidden bg-gradient-to-br from-slate-900/50 via-blue-950/50 to-slate-900/50">
           <div className="container px-4 md:px-6 relative z-10">
             <div className="text-center max-w-3xl mx-auto">
               <div className="mb-8 animate-float">

@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from "react"
 
+// Corretto per usare position:fixed e z-index negativo per agire come sfondo
 const ConstellationBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -56,7 +57,6 @@ const ConstellationBackground = () => {
         if (star.x < 0 || star.x > width) star.vx *= -1
         if (star.y < 0 || star.y > height) star.vy *= -1
 
-        // Twinkling effect
         if (!star.dying) {
           star.alpha += 0.02 * (Math.random() - 0.5)
           if (star.alpha < 0.1) star.alpha = 0.1
@@ -64,7 +64,6 @@ const ConstellationBackground = () => {
         }
       })
 
-      // Draw lines between nearby stars
       ctx.strokeStyle = "rgba(255, 215, 0, 0.1)"
       ctx.lineWidth = 0.5
       for (let i = 0; i < numStars; i++) {
@@ -85,7 +84,7 @@ const ConstellationBackground = () => {
     draw()
   }, [])
 
-  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full -z-10" />
+  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full -z-10" />
 }
 
 export default ConstellationBackground
