@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { unstable_noStore as noStore } from "next/cache"
 import { z } from "zod"
 import type { OperatorProfile } from "@/types/database"
-import { deepCloneSafe } from "@/lib/data.utils"
+import { sanitizeData } from "@/lib/data.utils"
 
 // Funzione di supporto per convertire in modo sicuro le stringhe in numeri.
 const safeParseFloat = (value: any): number => {
@@ -358,7 +358,7 @@ export async function updateOperatorServices(
   const supabase = createClient()
 
   // Applica la clonazione profonda come misura di sicurezza
-  const services = deepCloneSafe(rawServices)
+  const services = sanitizeData(rawServices)
 
   const validatedServices = servicesSchema.safeParse(services)
   if (!validatedServices.success) {

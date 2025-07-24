@@ -5,7 +5,7 @@
  * @param obj L'oggetto da clonare.
  * @returns Un clone profondo e "pulito" dell'oggetto.
  */
-export const deepCloneSafe = (obj: any): any => {
+export const sanitizeData = (obj: any): any => {
   if (obj === null || obj === undefined) {
     return obj
   }
