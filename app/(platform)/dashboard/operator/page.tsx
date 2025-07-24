@@ -5,18 +5,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  BarChart,
-  Users,
-  MessageSquare,
-  Star,
-  TrendingUp,
-  AlertCircle,
-  CalendarCheck,
-  SparklesIcon,
-  Settings,
-  DollarSign,
-} from "lucide-react"
+import { BarChart, Users, MessageSquare, Star, TrendingUp, AlertCircle, CalendarCheck, SparklesIcon, Settings, DollarSign } from 'lucide-react'
 import Link from "next/link"
 import GamificationWidget from "@/components/gamification-widget"
 import { getOperatorDashboardData } from "@/lib/actions/dashboard.actions"
@@ -24,6 +13,8 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import LoadingSpinner from "@/components/loading-spinner"
 import { Suspense } from "react"
+import OperatorDashboardClient from "./operator-dashboard-client"
+import { ConstellationBackground } from "@/components/constellation-background"
 
 type OperatorStats = {
   totalEarningsMonth: number
@@ -96,40 +87,28 @@ const StatCard = ({
 )
 
 export default async function OperatorDashboardPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // I dati vengono recuperati sul server. `getOperatorDashboardData`
+  // si occupa già di sanificarli.
+  const initialProfileData = await getOperatorDashboardData()
 
-  if (!user) {
-    redirect("/login")
+  if (!initialProfileData) {
+    // Se non ci sono dati (es. errore o utente non operatore), reindirizza.
+    return redirect("/login")
   }
 
-  try {
-    const dashboardData = await getOperatorDashboardData()
-
-    // BELT AND SUSPENDERS: Sanitize both the user and dashboard data before passing to client.
-    // This ensures no frozen objects ever reach the client component.
-    const cleanUser = JSON.parse(JSON.stringify(user))
-    const cleanDashboardData = JSON.parse(JSON.stringify(dashboardData))
-
-    return (
-      <Suspense fallback={<LoadingSpinner fullScreen />}>
-        <OperatorDashboardClient user={cleanUser} initialDashboardData={cleanDashboardData} />
-      </Suspense>
-    )
-  } catch (error) {
-    console.error("Failed to load operator dashboard:", error)
-    return (
-      <div className="flex h-full w-full items-center justify-center text-red-500">
-        <p>Impossibile caricare i dati della dashboard.</p>
+  return (
+    <div className="relative min-h-screen bg-slate-900 text-white">
+      <ConstellationBackground />
+      <div className="relative z-10 p-4 sm:p-6 lg:p-8">
+        {/* Passiamo i dati già sanificati al componente client */}
+        <OperatorDashboardClient initialProfile={initialProfileData} />
       </div>
-    )
-  }
+    </div>
+  )
 }
 
-function OperatorDashboardClient({ user, initialDashboardData }: { user: any; initialDashboardData: OperatorStats }) {
-  const [stats, setStats] = useState<OperatorStats | null>(initialDashboardData)
+function OperatorDashboardClient({ initialProfile }: { initialProfile: OperatorStats }) {
+  const [stats, setStats] = useState<OperatorStats | null>(initialProfile)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -138,7 +117,7 @@ function OperatorDashboardClient({ user, initialDashboardData }: { user: any; in
       setLoading(true)
       setError(null)
       try {
-        const data = await getOperatorDashboardData(user.id)
+        const data = await getOperatorDashboardData()
         if (data) {
           setStats(data)
         } else {
@@ -152,7 +131,7 @@ function OperatorDashboardClient({ user, initialDashboardData }: { user: any; in
       }
     }
     fetchData()
-  }, [user])
+  }, [])
 
   if (loading) {
     // Mostra uno scheletro di caricamento più completo
@@ -207,7 +186,7 @@ function OperatorDashboardClient({ user, initialDashboardData }: { user: any; in
           <div className="text-center sm:text-left">
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <SparklesIcon className="w-8 h-8 mr-3 text-yellow-400" />
-              Benvenuto nel tuo Santuario, {user?.user_metadata?.full_name || "Operatore"}!
+              Benvenuto nel tuo Santuario, Operatore!
             </h1>
             <p className="text-white/70 text-lg">Ecco una panoramica della tua attività mistica.</p>
           </div>
@@ -277,7 +256,10 @@ function OperatorDashboardClient({ user, initialDashboardData }: { user: any; in
           />
         </div>
 
-        {user && <GamificationWidget userId={user.id} />}
+        {/* Gamification Widget Placeholder */}
+        <div className="mt-6">
+          {/* Gamification Widget will be rendered here */}
+        </div>
 
         <Card className="backdrop-blur-xl bg-gradient-to-r from-sky-500/20 via-teal-500/20 to-indigo-500/20 border border-white/20 shadow-2xl rounded-2xl">
           <CardHeader>

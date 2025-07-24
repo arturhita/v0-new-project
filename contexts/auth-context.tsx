@@ -4,12 +4,13 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import type { Profile } from "@/types/profile.types"
-import LoadingSpinner from "@/components/loading-spinner" // Importazione default corretta
+import LoadingSpinner from "@/components/loading-spinner"
 
 type AuthContextType = {
   user: User | null
   profile: Profile | null
   loading: boolean
+  setProfile: (profile: Profile | null) => void
   refreshProfile: () => Promise<void>
 }
 
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (userId: string) => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
       if (error) {
-        console.error("Error fetching profile:", error.message)
+        console.error("Auth Context: Errore nel recupero del profilo:", error.message)
         setProfile(null)
       } else if (data) {
         setProfile(sanitizeData(data as Profile))
@@ -40,7 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
-    setLoading(true)
+    const fetchInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        await fetchProfile(currentUser.id);
+      }
+      setLoading(false);
+    };
+
+    fetchInitialSession();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -51,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null)
       }
-      setLoading(false)
     })
 
     return () => {
@@ -59,13 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchProfile, supabase.auth])
 
+  const handleSetProfile = (newProfile: Profile | null) => {
+    setProfile(sanitizeData(newProfile))
+  }
+
   const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id)
     }
   }, [user, fetchProfile])
 
-  const value = { user, profile, loading, refreshProfile }
+  const value = { user, profile, loading, setProfile: handleSetProfile, refreshProfile }
 
   if (loading) {
     return (
@@ -81,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth deve essere utilizzato all'interno di un AuthProvider")
   }
   return context
 }

@@ -5,7 +5,7 @@ export interface Profile {
   role: "client" | "operator" | "admin";
   stage_name?: string | null;
   is_online?: boolean;
-  availability?: any; // Potrebbe essere un tipo più specifico
+  availability?: any; // Sostituire con un tipo più specifico se disponibile
   services: {
     chat: { enabled: boolean; price_per_minute: number };
     call: { enabled: boolean; price_per_minute: number };
