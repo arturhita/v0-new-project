@@ -11,9 +11,5 @@ export interface Profile {
     call: { enabled: boolean; price_per_minute: number };
     video: { enabled: boolean; price_per_minute: number };
   };
-  average_rating?: number;
-  reviews_count?: number;
-  total_earnings?: number;
-  monthly_earnings?: number;
   [key: string]: any;
 }

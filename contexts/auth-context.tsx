@@ -10,7 +10,6 @@ type AuthContextType = {
   user: User | null
   profile: Profile | null
   loading: boolean
-  setProfile: (profile: Profile | null) => void
   refreshProfile: () => Promise<void>
 }
 
@@ -70,17 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchProfile, supabase.auth])
 
-  const handleSetProfile = (newProfile: Profile | null) => {
-    setProfile(sanitizeData(newProfile))
-  }
-
   const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id)
     }
   }, [user, fetchProfile])
 
-  const value = { user, profile, loading, setProfile: handleSetProfile, refreshProfile }
+  const value = { user, profile, loading, refreshProfile }
 
   if (loading) {
     return (

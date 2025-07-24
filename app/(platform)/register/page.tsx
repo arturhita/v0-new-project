@@ -4,6 +4,12 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { RegisterForm } from "@/components/register-form"
 import Image from "next/image"
 
+// Funzione di utilità per sanificare i dati
+function sanitizeData<T>(data: T): T {
+  if (!data) return data
+  return JSON.parse(JSON.stringify(data))
+}
+
 export default async function RegisterPage() {
   const supabase = createClient()
 
@@ -12,8 +18,10 @@ export default async function RegisterPage() {
   } = await supabase.auth.getUser()
 
   if (user) {
-    // Se l'utente è già loggato, lo reindirizziamo alla sua dashboard
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+    const { data: rawProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+    // Sanificazione obbligatoria prima di qualsiasi utilizzo
+    const profile = sanitizeData(rawProfile)
+
     if (profile?.role === "admin") {
       redirect("/admin")
     } else if (profile?.role === "operator") {
