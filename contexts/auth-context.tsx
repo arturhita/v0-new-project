@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setLoading(true) // Aggiunto per gestire lo stato di caricamento durante il cambio auth
       const currentUser = session?.user ?? null
       // ✅ FONDAMENTALE: Sanifica l'oggetto utente a ogni cambiamento.
       setUser(sanitizeData(currentUser))
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
-    // onAuthStateChange gestirà la pulizia dello stato.
+    // onAuthStateChange gestirà la pulizia dello stato (user e profile a null).
   }, [supabase])
 
   const refreshProfile = useCallback(async () => {
@@ -90,7 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = { user, profile, loading, logout, refreshProfile }
 
-  if (loading) {
+  // Mostra un caricamento globale solo durante l'inizializzazione
+  if (loading && !user && !profile) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-900">
         <LoadingSpinner />
