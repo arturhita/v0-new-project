@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { updateOperatorServices } from "@/lib/actions/operator.actions"
 import { useToast } from "@/components/ui/use-toast"
 import LoadingSpinner from "@/components/loading-spinner"
+import { sanitizeData } from "@/lib/data.utils"
 
 type ServiceState = {
   chat: { enabled: boolean; price_per_minute: number }
@@ -26,11 +27,9 @@ export default function OperatorServicesPage() {
 
   useEffect(() => {
     // Il profilo dal contesto è ora garantito come sanificato.
-    // Inizializziamo lo stato locale del componente.
     if (profile?.services) {
-      // Usiamo una clonazione per sicurezza, anche se non strettamente necessaria
-      // dato che il contesto ora fornisce un oggetto pulito.
-      setServices(JSON.parse(JSON.stringify(profile.services)))
+      // Inizializziamo lo stato locale con una copia sicura.
+      setServices(sanitizeData(profile.services))
     }
   }, [profile])
 
@@ -38,7 +37,6 @@ export default function OperatorServicesPage() {
     setServices((prev) => {
       if (!prev) return null
       // ✅ CORRETTO: Pattern di aggiornamento immutabile.
-      // Crea un nuovo oggetto invece di mutare quello precedente.
       return {
         ...prev,
         [service]: { ...prev[service], enabled: !prev[service].enabled },
