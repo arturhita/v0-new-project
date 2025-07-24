@@ -25,9 +25,11 @@ export default function OperatorServicesPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    // Il profilo dal contesto è già sanificato, ma per una sicurezza assoluta,
-    // cloniamo di nuovo quando inizializziamo lo stato locale del componente.
+    // Il profilo dal contesto è ora garantito come sanificato.
+    // Inizializziamo lo stato locale del componente.
     if (profile?.services) {
+      // Usiamo una clonazione per sicurezza, anche se non strettamente necessaria
+      // dato che il contesto ora fornisce un oggetto pulito.
       setServices(JSON.parse(JSON.stringify(profile.services)))
     }
   }, [profile])
@@ -35,7 +37,8 @@ export default function OperatorServicesPage() {
   const handleToggle = (service: keyof ServiceState) => {
     setServices((prev) => {
       if (!prev) return null
-      // Pattern di aggiornamento immutabile corretto: crea un nuovo oggetto.
+      // ✅ CORRETTO: Pattern di aggiornamento immutabile.
+      // Crea un nuovo oggetto invece di mutare quello precedente.
       return {
         ...prev,
         [service]: { ...prev[service], enabled: !prev[service].enabled },
@@ -47,7 +50,7 @@ export default function OperatorServicesPage() {
     const price = Number.parseFloat(value) || 0
     setServices((prev) => {
       if (!prev) return null
-      // Pattern di aggiornamento immutabile corretto: crea un nuovo oggetto.
+      // ✅ CORRETTO: Pattern di aggiornamento immutabile.
       return {
         ...prev,
         [service]: { ...prev[service], price_per_minute: price },

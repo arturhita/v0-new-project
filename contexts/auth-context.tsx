@@ -16,12 +16,34 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Funzione di supporto per la clonazione profonda e sicura
+// PUNTO CHIAVE: Funzione di sanificazione robusta come da sue istruzioni.
+// Ricostruisce l'oggetto pezzo per pezzo, garantendo che sia un POJO (Plain Old JavaScript Object)
+// e gestendo eventuali valori nulli o indefiniti.
 const sanitizeProfile = (profile: any): Profile | null => {
   if (!profile) return null
-  // PUNTO CHIAVE: Crea una copia profonda dell'oggetto, rimuovendo qualsiasi getter o proxy.
-  // Questo è il modo più robusto per garantire che l'oggetto sia un semplice POJO (Plain Old JavaScript Object).
-  return JSON.parse(JSON.stringify(profile))
+
+  const sanitized = {
+    ...profile, // Mantiene tutti gli altri campi del profilo
+    id: profile.id,
+    full_name: profile.full_name ?? null,
+    avatar_url: profile.avatar_url ?? null,
+    role: profile.role,
+    services: {
+      chat: {
+        enabled: !!profile.services?.chat?.enabled,
+        price_per_minute: profile.services?.chat?.price_per_minute ?? 0,
+      },
+      call: {
+        enabled: !!profile.services?.call?.enabled,
+        price_per_minute: profile.services?.call?.price_per_minute ?? 0,
+      },
+      video: {
+        enabled: !!profile.services?.video?.enabled,
+        price_per_minute: profile.services?.video?.price_per_minute ?? 0,
+      },
+    },
+  }
+  return sanitized
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -38,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Auth Context Error:", error.message)
         setProfile(null)
       } else {
-        // Applica la sanificazione qui, prima di salvare nello stato.
+        // Applica la nuova funzione di sanificazione qui.
         setProfile(sanitizeProfile(rawProfile))
       }
     },
@@ -51,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? null
+      // Sanifichiamo anche l'oggetto utente per sicurezza
       setUser(currentUser ? JSON.parse(JSON.stringify(currentUser)) : null)
 
       if (currentUser) {
