@@ -7,63 +7,23 @@ import { OperatorCard } from "@/components/operator-card"
 import { ReviewCard } from "@/components/review-card"
 import { ConstellationBackground } from "@/components/constellation-background"
 import { getHomepageData } from "@/lib/actions/data.actions"
-import { useEffect, useState } from "react"
 
-interface HomepageData {
-  operators: any[]
-  reviews: any[]
-  categories: string[]
-  stats: {
-    totalOperators: number
-    totalConsultations: number
-    averageRating: number
-  }
-}
-
-export default function UnveillyHomePage() {
-  const [data, setData] = useState<HomepageData>({
-    operators: [],
-    reviews: [],
-    categories: [],
-    stats: { totalOperators: 0, totalConsultations: 0, averageRating: 0 },
-  })
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const homepageData = await getHomepageData()
-        setData(homepageData)
-      } catch (error) {
-        console.error("Error loading homepage data:", error)
-        // Keep default empty state
-      } finally {
-        setLoading(false)
-      }
+export default async function UnveillyHomePage() {
+  const getDataSafely = async () => {
+    try {
+      return await getHomepageData()
+    } catch (error) {
+      console.error("Error loading homepage data:", error)
+      return { operators: [], reviews: [] }
     }
+  }
 
-    loadData()
-  }, [])
-
-  const { operators, reviews } = data
+  const { operators, reviews } = await getDataSafely()
 
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(b.joinedDate!).getTime() - new Date(a.joinedDate!).getTime())
     .slice(0, 3)
-
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-slate-900 text-white">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-            <p className="text-xl text-slate-300">Caricamento...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 text-white overflow-x-hidden">

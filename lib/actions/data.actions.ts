@@ -2,46 +2,23 @@
 
 import { createClient } from "@/lib/supabase/server"
 
-// Helper function to safely parse JSON with better error handling
+// Helper function to safely parse JSON
 function safeParseJSON(value: any, fallback: any) {
   if (!value) return fallback
 
-  // If it's already an object or array, return it
-  if (typeof value === "object" && value !== null) {
-    return Array.isArray(value) ? value : fallback
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value)
+    } catch (e) {
+      // This can be noisy, so it's commented out, but useful for debugging
+      // console.warn("Failed to parse JSON string:", value, e)
+      return fallback
+    }
   }
 
-  // If it's a string, try to parse it
-  if (typeof value === "string") {
-    // Handle empty strings
-    if (value.trim() === "") return fallback
-
-    // Handle strings that look like arrays but aren't JSON
-    if (value.startsWith("[") && value.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(value)
-        return Array.isArray(parsed) ? parsed : fallback
-      } catch (e) {
-        console.warn("Failed to parse JSON array:", value, e)
-        return fallback
-      }
-    }
-
-    // Handle strings that look like objects
-    if (value.startsWith("{") && value.endsWith("}")) {
-      try {
-        const parsed = JSON.parse(value)
-        return typeof parsed === "object" && parsed !== null ? parsed : fallback
-      } catch (e) {
-        console.warn("Failed to parse JSON object:", value, e)
-        return fallback
-      }
-    }
-
-    // If it's just a plain string, treat it as a single item array for categories/specialties
-    if (typeof fallback === "object" && Array.isArray(fallback)) {
-      return [value]
-    }
+  // If it's already an object or array, return it directly
+  if (Array.isArray(value) || typeof value === "object") {
+    return value
   }
 
   return fallback
@@ -51,7 +28,7 @@ export async function getHomepageData() {
   try {
     const supabase = createClient()
 
-    // Fetch featured operators with error handling
+    // Fetch featured operators
     const { data: operators, error: operatorsError } = await supabase
       .from("profiles")
       .select(`
@@ -76,7 +53,7 @@ export async function getHomepageData() {
       .limit(8)
 
     if (operatorsError) {
-      console.error("Error fetching operators:", operatorsError)
+      console.error("Error fetching operators:", operatorsError.message)
       return {
         operators: [],
         reviews: [],
@@ -85,31 +62,23 @@ export async function getHomepageData() {
       }
     }
 
-    // Process operators data safely
-    const processedOperators = (operators || []).map((operator) => {
-      const categories = safeParseJSON(operator.categories, [])
-      const specialties = safeParseJSON(operator.specialties, [])
-      const services = safeParseJSON(operator.services, { chat: false, call: false, video: false })
+    const processedOperators = (operators || []).map((operator) => ({
+      id: operator.id,
+      name: operator.full_name || "Nome non disponibile",
+      bio: operator.bio || "Descrizione non disponibile",
+      avatar: operator.avatar_url || "/placeholder.svg?height=100&width=100",
+      rating: operator.rating || 0,
+      totalReviews: operator.total_reviews || 0,
+      pricePerMinute: operator.price_per_minute || 0,
+      categories: safeParseJSON(operator.categories, []),
+      specialties: safeParseJSON(operator.specialties, []),
+      services: safeParseJSON(operator.services, { chat: false, call: false, video: false }),
+      isOnline: operator.is_online || false,
+      isAvailable: operator.is_available || false,
+      joinedDate: operator.created_at,
+    }))
 
-      return {
-        id: operator.id,
-        name: operator.full_name || "Nome non disponibile",
-        bio: operator.bio || "Descrizione non disponibile",
-        avatar: operator.avatar_url || "/placeholder.svg?height=100&width=100",
-        rating: typeof operator.rating === "number" ? operator.rating : 0,
-        totalReviews: typeof operator.total_reviews === "number" ? operator.total_reviews : 0,
-        pricePerMinute: typeof operator.price_per_minute === "number" ? operator.price_per_minute : 0,
-        categories: Array.isArray(categories) ? categories : [],
-        specialties: Array.isArray(specialties) ? specialties : [],
-        services:
-          typeof services === "object" && services !== null ? services : { chat: false, call: false, video: false },
-        isOnline: Boolean(operator.is_online),
-        isAvailable: Boolean(operator.is_available),
-        joinedDate: operator.created_at,
-      }
-    })
-
-    // Fetch recent reviews with error handling
+    // Fetch recent reviews
     const { data: reviews, error: reviewsError } = await supabase
       .from("reviews")
       .select(`
@@ -117,68 +86,60 @@ export async function getHomepageData() {
         rating,
         comment,
         created_at,
-        client_id,
-        operator_id,
-        profiles!reviews_client_id_fkey(full_name),
-        profiles!reviews_operator_id_fkey(full_name)
+        profiles ( full_name, avatar_url )
       `)
       .eq("status", "approved")
       .order("created_at", { ascending: false })
-      .limit(6)
+      .limit(3)
+
+    if (reviewsError) {
+      console.error("Error fetching reviews:", reviewsError.message)
+    }
 
     const processedReviews = (reviews || []).map((review) => ({
       id: review.id,
-      rating: typeof review.rating === "number" ? review.rating : 5,
-      comment: review.comment || "Ottima esperienza!",
-      clientName: review.profiles?.full_name || "Cliente",
-      operatorName: review.profiles?.full_name || "Operatore",
-      date: review.created_at,
+      rating: review.rating,
+      comment: review.comment,
+      author: review.profiles?.full_name || "Anonimo",
+      avatar: review.profiles?.avatar_url || "/placeholder.svg?height=40&width=40",
+      date: new Date(review.created_at).toLocaleDateString("it-IT"),
     }))
 
-    // Get unique categories from processed operators
+    // Get unique categories
     const allCategories = new Set<string>()
     processedOperators.forEach((operator) => {
       if (Array.isArray(operator.categories)) {
         operator.categories.forEach((cat) => {
-          if (typeof cat === "string" && cat.trim()) {
-            allCategories.add(cat.trim())
-          }
+          if (typeof cat === "string") allCategories.add(cat)
         })
       }
     })
 
-    // Get platform stats with error handling
-    const { data: statsData, error: statsError } = await supabase
+    // Get platform stats more efficiently
+    const { count: totalOperators } = await supabase
       .from("profiles")
-      .select("id, rating, total_reviews")
+      .select("id", { count: "exact", head: true })
       .eq("role", "operator")
       .eq("status", "approved")
 
-    let totalOperators = 0
-    let averageRating = 0
-    let totalConsultations = 0
+    const { count: totalConsultations } = await supabase
+      .from("consultations")
+      .select("id", { count: "exact", head: true })
 
-    if (!statsError && statsData) {
-      totalOperators = statsData.length
-      const validRatings = statsData.filter((op) => typeof op.rating === "number" && op.rating > 0)
-      if (validRatings.length > 0) {
-        averageRating = validRatings.reduce((sum, op) => sum + op.rating, 0) / validRatings.length
-      }
-      totalConsultations = statsData.reduce((sum, op) => sum + (op.total_reviews || 0), 0)
-    }
+    const { data: ratingData } = await supabase.rpc("get_average_rating")
 
     return {
       operators: processedOperators,
       reviews: processedReviews,
       categories: Array.from(allCategories),
       stats: {
-        totalOperators,
-        totalConsultations: totalConsultations || 1250, // Fallback number
-        averageRating: Math.round(averageRating * 10) / 10,
+        totalOperators: totalOperators || 0,
+        totalConsultations: totalConsultations || 1250, // Fallback for stats
+        averageRating: Math.round((ratingData || 0) * 10) / 10,
       },
     }
-  } catch (error) {
-    console.error("Error in getHomepageData:", error)
+  } catch (error: any) {
+    console.error("Fatal Error in getHomepageData:", error.message)
     return {
       operators: [],
       reviews: [],
@@ -211,10 +172,9 @@ export async function getAllOperators() {
       `)
       .eq("role", "operator")
       .eq("status", "approved")
-      .order("rating", { ascending: false })
 
     if (error) {
-      console.error("Error fetching all operators:", error)
+      console.error("Error fetching all operators:", error.message)
       return []
     }
 
@@ -223,18 +183,18 @@ export async function getAllOperators() {
       name: operator.full_name || "Nome non disponibile",
       bio: operator.bio || "Descrizione non disponibile",
       avatar: operator.avatar_url || "/placeholder.svg?height=100&width=100",
-      rating: typeof operator.rating === "number" ? operator.rating : 0,
-      totalReviews: typeof operator.total_reviews === "number" ? operator.total_reviews : 0,
-      pricePerMinute: typeof operator.price_per_minute === "number" ? operator.price_per_minute : 0,
+      rating: operator.rating || 0,
+      totalReviews: operator.total_reviews || 0,
+      pricePerMinute: operator.price_per_minute || 0,
       categories: safeParseJSON(operator.categories, []),
       specialties: safeParseJSON(operator.specialties, []),
       services: safeParseJSON(operator.services, { chat: false, call: false, video: false }),
-      isOnline: Boolean(operator.is_online),
-      isAvailable: Boolean(operator.is_available),
+      isOnline: operator.is_online || false,
+      isAvailable: operator.is_available || false,
       joinedDate: operator.created_at,
     }))
-  } catch (error) {
-    console.error("Error in getAllOperators:", error)
+  } catch (error: any) {
+    console.error("Error in getAllOperators:", error.message)
     return []
   }
 }
@@ -243,64 +203,33 @@ export async function getOperatorsByCategory(category: string) {
   try {
     const supabase = createClient()
 
-    // Use a more flexible search that handles both JSON arrays and plain text
-    const { data: operators, error } = await supabase
-      .from("profiles")
-      .select(`
-        id,
-        full_name,
-        bio,
-        avatar_url,
-        rating,
-        total_reviews,
-        price_per_minute,
-        categories,
-        specialties,
-        services,
-        is_online,
-        is_available,
-        created_at
-      `)
-      .eq("role", "operator")
-      .eq("status", "approved")
-      .or(`categories.ilike.%${category}%,categories.cs.["${category}"]`)
-      .order("rating", { ascending: false })
+    // Using the RPC for case-insensitive and accurate search
+    const { data: operators, error } = await supabase.rpc("get_operators_by_category_case_insensitive", {
+      category_name: category,
+    })
 
     if (error) {
-      console.error("Error fetching operators by category:", error)
+      console.error("Error fetching operators by category:", error.message)
       return []
     }
 
-    return (operators || [])
-      .map((operator) => {
-        const categories = safeParseJSON(operator.categories, [])
-
-        // Double-check if this operator actually matches the category
-        const matchesCategory = Array.isArray(categories)
-          ? categories.some((cat) => typeof cat === "string" && cat.toLowerCase().includes(category.toLowerCase()))
-          : false
-
-        if (!matchesCategory) return null
-
-        return {
-          id: operator.id,
-          name: operator.full_name || "Nome non disponibile",
-          bio: operator.bio || "Descrizione non disponibile",
-          avatar: operator.avatar_url || "/placeholder.svg?height=100&width=100",
-          rating: typeof operator.rating === "number" ? operator.rating : 0,
-          totalReviews: typeof operator.total_reviews === "number" ? operator.total_reviews : 0,
-          pricePerMinute: typeof operator.price_per_minute === "number" ? operator.price_per_minute : 0,
-          categories,
-          specialties: safeParseJSON(operator.specialties, []),
-          services: safeParseJSON(operator.services, { chat: false, call: false, video: false }),
-          isOnline: Boolean(operator.is_online),
-          isAvailable: Boolean(operator.is_available),
-          joinedDate: operator.created_at,
-        }
-      })
-      .filter(Boolean) // Remove null entries
-  } catch (error) {
-    console.error("Error in getOperatorsByCategory:", error)
+    return (operators || []).map((operator: any) => ({
+      id: operator.id,
+      name: operator.full_name || "Nome non disponibile",
+      bio: operator.bio || "Descrizione non disponibile",
+      avatar: operator.avatar_url || "/placeholder.svg?height=100&width=100",
+      rating: operator.rating || 0,
+      totalReviews: operator.total_reviews || 0,
+      pricePerMinute: operator.price_per_minute || 0,
+      categories: safeParseJSON(operator.categories, []),
+      specialties: safeParseJSON(operator.specialties, []),
+      services: safeParseJSON(operator.services, { chat: false, call: false, video: false }),
+      isOnline: operator.is_online || false,
+      isAvailable: operator.is_available || false,
+      joinedDate: operator.created_at,
+    }))
+  } catch (error: any) {
+    console.error("Error in getOperatorsByCategory:", error.message)
     return []
   }
 }
