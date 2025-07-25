@@ -56,4 +56,36 @@ class Consultation extends Model
         }
         return 0;
     }
+
+    public function startConsultation()
+    {
+        $this->update([
+            'status' => 'active',
+            'started_at' => now(),
+        ]);
+    }
+
+    public function endConsultation($notes = null)
+    {
+        $endTime = now();
+        $duration = $this->started_at->diffInMinutes($endTime);
+        $totalCost = $duration * $this->rate_per_minute;
+
+        $this->update([
+            'status' => 'completed',
+            'ended_at' => $endTime,
+            'duration_minutes' => $duration,
+            'total_cost' => $totalCost,
+            'notes' => $notes,
+        ]);
+
+        // Deduct from client wallet
+        $this->client->deductFromWallet(
+            $totalCost,
+            "Consulenza con {$this->operator->name}",
+            "consultation_{$this->id}"
+        );
+
+        return $totalCost;
+    }
 }

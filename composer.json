@@ -2,7 +2,7 @@
   "name": "laravel/laravel",
   "type": "project",
   "description": "Piattaforma di Consulenza Online",
-  "keywords": ["laravel", "framework", "consulenza", "platform"],
+  "keywords": ["laravel", "framework", "consulenza", "piattaforma"],
   "license": "MIT",
   "require": {
     "php": "^8.1",

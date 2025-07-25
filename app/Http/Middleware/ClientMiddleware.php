@@ -6,11 +6,11 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class OperatorMiddleware
+class ClientMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (!auth()->check() || !auth()->user()->isOperator()) {
+        if (!auth()->check() || !auth()->user()->isClient()) {
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Accesso non autorizzato'], 403);
             }

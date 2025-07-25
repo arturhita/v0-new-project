@@ -81,6 +81,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Ticket::class);
     }
 
+    public function walletTransactions()
+    {
+        return $this->hasMany(WalletTransaction::class);
+    }
+
     // Scopes
     public function scopeOperators($query)
     {
@@ -123,5 +128,35 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->operatorConsultations()
             ->where('status', 'completed')
             ->sum('total_cost') ?? 0;
+    }
+
+    public function addToWallet($amount, $description, $reference = null)
+    {
+        $this->increment('wallet_balance', $amount);
+        
+        $this->walletTransactions()->create([
+            'type' => 'credit',
+            'amount' => $amount,
+            'description' => $description,
+            'reference' => $reference,
+            'balance_after' => $this->fresh()->wallet_balance,
+        ]);
+    }
+
+    public function deductFromWallet($amount, $description, $reference = null)
+    {
+        if ($this->wallet_balance < $amount) {
+            throw new \Exception('Saldo insufficiente');
+        }
+
+        $this->decrement('wallet_balance', $amount);
+        
+        $this->walletTransactions()->create([
+            'type' => 'debit',
+            'amount' => $amount,
+            'description' => $description,
+            'reference' => $reference,
+            'balance_after' => $this->fresh()->wallet_balance,
+        ]);
     }
 }

@@ -14,11 +14,19 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
+        if (Auth::check()) {
+            return $this->redirectBasedOnRole(Auth::user());
+        }
+        
         return view('auth.login');
     }
 
     public function showRegister()
     {
+        if (Auth::check()) {
+            return $this->redirectBasedOnRole(Auth::user());
+        }
+        
         return view('auth.register');
     }
 
@@ -27,6 +35,11 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|min:6',
+        ], [
+            'email.required' => 'L\'email è obbligatoria.',
+            'email.email' => 'Inserisci un indirizzo email valido.',
+            'password.required' => 'La password è obbligatoria.',
+            'password.min' => 'La password deve essere di almeno 6 caratteri.',
         ]);
 
         if ($validator->fails()) {
@@ -40,17 +53,14 @@ class AuthController extends Controller
             
             $user = Auth::user();
             
-            // Redirect based on role
-            switch ($user->role) {
-                case 'admin':
-                    return redirect()->intended('/admin/dashboard');
-                case 'operator':
-                    return redirect()->intended('/dashboard/operator');
-                case 'client':
-                    return redirect()->intended('/dashboard/client');
-                default:
-                    return redirect()->intended('/');
+            if ($user->is_suspended) {
+                Auth::logout();
+                return back()->withErrors([
+                    'email' => 'Il tuo account è stato sospeso. Contatta l\'assistenza.',
+                ])->withInput();
             }
+            
+            return $this->redirectBasedOnRole($user);
         }
 
         return back()->withErrors([
@@ -64,6 +74,16 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
+            'role' => 'required|in:client,operator',
+        ], [
+            'name.required' => 'Il nome è obbligatorio.',
+            'email.required' => 'L\'email è obbligatoria.',
+            'email.email' => 'Inserisci un indirizzo email valido.',
+            'email.unique' => 'Questo indirizzo email è già registrato.',
+            'password.required' => 'La password è obbligatoria.',
+            'password.min' => 'La password deve essere di almeno 8 caratteri.',
+            'password.confirmed' => 'Le password non corrispondono.',
+            'role.required' => 'Seleziona un tipo di account.',
         ]);
 
         if ($validator->fails()) {
@@ -74,14 +94,15 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'client',
+            'role' => $request->role,
+            'wallet_balance' => $request->role === 'client' ? 10.00 : 0.00, // Bonus di benvenuto per i clienti
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect('/dashboard/client')->with('success', 'Registrazione completata con successo!');
+        return $this->redirectBasedOnRole($user)->with('success', 'Registrazione completata con successo!');
     }
 
     public function logout(Request $request)
@@ -91,6 +112,20 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return redirect('/login')->with('success', 'Logout effettuato con successo.');
+    }
+
+    private function redirectBasedOnRole($user)
+    {
+        switch ($user->role) {
+            case 'admin':
+                return redirect()->intended('/admin/dashboard');
+            case 'operator':
+                return redirect()->intended('/operator/dashboard');
+            case 'client':
+                return redirect()->intended('/client/dashboard');
+            default:
+                return redirect()->intended('/');
+        }
     }
 }

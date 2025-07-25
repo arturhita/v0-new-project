@@ -32,4 +32,14 @@ class Review extends Model
     {
         return $this->belongsTo(User::class, 'operator_id');
     }
+
+    public function approve()
+    {
+        $this->update(['status' => 'approved']);
+    }
+
+    public function reject()
+    {
+        $this->update(['status' => 'rejected']);
+    }
 }

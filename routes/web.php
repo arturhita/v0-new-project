@@ -5,13 +5,18 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Client\ClientController;
 use App\Http\Controllers\Operator\OperatorController;
+use App\Http\Controllers\HomeController;
 
-// Public routes
-Route::get('/', function () {
-    return view('welcome');
-});
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
-// Authentication routes
+// Homepage
+Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// Authentication Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -19,31 +24,83 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
 });
 
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
-// Admin routes
-Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-    Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
-    Route::patch('/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('admin.users.suspend');
-    Route::get('/payouts', [AdminController::class, 'payouts'])->name('admin.payouts');
-    Route::patch('/payouts/{payout}', [AdminController::class, 'updatePayoutStatus'])->name('admin.payouts.update');
-    Route::get('/tickets', [AdminController::class, 'tickets'])->name('admin.tickets');
-    Route::get('/tickets/{ticket}', [AdminController::class, 'showTicket'])->name('admin.tickets.show');
-    Route::post('/tickets/{ticket}/reply', [AdminController::class, 'replyToTicket'])->name('admin.tickets.reply');
+// Admin Routes
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    
+    // Users Management
+    Route::get('/users', [AdminController::class, 'users'])->name('users');
+    Route::patch('/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
+    Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('users.delete');
+    
+    // Payouts Management
+    Route::get('/payouts', [AdminController::class, 'payouts'])->name('payouts');
+    Route::patch('/payouts/{payout}', [AdminController::class, 'updatePayoutStatus'])->name('payouts.update');
+    
+    // Tickets Management
+    Route::get('/tickets', [AdminController::class, 'tickets'])->name('tickets');
+    Route::get('/tickets/{ticket}', [AdminController::class, 'showTicket'])->name('tickets.show');
+    Route::post('/tickets/{ticket}/reply', [AdminController::class, 'replyToTicket'])->name('tickets.reply');
+    
+    // Reviews Management
+    Route::get('/reviews', [AdminController::class, 'reviews'])->name('reviews');
+    Route::patch('/reviews/{review}', [AdminController::class, 'updateReviewStatus'])->name('reviews.update');
+    
+    // Analytics
+    Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
 });
 
-// Client routes
-Route::middleware(['auth'])->prefix('dashboard/client')->group(function () {
-    Route::get('/', [ClientController::class, 'dashboard'])->name('client.dashboard');
-    Route::get('/consultations', [ClientController::class, 'consultations'])->name('client.consultations');
-    Route::get('/operators', [ClientController::class, 'operators'])->name('client.operators');
+// Client Routes
+Route::middleware(['auth', 'client'])->prefix('client')->name('client.')->group(function () {
+    Route::get('/dashboard', [ClientController::class, 'dashboard'])->name('dashboard');
+    
+    // Consultations
+    Route::get('/consultations', [ClientController::class, 'consultations'])->name('consultations');
+    Route::get('/consultations/{consultation}', [ClientController::class, 'showConsultation'])->name('consultation.show');
+    Route::post('/consultations/{consultation}/review', [ClientController::class, 'leaveReview'])->name('consultation.review');
+    
+    // Operators
+    Route::get('/operators', [ClientController::class, 'operators'])->name('operators');
+    Route::get('/operators/{operator}', [ClientController::class, 'showOperator'])->name('operator.show');
+    Route::post('/operators/{operator}/book', [ClientController::class, 'bookConsultation'])->name('operator.book');
+    
+    // Wallet
+    Route::get('/wallet', [ClientController::class, 'wallet'])->name('wallet');
+    
+    // Support
+    Route::get('/support', [ClientController::class, 'support'])->name('support');
+    Route::post('/support/tickets', [ClientController::class, 'createTicket'])->name('support.ticket.create');
 });
 
-// Operator routes
-Route::middleware(['auth', 'operator'])->prefix('dashboard/operator')->group(function () {
-    Route::get('/', [OperatorController::class, 'dashboard'])->name('operator.dashboard');
-    Route::get('/consultations', [OperatorController::class, 'consultations'])->name('operator.consultations');
-    Route::get('/payouts', [OperatorController::class, 'payouts'])->name('operator.payouts');
-    Route::post('/payouts', [OperatorController::class, 'requestPayout'])->name('operator.payouts.request');
+// Operator Routes
+Route::middleware(['auth', 'operator'])->prefix('operator')->name('operator.')->group(function () {
+    Route::get('/dashboard', [OperatorController::class, 'dashboard'])->name('dashboard');
+    
+    // Consultations
+    Route::get('/consultations', [OperatorController::class, 'consultations'])->name('consultations');
+    Route::get('/consultations/{consultation}', [OperatorController::class, 'showConsultation'])->name('consultation.show');
+    Route::patch('/consultations/{consultation}/accept', [OperatorController::class, 'acceptConsultation'])->name('consultation.accept');
+    Route::patch('/consultations/{consultation}/end', [OperatorController::class, 'endConsultation'])->name('consultation.end');
+    
+    // Profile
+    Route::get('/profile', [OperatorController::class, 'profile'])->name('profile');
+    Route::patch('/profile', [OperatorController::class, 'updateProfile'])->name('profile.update');
+    
+    // Payouts
+    Route::get('/payouts', [OperatorController::class, 'payouts'])->name('payouts');
+    Route::post('/payouts', [OperatorController::class, 'requestPayout'])->name('payouts.request');
+    
+    // Availability
+    Route::get('/availability', [OperatorController::class, 'availability'])->name('availability');
+    Route::patch('/availability', [OperatorController::class, 'updateAvailability'])->name('availability.update');
 });
+
+// Public Operator Profiles
+Route::get('/operators/{operator}', function(\App\Models\User $operator) {
+    if (!$operator->isOperator()) {
+        abort(404);
+    }
+    return view('public.operator-profile', compact('operator'));
+})->name('public.operator');
