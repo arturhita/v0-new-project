@@ -11,12 +11,12 @@ class ClientSeeder extends Seeder
     public function run(): void
     {
         User::create([
-            'name' => 'Cliente Test',
+            'name' => 'Cliente Demo',
             'email' => 'cliente@consulenza.com',
             'password' => Hash::make('password123'),
             'role' => 'client',
-            'wallet_balance' => 50.00,
-            'email_verified_at' => now(),
+            'wallet_balance' => 100.00,
+            'is_approved' => true,
         ]);
     }
 }

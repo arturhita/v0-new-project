@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
@@ -14,22 +14,27 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['client', 'operator', 'admin'])->default('client');
-            $table->string('avatar_url')->nullable();
+            $table->enum('role', ['admin', 'operator', 'client'])->default('client');
+            $table->string('phone')->nullable();
             $table->text('bio')->nullable();
-            $table->json('specialties')->nullable();
-            $table->json('categories')->nullable();
-            $table->decimal('rate_per_minute', 8, 2)->nullable();
-            $table->boolean('is_available')->default(false);
-            $table->boolean('is_suspended')->default(false);
+            $table->string('avatar')->nullable();
             $table->decimal('wallet_balance', 10, 2)->default(0);
-            $table->json('availability_schedule')->nullable();
+            $table->decimal('hourly_rate', 8, 2)->nullable();
+            $table->json('specialties')->nullable();
+            $table->json('availability')->nullable();
+            $table->boolean('is_online')->default(false);
+            $table->boolean('is_approved')->default(false);
+            $table->boolean('is_suspended')->default(false);
+            $table->decimal('total_earnings', 10, 2)->default(0);
+            $table->integer('total_consultations')->default(0);
+            $table->decimal('rating', 3, 2)->default(0);
+            $table->integer('reviews_count')->default(0);
             $table->rememberToken();
             $table->timestamps();
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('users');
     }

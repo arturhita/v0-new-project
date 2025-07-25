@@ -7,125 +7,79 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Auth\Events\Registered;
+use Illuminate\Validation\Rules;
 
 class AuthController extends Controller
 {
     public function showLogin()
     {
-        if (Auth::check()) {
-            return $this->redirectBasedOnRole(Auth::user());
-        }
-        
         return view('auth.login');
-    }
-
-    public function showRegister()
-    {
-        if (Auth::check()) {
-            return $this->redirectBasedOnRole(Auth::user());
-        }
-        
-        return view('auth.register');
     }
 
     public function login(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|min:6',
-        ], [
-            'email.required' => 'L\'email è obbligatoria.',
-            'email.email' => 'Inserisci un indirizzo email valido.',
-            'password.required' => 'La password è obbligatoria.',
-            'password.min' => 'La password deve essere di almeno 6 caratteri.',
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
         ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
-        $credentials = $request->only('email', 'password');
-
-        if (Auth::attempt($credentials, $request->filled('remember'))) {
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-            
+
             $user = Auth::user();
             
-            if ($user->is_suspended) {
-                Auth::logout();
-                return back()->withErrors([
-                    'email' => 'Il tuo account è stato sospeso. Contatta l\'assistenza.',
-                ])->withInput();
+            if ($user->isAdmin()) {
+                return redirect()->intended('/admin/dashboard');
+            } elseif ($user->isOperator()) {
+                return redirect()->intended('/operator/dashboard');
+            } else {
+                return redirect()->intended('/client/dashboard');
             }
-            
-            return $this->redirectBasedOnRole($user);
         }
 
         return back()->withErrors([
             'email' => 'Le credenziali fornite non corrispondono ai nostri record.',
-        ])->withInput();
+        ])->onlyInput('email');
+    }
+
+    public function showRegister()
+    {
+        return view('auth.register');
     }
 
     public function register(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:client,operator',
-        ], [
-            'name.required' => 'Il nome è obbligatorio.',
-            'email.required' => 'L\'email è obbligatoria.',
-            'email.email' => 'Inserisci un indirizzo email valido.',
-            'email.unique' => 'Questo indirizzo email è già registrato.',
-            'password.required' => 'La password è obbligatoria.',
-            'password.min' => 'La password deve essere di almeno 8 caratteri.',
-            'password.confirmed' => 'Le password non corrispondono.',
-            'role.required' => 'Seleziona un tipo di account.',
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'role' => ['required', 'in:client,operator'],
+            'phone' => ['nullable', 'string', 'max:20'],
         ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
-            'wallet_balance' => $request->role === 'client' ? 10.00 : 0.00, // Bonus di benvenuto per i clienti
+            'phone' => $request->phone,
+            'is_approved' => $request->role === 'client' ? true : false,
         ]);
-
-        event(new Registered($user));
 
         Auth::login($user);
 
-        return $this->redirectBasedOnRole($user)->with('success', 'Registrazione completata con successo!');
+        if ($user->isOperator()) {
+            return redirect('/operator/profile')->with('success', 'Registrazione completata! Completa il tuo profilo per essere approvato.');
+        }
+
+        return redirect('/client/dashboard')->with('success', 'Registrazione completata con successo!');
     }
 
     public function logout(Request $request)
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-
-        return redirect('/login')->with('success', 'Logout effettuato con successo.');
-    }
-
-    private function redirectBasedOnRole($user)
-    {
-        switch ($user->role) {
-            case 'admin':
-                return redirect()->intended('/admin/dashboard');
-            case 'operator':
-                return redirect()->intended('/operator/dashboard');
-            case 'client':
-                return redirect()->intended('/client/dashboard');
-            default:
-                return redirect()->intended('/');
-        }
+        return redirect('/');
     }
 }

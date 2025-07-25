@@ -4,17 +4,13 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class AdminMiddleware
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next)
     {
         if (!auth()->check() || !auth()->user()->isAdmin()) {
-            if ($request->expectsJson()) {
-                return response()->json(['error' => 'Accesso non autorizzato'], 403);
-            }
-            abort(403, 'Accesso non autorizzato.');
+            abort(403, 'Accesso negato. Solo gli amministratori possono accedere a questa sezione.');
         }
 
         return $next($request);

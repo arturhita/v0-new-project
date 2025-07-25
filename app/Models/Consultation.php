@@ -19,7 +19,8 @@ class Consultation extends Model
         'total_cost',
         'started_at',
         'ended_at',
-        'notes',
+        'client_notes',
+        'operator_notes',
     ];
 
     protected $casts = [
@@ -49,43 +50,11 @@ class Consultation extends Model
         return $this->hasOne(Review::class);
     }
 
-    public function calculateTotalCost()
+    public function calculateCost()
     {
-        if ($this->duration_minutes && $this->rate_per_minute) {
-            return ($this->duration_minutes * $this->rate_per_minute);
+        if ($this->duration_minutes > 0) {
+            $this->total_cost = ($this->rate_per_minute * $this->duration_minutes);
+            $this->save();
         }
-        return 0;
-    }
-
-    public function startConsultation()
-    {
-        $this->update([
-            'status' => 'active',
-            'started_at' => now(),
-        ]);
-    }
-
-    public function endConsultation($notes = null)
-    {
-        $endTime = now();
-        $duration = $this->started_at->diffInMinutes($endTime);
-        $totalCost = $duration * $this->rate_per_minute;
-
-        $this->update([
-            'status' => 'completed',
-            'ended_at' => $endTime,
-            'duration_minutes' => $duration,
-            'total_cost' => $totalCost,
-            'notes' => $notes,
-        ]);
-
-        // Deduct from client wallet
-        $this->client->deductFromWallet(
-            $totalCost,
-            "Consulenza con {$this->operator->name}",
-            "consultation_{$this->id}"
-        );
-
-        return $totalCost;
     }
 }

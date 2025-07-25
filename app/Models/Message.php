@@ -14,11 +14,11 @@ class Message extends Model
         'sender_id',
         'content',
         'type',
-        'read_at',
+        'is_read',
     ];
 
     protected $casts = [
-        'read_at' => 'datetime',
+        'is_read' => 'boolean',
     ];
 
     public function consultation()
@@ -29,10 +29,5 @@ class Message extends Model
     public function sender()
     {
         return $this->belongsTo(User::class, 'sender_id');
-    }
-
-    public function markAsRead()
-    {
-        $this->update(['read_at' => now()]);
     }
 }

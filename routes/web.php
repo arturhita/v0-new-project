@@ -33,6 +33,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Users Management
     Route::get('/users', [AdminController::class, 'users'])->name('users');
     Route::patch('/users/{user}/suspend', [AdminController::class, 'suspendUser'])->name('users.suspend');
+    Route::patch('/users/{user}/approve', [AdminController::class, 'approveOperator'])->name('users.approve');
     Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('users.delete');
     
     // Payouts Management
@@ -47,9 +48,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Reviews Management
     Route::get('/reviews', [AdminController::class, 'reviews'])->name('reviews');
     Route::patch('/reviews/{review}', [AdminController::class, 'updateReviewStatus'])->name('reviews.update');
-    
-    // Analytics
-    Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
 });
 
 // Client Routes

@@ -29,31 +29,4 @@ class PayoutRequest extends Model
     {
         return $this->belongsTo(User::class, 'operator_id');
     }
-
-    public function approve($adminNotes = null)
-    {
-        $this->update([
-            'status' => 'approved',
-            'admin_notes' => $adminNotes,
-            'processed_at' => now(),
-        ]);
-    }
-
-    public function reject($adminNotes = null)
-    {
-        $this->update([
-            'status' => 'rejected',
-            'admin_notes' => $adminNotes,
-            'processed_at' => now(),
-        ]);
-    }
-
-    public function markAsPaid($adminNotes = null)
-    {
-        $this->update([
-            'status' => 'paid',
-            'admin_notes' => $adminNotes,
-            'processed_at' => now(),
-        ]);
-    }
 }

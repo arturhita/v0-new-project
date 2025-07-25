@@ -8,7 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -17,15 +17,20 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'role',
-        'avatar_url',
+        'phone',
         'bio',
-        'specialties',
-        'categories',
-        'rate_per_minute',
-        'is_available',
-        'is_suspended',
+        'avatar',
         'wallet_balance',
-        'availability_schedule',
+        'hourly_rate',
+        'specialties',
+        'availability',
+        'is_online',
+        'is_approved',
+        'is_suspended',
+        'total_earnings',
+        'total_consultations',
+        'rating',
+        'reviews_count',
     ];
 
     protected $hidden = [
@@ -37,15 +42,31 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'specialties' => 'array',
-        'categories' => 'array',
-        'availability_schedule' => 'array',
-        'is_available' => 'boolean',
+        'availability' => 'array',
+        'is_online' => 'boolean',
+        'is_approved' => 'boolean',
         'is_suspended' => 'boolean',
-        'rate_per_minute' => 'decimal:2',
         'wallet_balance' => 'decimal:2',
+        'hourly_rate' => 'decimal:2',
+        'total_earnings' => 'decimal:2',
+        'rating' => 'decimal:2',
     ];
 
-    // Relationships
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isOperator()
+    {
+        return $this->role === 'operator';
+    }
+
+    public function isClient()
+    {
+        return $this->role === 'client';
+    }
+
     public function clientConsultations()
     {
         return $this->hasMany(Consultation::class, 'client_id');
@@ -56,19 +77,14 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Consultation::class, 'operator_id');
     }
 
-    public function sentMessages()
-    {
-        return $this->hasMany(Message::class, 'sender_id');
-    }
-
-    public function clientReviews()
-    {
-        return $this->hasMany(Review::class, 'client_id');
-    }
-
-    public function operatorReviews()
+    public function reviews()
     {
         return $this->hasMany(Review::class, 'operator_id');
+    }
+
+    public function givenReviews()
+    {
+        return $this->hasMany(Review::class, 'client_id');
     }
 
     public function payoutRequests()
@@ -86,77 +102,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(WalletTransaction::class);
     }
 
-    // Scopes
-    public function scopeOperators($query)
+    public function updateRating()
     {
-        return $query->where('role', 'operator');
-    }
-
-    public function scopeClients($query)
-    {
-        return $query->where('role', 'client');
-    }
-
-    public function scopeAvailable($query)
-    {
-        return $query->where('is_available', true)->where('is_suspended', false);
-    }
-
-    // Helper methods
-    public function isAdmin()
-    {
-        return $this->role === 'admin';
-    }
-
-    public function isOperator()
-    {
-        return $this->role === 'operator';
-    }
-
-    public function isClient()
-    {
-        return $this->role === 'client';
-    }
-
-    public function getAverageRating()
-    {
-        return $this->operatorReviews()->where('status', 'approved')->avg('rating') ?? 0;
-    }
-
-    public function getTotalEarnings()
-    {
-        return $this->operatorConsultations()
-            ->where('status', 'completed')
-            ->sum('total_cost') ?? 0;
-    }
-
-    public function addToWallet($amount, $description, $reference = null)
-    {
-        $this->increment('wallet_balance', $amount);
-        
-        $this->walletTransactions()->create([
-            'type' => 'credit',
-            'amount' => $amount,
-            'description' => $description,
-            'reference' => $reference,
-            'balance_after' => $this->fresh()->wallet_balance,
-        ]);
-    }
-
-    public function deductFromWallet($amount, $description, $reference = null)
-    {
-        if ($this->wallet_balance < $amount) {
-            throw new \Exception('Saldo insufficiente');
-        }
-
-        $this->decrement('wallet_balance', $amount);
-        
-        $this->walletTransactions()->create([
-            'type' => 'debit',
-            'amount' => $amount,
-            'description' => $description,
-            'reference' => $reference,
-            'balance_after' => $this->fresh()->wallet_balance,
-        ]);
+        $reviews = $this->reviews()->where('status', 'approved');
+        $this->rating = $reviews->avg('rating') ?? 0;
+        $this->reviews_count = $reviews->count();
+        $this->save();
     }
 }

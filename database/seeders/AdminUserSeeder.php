@@ -15,7 +15,7 @@ class AdminUserSeeder extends Seeder
             'email' => 'admin@consulenza.com',
             'password' => Hash::make('password123'),
             'role' => 'admin',
-            'email_verified_at' => now(),
+            'is_approved' => true,
         ]);
     }
 }

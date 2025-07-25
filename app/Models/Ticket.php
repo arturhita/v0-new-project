@@ -27,19 +27,4 @@ class Ticket extends Model
     {
         return $this->hasMany(TicketReply::class);
     }
-
-    public function close()
-    {
-        $this->update(['status' => 'closed']);
-    }
-
-    public function resolve()
-    {
-        $this->update(['status' => 'resolved']);
-    }
-
-    public function reopen()
-    {
-        $this->update(['status' => 'open']);
-    }
 }
