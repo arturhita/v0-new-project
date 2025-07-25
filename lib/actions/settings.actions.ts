@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache"
 
-// Interfacce per le impostazioni
 interface AdvancedSettings {
   callDeductions: {
     enabled: boolean
@@ -27,12 +26,9 @@ interface CompanyDetails {
   email: string
 }
 
-// Salva impostazioni avanzate
 export async function saveAdvancedSettings(settings: AdvancedSettings) {
   try {
     console.log("Salvataggio impostazioni avanzate:", settings)
-
-    // Simula il salvataggio
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     revalidatePath("/admin/settings/advanced")
@@ -50,15 +46,11 @@ export async function saveAdvancedSettings(settings: AdvancedSettings) {
   }
 }
 
-// Aggiorna commissione operatore
 export async function updateOperatorCommission(operatorId: string, newCommission: number) {
   try {
     console.log(`Aggiornamento commissione operatore ${operatorId}: ${newCommission}%`)
-
-    // Simula aggiornamento
     await new Promise((resolve) => setTimeout(resolve, 800))
 
-    // Aggiorna tutte le pagine correlate
     revalidatePath("/admin/operators")
     revalidatePath(`/admin/operators/${operatorId}/edit`)
     revalidatePath("/admin/dashboard")
@@ -76,11 +68,9 @@ export async function updateOperatorCommission(operatorId: string, newCommission
   }
 }
 
-// Salva dettagli azienda
 export async function saveCompanyDetails(details: CompanyDetails) {
   try {
     console.log("Salvataggio dettagli azienda:", details)
-
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     revalidatePath("/admin/company-details")
@@ -98,12 +88,9 @@ export async function saveCompanyDetails(details: CompanyDetails) {
   }
 }
 
-// Invia newsletter
 export async function sendNewsletter(subject: string, content: string, recipients: string[]) {
   try {
     console.log("Invio newsletter:", { subject, recipients: recipients.length })
-
-    // Simula invio
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
     return {
@@ -119,11 +106,9 @@ export async function sendNewsletter(subject: string, content: string, recipient
   }
 }
 
-// Invia messaggio interno
 export async function sendInternalMessage(fromUserId: string, toUserId: string, subject: string, message: string) {
   try {
     console.log("Invio messaggio interno:", { fromUserId, toUserId, subject })
-
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     revalidatePath("/admin/messages")
@@ -141,11 +126,9 @@ export async function sendInternalMessage(fromUserId: string, toUserId: string, 
   }
 }
 
-// Approva richiesta aumento commissione
 export async function approveCommissionRequest(requestId: string) {
   try {
     console.log(`Approvazione richiesta commissione: ${requestId}`)
-
     await new Promise((resolve) => setTimeout(resolve, 800))
 
     revalidatePath("/admin/settings/advanced")
@@ -164,11 +147,9 @@ export async function approveCommissionRequest(requestId: string) {
   }
 }
 
-// Rifiuta richiesta aumento commissione
 export async function rejectCommissionRequest(requestId: string, reason?: string) {
   try {
     console.log(`Rifiuto richiesta commissione: ${requestId}, motivo: ${reason}`)
-
     await new Promise((resolve) => setTimeout(resolve, 800))
 
     revalidatePath("/admin/settings/advanced")
@@ -187,14 +168,10 @@ export async function rejectCommissionRequest(requestId: string, reason?: string
   }
 }
 
-// Crea fattura
 export async function createInvoice(invoiceData: any) {
   try {
     console.log("Creazione fattura:", invoiceData)
-
-    // Simula creazione
     const invoiceId = `INV-${Date.now()}`
-
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     revalidatePath("/admin/invoices")

@@ -3,10 +3,10 @@ export interface Reward {
   name: string
   description: string
   type: "consultation" | "digital" | "experience" | "premium" | "custom"
-  cost: number // in points
+  cost: number
   category: string
-  userType: "client"
-  availability: number // -1 = unlimited
+  userType: "client" | "operator"
+  availability: number
   validityDays?: number
   requirements?: {
     minLevel?: number
@@ -20,18 +20,47 @@ export interface Reward {
   image?: string
 }
 
-// SOLO REWARDS PER CLIENTI - Gli operatori hanno i badge come "rewards"
-export const CLIENT_REWARDS: Reward[] = []
+export const CLIENT_REWARDS: Reward[] = [
+  {
+    id: "reward_1",
+    name: "Consulenza Gratuita",
+    description: "Una consulenza gratuita di 10 minuti",
+    type: "consultation",
+    cost: 100,
+    category: "consultation",
+    userType: "client",
+    availability: -1,
+    isActive: true,
+    isFeatured: true,
+    createdBy: "admin",
+    createdAt: new Date(),
+  },
+]
 
-export const ALL_REWARDS = CLIENT_REWARDS
+export const OPERATOR_REWARDS: Reward[] = [
+  {
+    id: "op_reward_1",
+    name: "Badge Esperto",
+    description: "Badge per operatori esperti",
+    type: "premium",
+    cost: 500,
+    category: "badge",
+    userType: "operator",
+    availability: -1,
+    isActive: true,
+    isFeatured: true,
+    createdBy: "admin",
+    createdAt: new Date(),
+  },
+]
+
+export const ALL_REWARDS = [...CLIENT_REWARDS, ...OPERATOR_REWARDS]
 
 export class RewardsService {
-  // Ottieni rewards per clienti
-  static getRewardsByUserType(): Reward[] {
-    return ALL_REWARDS.filter((reward) => reward.userType === "client" && reward.isActive)
+  static getRewardsByUserType(userType: "client" | "operator"): Reward[] {
+    return ALL_REWARDS.filter((reward) => reward.userType === userType && reward.isActive)
   }
 
-  // CRUD Operations per Admin
   static async createReward(rewardData: Omit<Reward, "id" | "createdAt">): Promise<Reward> {
     const newReward: Reward = {
       ...rewardData,
@@ -39,38 +68,31 @@ export class RewardsService {
       createdAt: new Date(),
     }
 
-    // In produzione: salvare nel database
     console.log("Creating reward:", newReward)
     return newReward
   }
 
   static async updateReward(rewardId: string, updates: Partial<Reward>): Promise<boolean> {
-    // In produzione: aggiornare nel database
     console.log("Updating reward:", rewardId, updates)
     return true
   }
 
   static async deleteReward(rewardId: string): Promise<boolean> {
-    // In produzione: eliminare dal database
     console.log("Deleting reward:", rewardId)
     return true
   }
 
   static async getAllRewards(): Promise<Reward[]> {
-    // In produzione: recuperare dal database
     return ALL_REWARDS
   }
 
-  // Verifica se utente può riscattare reward
   static async canRedeemReward(userId: string, rewardId: string): Promise<boolean> {
     const reward = ALL_REWARDS.find((r) => r.id === rewardId)
     if (!reward || !reward.isActive) return false
 
-    // Verifica punti disponibili
     const userPoints = await import("./points-system").then((ps) => ps.PointsService.getUserPoints(userId))
     if (userPoints.availablePoints < reward.cost) return false
 
-    // Verifica requisiti
     if (reward.requirements) {
       if (reward.requirements.minLevel && userPoints.level < reward.requirements.minLevel) return false
 
@@ -85,7 +107,6 @@ export class RewardsService {
     return true
   }
 
-  // Riscatta reward
   static async redeemReward(userId: string, rewardId: string): Promise<boolean> {
     const canRedeem = await this.canRedeemReward(userId, rewardId)
     if (!canRedeem) return false
@@ -93,19 +114,16 @@ export class RewardsService {
     const reward = ALL_REWARDS.find((r) => r.id === rewardId)
     if (!reward) return false
 
-    // Spendi punti
     const pointsSpent = await import("./points-system").then((ps) =>
       ps.PointsService.spendPoints(userId, reward.cost, `Reward: ${reward.name}`),
     )
 
     if (!pointsSpent) return false
 
-    // Applica reward
     await this.applyReward(userId, reward)
     return true
   }
 
-  // Applica effetti del reward
   private static async applyReward(userId: string, reward: Reward): Promise<void> {
     switch (reward.type) {
       case "consultation":
@@ -126,12 +144,9 @@ export class RewardsService {
     }
   }
 
-  // Ottieni rewards riscattati dall'utente
   static async getUserRewards(userId: string): Promise<any[]> {
-    // Simulazione - in produzione da database
     return []
   }
 }
 
-// Export per compatibilità
 export const REWARDS_CATALOG = ALL_REWARDS

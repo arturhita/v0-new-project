@@ -24,7 +24,6 @@ const mockUsers = new Map<string, any>([
       ratePerMinute: 2.5,
     },
   ],
-  // Aggiungiamo un altro operatore per testare le card
   [
     "op_sol_divino",
     {
@@ -36,6 +35,7 @@ const mockUsers = new Map<string, any>([
     },
   ],
 ])
+
 const mockChatSessions = new Map<string, ChatSessionDetails>()
 
 export interface SendMessageResult {
@@ -97,20 +97,17 @@ interface ChatRequestResult {
 }
 
 export async function initiateChatRequest(userId: string, operatorId: string): Promise<ChatRequestResult> {
-  // Utilizza l'ID utente passato invece di uno hardcoded
   const client = mockUsers.get(userId)
   const operator = mockUsers.get(operatorId)
 
   if (!client) {
-    // Se il client non è nel mock, ne creiamo uno al volo per il test
     mockUsers.set(userId, {
       id: userId,
       name: "Nuovo Utente",
       avatar: "/placeholder.svg?width=40&height=40",
       role: "client",
-      balance: 100.0, // Diamo un credito di default
+      balance: 100.0,
     })
-    // Riprova con l'utente appena creato
     const newlyCreatedClient = mockUsers.get(userId)
     return executeChatRequest(newlyCreatedClient, operator, operatorId)
   }
@@ -127,19 +124,14 @@ async function executeChatRequest(client: any, operator: any, operatorId: string
     `Server Action: Utente ${client.name} (${client.id}) sta richiedendo una chat con l'operatore ${operator.name} (${operatorId})`,
   )
 
-  // LOGICA REALE DA IMPLEMENTARE:
-  // 1. Controllare credito utente
   if (client.balance < operator.ratePerMinute) {
     return { success: false, error: "Credito insufficiente per avviare la chat." }
   }
-  // 2. Controllare se l'operatore è online (da un DB)
-  // La logica di controllo isOnline è già nei componenti client, ma una doppia verifica lato server è sempre buona pratica.
 
-  // SIMULAZIONE CREAZIONE SESSIONE
   const sessionId = `session_${Date.now()}`
   const newSession: ChatSessionDetails = {
     id: sessionId,
-    status: "active", // La mettiamo subito attiva per semplicità
+    status: "active",
     client: {
       id: client.id,
       name: client.name,
@@ -179,14 +171,9 @@ export async function respondToChatRequest(
   return { success: true }
 }
 
-/**
- * NUOVA ACTION: Recupera i dettagli di una sessione di chat.
- * In un'app reale, questa funzione farebbe una query al database.
- */
 export async function getChatSessionDetails(sessionId: string): Promise<ChatSessionDetails | null> {
   console.log(`Recupero dettagli per la sessione: ${sessionId}`)
-  // SIMULAZIONE: Recupera la sessione dalla nostra mappa mock
-  await new Promise((res) => setTimeout(res, 500)) // Simula ritardo di rete
+  await new Promise((res) => setTimeout(res, 500))
   const session = mockChatSessions.get(sessionId)
   return session || null
 }

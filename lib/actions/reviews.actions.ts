@@ -1,10 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createAdminClient } from "@/lib/supabase/admin"
 
-// Definiamo lo schema per una nuova recensione, come deve arrivare dal form.
-// Nota l'uso di snake_case per i nomi, che corrisponde alle colonne del database.
 export interface NewReviewSchema {
   user_id: string
   operator_id: string
@@ -18,140 +15,94 @@ export interface NewReviewSchema {
   is_verified: boolean
 }
 
-/**
- * Crea una nuova recensione nel database.
- * Determina automaticamente se la recensione deve essere 'Pending' o 'Approved'.
- */
+// Mock reviews database
+const mockReviews = new Map<string, any>()
+
 export async function createReview(reviewData: NewReviewSchema) {
-  const supabase = createAdminClient()
+  try {
+    const status = reviewData.rating >= 4 ? "Approved" : "Pending"
+    const reviewId = `review_${Date.now()}`
 
-  // Le recensioni con 4 o 5 stelle vengono approvate in automatico.
-  // Le altre (1-3 stelle) vanno in moderazione.
-  const status = reviewData.rating >= 4 ? "Approved" : "Pending"
+    const review = {
+      id: reviewId,
+      ...reviewData,
+      status,
+      created_at: new Date().toISOString(),
+    }
 
-  const { data, error } = await supabase
-    .from("reviews")
-    .insert([{ ...reviewData, status }])
-    .select()
-    .single()
+    mockReviews.set(reviewId, review)
 
-  if (error) {
+    revalidatePath("/")
+    revalidatePath(`/operator/${reviewData.operator_name}`)
+    revalidatePath(`/admin/reviews`)
+
+    return { success: true, review }
+  } catch (error) {
     console.error("Error creating review:", error)
     return { success: false, error }
   }
-
-  // Invalida la cache per le pagine rilevanti per mostrare subito i nuovi dati
-  revalidatePath("/")
-  revalidatePath(`/operator/${reviewData.operator_name}`)
-  revalidatePath(`/admin/reviews`)
-
-  return { success: true, review: data }
 }
 
-/**
- * Recupera le recensioni approvate per un operatore specifico.
- * Usato nella pagina profilo dell'operatore.
- */
 export async function getOperatorReviews(operatorId: string) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select("*")
-    .eq("operator_id", operatorId)
-    .eq("status", "Approved")
-    .order("created_at", { ascending: false })
+  const reviews = Array.from(mockReviews.values())
+    .filter((review) => review.operator_id === operatorId && review.status === "Approved")
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  if (error) {
-    console.error("Error fetching operator reviews:", error)
-    return []
-  }
-  return data
+  return reviews
 }
 
-/**
- * Recupera le recensioni in attesa di moderazione.
- * Usato nella dashboard dell'amministratore.
- */
 export async function getPendingReviews() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(`*`)
-    .eq("status", "Pending")
-    .order("created_at", { ascending: true })
+  const reviews = Array.from(mockReviews.values())
+    .filter((review) => review.status === "Pending")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
-  if (error) {
-    console.error("Error fetching pending reviews:", error)
-    return []
-  }
-  return data
+  return reviews
 }
 
-/**
- * Recupera lo storico delle recensioni già moderate (Approvate o Rifiutate).
- * Usato nella dashboard dell'amministratore.
- */
 export async function getModeratedReviews() {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select("*")
-    .in("status", ["Approved", "Rejected"])
-    .order("created_at", { ascending: false })
-    .limit(50) // Limita per performance
+  const reviews = Array.from(mockReviews.values())
+    .filter((review) => ["Approved", "Rejected"].includes(review.status))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 50)
 
-  if (error) {
-    console.error("Error fetching moderated reviews:", error)
-    return []
-  }
-  return data
+  return reviews
 }
 
-/**
- * Modifica lo stato di una recensione (la approva o la rifiuta).
- * Chiamato dai bottoni nella pagina di moderazione dell'admin.
- */
 export async function moderateReview(reviewId: string, approved: boolean) {
-  const supabase = createAdminClient()
-  const newStatus = approved ? "Approved" : "Rejected"
+  try {
+    const review = mockReviews.get(reviewId)
+    if (!review) {
+      return { success: false, error: "Review not found" }
+    }
 
-  const { error } = await supabase.from("reviews").update({ status: newStatus }).eq("id", reviewId)
+    review.status = approved ? "Approved" : "Rejected"
+    mockReviews.set(reviewId, review)
 
-  if (error) {
+    revalidatePath("/admin/reviews")
+    return { success: true }
+  } catch (error) {
     console.error("Error moderating review:", error)
     return { success: false, error }
   }
-
-  revalidatePath("/admin/reviews")
-  return { success: true }
 }
 
-// --- Altre funzioni di supporto (già presenti, ora connesse a Supabase) ---
-
 export async function getOperatorAverageRating(operatorId: string) {
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("reviews")
-    .select("rating")
-    .eq("operator_id", operatorId)
-    .eq("status", "Approved")
-    .gte("rating", 3)
+  const reviews = Array.from(mockReviews.values()).filter(
+    (review) => review.operator_id === operatorId && review.status === "Approved" && review.rating >= 3,
+  )
 
-  if (error || !data || data.length === 0) return 0
+  if (reviews.length === 0) return 0
 
-  const totalRating = data.reduce((sum, review) => sum + review.rating, 0)
-  return Math.round((totalRating / data.length) * 10) / 10
+  const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0)
+  return Math.round((totalRating / reviews.length) * 10) / 10
 }
 
 export async function getOperatorReviewStats(operatorId: string) {
-  const supabase = createAdminClient()
-  const { data: allReviews, error } = await supabase
-    .from("reviews")
-    .select("rating")
-    .eq("operator_id", operatorId)
-    .eq("status", "Approved")
+  const allReviews = Array.from(mockReviews.values()).filter(
+    (review) => review.operator_id === operatorId && review.status === "Approved",
+  )
 
-  if (error || !allReviews) {
+  if (allReviews.length === 0) {
     return { totalReviews: 0, positiveReviews: 0, negativeReviews: 0, averageRating: 0, reviewsUsedInAverage: 0 }
   }
 
@@ -166,35 +117,40 @@ export async function getOperatorReviewStats(operatorId: string) {
 }
 
 export async function voteHelpful(reviewId: string) {
-  const supabase = createAdminClient()
-  const { error } = await supabase.rpc("increment_helpful_votes", { review_id_param: reviewId })
+  try {
+    const review = mockReviews.get(reviewId)
+    if (!review) return { success: false, error: "Review not found" }
 
-  if (error) {
+    review.helpful_votes = (review.helpful_votes || 0) + 1
+    mockReviews.set(reviewId, review)
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
     console.error("Error incrementing helpful votes:", error)
     return { success: false, error }
   }
-  revalidatePath("/")
-  return { success: true }
 }
 
 export async function reportReview(reviewId: string) {
-  const supabase = createAdminClient()
-  const { data: review, error: fetchError } = await supabase
-    .from("reviews")
-    .select("report_count")
-    .eq("id", reviewId)
-    .single()
-  if (fetchError || !review) return { success: false, error: fetchError }
+  try {
+    const review = mockReviews.get(reviewId)
+    if (!review) return { success: false, error: "Review not found" }
 
-  const newReportCount = review.report_count + 1
-  const shouldUnmoderate = newReportCount >= 3
+    const newReportCount = (review.report_count || 0) + 1
+    const shouldUnmoderate = newReportCount >= 3
 
-  const { error: updateError } = await supabase
-    .from("reviews")
-    .update({ report_count: newReportCount, ...(shouldUnmoderate && { status: "Pending" }) })
-    .eq("id", reviewId)
-  if (updateError) return { success: false, error: updateError }
+    review.report_count = newReportCount
+    if (shouldUnmoderate) {
+      review.status = "Pending"
+    }
 
-  if (shouldUnmoderate) revalidatePath("/admin/reviews")
-  return { success: true }
+    mockReviews.set(reviewId, review)
+
+    if (shouldUnmoderate) revalidatePath("/admin/reviews")
+    return { success: true }
+  } catch (error) {
+    console.error("Error reporting review:", error)
+    return { success: false, error }
+  }
 }
