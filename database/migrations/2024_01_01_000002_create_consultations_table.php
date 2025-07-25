@@ -19,8 +19,7 @@ return new class extends Migration
             $table->decimal('total_cost', 10, 2)->default(0);
             $table->timestamp('started_at')->nullable();
             $table->timestamp('ended_at')->nullable();
-            $table->text('client_notes')->nullable();
-            $table->text('operator_notes')->nullable();
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }

@@ -14,25 +14,22 @@ class OperatorController extends Controller
         $user = auth()->user();
         
         $stats = [
-            'total_consultations' => $user->operatorConsultations()->count(),
-            'active_consultations' => $user->operatorConsultations()->where('status', 'active')->count(),
-            'total_earnings' => $user->total_earnings,
-            'pending_payouts' => $user->payoutRequests()->where('status', 'pending')->sum('amount'),
-            'rating' => $user->rating,
-            'reviews_count' => $user->reviews_count,
+            'total_consultations' => $user->consultationsAsOperator()->count(),
+            'completed_consultations' => $user->consultationsAsOperator()->where('status', 'completed')->count(),
+            'total_earnings' => $user->consultationsAsOperator()->where('status', 'completed')->sum('total_cost') * 0.8, // 80% commission
+            'average_rating' => $user->average_rating,
+            'total_reviews' => $user->total_reviews,
         ];
 
-        $recentConsultations = $user->operatorConsultations()
+        $recentConsultations = $user->consultationsAsOperator()
             ->with('client')
             ->latest()
-            ->take(5)
+            ->limit(5)
             ->get();
 
-        $pendingConsultations = $user->operatorConsultations()
+        $pendingConsultations = $user->consultationsAsOperator()
             ->where('status', 'pending')
             ->with('client')
-            ->latest()
-            ->take(3)
             ->get();
 
         return view('operator.dashboard', compact('stats', 'recentConsultations', 'pendingConsultations'));
@@ -40,13 +37,10 @@ class OperatorController extends Controller
 
     public function consultations()
     {
-        $consultations = auth()->user()->operatorConsultations()
-            ->with('client')
-            ->when(request('status'), function($query, $status) {
-                return $query->where('status', $status);
-            })
-            ->latest()
-            ->paginate(15);
+        $consultations = auth()->user()->consultationsAsOperator()
+            ->with(['client', 'review'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
         return view('operator.consultations', compact('consultations'));
     }
@@ -81,25 +75,24 @@ class OperatorController extends Controller
             abort(403);
         }
 
-        $request->validate([
-            'operator_notes' => 'nullable|string|max:1000',
-        ]);
-
         $duration = now()->diffInMinutes($consultation->started_at);
-        
+        $totalCost = $duration * $consultation->rate_per_minute;
+
         $consultation->update([
             'status' => 'completed',
             'ended_at' => now(),
             'duration_minutes' => $duration,
-            'operator_notes' => $request->operator_notes,
+            'total_cost' => $totalCost,
+            'notes' => $request->notes,
         ]);
 
-        $consultation->calculateCost();
+        // Deduct from client wallet
+        $client = $consultation->client;
+        $client->decrement('wallet_balance', $totalCost);
 
-        // Update operator earnings
-        $operator = auth()->user();
-        $operator->increment('total_earnings', $consultation->total_cost * 0.8); // 80% commission
-        $operator->increment('total_consultations');
+        // Add to operator earnings (80% commission)
+        $operatorEarnings = $totalCost * 0.8;
+        auth()->user()->increment('wallet_balance', $operatorEarnings);
 
         return back()->with('success', 'Consulenza completata con successo!');
     }
@@ -107,9 +100,7 @@ class OperatorController extends Controller
     public function profile()
     {
         $user = auth()->user();
-        $specialties = ['Amore', 'Lavoro', 'Famiglia', 'Spiritualità', 'Tarocchi', 'Astrologia'];
-        
-        return view('operator.profile', compact('user', 'specialties'));
+        return view('operator.profile', compact('user'));
     }
 
     public function updateProfile(Request $request)
@@ -117,15 +108,14 @@ class OperatorController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
-            'bio' => 'required|string|max:1000',
-            'hourly_rate' => 'required|numeric|min:10|max:200',
-            'specialties' => 'required|array|min:1',
-            'specialties.*' => 'string',
+            'bio' => 'nullable|string|max:1000',
+            'hourly_rate' => 'required|numeric|min:1|max:500',
+            'specialties' => 'nullable|array',
             'avatar' => 'nullable|image|max:2048',
         ]);
 
         $user = auth()->user();
-        $data = $request->except('avatar');
+        $data = $request->only(['name', 'phone', 'bio', 'hourly_rate', 'specialties']);
 
         if ($request->hasFile('avatar')) {
             $path = $request->file('avatar')->store('avatars', 'public');
@@ -141,8 +131,8 @@ class OperatorController extends Controller
     {
         $user = auth()->user();
         $payouts = $user->payoutRequests()
-            ->latest()
-            ->paginate(15);
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
         return view('operator.payouts', compact('user', 'payouts'));
     }
@@ -150,12 +140,17 @@ class OperatorController extends Controller
     public function requestPayout(Request $request)
     {
         $request->validate([
-            'amount' => 'required|numeric|min:50|max:' . auth()->user()->total_earnings,
+            'amount' => 'required|numeric|min:10|max:' . auth()->user()->wallet_balance,
             'payment_method' => 'required|string',
             'payment_details' => 'required|array',
         ]);
 
-        auth()->user()->payoutRequests()->create($request->all());
+        PayoutRequest::create([
+            'operator_id' => auth()->id(),
+            'amount' => $request->amount,
+            'payment_method' => $request->payment_method,
+            'payment_details' => $request->payment_details,
+        ]);
 
         return back()->with('success', 'Richiesta di pagamento inviata con successo!');
     }
@@ -176,6 +171,7 @@ class OperatorController extends Controller
         auth()->user()->update([
             'availability' => $request->availability,
             'is_online' => $request->boolean('is_online'),
+            'last_seen' => now(),
         ]);
 
         return back()->with('success', 'Disponibilità aggiornata con successo!');

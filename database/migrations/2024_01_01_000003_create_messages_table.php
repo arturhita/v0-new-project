@@ -12,8 +12,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('consultation_id')->constrained()->onDelete('cascade');
             $table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
-            $table->text('content');
+            $table->text('message');
             $table->enum('type', ['text', 'image', 'file'])->default('text');
+            $table->string('file_path')->nullable();
             $table->boolean('is_read')->default(false);
             $table->timestamps();
         });

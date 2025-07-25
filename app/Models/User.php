@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -17,6 +16,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'status',
         'phone',
         'bio',
         'avatar',
@@ -25,12 +25,7 @@ class User extends Authenticatable
         'specialties',
         'availability',
         'is_online',
-        'is_approved',
-        'is_suspended',
-        'total_earnings',
-        'total_consultations',
-        'rating',
-        'reviews_count',
+        'last_seen',
     ];
 
     protected $hidden = [
@@ -43,13 +38,10 @@ class User extends Authenticatable
         'password' => 'hashed',
         'specialties' => 'array',
         'availability' => 'array',
-        'is_online' => 'boolean',
-        'is_approved' => 'boolean',
-        'is_suspended' => 'boolean',
         'wallet_balance' => 'decimal:2',
         'hourly_rate' => 'decimal:2',
-        'total_earnings' => 'decimal:2',
-        'rating' => 'decimal:2',
+        'is_online' => 'boolean',
+        'last_seen' => 'datetime',
     ];
 
     public function isAdmin()
@@ -67,12 +59,12 @@ class User extends Authenticatable
         return $this->role === 'client';
     }
 
-    public function clientConsultations()
+    public function consultationsAsClient()
     {
         return $this->hasMany(Consultation::class, 'client_id');
     }
 
-    public function operatorConsultations()
+    public function consultationsAsOperator()
     {
         return $this->hasMany(Consultation::class, 'operator_id');
     }
@@ -82,14 +74,9 @@ class User extends Authenticatable
         return $this->hasMany(Review::class, 'operator_id');
     }
 
-    public function givenReviews()
+    public function walletTransactions()
     {
-        return $this->hasMany(Review::class, 'client_id');
-    }
-
-    public function payoutRequests()
-    {
-        return $this->hasMany(PayoutRequest::class, 'operator_id');
+        return $this->hasMany(WalletTransaction::class);
     }
 
     public function tickets()
@@ -97,16 +84,18 @@ class User extends Authenticatable
         return $this->hasMany(Ticket::class);
     }
 
-    public function walletTransactions()
+    public function payoutRequests()
     {
-        return $this->hasMany(WalletTransaction::class);
+        return $this->hasMany(PayoutRequest::class, 'operator_id');
     }
 
-    public function updateRating()
+    public function getAverageRatingAttribute()
     {
-        $reviews = $this->reviews()->where('status', 'approved');
-        $this->rating = $reviews->avg('rating') ?? 0;
-        $this->reviews_count = $reviews->count();
-        $this->save();
+        return $this->reviews()->where('status', 'approved')->avg('rating') ?? 0;
+    }
+
+    public function getTotalReviewsAttribute()
+    {
+        return $this->reviews()->where('status', 'approved')->count();
     }
 }

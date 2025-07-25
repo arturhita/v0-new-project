@@ -12,8 +12,9 @@ class Message extends Model
     protected $fillable = [
         'consultation_id',
         'sender_id',
-        'content',
+        'message',
         'type',
+        'file_path',
         'is_read',
     ];
 

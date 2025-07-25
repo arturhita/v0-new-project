@@ -10,31 +10,32 @@ class HomeController extends Controller
 {
     public function index()
     {
-        // Ottieni gli operatori più votati
-        $topOperators = User::where('role', 'operator')
-            ->where('status', 'approved')
-            ->where('is_available', true)
-            ->withAvg('receivedReviews', 'rating')
-            ->withCount('receivedReviews')
-            ->orderBy('received_reviews_avg_rating', 'desc')
-            ->take(6)
+        $featuredOperators = User::where('role', 'operator')
+            ->where('status', 'active')
+            ->where('is_online', true)
+            ->withCount(['reviews' => function ($query) {
+                $query->where('status', 'approved');
+            }])
+            ->with(['reviews' => function ($query) {
+                $query->where('status', 'approved')->latest()->limit(3);
+            }])
+            ->orderBy('reviews_count', 'desc')
+            ->limit(8)
             ->get();
 
-        // Ottieni le ultime recensioni
-        $latestReviews = Review::with(['client', 'operator'])
-            ->where('status', 'approved')
+        $recentReviews = Review::where('status', 'approved')
+            ->with(['client', 'operator'])
             ->latest()
-            ->take(3)
+            ->limit(6)
             ->get();
 
-        // Statistiche della piattaforma
         $stats = [
-            'total_operators' => User::where('role', 'operator')->where('status', 'approved')->count(),
+            'total_operators' => User::where('role', 'operator')->where('status', 'active')->count(),
             'total_consultations' => \App\Models\Consultation::where('status', 'completed')->count(),
             'average_rating' => Review::where('status', 'approved')->avg('rating') ?? 0,
-            'total_clients' => User::where('role', 'client')->count(),
+            'online_operators' => User::where('role', 'operator')->where('is_online', true)->count(),
         ];
 
-        return view('welcome', compact('topOperators', 'latestReviews', 'stats'));
+        return view('welcome', compact('featuredOperators', 'recentReviews', 'stats'));
     }
 }

@@ -17,23 +17,26 @@ class ClientController extends Controller
         $user = auth()->user();
         
         $stats = [
-            'total_consultations' => $user->clientConsultations()->count(),
-            'active_consultations' => $user->clientConsultations()->where('status', 'active')->count(),
+            'total_consultations' => $user->consultationsAsClient()->count(),
+            'completed_consultations' => $user->consultationsAsClient()->where('status', 'completed')->count(),
+            'total_spent' => $user->consultationsAsClient()->where('status', 'completed')->sum('total_cost'),
             'wallet_balance' => $user->wallet_balance,
-            'total_spent' => $user->clientConsultations()->where('status', 'completed')->sum('total_cost'),
         ];
 
-        $recentConsultations = $user->clientConsultations()
+        $recentConsultations = $user->consultationsAsClient()
             ->with('operator')
             ->latest()
-            ->take(5)
+            ->limit(5)
             ->get();
 
         $favoriteOperators = User::where('role', 'operator')
-            ->where('is_approved', true)
+            ->where('status', 'active')
             ->where('is_online', true)
-            ->orderBy('rating', 'desc')
-            ->take(4)
+            ->withCount(['reviews' => function ($query) {
+                $query->where('status', 'approved');
+            }])
+            ->orderBy('reviews_count', 'desc')
+            ->limit(6)
             ->get();
 
         return view('client.dashboard', compact('stats', 'recentConsultations', 'favoriteOperators'));
@@ -41,13 +44,10 @@ class ClientController extends Controller
 
     public function consultations()
     {
-        $consultations = auth()->user()->clientConsultations()
-            ->with('operator')
-            ->when(request('status'), function($query, $status) {
-                return $query->where('status', $status);
-            })
-            ->latest()
-            ->paginate(15);
+        $consultations = auth()->user()->consultationsAsClient()
+            ->with(['operator', 'review'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
         return view('client.consultations', compact('consultations'));
     }
@@ -64,34 +64,44 @@ class ClientController extends Controller
 
     public function operators(Request $request)
     {
-        $operators = User::where('role', 'operator')
-            ->where('is_approved', true)
-            ->where('is_suspended', false)
-            ->when($request->specialty, function($query, $specialty) {
-                return $query->whereJsonContains('specialties', $specialty);
-            })
-            ->when($request->search, function($query, $search) {
-                return $query->where('name', 'like', "%{$search}%");
-            })
-            ->when($request->online_only, function($query) {
-                return $query->where('is_online', true);
-            })
-            ->withCount('reviews')
-            ->orderBy($request->sort ?? 'rating', 'desc')
+        $query = User::where('role', 'operator')
+            ->where('status', 'active');
+
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
+                  ->orWhere('bio', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        if ($request->specialty) {
+            $query->whereJsonContains('specialties', $request->specialty);
+        }
+
+        if ($request->online_only) {
+            $query->where('is_online', true);
+        }
+
+        $operators = $query->withCount(['reviews' => function ($q) {
+                $q->where('status', 'approved');
+            }])
+            ->with(['reviews' => function ($q) {
+                $q->where('status', 'approved')->latest()->limit(3);
+            }])
             ->paginate(12);
 
-        $specialties = ['Amore', 'Lavoro', 'Famiglia', 'Spiritualità', 'Tarocchi', 'Astrologia'];
+        $specialties = ['Astrologia', 'Tarocchi', 'Cartomanzia', 'Numerologia', 'Cristalloterapia'];
 
         return view('client.operators', compact('operators', 'specialties'));
     }
 
     public function showOperator(User $operator)
     {
-        if (!$operator->isOperator() || !$operator->is_approved) {
+        if (!$operator->isOperator() || $operator->status !== 'active') {
             abort(404);
         }
 
-        $operator->load(['reviews' => function($query) {
+        $operator->load(['reviews' => function ($query) {
             $query->where('status', 'approved')->with('client')->latest();
         }]);
 
@@ -102,11 +112,14 @@ class ClientController extends Controller
     {
         $request->validate([
             'type' => 'required|in:chat,call,video',
-            'notes' => 'nullable|string|max:500',
         ]);
 
-        if (!$operator->isOperator() || !$operator->is_approved || !$operator->is_online) {
+        if (!$operator->isOperator() || $operator->status !== 'active') {
             return back()->with('error', 'Operatore non disponibile.');
+        }
+
+        if (auth()->user()->wallet_balance < $operator->hourly_rate) {
+            return back()->with('error', 'Saldo insufficiente. Ricarica il tuo portafoglio.');
         }
 
         $consultation = Consultation::create([
@@ -114,11 +127,51 @@ class ClientController extends Controller
             'operator_id' => $operator->id,
             'type' => $request->type,
             'rate_per_minute' => $operator->hourly_rate / 60,
-            'client_notes' => $request->notes,
+            'status' => 'pending',
         ]);
 
         return redirect()->route('client.consultation.show', $consultation)
             ->with('success', 'Consulenza prenotata con successo!');
+    }
+
+    public function wallet()
+    {
+        $user = auth()->user();
+        $transactions = $user->walletTransactions()
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return view('client.wallet', compact('user', 'transactions'));
+    }
+
+    public function support()
+    {
+        $tickets = auth()->user()->tickets()
+            ->with('replies')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        return view('client.support', compact('tickets'));
+    }
+
+    public function createTicket(Request $request)
+    {
+        $request->validate([
+            'subject' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category' => 'required|string',
+            'priority' => 'required|in:low,medium,high,urgent',
+        ]);
+
+        Ticket::create([
+            'user_id' => auth()->id(),
+            'subject' => $request->subject,
+            'description' => $request->description,
+            'category' => $request->category,
+            'priority' => $request->priority,
+        ]);
+
+        return back()->with('success', 'Ticket creato con successo!');
     }
 
     public function leaveReview(Consultation $consultation, Request $request)
@@ -145,39 +198,5 @@ class ClientController extends Controller
         ]);
 
         return back()->with('success', 'Recensione inviata con successo!');
-    }
-
-    public function wallet()
-    {
-        $user = auth()->user();
-        $transactions = $user->walletTransactions()
-            ->latest()
-            ->paginate(20);
-
-        return view('client.wallet', compact('user', 'transactions'));
-    }
-
-    public function support()
-    {
-        $tickets = auth()->user()->tickets()
-            ->with('replies')
-            ->latest()
-            ->paginate(10);
-
-        return view('client.support', compact('tickets'));
-    }
-
-    public function createTicket(Request $request)
-    {
-        $request->validate([
-            'subject' => 'required|string|max:255',
-            'description' => 'required|string',
-            'category' => 'required|string',
-            'priority' => 'required|in:low,medium,high,urgent',
-        ]);
-
-        auth()->user()->tickets()->create($request->all());
-
-        return back()->with('success', 'Ticket creato con successo!');
     }
 }

@@ -15,6 +15,7 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->enum('role', ['admin', 'operator', 'client'])->default('client');
+            $table->enum('status', ['active', 'suspended', 'pending'])->default('active');
             $table->string('phone')->nullable();
             $table->text('bio')->nullable();
             $table->string('avatar')->nullable();
@@ -23,12 +24,7 @@ return new class extends Migration
             $table->json('specialties')->nullable();
             $table->json('availability')->nullable();
             $table->boolean('is_online')->default(false);
-            $table->boolean('is_approved')->default(false);
-            $table->boolean('is_suspended')->default(false);
-            $table->decimal('total_earnings', 10, 2)->default(0);
-            $table->integer('total_consultations')->default(0);
-            $table->decimal('rating', 3, 2)->default(0);
-            $table->integer('reviews_count')->default(0);
+            $table->timestamp('last_seen')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

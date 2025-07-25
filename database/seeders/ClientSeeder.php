@@ -15,8 +15,9 @@ class ClientSeeder extends Seeder
             'email' => 'cliente@consulenza.com',
             'password' => Hash::make('password123'),
             'role' => 'client',
+            'status' => 'active',
             'wallet_balance' => 100.00,
-            'is_approved' => true,
+            'email_verified_at' => now(),
         ]);
     }
 }

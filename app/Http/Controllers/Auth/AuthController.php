@@ -28,12 +28,16 @@ class AuthController extends Controller
 
             $user = Auth::user();
             
-            if ($user->isAdmin()) {
-                return redirect()->intended('/admin/dashboard');
-            } elseif ($user->isOperator()) {
-                return redirect()->intended('/operator/dashboard');
-            } else {
-                return redirect()->intended('/client/dashboard');
+            // Redirect based on role
+            switch ($user->role) {
+                case 'admin':
+                    return redirect()->intended('/admin/dashboard');
+                case 'operator':
+                    return redirect()->intended('/operator/dashboard');
+                case 'client':
+                    return redirect()->intended('/client/dashboard');
+                default:
+                    return redirect()->intended('/');
             }
         }
 
@@ -55,6 +59,9 @@ class AuthController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['required', 'in:client,operator'],
             'phone' => ['nullable', 'string', 'max:20'],
+            'bio' => ['nullable', 'string', 'max:1000'],
+            'hourly_rate' => ['nullable', 'numeric', 'min:1', 'max:500'],
+            'specialties' => ['nullable', 'array'],
         ]);
 
         $user = User::create([
@@ -63,23 +70,32 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
             'phone' => $request->phone,
-            'is_approved' => $request->role === 'client' ? true : false,
+            'bio' => $request->bio,
+            'hourly_rate' => $request->hourly_rate,
+            'specialties' => $request->specialties,
+            'status' => $request->role === 'operator' ? 'pending' : 'active',
         ]);
 
         Auth::login($user);
 
-        if ($user->isOperator()) {
-            return redirect('/operator/profile')->with('success', 'Registrazione completata! Completa il tuo profilo per essere approvato.');
+        // Redirect based on role
+        switch ($user->role) {
+            case 'operator':
+                return redirect('/operator/dashboard')->with('success', 'Registrazione completata! Il tuo account è in attesa di approvazione.');
+            case 'client':
+                return redirect('/client/dashboard')->with('success', 'Registrazione completata con successo!');
+            default:
+                return redirect('/');
         }
-
-        return redirect('/client/dashboard')->with('success', 'Registrazione completata con successo!');
     }
 
     public function logout(Request $request)
     {
         Auth::logout();
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect('/');
     }
 }

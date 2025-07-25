@@ -19,8 +19,7 @@ class Consultation extends Model
         'total_cost',
         'started_at',
         'ended_at',
-        'client_notes',
-        'operator_notes',
+        'notes',
     ];
 
     protected $casts = [
@@ -48,13 +47,5 @@ class Consultation extends Model
     public function review()
     {
         return $this->hasOne(Review::class);
-    }
-
-    public function calculateCost()
-    {
-        if ($this->duration_minutes > 0) {
-            $this->total_cost = ($this->rate_per_minute * $this->duration_minutes);
-            $this->save();
-        }
     }
 }
