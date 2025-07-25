@@ -36,11 +36,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 // Client routes
 Route::middleware(['auth'])->prefix('dashboard/client')->group(function () {
     Route::get('/', [ClientController::class, 'dashboard'])->name('client.dashboard');
-    // Add more client routes here
+    Route::get('/consultations', [ClientController::class, 'consultations'])->name('client.consultations');
+    Route::get('/operators', [ClientController::class, 'operators'])->name('client.operators');
 });
 
 // Operator routes
 Route::middleware(['auth', 'operator'])->prefix('dashboard/operator')->group(function () {
     Route::get('/', [OperatorController::class, 'dashboard'])->name('operator.dashboard');
-    // Add more operator routes here
+    Route::get('/consultations', [OperatorController::class, 'consultations'])->name('operator.consultations');
+    Route::get('/payouts', [OperatorController::class, 'payouts'])->name('operator.payouts');
+    Route::post('/payouts', [OperatorController::class, 'requestPayout'])->name('operator.payouts.request');
 });
