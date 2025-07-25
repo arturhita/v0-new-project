@@ -4,6 +4,7 @@ import type { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { LoginSchema, RegisterSchema } from "@/lib/schemas"
 import { redirect } from "next/navigation"
+import { AuthError } from "@supabase/supabase-js"
 
 export async function login(values: z.infer<typeof LoginSchema>) {
   try {
@@ -22,53 +23,49 @@ export async function login(values: z.infer<typeof LoginSchema>) {
     })
 
     if (signInError) {
-      console.error("Login Error:", signInError)
-      switch (signInError.message) {
-        case "Invalid login credentials":
-          return { error: "Credenziali di accesso non valide." }
-        case "Email not confirmed":
-          return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
-        default:
-          return { error: "Si è verificato un errore durante l'accesso." }
+      console.error("Login Error:", signInError.message)
+      if (signInError.message === "Invalid login credentials") {
+        return { error: "Credenziali di accesso non valide." }
       }
+      if (signInError.message === "Email not confirmed") {
+        return { error: "Devi confermare la tua email. Controlla la tua casella di posta." }
+      }
+      return { error: "Si è verificato un errore durante l'accesso." }
     }
 
     if (!signInData.user) {
       return { error: "Utente non trovato dopo il login." }
     }
 
-    // Fetch user profile with error handling
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", signInData.user.id)
       .single()
 
-    if (profileError) {
+    if (profileError || !profile) {
       console.error("Profile fetch error:", profileError)
       await supabase.auth.signOut()
-      return { error: "Impossibile trovare il profilo utente. Contattare l'assistenza." }
+      return { error: "Impossibile recuperare il profilo utente. Contattare l'assistenza." }
     }
 
-    if (!profile) {
-      await supabase.auth.signOut()
-      return { error: "Profilo utente non trovato." }
-    }
-
-    // Successful login - redirect based on role
-    switch (profile.role) {
-      case "admin":
-        redirect("/admin/dashboard")
-      case "operator":
-        redirect("/dashboard/operator")
-      case "client":
-        redirect("/dashboard/client")
-      default:
-        redirect("/")
+    // FIX: Redirect logic is now cleaner and safer using if/else.
+    if (profile.role === "admin") {
+      redirect("/admin/dashboard")
+    } else if (profile.role === "operator") {
+      redirect("/dashboard/operator")
+    } else if (profile.role === "client") {
+      redirect("/dashboard/client")
+    } else {
+      redirect("/")
     }
   } catch (error) {
+    // This will catch unexpected errors, like network issues or the original JSON parse error.
+    if (error instanceof AuthError) {
+      return { error: `Errore di autenticazione: ${error.message}` }
+    }
     console.error("Unexpected login error:", error)
-    return { error: "Si è verificato un errore imprevisto durante l'accesso." }
+    return { error: "Si è verificato un errore imprevisto. Riprova." }
   }
 }
 
@@ -160,9 +157,8 @@ export async function logout() {
   try {
     const supabase = createClient()
     await supabase.auth.signOut()
-    redirect("/login")
   } catch (error) {
     console.error("Logout error:", error)
-    redirect("/login")
   }
+  redirect("/login")
 }

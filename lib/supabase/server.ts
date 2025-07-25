@@ -6,7 +6,7 @@ export const createClient = () => {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // CORREZIONE: Usare la chiave ANON per le operazioni di autenticazione
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // FIX: Use the anon key for authentication flows
     {
       cookies: {
         get(name: string) {
@@ -16,14 +16,16 @@ export const createClient = () => {
           try {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
-            // Ignora l'errore se chiamato da un Server Component
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing user sessions.
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: "", ...options })
           } catch (error) {
-            // Ignora l'errore se chiamato da un Server Component
+            // The `remove` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing user sessions.
           }
         },
       },
