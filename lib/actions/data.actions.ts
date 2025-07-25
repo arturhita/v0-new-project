@@ -1,44 +1,130 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import type { Operator } from "@/components/operator-card"
-import type { Review } from "@/components/review-card"
+
+export interface Operator {
+  id: string
+  name: string
+  avatarUrl: string
+  specialization: string
+  rating: number
+  reviewsCount: number
+  description: string
+  tags: string[]
+  isOnline: boolean
+  services: {
+    chatPrice?: number
+    callPrice?: number
+    emailPrice?: number
+  }
+  profileLink: string
+  joinedDate?: string
+}
+
+export interface Review {
+  id: string
+  user_name: string
+  user_type: string
+  operator_name: string
+  rating: number
+  comment: string
+  created_at: string
+}
 
 // Funzione di supporto per mappare un profilo Supabase al tipo di dati atteso dal componente OperatorCard
 const mapProfileToOperator = (profile: any): Operator => {
-  const services = (profile.services as any) || {}
-  const chatService = services.chat || {}
-  const callService = services.call || {}
-  const emailService = services.email || {}
+  try {
+    let services = { chatPrice: undefined, callPrice: undefined, emailPrice: undefined }
 
-  return {
-    id: profile.id,
-    name: profile.stage_name || profile.full_name || "Operatore",
-    avatarUrl: profile.avatar_url || "/placeholder.svg?height=100&width=100",
-    specialization:
-      (profile.specialties && profile.specialties[0]) || (profile.categories && profile.categories[0]) || "Esperto",
-    rating: profile.average_rating || 0,
-    reviewsCount: profile.reviews_count || 0,
-    description: profile.bio || "Nessuna descrizione disponibile.",
-    tags: profile.categories || [],
-    isOnline: profile.is_online || false,
-    services: {
-      chatPrice: chatService.enabled ? chatService.price_per_minute : undefined,
-      callPrice: callService.enabled ? callService.price_per_minute : undefined,
-      emailPrice: emailService.enabled ? emailService.price : undefined,
-    },
-    profileLink: `/operator/${profile.stage_name || profile.id}`,
-    joinedDate: profile.created_at,
+    // Safely parse services if it exists
+    if (profile.services) {
+      try {
+        const parsedServices = typeof profile.services === "string" ? JSON.parse(profile.services) : profile.services
+
+        if (parsedServices && typeof parsedServices === "object") {
+          const chatService = parsedServices.chat || {}
+          const callService = parsedServices.call || {}
+          const emailService = parsedServices.email || {}
+
+          services = {
+            chatPrice: chatService.enabled ? chatService.price_per_minute : undefined,
+            callPrice: callService.enabled ? callService.price_per_minute : undefined,
+            emailPrice: emailService.enabled ? emailService.price : undefined,
+          }
+        }
+      } catch (e) {
+        console.warn("Error parsing services for operator:", profile.id, e)
+      }
+    }
+
+    // Safely parse arrays
+    let categories: string[] = []
+    let specialties: string[] = []
+
+    if (profile.categories) {
+      try {
+        categories = Array.isArray(profile.categories)
+          ? profile.categories
+          : typeof profile.categories === "string"
+            ? JSON.parse(profile.categories)
+            : []
+      } catch (e) {
+        categories = []
+      }
+    }
+
+    if (profile.specialties) {
+      try {
+        specialties = Array.isArray(profile.specialties)
+          ? profile.specialties
+          : typeof profile.specialties === "string"
+            ? JSON.parse(profile.specialties)
+            : []
+      } catch (e) {
+        specialties = []
+      }
+    }
+
+    return {
+      id: profile.id || "",
+      name: profile.stage_name || profile.full_name || "Operatore",
+      avatarUrl: profile.avatar_url || "/placeholder.svg?height=100&width=100",
+      specialization: specialties[0] || categories[0] || "Esperto",
+      rating: Number(profile.average_rating) || 0,
+      reviewsCount: Number(profile.reviews_count) || 0,
+      description: profile.bio || "Nessuna descrizione disponibile.",
+      tags: [...categories, ...specialties].filter(Boolean),
+      isOnline: Boolean(profile.is_online),
+      services,
+      profileLink: `/operator/${profile.stage_name || profile.id}`,
+      joinedDate: profile.created_at,
+    }
+  } catch (error) {
+    console.error("Error mapping profile to operator:", error)
+    return {
+      id: profile.id || "",
+      name: "Operatore",
+      avatarUrl: "/placeholder.svg?height=100&width=100",
+      specialization: "Esperto",
+      rating: 0,
+      reviewsCount: 0,
+      description: "Nessuna descrizione disponibile.",
+      tags: [],
+      isOnline: false,
+      services: {},
+      profileLink: `/operator/${profile.id}`,
+      joinedDate: profile.created_at,
+    }
   }
 }
 
 /**
  * Recupera tutti i dati necessari per la homepage (operatori e recensioni).
  */
-export async function getHomepageData() {
-  const supabase = createClient()
-
+export async function getHomepageData(): Promise<{ operators: Operator[]; reviews: Review[] }> {
   try {
+    const supabase = createClient()
+
     // Recupera operatori con query semplificata
     const { data: operatorsData, error: operatorsError } = await supabase
       .from("profiles")
@@ -96,29 +182,33 @@ export async function getHomepageData() {
 
     if (reviewsData && reviewsData.length > 0) {
       for (const review of reviewsData) {
-        // Recupera il nome del cliente
-        const { data: clientData } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url")
-          .eq("id", review.client_id)
-          .single()
+        try {
+          // Recupera il nome del cliente
+          const { data: clientData } = await supabase
+            .from("profiles")
+            .select("full_name, avatar_url")
+            .eq("id", review.client_id)
+            .single()
 
-        // Recupera il nome dell'operatore
-        const { data: operatorData } = await supabase
-          .from("profiles")
-          .select("stage_name, full_name")
-          .eq("id", review.operator_id)
-          .single()
+          // Recupera il nome dell'operatore
+          const { data: operatorData } = await supabase
+            .from("profiles")
+            .select("stage_name, full_name")
+            .eq("id", review.operator_id)
+            .single()
 
-        reviews.push({
-          id: review.id,
-          user_name: clientData?.full_name || "Utente Anonimo",
-          user_type: "Utente",
-          operator_name: operatorData?.stage_name || operatorData?.full_name || "Operatore",
-          rating: review.rating,
-          comment: review.comment,
-          created_at: review.created_at,
-        })
+          reviews.push({
+            id: review.id,
+            user_name: clientData?.full_name || "Utente Anonimo",
+            user_type: "Utente",
+            operator_name: operatorData?.stage_name || operatorData?.full_name || "Operatore",
+            rating: Number(review.rating) || 0,
+            comment: review.comment || "",
+            created_at: review.created_at,
+          })
+        } catch (reviewError) {
+          console.warn("Error processing review:", review.id, reviewError)
+        }
       }
     }
 
@@ -133,11 +223,11 @@ export async function getHomepageData() {
  * Recupera gli operatori attivi per una specifica categoria.
  * @param categorySlug - Lo slug della categoria (es. 'cartomanzia' o 'medianità').
  */
-export async function getOperatorsByCategory(categorySlug: string) {
-  const supabase = createClient()
-  const slug = decodeURIComponent(categorySlug).toLowerCase()
-
+export async function getOperatorsByCategory(categorySlug: string): Promise<Operator[]> {
   try {
+    const supabase = createClient()
+    const slug = decodeURIComponent(categorySlug).toLowerCase()
+
     const { data, error } = await supabase
       .from("profiles")
       .select(`
@@ -169,7 +259,7 @@ export async function getOperatorsByCategory(categorySlug: string) {
 
     return (data || []).map(mapProfileToOperator)
   } catch (error) {
-    console.error(`Unexpected error fetching operators for category ${slug}:`, error)
+    console.error(`Unexpected error fetching operators for category ${categorySlug}:`, error)
     return []
   }
 }
@@ -177,10 +267,10 @@ export async function getOperatorsByCategory(categorySlug: string) {
 /**
  * Recupera tutti gli operatori attivi.
  */
-export async function getAllOperators() {
-  const supabase = createClient()
-
+export async function getAllOperators(): Promise<Operator[]> {
   try {
+    const supabase = createClient()
+
     const { data, error } = await supabase
       .from("profiles")
       .select(`

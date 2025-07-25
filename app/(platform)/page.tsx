@@ -9,7 +9,16 @@ import { ConstellationBackground } from "@/components/constellation-background"
 import { getHomepageData } from "@/lib/actions/data.actions"
 
 export default async function UnveillyHomePage() {
-  const { operators, reviews } = await getHomepageData()
+  const getDataSafely = async () => {
+    try {
+      return await getHomepageData()
+    } catch (error) {
+      console.error("Error loading homepage data:", error)
+      return { operators: [], reviews: [] }
+    }
+  }
+
+  const { operators, reviews } = await getDataSafely()
 
   const newTalents = operators
     .filter((op) => op.joinedDate && new Date(op.joinedDate) > new Date(Date.now() - 10 * 24 * 60 * 60 * 1000))
