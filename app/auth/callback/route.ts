@@ -1,20 +1,37 @@
 import { createClient } from "@/lib/supabase/server"
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 
 export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url)
-  const code = requestUrl.searchParams.get("code")
-  const next = requestUrl.searchParams.get("next") ?? "/dashboard"
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get("code")
+  // if "next" is in param, use it as the redirect URL
+  const next = searchParams.get("next") ?? "/"
 
   if (code) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(requestUrl.origin + next)
+      // Redirect to the appropriate dashboard after successful login
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+        if (profile) {
+          switch (profile.role) {
+            case "admin":
+              return NextResponse.redirect(`${origin}/admin/dashboard`)
+            case "operator":
+              return NextResponse.redirect(`${origin}/dashboard/operator`)
+            default:
+              return NextResponse.redirect(`${origin}/dashboard/client`)
+          }
+        }
+      }
+      return NextResponse.redirect(`${origin}${next}`)
     }
   }
 
-  // URL to redirect to if something goes wrong
-  return NextResponse.redirect(requestUrl.origin + "/login?error=Could not authenticate user")
+  // return the user to an error page with instructions
+  return NextResponse.redirect(`${origin}/login?error=Could not authenticate user`)
 }
